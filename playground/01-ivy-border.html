@@ -20,7 +20,9 @@
   ch. VI §§ XXIV–XXV, Project Gutenberg #30755. EB Garamond, SIL OFL.
 
   Seed: a hash of the text; #seed=N overrides. ?p=N repeats the paragraphs N times (the swap-the-text test).
-  ?grow plays the growth on load (never under prefers-reduced-motion); the still page is the same score played at once.
+  ?grow plays the growth on load; ?draw plays it as an illuminator made it: the pen draws every stem, then the bole is
+  laid, the gold, the colours, the white, and the black outlines last. Neither plays under prefers-reduced-motion; the
+  still page is the same score played at once.
   Score 2026-11-06: the user liked the ivy ("extremely cute"); the painted initial was rejected ("very ugly, especially
     the gold") and removed: large gold grounds fail, small broken gold works. Open: grow ~140 ms and draw ~120 ms on the
     main thread (budget 50 ms; worker next); the long-text side band is even but unaccented.
@@ -62,7 +64,7 @@
     <p>All things are literally better, lovelier, and more beloved for the imperfections which have been divinely appointed, that the law of human life may be Effort, and the law of human judgment, Mercy. Accept this then for a universal law, that neither architecture nor any other noble work of man can be good unless it be imperfect.</p>
   </article>
 </main>
-<p class="colophon">Border grown by illum, ivy, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="regrow">Watch it grow.</a></p>
+<p class="colophon">Border grown by illum, ivy, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="regrow">Watch it grow</a>, or <a href="#" id="redraw">watch it drawn</a>.</p>
 
 <script type="module">
 import { pen, spline, wash, trefoil, place, mulberry, stream, fnv, dot } from './kit/marks.js';
@@ -84,19 +86,26 @@ const chaikin = (p, it = 2) => { for (let k = 0; k < it; k++) { const o = [p[0]]
 
 // ---- the marks ------------------------------------------------------------------------------------------------------
 const LIGHT = [-.55, .83];   // outlines are heavier on the side away from the light (upper left)
-function goldIvy(g, b, ax, L, s, dpr) {
+// Every mark is made in the stages an illuminator worked in: ground (bole), gold, colour, detail, white, ink.
+// A stage set says which to draw now; a collector, when given, receives the pen strokes so they can be traced in time.
+const ALL = { has: () => true };
+const paintIn = (st, stage, fn) => { if (st.has(stage)) fn(); };
+const inkIn = (g, st, stage, pts, o) => { if (st.collect) st.collect.push({ stage, pts, o }); else if (st.has(stage)) pen(g, pts, o); };
+const WHITE = [252, 248, 238];
+function goldIvy(g, b, ax, L, s, dpr, st = ALL) {
   const shape = place(trefoil(mulberry(s)), b, ax, L);
-  wash(g, shape, 'bole', { dpr, seed: s, grow: .35 });
-  wash(g, shape, 'shellgold', { dpr, seed: s + 1, wear: .35, grow: -.35 });
-  pen(g, [...shape, shape[0], shape[1]], { w: 1.05, seed: s + 2, start: 'cut', end: 'cut', shade: LIGHT, broad: .2, load: 1 });
+  paintIn(st, 'ground', () => wash(g, shape, 'bole', { dpr, seed: s, grow: .35 }));
+  paintIn(st, 'gold', () => wash(g, shape, 'shellgold', { dpr, seed: s + 1, wear: .35, grow: -.35 }));
+  inkIn(g, st, 'ink', [...shape, shape[0], shape[1]], { w: 1.05, seed: s + 2, start: 'cut', end: 'cut', shade: LIGHT, broad: .2, load: 1 });
 }
-function bezant(g, c, rad, s, dpr) {
+function bezant(g, c, rad, s, dpr, st = ALL) {
   const circle = Array.from({ length: 28 }, (_, k) => { const a = k / 28 * 6.283, j = 1 + .08 * Math.sin(a * 3 + s); return [c[0] + Math.cos(a) * rad * j, c[1] + Math.sin(a) * rad * j]; });
-  wash(g, circle, 'bole', { dpr, seed: s, grow: .3 }); wash(g, circle, 'shellgold', { dpr, seed: s + 1, wear: .25, grow: -.3 });
-  pen(g, [...circle, circle[0], circle[1]], { w: .9, seed: s + 2, start: 'cut', end: 'cut', shade: LIGHT });
+  paintIn(st, 'ground', () => wash(g, circle, 'bole', { dpr, seed: s, grow: .3 }));
+  paintIn(st, 'gold', () => wash(g, circle, 'shellgold', { dpr, seed: s + 1, wear: .25, grow: -.3 }));
+  inkIn(g, st, 'ink', [...circle, circle[0], circle[1]], { w: .9, seed: s + 2, start: 'cut', end: 'cut', shade: LIGHT });
 }
 // a five-petalled flower seen face on, painted in one pigment with a gold eye, outlined last
-function flower(g, c, R, pig, s, dpr) {
+function flower(g, c, R, pig, s, dpr, st = ALL) {
   const r = mulberry(s), turn = r() * 6.28, petals = [];
   for (let k = 0; k < 5; k++) {
     const a = turn + k * 1.2566 + (r() - .5) * .15, pr = R * (.92 + r() * .16), pts = [];
@@ -104,16 +113,31 @@ function flower(g, c, R, pig, s, dpr) {
       pts.push([c[0] + Math.cos(ang) * rr, c[1] + Math.sin(ang) * rr]); }
     petals.push(pts);
   }
-  petals.forEach((p, k) => wash(g, [c, ...p], pig, { dpr, seed: s + k, grow: .2 }));
+  paintIn(st, 'color', () => petals.forEach((p, k) => wash(g, [c, ...p], pig, { dpr, seed: s + k, grow: .2 })));
   petals.forEach((p, k) => { const m = p[12], q = [c[0] + (m[0] - c[0]) * .38, c[1] + (m[1] - c[1]) * .38], e = [c[0] + (m[0] - c[0]) * .8, c[1] + (m[1] - c[1]) * .8];
-    pen(g, spline([q, [(q[0] + e[0]) / 2 + 1, (q[1] + e[1]) / 2], e]), { w: .7, ink: [252, 248, 238], load: .8, start: 'taper', end: 'taper', seed: s + 20 + k }); });
-  petals.forEach((p, k) => pen(g, p, { w: 1, seed: s + 10 + k, start: 'cut', end: 'cut', shade: LIGHT, broad: .2 }));
-  bezant(g, c, R * .26, s + 40, dpr);
+    inkIn(g, st, 'white', spline([q, [(q[0] + e[0]) / 2 + 1, (q[1] + e[1]) / 2], e]), { w: .7, ink: WHITE, load: .8, start: 'taper', end: 'taper', seed: s + 20 + k }); });
+  petals.forEach((p, k) => inkIn(g, st, 'ink', p, { w: 1, seed: s + 10 + k, start: 'cut', end: 'cut', shade: LIGHT, broad: .2 }));
+  bezant(g, c, R * .26, s + 40, dpr, st);
+}
+// The wild strawberry of the borders: the calyx sits where the stalk arrives, the point hangs away from it
+function strawberry(g, c, ax, R, s, dpr, st = ALL) {
+  const r = mulberry(s), L = R * 1.8, top = [c[0] - ax[0] * L * .46, c[1] - ax[1] * L * .46], w = .44 * (1 + (r() - .5) * .1);
+  const berry = place(spline([[.02, 0], [.06, w * .7], [.3, w], [.62, w * .72], [.9, w * .22], [1, 0], [.9, -w * .2], [.62, -w * .74], [.3, -w], [.06, -w * .7], [.02, 0]], 8), top, ax, L);
+  paintIn(st, 'color', () => wash(g, berry, 'vermilion', { dpr, seed: s, grow: .2 }));
+  // the seeds: a quincunx of pale points, each with a dark tick beside it
+  const sd = place([[.16, -.18], [.18, .14], [.34, -.32], [.36, 0], [.36, .3], [.52, -.18], [.54, .16], [.68, -.3], [.7, .02], [.7, .28], [.84, -.1], [.84, .14]].map(([u, v]) => [u + (r() - .5) * .04, v * w / .44 + (r() - .5) * .04]), top, ax, L);
+  paintIn(st, 'detail', () => sd.forEach(q => { dot(g, [q[0] + .7, q[1] + .6], .55, [40, 20, 14]); dot(g, q, 1.05, [246, 222, 150], undefined, 1); }));
+  inkIn(g, st, 'white', place(spline([[.2, w * .62], [.42, w * .74], [.62, w * .55]], 6), top, ax, L), { w: .8, ink: WHITE, load: .7, start: 'taper', end: 'taper', seed: s + 60 });
+  inkIn(g, st, 'ink', [...berry, berry[1]], { w: 1, seed: s + 1, start: 'cut', end: 'cut', shade: LIGHT, broad: .2 });
+  // calyx: five green sepals spread back over the shoulder from where the stalk joins
+  for (let k = 0; k < 5; k++) { const a = (k - 2) * .62 + (r() - .5) * .18, d = [Math.cos(a), Math.sin(a)], n = [-d[1], d[0]], l = .38 + r() * .1;
+    const sep = place(spline([[0, 0], [l * .45 * d[0] + .07 * n[0], l * .45 * d[1] + .07 * n[1]], [l * d[0], l * d[1]], [l * .45 * d[0] - .07 * n[0], l * .45 * d[1] - .07 * n[1]], [0, 0]], 6), top, ax, L * .55);
+    paintIn(st, 'color', () => wash(g, sep, 'verdigris', { dpr, seed: s + 20 + k, grow: .3 })); inkIn(g, st, 'ink', sep, { w: .75, seed: s + 30 + k, start: 'cut', end: 'cut', shade: LIGHT }); }
 }
 
 // Everything is drawn as a score of timed parts (a stem from t0 to t1, a leaf opening at t), so the still page and the
 // growth are one drawing: the still is the score played to its end at once; the growth plays it in time.
-function compose() {
+function compose(mode) {
   const sheet = document.querySelector('.sheet'), text = document.querySelector('.text'), cv = document.getElementById('orn');
   const sr = sheet.getBoundingClientRect(), tr = text.getBoundingClientRect();
   const S = { w: sr.width, h: sr.height }, T = { x: tr.left - sr.left, y: tr.top - sr.top, w: tr.width, h: tr.height };
@@ -135,68 +159,80 @@ function compose() {
   for (let k = 0; k < nh; k++) heroes.push({ c: [len * (k + .5 + (rH() - .5) * .3) / nh, depth * (k % 2 ? .62 : .38) + (rH() - .5) * depth * .1],
     r: Math.min(21, depth * .2), kind: KINDS[(k + (SEED % 3)) % 3] });
   const { N, ends, steps } = grow(len, depth, heroes, SEED), ST = strokes(N);
-  const GROW = 5.2, sec = t => .5 + t / Math.max(1, steps) * GROW, parts = [];
 
-  // the bar, laid first
+
+  // the bar
   const bw = 3.4, along = [bar[1][0] - bar[0][0], bar[1][1] - bar[0][1]], bl = Math.hypot(...along), na = [-along[1] / bl, along[0] / bl];
   const off = (p, k) => [p[0] + na[0] * k, p[1] + na[1] * k];
   const fine = (a, b) => Array.from({ length: 80 }, (_, k) => { const t = k / 79; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; });
   const sideA = fine(off(bar[0], bw), off(bar[1], bw)), sideB = fine(off(bar[1], -bw), off(bar[0], -bw));
-  // the bar is laid down its length, as the gilder worked it
   const barBox = [Math.min(bar[0][0], bar[1][0]) - 6, Math.min(bar[0][1], bar[1][1]) - 6, Math.abs(along[0]) + 12, Math.abs(along[1]) + 12];
-  parts.push(laid(0, .9, c => { wash(c, [...sideA, ...sideB], 'bole', { dpr, seed: SEED ^ 5, grow: .3 }); wash(c, [...sideA, ...sideB], 'shellgold', { dpr, seed: SEED ^ 6, wear: .3, grow: -.3 });
-    pen(c, sideA, { w: .9, seed: 3, start: 'cut', end: 'cut' }); pen(c, sideB, { w: .9, seed: 4, start: 'cut', end: 'cut' }); }, barBox, dpr, bar));
-  // stems: a stroke's width follows how much it carries; each is drawn as it grew, from its fork to its tip
-  const maxS = Math.max(...ST.map(s => s.size)), endAt = new Map(ends.map(e => [e.node, e]));
+  const barFn = (c, st = ALL) => { paintIn(st, 'ground', () => wash(c, [...sideA, ...sideB], 'bole', { dpr, seed: SEED ^ 5, grow: .3 }));
+    paintIn(st, 'gold', () => wash(c, [...sideA, ...sideB], 'shellgold', { dpr, seed: SEED ^ 6, wear: .3, grow: -.3 }));
+    inkIn(c, st, 'ink', sideA, { w: .9, seed: 3, start: 'cut', end: 'cut' }); inkIn(c, st, 'ink', sideB, { w: .9, seed: 4, start: 'cut', end: 'cut' }); };
+
+  // the stems, and the things they reached: each thing knows where it hangs (anchor), its box, and when it was reached
+  const maxS = Math.max(...ST.map(s => s.size)), endAt = new Map(ends.map(e => [e.node, e])), lines = [], things = [];
+  const rootOf = k => { while (N[k].parent >= 0) k = N[k].parent; return k; };
   for (const s of ST) {
     if (s.pts.length < 2) continue;
     const tip = s.ids[s.ids.length - 1], e = endAt.get(tip), pts = chaikin(s.pts, 3).map(toPage);
     const o = { w: .5 + .8 * Math.log(1 + s.size) / Math.log(1 + maxS), seed: (tip * 7919) & 0xffff, start: s.root ? 'pool' : 'cut', end: !e || e.kind === 'dot' ? 'ball' : 'cut' };
-    parts.push(stem(sec(s.t0), Math.max(sec(s.t0) + .05, sec(s.t1)), pts, o));
+    lines.push({ pts, o, t0: s.t0, t1: s.t1, root: rootOf(s.ids[0]) });
   }
-  // what the stems reached opens when they reach it: flowers (set first), then gold
   const dirAt = k => { const n = N[k], q = toPage(n.p), b = toPage([n.p[0] - n.dir[0], n.p[1] - n.dir[1]]); return norm([q[0] - b[0], q[1] - b[1]]); };
   for (const e of ends) {
-    const q = toPage(N[e.node].p), sd = (e.node * 104729) & 0xffff, rr = mulberry(sd), t = sec(e.t);
-    if (e.kind === 'hero') { const c = toPage(e.hero.c), R = e.hero.r + 6;
-      const to = e.hero.kind === 'strawberry' ? (() => { const a = norm([c[0] - q[0], c[1] - q[1]]), L = e.hero.r * 1.8; return [c[0] - a[0] * L * .46, c[1] - a[1] * L * .46]; })() : c;
-      parts.push(stem(t, t + .25, [q, [(q[0] + to[0]) / 2, (q[1] + to[1]) / 2], to], { w: .9, seed: sd, start: 'cut', end: 'cut' }));
-      const paint = e.hero.kind === 'strawberry' ? cx => strawberry(cx, c, norm([c[0] - q[0], c[1] - q[1]]), e.hero.r, SEED + sd, dpr)
-        : cx => flower(cx, c, e.hero.r, e.hero.kind === 'rose' ? 'vermilion' : 'lapis', SEED + sd, dpr);
-      parts.push(opening(t + .2, t + 1.1, paint, [c[0] - R - 4, c[1] - R - 4, 2 * R + 8, 2 * R + 8], dpr, e.hero.kind === 'strawberry' ? q : c, (rr() < .5 ? -1 : 1) * 1.1)); }
+    const q = toPage(N[e.node].p), sd = (e.node * 104729) & 0xffff, rr = mulberry(sd), at = e.p[0];
+    if (e.kind === 'hero') { const c = toPage(e.hero.c), R = e.hero.r + 6, sb = e.hero.kind === 'strawberry';
+      const to = sb ? (() => { const a = norm([c[0] - q[0], c[1] - q[1]]), L = e.hero.r * 1.8; return [c[0] - a[0] * L * .46, c[1] - a[1] * L * .46]; })() : c;
+      lines.push({ pts: [q, [(q[0] + to[0]) / 2, (q[1] + to[1]) / 2], to], o: { w: .9, seed: sd, start: 'cut', end: 'cut' }, t0: e.t, t1: e.t + 4, root: rootOf(e.node), stalk: true });
+      const fn = sb ? (cx, st) => strawberry(cx, c, norm([c[0] - q[0], c[1] - q[1]]), e.hero.r, SEED + sd, dpr, st)
+        : (cx, st) => flower(cx, c, e.hero.r, e.hero.kind === 'rose' ? 'vermilion' : 'lapis', SEED + sd, dpr, st);
+      things.push({ fn, box: [c[0] - R - 4, c[1] - R - 4, 2 * R + 8, 2 * R + 8], anchor: sb ? q : c, turn: (rr() < .5 ? -1 : 1) * 1.1, t: e.t, dur: 1.1, at, hero: true }); }
     else if (e.kind === 'ivy') { const c = toPage(e.p), d = norm([c[0] - q[0], c[1] - q[1]]), ax = norm([d[0] * 1.6 + dirAt(e.node)[0], d[1] * 1.6 + dirAt(e.node)[1]]), L = 17 + rr() * 4;
-      parts.push(opening(t, t + .75, cx => goldIvy(cx, q, ax, L, sd, dpr), [q[0] - L - 4, q[1] - L - 4, 2 * L + 8, 2 * L + 8], dpr, q, (rr() < .5 ? -1 : 1) * .7)); }
+      things.push({ fn: (cx, st) => goldIvy(cx, q, ax, L, sd, dpr, st), box: [q[0] - L - 4, q[1] - L - 4, 2 * L + 8, 2 * L + 8], anchor: q, turn: (rr() < .5 ? -1 : 1) * .7, t: e.t, dur: .75, at, ax }); }
     else if (e.kind === 'bezant') { const d = dirAt(e.node), c = [q[0] + d[0] * 2.4, q[1] + d[1] * 2.4];
-      parts.push(opening(t, t + .35, cx => bezant(cx, c, 2.5, sd, dpr), [c[0] - 6, c[1] - 6, 12, 12], dpr, q, 0)); }
+      things.push({ fn: (cx, st) => bezant(cx, c, 2.5, sd, dpr, st), box: [c[0] - 6, c[1] - 6, 12, 12], anchor: q, turn: 0, t: e.t, dur: .35, at, ax: d }); }
+  }
+
+  const parts = [];
+  if (mode !== 'drawn') {
+    // grown: the bar is laid, stems lengthen as they grew, and each thing unfolds when its stem arrives
+    const GROW = 5.2, sec = t => .5 + t / Math.max(1, steps) * GROW;
+    parts.push(laid(0, .9, c => barFn(c), barBox, dpr, bar));
+    for (const l of lines) parts.push(stem(sec(l.t0), l.stalk ? sec(l.t0) + .25 : Math.max(sec(l.t0) + .05, sec(l.t1)), l.pts, l.o));
+    for (const t of things) parts.push(opening(sec(t.t) + (t.hero ? .2 : 0), sec(t.t) + (t.hero ? .2 : 0) + t.dur, cx => t.fn(cx, ALL), t.box, dpr, t.anchor, t.turn));
+  } else {
+    // drawn: as the illuminator worked. The pen draws every stem along the border, stroke after stroke; then the bole is
+    // laid, then the gold, then the colours, the details, the white; the black outlines go in last.
+    const V = 950, lenOf = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
+    const order = lines.slice().sort((a, b) => (N[a.root].p[0] - N[b.root].p[0]) || (a.stalk - b.stalk) || (a.t0 - b.t0));
+    let t = .2, last = 0; const STEMS = [];
+    for (const l of order) { const d = Math.max(.06, lenOf(l.pts) / V); STEMS.push([t, t + d, l]); last = Math.max(last, t + d); t += d * .3; }
+    const squeeze = Math.min(1, 6.5 / last); STEMS.forEach(([a, b, l]) => parts.push(stem(.2 + (a - .2) * squeeze, .2 + (b - .2) * squeeze, l.pts, { ...l.o, live: 'cut' })));
+    let T = .2 + (last - .2) * squeeze + .3;
+    const seq = things.slice().sort((a, b) => a.at - b.at), all = [{ fn: barFn, box: barBox, bar: true }, ...seq];
+    const wipe = (stage, span, each) => { all.forEach((th, i) => { if (stage === 'ground' || stage === 'gold' || stage === 'color' || stage === 'detail') {
+        const probe = { has: s2 => s2 === stage, collect: null }; let used = false; const test = { has: s2 => { if (s2 === stage) used = true; return false; }, collect: [] }; th.fn(new OffscreenCanvas(1, 1).getContext('2d'), test);
+        if (!used) return;
+        const a0 = T + (th.bar ? 0 : span * i / all.length), a1 = a0 + (th.bar ? span * .8 : each);
+        parts.push(wiped(a0, a1, c => th.fn(c, probe), th.box, dpr, th.bar ? norm(along) : th.ax ?? [0, 1])); } }); T += span + each; };
+    const trace = (stage, span) => { all.forEach((th, i) => { const got = []; th.fn(new OffscreenCanvas(1, 1).getContext('2d'), { has: () => false, collect: got });
+        let a0 = T + span * i / all.length; for (const k of got.filter(k => k.stage === stage)) { const d = Math.max(.05, lenOf(k.pts) / 700); parts.push(stem(a0, a0 + d, k.pts, { ...k.o, live: 'cut' }, 1)); a0 += d * .6; } }); T += span + .3; };
+    wipe('ground', 1.1, .3); wipe('gold', 1.3, .35); wipe('color', .9, .35); wipe('detail', .5, .2); trace('white', .8); trace('ink', 1.8);
   }
   return { layers: [[g, live], [fg, flive]], parts, end: Math.max(...parts.map(p => p.t1)) };
 }
-// The wild strawberry of the borders: a berry hanging from its stalk, its seeds picked out, a green calyx at the top
-function strawberry(g, c, ax, R, s, dpr) {
-  // ax points from the stalk into the fruit: the calyx sits where the stalk arrives, the point hangs away from it
-  const r = mulberry(s), L = R * 1.8, top = [c[0] - ax[0] * L * .46, c[1] - ax[1] * L * .46], w = .44 * (1 + (r() - .5) * .1);
-  const berry = place(spline([[.02, 0], [.06, w * .7], [.3, w], [.62, w * .72], [.9, w * .22], [1, 0], [.9, -w * .2], [.62, -w * .74], [.3, -w], [.06, -w * .7], [.02, 0]], 8), top, ax, L);
-  wash(g, berry, 'vermilion', { dpr, seed: s, grow: .2 });
-  // the seeds: a quincunx of pale points, each with a dark tick beside it, fewer toward the edge
-  const sd = place([[.16, -.18], [.18, .14], [.34, -.32], [.36, 0], [.36, .3], [.52, -.18], [.54, .16], [.68, -.3], [.7, .02], [.7, .28], [.84, -.1], [.84, .14]].map(([u, v]) => [u + (r() - .5) * .04, v * w / .44 + (r() - .5) * .04]), top, ax, L);
-  sd.forEach(q => { dot(g, [q[0] + .7, q[1] + .6], .55, [40, 20, 14]); dot(g, q, 1.05, [246, 222, 150], undefined, 1); });
-  pen(g, place(spline([[.2, w * .62], [.42, w * .74], [.62, w * .55]], 6), top, ax, L), { w: .8, ink: [252, 248, 238], load: .7, start: 'taper', end: 'taper', seed: s + 60 });
-  pen(g, [...berry, berry[1]], { w: 1, seed: s + 1, start: 'cut', end: 'cut', shade: LIGHT, broad: .2 });
-  // calyx: five green sepals spread back over the shoulder from where the stalk joins
-  for (let k = 0; k < 5; k++) { const a = (k - 2) * .62 + (r() - .5) * .18, d = [Math.cos(a), Math.sin(a)], n = [-d[1], d[0]], l = .38 + r() * .1;
-    const sep = place(spline([[0, 0], [l * .45 * d[0] + .07 * n[0], l * .45 * d[1] + .07 * n[1]], [l * d[0], l * d[1]], [l * .45 * d[0] - .07 * n[0], l * .45 * d[1] - .07 * n[1]], [0, 0]], 6), top, ax, L * .55);
-    wash(g, sep, 'verdigris', { dpr, seed: s + 20 + k, grow: .3 }); pen(g, sep, { w: .75, seed: s + 30 + k, start: 'cut', end: 'cut', shade: LIGHT }); }
-}
-
 // The parts of the score. Each knows how to show itself part-way (`at`, on the live layer, redrawn every frame) and
 // finished (`done`, laid once on the page). Nothing fades: stems lengthen behind a tapered growing tip, leaves and
 // flowers unfold from where they are attached, the bar is laid down its length.
 const ease = f => { const c = 1.6; return 1 + (c + 1) * (f - 1) ** 3 + c * (f - 1) ** 2; };   // overshoots a little, then settles
-function stem(t0, t1, pts, o) {
+function stem(t0, t1, pts, o, layer = 0) {
   const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   const upTo = f => { const L = f * S[S.length - 1]; let i = 1; while (i < S.length - 1 && S[i] < L) i++;
     const u = (L - S[i - 1]) / ((S[i] - S[i - 1]) || 1), a = pts[i - 1], b = pts[i]; return [...pts.slice(0, i), [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]]; };
-  return { t0, t1, layer: 0, at: (g, f) => { const p = upTo(f); if (p.length > 1 && S[S.length - 1] * f > .6) pen(g, p, { ...o, end: 'taper' }); }, done: g => pen(g, pts, o) };
+  const { live = 'taper', ...po } = o;
+  return { t0, t1, layer, at: (g, f) => { const p = upTo(f); if (p.length > 1 && S[S.length - 1] * f > .6) pen(g, p, { ...po, end: live }); }, done: g => pen(g, pts, po) };
 }
 function painted(paint, [x, y, w, h], dpr) {
   let cv = null; return () => cv ??= (() => { const c = new OffscreenCanvas(Math.ceil(w * dpr), Math.ceil(h * dpr)), k = c.getContext('2d'); k.setTransform(dpr, 0, 0, dpr, -x * dpr, -y * dpr); paint(k); return c; })();
@@ -216,10 +252,19 @@ function laid(t0, t1, paint, box, dpr, [a, b]) {
       if (Math.abs(b[1] - a[1]) > Math.abs(b[0] - a[0])) g.rect(x, y, w, h * e); else g.rect(x, y, w * e, h);
       g.clip(); g.drawImage(img(), x, y, w, h); g.restore(); } };
 }
+// a wash or a gold laid with the brush: revealed by a sweep across the shape, the way it was put down
+function wiped(t0, t1, paint, box, dpr, dir) {
+  const img = painted(paint, box, dpr), [x, y, w, h] = box, cx = x + w / 2, cy = y + h / 2, R = Math.hypot(w, h) / 2, n = [-dir[1], dir[0]];
+  return { t0, t1, layer: 1, make: img, done: g => g.drawImage(img(), x, y, w, h),
+    at: (g, f) => { const e = 1 - (1 - f) ** 2, d = -R + 2 * R * e; g.save(); g.beginPath();
+      g.moveTo(cx - dir[0] * R - n[0] * R, cy - dir[1] * R - n[1] * R); g.lineTo(cx + dir[0] * d - n[0] * R, cy + dir[1] * d - n[1] * R);
+      g.lineTo(cx + dir[0] * d + n[0] * R, cy + dir[1] * d + n[1] * R); g.lineTo(cx - dir[0] * R + n[0] * R, cy - dir[1] * R + n[1] * R); g.closePath();
+      g.clip(); g.drawImage(img(), x, y, w, h); g.restore(); } };
+}
 let raf = 0;
 function render(animate) {
   cancelAnimationFrame(raf);
-  const t0 = performance.now(), score = compose(), t1 = performance.now();
+  const t0 = performance.now(), score = compose(animate), t1 = performance.now();
   if (!animate) { score.parts.forEach(p => p.done(score.layers[p.layer][0])); document.body.dataset.timing = `grow ${(t1 - t0) | 0} ms, draw ${(performance.now() - t1) | 0} ms`; return; }
   score.parts.forEach(p => p.make?.());   // paint the leaves and flowers before the clock starts, so it never stutters
   const start = performance.now(), { layers, parts } = score, finished = new Uint8Array(parts.length);
@@ -237,8 +282,9 @@ await document.fonts.ready;
 // the growth is offered, never imposed: ?grow plays it on load, the colophon's link plays it again, and a reader who
 // has asked for less motion is shown the finished page
 const still_ = matchMedia('(prefers-reduced-motion: reduce)').matches;
-render(!still_ && new URLSearchParams(location.search).has('grow'));
-document.getElementById('regrow').addEventListener('click', e => { e.preventDefault(); render(!still_); });
+const q = new URLSearchParams(location.search), mode = q.has('draw') ? 'drawn' : q.has('grow') ? 'grown' : false;
+render(!still_ && mode);
+for (const [id, m] of [['regrow', 'grown'], ['redraw', 'drawn']]) document.getElementById(id).addEventListener('click', e => { e.preventDefault(); render(!still_ && m); });
 let lastW = innerWidth, timer;
 new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; render(false); } }, 150); }).observe(document.querySelector('.sheet'));
 addEventListener('hashchange', () => location.reload());
