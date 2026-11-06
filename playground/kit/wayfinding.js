@@ -218,7 +218,7 @@ export const STYLES = {
 
   // ---- Netherlandish and English cadels, c. 1450–1520: blue and gold, hairlines knotted and looped (Met 467520: the
   // interlaced loop knot in its border; the cadel strokes of the Flemish hands)
-  cadel: { label: 'Cadel', pair: ['blue', 'gold'], alternate: true, minGap: 1.4,
+  cadel: { label: 'Cadel', pair: ['blue', 'gold'], alternate: false, minGap: 1.4,   // the paraphs blue; the gold is the hairline's
     ink: { blue: { solid: [40, 68, 150], hair: [58, 84, 160] }, gold: { solid: [168, 126, 46], hair: [176, 138, 60] } },
     setup: seed => { const r = stream(seed, 'cadel'); return { kinds: pickKinds(r, ['loops', 'cable', 'knots'], 2), p: .9 + r() * .3, slant: (r() - .5) * .5 }; },
     kinds: (v, rich) => rich < .25 ? ['loops'] : v.kinds,
@@ -300,7 +300,7 @@ export const STYLES = {
     paraph(x, base, u, seed, rich) {   // a small spiral in ink, ringed with red dots; on a plain page the three points alone
       const r = stream(seed, 'ip'), c = [x + u * .7, base - u * .55], out = [];
       if (rich < .25) { for (const [dx, dy] of [[-u * .4, u * .3], [u * .4, u * .3], [0, -u * .4]]) out.push(bead([c[0] + dx, c[1] + dy], 1.25, 'a')); return out; }
-      const sp = tendril([c[0] + u * .55, c[1]], Math.PI / 2, u * 2.6, .25 / u, 3.2 / u, 1.3, .3); out.push(hair(sp, 'b', { w: .55, start: 'cut', end: 'ball' }));
+      const sp = tendril([c[0] + u * .55, c[1]], Math.PI / 2, u * 5.2, 1.7 / u, 4.6 / u, 1.15, .25); out.push(hair(sp, 'b', { w: .55, start: 'cut', end: 'ball' }));   // starts on the ring, winds in
       out.push(...dotOutline(arc(c, u * .62, 0, 2 * Math.PI, 30), c, u * .38, u * .55, 'a', r));
       return out; },
     filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
