@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wayfinding marks</title>
+<!--
+  06 · Wayfinding
+
+  Instruction: go through the written text as the rubricator did after the scribe: put a paraph in the gap at the
+  head of each paragraph after a chapter's first, red and blue in turn; close every short last line to the measure
+  with a filler in the x-height band; and between the parts set a mark as large as the division: a beaded hairline
+  between chapters, a fuller device between books.
+
+  Function: wayfinding and rank (06-purpose §3, §4; 01-canon §2.2). The marks are the page's information
+  architecture: paraphs count the paragraphs (alternation as an ordinal, reset at each chapter), fillers close the
+  paragraph so its end reads at a glance, breaks rank the divisions so the parts show at 10%. Rubrics (chapter titles,
+  book heads) are red because they are meta-text, not because they matter more.
+
+  Sources (Met Open Access, public domain), studied at full resolution:
+  - 466179, Decretals of Gratian, French c. 1290: paraphs alternating red and blue down the column, each a bowl and
+    stems laid with a broad pen, some with a reserved hairline.
+  - 466376 and 466367, leaves from a Royal Psalter, English 13th c.: line-fillers in the x-height band from the last
+    word exactly to the ruling, alternating colour line by line: zigzags, sprigs, rows of points. Those are painted bars
+    with pen detail; these are pen only.
+  - The eyes, scallops and hooks of the breaks are the penwork vocabulary of 03 (Met 466773).
+  Marks: kit/marks.js (pen, dot); shapes: kit/wayfinding.js. Text: Sir Thomas Malory, Le Morte d'Arthur (Caxton,
+  1485), Book I ch. I–III and Book II ch. I, Project Gutenberg #1251. EB Garamond, SIL OFL.
+
+  Reads the real line boxes (Range rects) and redraws on resize; the text is untouched (the paraph sits in the
+  paragraph's indent, the gap the scribe left for it), and every mark is aria-hidden.
+  Richness: ?rich=0..1 (default .5), data-rich on the article, or the control in the colophon. plain: bare paraphs,
+  one-colour beaded fillers, a hairline and a point between chapters. usual: a hairline in the other colour round
+  each paraph, two-colour fillers of four kinds, eyes in the breaks. lavish: tails and lobes on the paraphs, cables
+  and beaded zigzags, scallops in both colours, more eyes on the book device.
+  Seed: a hash of the text; #seed=N overrides. ?draw plays it as the rubricator went through the book, down the page
+  (compressed to ~14 s); never under prefers-reduced-motion.
+
+  Score 2026-11-06 (self, unseen by the user): paraphs read as broad-pen ¶ with reserved hairlines between strokes
+  (466179), fillers end exactly at the measure at every width, rank shows at 10% (book: wide gap, spaced capitals and a
+  device weighted with solid spindles; chapter: red rubric and a beaded hairline). Short of museum: the fillers' rhythm
+  is fitted and so a little too even; the book device is symmetric and could be more of a drawing; the paraph's bowl is
+  a touch square at 4x; ?draw always runs ~14 s (the whole book is rubricated, compressed), even when plain.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(176 58 36); color-scheme: light; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
+  .sheet { position: relative; max-width: 900px; margin: 0 auto; padding: 120px 100px 120px 200px; box-sizing: border-box; }
+  .sheet canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .15em; }
+  .sub { font-style: italic; margin: 0; text-indent: 0; }
+  /* a book: a rubric head in spaced capitals, the break above it; a chapter: its title as a red rubric */
+  .book { padding-top: 5.2em; }
+  h2 { font-weight: 500; font-size: 1.15em; letter-spacing: .2em; text-transform: uppercase; color: var(--rubric); text-align: center; margin: 0 0 .8em; }
+  .chapter + .chapter { padding-top: 2.6em; }
+  h3 { font-weight: 400; font-size: 1em; color: var(--rubric); margin: 0 0 .35em; text-align: left; hyphens: manual; }
+  h3 .num { font-variant: small-caps; letter-spacing: .04em; }
+  p { margin: 0; } .chapter p + p { text-indent: 1.6em; }
+  .colophon a { color: inherit; }
+  .colophon { max-width: 900px; margin: 0 auto; padding: 0 100px 60px 200px; box-sizing: border-box; font-size: 14px; font-style: italic; opacity: .6; }
+  .rich { display: inline-flex; align-items: center; gap: .45em; white-space: nowrap; }
+  .rich input { -webkit-appearance: none; appearance: none; width: 6.5em; height: 1.1em; margin: 0; background: transparent; color: inherit; cursor: pointer; }
+  .rich input::-webkit-slider-runnable-track { height: 1px; background: currentColor; }
+  .rich input::-moz-range-track { height: 1px; background: currentColor; }
+  .rich input::-webkit-slider-thumb { -webkit-appearance: none; width: .62em; height: .62em; margin-top: calc(-.31em + .5px); border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
+  .rich input::-moz-range-thumb { width: .62em; height: .62em; border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
+  .rich input:focus-visible { outline: 1px dotted currentColor; outline-offset: 3px; }
+  @media (max-width: 640px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .sheet { padding: 64px 20px 80px 24px; }
+    .text { text-align: left; }
+    .colophon { padding: 0 20px 40px 24px; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <canvas id="orn" aria-hidden="true"></canvas>
+  <canvas id="live" aria-hidden="true"></canvas>
+  <article class="text">
+    <h1>Le Morte d’Arthur</h1>
+    <p class="sub">Sir Thomas Malory, printed by William Caxton, 1485</p>
+    <section class="book">
+      <h2>Book I</h2>
+      <section class="chapter">
+        <h3><span class="num">Chapter I.</span> First, How Uther Pendragon sent for the duke of Cornwall and Igraine his wife, and of their departing suddenly again.</h3>
+        <p>It befell in the days of Uther Pendragon, when he was king of all England, and so reigned, that there was a mighty duke in Cornwall that held war against him long time. And the duke was called the Duke of Tintagil. And so by means King Uther sent for this duke, charging him to bring his wife with him, for she was called a fair lady, and a passing wise, and her name was called Igraine.</p>
+        <p>So when the duke and his wife were come unto the king, by the means of great lords they were accorded both. The king liked and loved this lady well, and he made them great cheer out of measure, and desired to have lain by her. But she was a passing good woman, and would not assent unto the king. And then she told the duke her husband, and said, I suppose that we were sent for that I should be dishonoured; wherefore, husband, I counsel you, that we depart from hence suddenly, that we may ride all night unto our own castle. And in like wise as she said so they departed, that neither the king nor none of his council were ware of their departing. All so soon as King Uther knew of their departing so suddenly, he was wonderly wroth. Then he called to him his privy council, and told them of the sudden departing of the duke and his wife.</p>
+        <p>Then they advised the king to send for the duke and his wife by a great charge; and if he will not come at your summons, then may ye do your best, then have ye cause to make mighty war upon him. So that was done, and the messengers had their answers; and that was this shortly, that neither he nor his wife would not come at him.</p>
+        <p>Then was the king wonderly wroth. And then the king sent him plain word again, and bade him be ready and stuff him and garnish him, for within forty days he would fetch him out of the biggest castle that he hath.</p>
+        <p>When the duke had this warning, anon he went and furnished and garnished two strong castles of his, of the which the one hight Tintagil, and the other castle hight Terrabil. So his wife Dame Igraine he put in the castle of Tintagil, and himself he put in the castle of Terrabil, the which had many issues and posterns out. Then in all haste came Uther with a great host, and laid a siege about the castle of Terrabil. And there he pight many pavilions, and there was great war made on both parties, and much people slain. Then for pure anger and for great love of fair Igraine the king Uther fell sick. So came to the king Uther Sir Ulfius, a noble knight, and asked the king why he was sick. I shall tell thee, said the king, I am sick for anger and for love of fair Igraine, that I may not be whole. Well, my lord, said Sir Ulfius, I shall seek Merlin, and he shall do you remedy, that your heart shall be pleased. So Ulfius departed, and by adventure he met Merlin in a beggar’s array, and there Merlin asked Ulfius whom he sought. And he said he had little ado to tell him. Well, said Merlin, I know whom thou seekest, for thou seekest Merlin; therefore seek no farther, for I am he; and if King Uther will well reward me, and be sworn unto me to fulfil my desire, that shall be his honour and profit more than mine; for I shall cause him to have all his desire. All this will I undertake, said Ulfius, that there shall be nothing reasonable but thou shalt have thy desire. Well, said Merlin, he shall have his intent and desire. And therefore, said Merlin, ride on your way, for I will not be long behind.</p>
+      </section>
+      <section class="chapter">
+        <h3><span class="num">Chapter II.</span> How Uther Pendragon made war on the duke of Cornwall, and how by the mean of Merlin he lay by the duchess and gat Arthur.</h3>
+        <p>Then Ulfius was glad, and rode on more than a pace till that he came to King Uther Pendragon, and told him he had met with Merlin. Where is he? said the king. Sir, said Ulfius, he will not dwell long. Therewithal Ulfius was ware where Merlin stood at the porch of the pavilion’s door. And then Merlin was bound to come to the king. When King Uther saw him, he said he was welcome. Sir, said Merlin, I know all your heart every deal; so ye will be sworn unto me as ye be a true king anointed, to fulfil my desire, ye shall have your desire. Then the king was sworn upon the Four Evangelists. Sir, said Merlin, this is my desire: the first night that ye shall lie by Igraine ye shall get a child on her, and when that is born, that it shall be delivered to me for to nourish there as I will have it; for it shall be your worship, and the child’s avail, as mickle as the child is worth. I will well, said the king, as thou wilt have it. Now make you ready, said Merlin, this night ye shall lie with Igraine in the castle of Tintagil; and ye shall be like the duke her husband, Ulfius shall be like Sir Brastias, a knight of the duke’s, and I will be like a knight that hight Sir Jordanus, a knight of the duke’s. But wait ye make not many questions with her nor her men, but say ye are diseased, and so hie you to bed, and rise not on the morn till I come to you, for the castle of Tintagil is but ten miles hence; so this was done as they devised. But the duke of Tintagil espied how the king rode from the siege of Terrabil, and therefore that night he issued out of the castle at a postern for to have distressed the king’s host. And so, through his own issue, the duke himself was slain or ever the king came at the castle of Tintagil.</p>
+        <p>So after the death of the duke, King Uther lay with Igraine more than three hours after his death, and begat on her that night Arthur, and on day came Merlin to the king, and bade him make him ready, and so he kissed the lady Igraine and departed in all haste. But when the lady heard tell of the duke her husband, and by all record he was dead or ever King Uther came to her, then she marvelled who that might be that lay with her in likeness of her lord; so she mourned privily and held her peace. Then all the barons by one assent prayed the king of accord betwixt the lady Igraine and him; the king gave them leave, for fain would he have been accorded with her. So the king put all the trust in Ulfius to entreat between them, so by the entreaty at the last the king and she met together. Now will we do well, said Ulfius, our king is a lusty knight and wifeless, and my lady Igraine is a passing fair lady; it were great joy unto us all, an it might please the king to make her his queen. Unto that they all well accorded and moved it to the king. And anon, like a lusty knight, he assented thereto with good will, and so in all haste they were married in a morning with great mirth and joy.</p>
+        <p>And King Lot of Lothian and of Orkney then wedded Margawse that was Gawaine’s mother, and King Nentres of the land of Garlot wedded Elaine. All this was done at the request of King Uther. And the third sister Morgan le Fay was put to school in a nunnery, and there she learned so much that she was a great clerk of necromancy. And after she was wedded to King Uriens of the land of Gore, that was Sir Ewain’s le Blanchemain’s father.</p>
+      </section>
+      <section class="chapter">
+        <h3><span class="num">Chapter III.</span> Of the birth of King Arthur and of his nurture.</h3>
+        <p>Then Queen Igraine waxed daily greater and greater, so it befell after within half a year, as King Uther lay by his queen, he asked her, by the faith she owed to him, whose was the body; then she sore abashed to give answer. Dismay you not, said the king, but tell me the truth, and I shall love you the better, by the faith of my body. Sir, said she, I shall tell you the truth. The same night that my lord was dead, the hour of his death, as his knights record, there came into my castle of Tintagil a man like my lord in speech and in countenance, and two knights with him in likeness of his two knights Brastias and Jordanus, and so I went unto bed with him as I ought to do with my lord, and the same night, as I shall answer unto God, this child was begotten upon me. That is truth, said the king, as ye say; for it was I myself that came in the likeness, and therefore dismay you not, for I am father of the child; and there he told her all the cause, how it was by Merlin’s counsel. Then the queen made great joy when she knew who was the father of her child.</p>
+        <p>Soon came Merlin unto the king, and said, Sir, ye must purvey you for the nourishing of your child. As thou wilt, said the king, be it. Well, said Merlin, I know a lord of yours in this land, that is a passing true man and a faithful, and he shall have the nourishing of your child, and his name is Sir Ector, and he is a lord of fair livelihood in many parts in England and Wales; and this lord, Sir Ector, let him be sent for, for to come and speak with you, and desire him yourself, as he loveth you, that he will put his own child to nourishing to another woman, and that his wife nourish yours. And when the child is born let it be delivered to me at yonder privy postern unchristened. So like as Merlin devised it was done. And when Sir Ector was come he made fiaunce to the king for to nourish the child like as the king desired; and there the king granted Sir Ector great rewards. Then when the lady was delivered, the king commanded two knights and two ladies to take the child, bound in a cloth of gold, and that ye deliver him to what poor man ye meet at the postern gate of the castle. So the child was delivered unto Merlin, and so he bare it forth unto Sir Ector, and made an holy man to christen him, and named him Arthur; and so Sir Ector’s wife nourished him with her own pap.</p>
+      </section>
+    </section>
+    <section class="book">
+      <h2>Book II</h2>
+      <section class="chapter">
+        <h3><span class="num">Chapter I.</span> Of a damosel which came girt with a sword for to find a man of such virtue to draw it out of the scabbard.</h3>
+        <p>After the death of Uther Pendragon reigned Arthur his son, the which had great war in his days for to get all England into his hand. For there were many kings within the realm of England, and in Wales, Scotland, and Cornwall. So it befell on a time when King Arthur was at London, there came a knight and told the king tidings how that the King Rience of North Wales had reared a great number of people, and were entered into the land, and burnt and slew the king’s true liege people. If this be true, said Arthur, it were great shame unto mine estate but that he were mightily withstood. It is truth, said the knight, for I saw the host myself. Well, said the king, let make a cry, that all the lords, knights, and gentlemen of arms, should draw unto a castle called Camelot in those days, and there the king would let make a council-general and a great jousts.</p>
+        <p>So when the king was come thither with all his baronage, and lodged as they seemed best, there was come a damosel the which was sent on message from the great lady Lile of Avelion. And when she came before King Arthur, she told from whom she came, and how she was sent on message unto him for these causes. Then she let her mantle fall that was richly furred; and then was she girt with a noble sword whereof the king had marvel, and said, Damosel, for what cause are ye girt with that sword? it beseemeth you not. Now shall I tell you, said the damosel; this sword that I am girt withal doth me great sorrow and cumbrance, for I may not be delivered of this sword but by a knight, but he must be a passing good man of his hands and of his deeds, and without villainy or treachery, and without treason. And if I may find such a knight that hath all these virtues, he may draw out this sword out of the sheath, for I have been at King Rience’s it was told me there were passing good knights, and he and all his knights have assayed it and none can speed. This is a great marvel, said Arthur, if this be sooth; I will myself assay to draw out the sword, not presuming upon myself that I am the best knight, but that I will begin to draw at your sword in giving example to all the barons that they shall assay everych one after other when I have assayed it. Then Arthur took the sword by the sheath and by the girdle and pulled at it eagerly, but the sword would not out.</p>
+        <p>Sir, said the damosel, you need not to pull half so hard, for he that shall pull it out shall do it with little might. Ye say well, said Arthur; now assay ye all my barons; but beware ye be not defiled with shame, treachery, nor guile. Then it will not avail, said the damosel, for he must be a clean knight without villainy, and of a gentle strain of father side and mother side. Most of all the barons of the Round Table that were there at that time assayed all by row, but there might none speed; wherefore the damosel made great sorrow out of measure, and said, Alas! I weened in this court had been the best knights without treachery or treason. By my faith, said Arthur, here are good knights, as I deem, as any be in the world, but their grace is not to help you, wherefore I am displeased.</p>
+      </section>
+    </section>
+  </article>
+</main>
+<p class="colophon">Rubricated by illum, wayfinding, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch it rubricated</a>.
+  <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the pen marks are"> richer</label></p>
+
+<script type="module">
+import { pen, dot, fnv, stream } from './kit/marks.js';
+import { paraph, filler, breakMark, FILLERS } from './kit/wayfinding.js';
+
+const q = new URLSearchParams(location.search), art = document.querySelector('.text');
+const text = art.textContent.replace(/\s+/g, ' ').trim();
+const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(text) % 1e7);
+document.getElementById('seed').textContent = SEED;
+let RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? art.dataset.rich ?? '.5') || 0));
+// the two colours: red (vermilion) and blue (azurite); a paraph is solid, a hairline paler as thin ink is
+const SOLID = { red: [200, 66, 40], blue: [40, 70, 160] }, HAIR = { red: [212, 100, 74], blue: [56, 84, 166] };
+const other = c => c === 'red' ? 'blue' : 'red';
+
+// font metrics, for baselines and the x-height band
+const metric = font => { const c = document.createElement('canvas').getContext('2d'); c.font = font; const m = c.measureText('x'), M = c.measureText('H');
+  return { asc: M.fontBoundingBoxAscent, x: m.actualBoundingBoxAscent }; };
+const lines = (el, origin) => { const rg = document.createRange(); rg.selectNodeContents(el);
+  return [...rg.getClientRects()].filter(r => r.width > .5).map(r => ({ l: r.left - origin.left, t: r.top - origin.top, r: r.right - origin.left, b: r.bottom - origin.top })); };
+
+function compose() {
+  const sheet = document.querySelector('.sheet'), sr = sheet.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+  const ctx = c => { c.width = Math.round(sr.width * dpr); c.height = Math.round(sr.height * dpr); c.style.width = sr.width + 'px'; c.style.height = sr.height + 'px';
+    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); return g; };
+  const g = ctx(document.getElementById('orn')), live = ctx(document.getElementById('live'));
+  const marks = [];   // { y, list, a: colour name }  in reading order
+  let nFill = 0;
+  const fillAfter = (el, col, seed) => {
+    const cs = getComputedStyle(el), fs = parseFloat(cs.fontSize), mt = metric(`${cs.fontStyle} ${cs.fontWeight} ${fs}px "EB Garamond"`), L = lines(el, sr);
+    if (!L.length) return;
+    const last = L.filter(r => Math.abs(r.t - L.at(-1).t) < 2), right = Math.max(...last.map(r => r.r)), er = el.getBoundingClientRect(), measure = er.right - sr.left;
+    const x0 = right + fs * .35, x1 = measure, base = last[0].t + mt.asc;
+    if (x1 - x0 < fs * 1.4) return;
+    const kinds = RICH < .25 ? ['beads'] : RICH < .5 ? ['beads', 'zigzag'] : FILLERS, r = stream(seed, 'kind');
+    marks.push({ y: base, a: col, list: filler(x0, x1, base - mt.x, base, kinds[(r() * kinds.length) | 0], seed, RICH) }); nFill++;
+  };
+  const u0 = metric('400 20px "EB Garamond"');
+  document.querySelectorAll('.book').forEach((book, bi) => {
+    const h2 = book.querySelector('h2'), hr = h2.getBoundingClientRect(), br = book.getBoundingClientRect(), fs = parseFloat(getComputedStyle(h2).fontSize);
+    // the break above the book's head, in the room its padding leaves; the first book is opened by the title, so it
+    // takes the device too: the same rank
+    const u = parseFloat(getComputedStyle(art).fontSize) * u0.x / 20;
+    marks.push({ y: br.top - sr.top, a: bi % 2 ? 'red' : 'blue', list: breakMark((hr.left + hr.right) / 2 - sr.left, (br.top + hr.top) / 2 - sr.top, hr.width, 2, SEED + 101 * bi, RICH, u) });
+    book.querySelectorAll('.chapter').forEach((ch, ci) => {
+      const h3 = ch.querySelector('h3'), cr = ch.getBoundingClientRect(), h3r = h3.getBoundingClientRect();
+      if (ci > 0) marks.push({ y: cr.top - sr.top, a: ci % 2 ? 'red' : 'blue', list: breakMark((h3r.left + h3r.right) / 2 - sr.left, (cr.top + h3r.top) / 2 - sr.top + 2, h3r.width, 1, SEED + 101 * bi + 7 * ci, RICH, u) });
+      fillAfter(h3, 'blue', SEED + 31 * bi + 3 * ci);
+      ch.querySelectorAll('p').forEach((p, pi) => {
+        const cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), mt = metric(`400 ${fs}px "EB Garamond"`), L = lines(p, sr);
+        if (pi > 0 && L.length) {   // the paraph, in the indent; red and blue in turn, starting again each chapter
+          const pr = p.getBoundingClientRect(), x = pr.left - sr.left + fs * .32, base = L[0].t + mt.asc;
+          marks.push({ y: base, a: pi % 2 ? 'red' : 'blue', list: paraph(x, base, mt.x, SEED + 997 * bi + 89 * ci + pi, RICH) });
+        }
+        fillAfter(p, (nFill % 2) ? 'blue' : 'red', SEED + 1009 * bi + 113 * ci + 17 * pi);
+      });
+    });
+  });
+  // the score: down the page as the rubricator went, each mark at a hand's pace, then compressed to ~14 s
+  const parts = []; let clock = .3;
+  marks.sort((m, n) => m.y - n.y).forEach((m, mi) => m.list.forEach((s, i) => {
+    const col = s.col === 'a' ? m.a : other(m.a);
+    if (s.dot) { parts.push(dotted(clock, s.p, s.r, SOLID[col])); clock += .03; return; }
+    const ink = s.broad ? SOLID[col] : HAIR[col];
+    const o = { w: s.w * (s.broad ? 1 : 1.1), ink, seed: (SEED + mi * 131 + i * 7) >>> 0, start: s.start, end: s.end, load: s.load ?? .85, dry: s.dry ?? .3, broad: s.broad ?? .3, swell: s.swell ?? .25, nib: s.nib ?? .55 };
+    const d = Math.max(.05, arclen(s.pts) / (s.broad ? 70 : 260)); parts.push(stem(clock, clock + d, s.pts, { ...o, live: 'cut' })); clock += d * .8;
+  }));
+  let end = Math.max(.1, ...parts.map(p => p.t1)); const k = Math.min(1, 14 / end);
+  if (k < 1) { parts.forEach(p => { p.t0 *= k; p.t1 *= k; }); end *= k; }
+  return { layers: [[g, live]], parts, end };
+}
+const arclen = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
+// the parts of the score (after 01 and 03): a pen line lengthens behind its tip; a point is set down
+function stem(t0, t1, pts, o, layer = 0) {
+  const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const upTo = f => { const L = f * S[S.length - 1]; let i = 1; while (i < S.length - 1 && S[i] < L) i++;
+    const u = (L - S[i - 1]) / ((S[i] - S[i - 1]) || 1), a = pts[i - 1], b = pts[i]; return [...pts.slice(0, i), [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]]; };
+  const { live = 'taper', ...po } = o;
+  return { t0, t1, layer, at: (g, f) => { const p = upTo(f); if (p.length > 1 && S[S.length - 1] * f > .6) pen(g, p, { ...po, end: live }); }, done: g => pen(g, pts, po) };
+}
+const dotted = (t, p, r, ink) => ({ t0: t, t1: t + .03, layer: 0, at: () => {}, done: g => dot(g, p, r, ink, undefined, .95) });
+let raf = 0;
+function render(animate) {
+  cancelAnimationFrame(raf);
+  const t0 = performance.now(), score = compose(), t1 = performance.now();
+  if (!animate) { score.parts.forEach(p => p.done(score.layers[p.layer][0])); document.body.dataset.timing = `grow ${(t1 - t0) | 0} ms, draw ${(performance.now() - t1) | 0} ms`; return; }
+  const start = performance.now(), { layers, parts } = score, finished = new Uint8Array(parts.length);
+  const tick = () => {
+    const now = (performance.now() - start) / 1000;
+    for (const [, lv] of layers) { lv.save(); lv.setTransform(1, 0, 0, 1, 0, 0); lv.clearRect(0, 0, lv.canvas.width, lv.canvas.height); lv.restore(); }
+    parts.forEach((p, i) => { if (finished[i]) return; const [base, lv] = layers[p.layer];
+      if (now >= p.t1) { p.done(base); finished[i] = 1; } else if (now > p.t0) p.at(lv, (now - p.t0) / (p.t1 - p.t0)); });
+    if (now < score.end + .05) raf = requestAnimationFrame(tick); else document.body.dataset.timing = 'drawn';
+  };
+  raf = requestAnimationFrame(tick);
+}
+
+await document.fonts.ready;
+const still_ = matchMedia('(prefers-reduced-motion: reduce)').matches;
+render(!still_ && q.has('draw'));
+document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); render(!still_); });
+const richIn = document.getElementById('rich'); richIn.value = RICH;
+richIn.addEventListener('input', () => { RICH = +richIn.value; render(false); const u = new URL(location.href); u.searchParams.set('rich', RICH); history.replaceState(null, '', u); });
+let lastW = innerWidth, timer;
+new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; render(false); } }, 150); }).observe(document.querySelector('.sheet'));
+addEventListener('hashchange', () => location.reload());
+</script>
+</body>
+</html>
