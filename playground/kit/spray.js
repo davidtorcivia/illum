@@ -27,22 +27,23 @@ export function poisson(len, depth, rad, r, ok, tries = 24) {
   return out;
 }
 export function grow(len, depth, heroes, seed) {
-  const r = stream(seed, 'grow'), wander = noise2(seed ^ 0x3c), D = 2.6;
+  const r = stream(seed, 'grow'), wander = noise2(seed ^ 0x3c), D = 2.6, IVY = 11;
   const clear = (p, m) => p[0] > 6 && p[0] < len - 6 && p[1] > 8 && p[1] < depth - 7 && heroes.every(h => Math.hypot(p[0] - h.c[0], p[1] - h.c[1]) > h.r + m);
-  const ivy = poisson(len, depth, 31, r, p => clear(p, 14)).map(p => ({ p, kind: 'ivy', kill: 7 }));
-  const dots = poisson(len, depth, 10.5, r, p => clear(p, 7) && ivy.every(q => Math.hypot(q.p[0] - p[0], q.p[1] - p[1]) > 13))
+  const ivy = poisson(len, depth, 33, r, p => clear(p, 16)).map(p => ({ p, kind: 'ivy', kill: IVY + .5 }));
+  const dots = poisson(len, depth, 10.5, r, p => clear(p, 7) && ivy.every(q => Math.hypot(q.p[0] - p[0], q.p[1] - p[1]) > IVY + 5))
     .filter(() => r() < .7).map(p => ({ p, kind: r() < .1 ? 'bezant' : 'dot', kill: 2.5 }));
   const A = [...ivy, ...dots];
-  heroes.forEach(h => A.push({ p: h.c, kind: 'hero', kill: h.r + 2, hero: h }));
+  heroes.forEach(h => A.push({ p: h.c, kind: 'hero', kill: h.r + (h.kind === 'strawberry' ? 9 : 4), hero: h }));
   // a stem may not pass through a leaf's room or a flower
   const rooms = A.filter(a => a.kind !== 'dot' && a.kind !== 'bezant'), RG = 24, rgw = Math.ceil(len / RG) + 1, rcell = Array.from({ length: rgw * (Math.ceil(depth / RG) + 1) }, () => []);
-  rooms.forEach(a => { const rr = a.kind === 'ivy' ? 8 : a.hero.r + 1; for (let j = Math.max(0, (a.p[1] - rr) / RG | 0); j <= (a.p[1] + rr) / RG; j++) for (let i = Math.max(0, (a.p[0] - rr) / RG | 0); i <= (a.p[0] + rr) / RG; i++) rcell[j * rgw + i]?.push(a); });
-  const blocked = (q, target) => (rcell[(Math.max(0, q[1]) / RG | 0) * rgw + (Math.max(0, q[0]) / RG | 0)] ?? []).some(a => a !== target && a.alive !== false && Math.hypot(a.p[0] - q[0], a.p[1] - q[1]) < (a.kind === 'ivy' ? 8 : a.hero.r + 1));
-  const N = [], nr = Math.max(2, Math.round(depth / 46));
-  for (let k = 0; k < nr; k++) N.push({ p: [len - 1, depth * (k + .5 + (r() - .5) * .35) / nr], parent: -1, dir: [-1, (r() - .5) * .4] });
-  for (let k = 0; k < nr - 1; k++) N.push({ p: [1, depth * (k + .5 + (r() - .5) * .4) / (nr - 1)], parent: -1, dir: [1, (r() - .5) * .4] });
-  // and a few rise from the bar itself, unevenly, as stems spring from a border's bar
-  for (let u = 90 + r() * 60; u < len - 90; u += 150 + r() * 90) N.push({ p: [u, 1], parent: -1, dir: [(r() - .5) * .6, 1] });
+  const heroRoom = h => h.r + (h.kind === 'strawberry' ? 8 : 3);
+  rooms.forEach(a => { const rr = a.kind === 'ivy' ? IVY : heroRoom(a.hero); for (let j = Math.max(0, (a.p[1] - rr) / RG | 0); j <= (a.p[1] + rr) / RG; j++) for (let i = Math.max(0, (a.p[0] - rr) / RG | 0); i <= (a.p[0] + rr) / RG; i++) rcell[j * rgw + i]?.push(a); });
+  // a reached leaf still keeps its room: nothing grows through a leaf, before or after it opens
+  const blocked = (q, target) => (rcell[(Math.max(0, q[1]) / RG | 0) * rgw + (Math.max(0, q[0]) / RG | 0)] ?? []).some(a => a !== target && Math.hypot(a.p[0] - q[0], a.p[1] - q[1]) < (a.kind === 'ivy' ? IVY : heroRoom(a.hero)));
+  // every stem springs from the bar, unevenly spaced, sweeping off it up or down the band by turns
+  const N = [];
+  for (let u = 14 + r() * 24, k = 0; u < len - 14; u += 62 + r() * 46, k++) { const s = k % 2 ? 1 : -1;
+    N.push({ p: [u, -2.4], parent: -1, dir: [s * (.5 + r() * .35), 1] }); }
   // nodes live in a grid of 12 px cells, so the nearest one is found by looking outward ring by ring
   const G = 12, gw = Math.ceil(len / G) + 2, gh = Math.ceil(depth / G) + 2, cells = Array.from({ length: gw * gh }, () => []);
   const cellOf = p => (Math.max(0, Math.min(gh - 1, (p[1] / G | 0) + 1))) * gw + Math.max(0, Math.min(gw - 1, (p[0] / G | 0) + 1));
