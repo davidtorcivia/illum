@@ -1,15 +1,18 @@
 // Penwork: the hairline flourishing round a painted initial, grown from the letter's own shape.
 // Pure geometry on grids (no canvas), so it can move to a worker. Page px throughout; grids carry their own resolution.
 //
-// After the pen-flourished initials of French and Italian books, c. 1230–1400 (Met 466179, 467422, 469041, 466790):
-// the penwork is laid outward from the letter in the order a flourisher worked: first hairlines that echo the
-// letter's contour at an even gap, then the staff down the margin, then small scrolls sprouting from those lines into
-// whatever room is left, each ending in a bead. Everything hangs from a line already drawn; nothing floats.
-import { tendril, resample, stream, noise1, PIGMENTS } from './marks.js';
+// After the pen-flourished Lombardic initials of Italian choir books, 15th c. (Met 466773, measured at full size), with
+// the staff of the French books (Met 466179, 467422). The flourisher's vocabulary is small and every mark is a
+// decision: first the eyes (a ring with a dot, small lobes round it) set in the widest places; then hairlines ruled
+// straight down, close and even, filling the counters and the field beside the letter and stopping short of it; a
+// frame line round the field that runs on down the margin as the staff; scallops strung along its outer side; hooks
+// with a bead at the ends. Regular in rhythm, irregular in execution.
+import { tendril, resample, stream, noise1, noise2, PIGMENTS } from './marks.js';
 
-// a flat, dense blue for letters (azurite laid thick and smooth; lapis in marks.js granulates too much for a letter)
-PIGMENTS.azurite ??= { rgb: [34, 58, 146], gran: .03, rim: .28 };
-PIGMENTS.minium ??= { rgb: [206, 66, 40], gran: .03, rim: .3 };
+// the letters' paints, flat and dense, pooling a little at the edge (as 466773's blue and vermilion); lapis in marks.js
+// granulates too much for a letter body
+PIGMENTS.azurite ??= { rgb: [38, 70, 160], gran: .03, rim: .42 };
+PIGMENTS.minium ??= { rgb: [212, 76, 42], gran: .03, rim: .36 };
 
 // ---- distance -----------------------------------------------------------------------------------------------------------
 // Exact Euclidean distance transform (Felzenszwalb & Huttenlocher 2012): distance in cells from every cell to the
@@ -25,45 +28,33 @@ export function edt(feat, w, h) {
   const out = new Float32Array(w * h); for (let i = 0; i < w * h; i++) out[i] = Math.sqrt(D[i]); return out;
 }
 
-// ---- contours -----------------------------------------------------------------------------------------------------------
-// Marching squares: the level set F = L as chained polylines (closed ones repeat their first point), in cell units.
-const SEG = [[], [[3, 0]], [[0, 1]], [[3, 1]], [[1, 2]], null, [[0, 2]], [[3, 2]], [[2, 3]], [[0, 2]], null, [[1, 2]], [[1, 3]], [[0, 1]], [[3, 0]], []];
-export function isolines(F, w, h, L) {
-  const adj = new Map(), link = (a, b) => { (adj.get(a) ?? adj.set(a, []).get(a)).push(b); (adj.get(b) ?? adj.set(b, []).get(b)).push(a); };
-  for (let y = 0; y < h - 1; y++) for (let x = 0; x < w - 1; x++) {
-    const a = F[y * w + x], b = F[y * w + x + 1], c = F[(y + 1) * w + x + 1], d = F[(y + 1) * w + x];
-    const code = (a > L) | (b > L) << 1 | (c > L) << 2 | (d > L) << 3; if (!code || code === 15) continue;
-    const E = [(y * w + x) * 2, (y * w + x + 1) * 2 + 1, ((y + 1) * w + x) * 2, (y * w + x) * 2 + 1];
-    let segs = SEG[code];
-    // saddles: when the centre is inside, the two inside corners join and the cut goes round the outside ones
-    if (!segs) { const mid = (a + b + c + d) / 4 > L; segs = (code === 5) === mid ? [[0, 1], [2, 3]] : [[3, 0], [1, 2]]; }
-    for (const [p, q] of segs) link(E[p], E[q]);
-  }
-  const at = e => { const c = e >> 1, x = c % w, y = (c / w) | 0, a = F[c];
-    if (e & 1) { const b = F[c + w]; return [x, y + (L - a) / (b - a)]; } const b = F[c + 1]; return [x + (L - a) / (b - a), y]; };
-  const seen = new Set(), out = [];
-  const walk = s => { const line = [s]; seen.add(s); let prev = -1, cur = s;
-    for (;;) { const nx = adj.get(cur).find(e => e !== prev && !seen.has(e)); if (nx === undefined) { if (adj.get(cur).includes(s) && line.length > 2) line.push(s); break; }
-      seen.add(nx); line.push(nx); prev = cur; cur = nx; }
-    return line.map(at); };
-  for (const [e, l] of adj) if (l.length === 1 && !seen.has(e)) out.push(walk(e));
-  for (const [e] of adj) if (!seen.has(e)) out.push(walk(e));
-  return out;
+// ---- the letter ------------------------------------------------------------------------------------------------------------
+// A typeset glyph made to read as drawn: its edge moved in and out slowly (≈1 px at a 25 px wavelength), so the
+// strokes swell and thin a little as a brush filling a drawn outline would, and a finer waver on top.
+export function drawn({ M, w, h, x0, y0, res }, seed = 1, amp = .8) {
+  const ink = new Uint8Array(w * h), paper = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) { ink[i] = M[i] > .5; paper[i] = !ink[i]; }
+  const Do = edt(ink, w, h), Di = edt(paper, w, h), slow = noise2(seed ^ 0x5d), fine = noise2(seed ^ 0x19), out = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i, px = x0 + i / res, py = y0 + j / res;
+    const sd = (Do[k] - Di[k]) / res, b = amp * (2 * slow(px / 25, py / 25) - 1) + .18 * (2 * fine(px / 5, py / 5) - 1);
+    out[k] = Math.max(0, Math.min(1, .5 + (b - sd) * res * .5)); }
+  return { M: out, w, h, x0, y0, res };
 }
 
 // ---- small geometry -------------------------------------------------------------------------------------------------------
-export const chaikin = (p, it = 2, closed = false) => { for (let k = 0; k < it; k++) { const o = closed ? [] : [p[0]];
-  for (let i = 0; i < p.length - 1; i++) { const a = p[i], b = p[i + 1]; o.push([a[0] * .75 + b[0] * .25, a[1] * .75 + b[1] * .25], [a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75]); }
-  if (closed) o.push(o[0]); else o.push(p[p.length - 1]); p = o; } return p; };
 export const arclen = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
 const tangentAt = (p, i) => { const a = p[Math.max(0, i - 2)], b = p[Math.min(p.length - 1, i + 2)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; };
-// a hand does not hold a gap exactly: drift a line sideways a little, slowly
+// a hand does not hold a line exactly: drift it sideways a little, slowly
 const wander = (p, amp, seed, scale = 26) => { const n = noise1(seed), q = resample(p, 1);
   return q.map((pt, i) => { const t = tangentAt(q, i), o = (n(i / scale) - .5) * 2 * amp; return [pt[0] - t[1] * o, pt[1] + t[0] * o]; }); };
+// a ring as a pen goes round it: a little oval, closing just past where it began
+const ring = (c, R, r, ov = .08, a0 = 0, turn = 1.04) => { const tilt = r() * Math.PI, out = [];
+  for (let k = 0; k <= 40 * turn; k++) { const a = a0 + k / 40 * 2 * Math.PI, rr = R * (1 + ov * Math.cos(2 * (a - tilt)) + (r() - .5) * .03); out.push([c[0] + Math.cos(a) * rr, c[1] + Math.sin(a) * rr]); }
+  return out; };
 
 // ---- clearance --------------------------------------------------------------------------------------------------------------
 // Distance from each cell (1 px) to the nearest thing already on the page: the letter, the words, the edge of the field,
-// and every line drawn so far. New lines are stamped in as they are accepted, so spacing is even by construction.
+// and every mark accepted so far (stamped in as it is accepted, so spacing is even by construction).
 function clearance(x0, y0, w, h, blocked, cap) {
   const C = edt(blocked, w, h); for (let i = 0; i < C.length; i++) C[i] = Math.min(cap, C[i]);
   const get = (x, y) => { const i = Math.round(x - x0), j = Math.round(y - y0); return i < 0 || j < 0 || i >= w || j >= h ? 0 : C[j * w + i]; };
@@ -73,169 +64,105 @@ function clearance(x0, y0, w, h, blocked, cap) {
   return { get, stamp, C };
 }
 
-// ---- the letter --------------------------------------------------------------------------------------------------------------
-// The reserved hairline: down the thickest strokes the paint is kept off a fine line of bare parchment, as the
-// limner did on the blue letters of 466179. Returns a copy of the mask with the slot cut out (frac: how much of the
-// thickest stroke qualifies; width in px).
-export function reserve({ M, w, h, res }, frac = .8, width = .7) {
-  const ink = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) ink[i] = M[i] <= .5;
-  const Din = edt(ink, w, h); let mx = 0; for (const v of Din) mx = Math.max(mx, v);
-  const out = Float32Array.from(M), t = mx * frac;
-  for (let i = 0; i < w * h; i++) { const v = Din[i]; if (v < t) continue;
-    // the slot is the ridge of the distance field: cells whose distance hardly rises in any direction
-    const x = i % w, y = (i / w) | 0; if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
-    const gx = (Din[i + 1] - Din[i - 1]) / 2, gy = (Din[i + w] - Din[i - w]) / 2, gm = Math.hypot(gx, gy);
-    const k = Math.max(0, Math.min(1, (.62 - gm) / .3)) * Math.min(1, (v - t) / (res * .6));
-    out[i] = M[i] * (1 - k); }
-  return out;
-}
-
 // ---- the flourish -------------------------------------------------------------------------------------------------------------
-// glyph: { M, w, h, x0, y0, res } coverage mask of the painted letter (res cells per px), its top-left at page x0, y0.
-// field: [x0, y0, x1, y1] the cloud the penwork may fill. keep: rects [x0, y0, x1, y1] of words (already padded).
-// staff: null or { x, y0, y1, side } a pair of hairlines down the margin. g: the gap between hairlines (px).
-// echoes: how many contour echoes outside; inner: how many inside the counters. Returns strokes in drawing order:
-// { pts, kind, w, end } (kind: echo | staff | scroll | knot), each to be drawn with the pen.
-export function flourish({ glyph, field, keep = [], staff = null, g = 3, echoes = 2, inner = 2, seed = 1, density = 1, reach = 1 }) {
+// glyph: { M, w, h, x0, y0, res } coverage of the painted letter. field: [x0, y0, x1, y1], the square the penwork fills
+// (its top and left edges are the frame line). keep: rects of words, padded. staff: null or { y1 } how far the frame
+// runs on down the margin. g: the gap between ruled hairlines (px). eyes: how many outside the counters.
+// Returns the marks in the order the pen made them: strokes { pts, kind, w, start, end } and dots { kind: 'dot', p, r }.
+export function flourish({ glyph, field, keep = [], staff = null, g = 2.6, eyes = 3, seed = 1 }) {
   const r = stream(seed, 'penwork'), out = [];
-  // the working grid: the field and the staff's run, at 1 px
-  const X0 = Math.floor(Math.min(field[0], staff ? staff.x - 40 : 1e9)) - 2, Y0 = Math.floor(Math.min(field[1], staff ? staff.y0 - 30 : 1e9)) - 2;
-  const X1 = Math.ceil(Math.max(field[2], staff ? staff.x + 10 : -1e9)) + 2, Y1 = Math.ceil(Math.max(field[3], staff ? staff.y1 + 30 : -1e9)) + 2;
-  const W = X1 - X0, H = Y1 - Y0;
-  // the letter at its own resolution: its distance field gives the echoes
+  const [fx0, fy0, fx1, fy1] = field, sy1 = staff ? staff.y1 : fy1;
+  const X0 = Math.floor(fx0 - g * 6), Y0 = Math.floor(fy0 - g * 6), X1 = Math.ceil(fx1 + g * 2), Y1 = Math.ceil(sy1 + g * 12), W = X1 - X0, H = Y1 - Y0;
   const { M, w: gw, h: gh, x0: gx, y0: gy, res } = glyph, ink = new Uint8Array(gw * gh);
   for (let i = 0; i < gw * gh; i++) ink[i] = M[i] > .5;
-  const Dl = edt(ink, gw, gh);
-  // what may be drawn on: inside the field (or the staff's lane) and away from the words
-  const inField = (x, y) => x >= field[0] && x <= field[2] && y >= field[1] && y <= field[3];
-  const lane = staff ? (x, y) => y >= staff.y0 - 30 && y <= staff.y1 + 30 && (staff.side < 0 ? x >= staff.x - 34 * reach && x <= staff.x + 2 : x <= staff.x + 34 * reach && x >= staff.x - 2) : () => false;
+  const onLetter = (x, y) => { const i = Math.round((x - gx) * res), j = Math.round((y - gy) * res); return i >= 0 && j >= 0 && i < gw && j < gh && ink[j * gw + i]; };
   const inWords = (x, y, pad = 0) => keep.some(k => x >= k[0] - pad && x <= k[2] + pad && y >= k[1] - pad && y <= k[3] + pad);
+  let bx1 = -1e9; for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) if (ink[j * gw + i]) bx1 = Math.max(bx1, i);
+  const right = gx + (bx1 + 1) / res;
+  // the field's inside is what the hairlines may fill; outside it, only the frame's own marks
+  const inside = (x, y) => x > fx0 && x < fx1 && y > fy0 && y < fy1;
+  const fieldIn = (x, y) => inside(x, y) && !onLetter(x, y) && !inWords(x, y);
   const blocked = new Uint8Array(W * H);
-  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const x = X0 + i + .5, y = Y0 + j + .5;
-    const gi = Math.round((x - gx) * res), gj = Math.round((y - gy) * res), onL = gi >= 0 && gj >= 0 && gi < gw && gj < gh && ink[gj * gw + gi];
-    blocked[j * W + i] = onL || inWords(x, y) || !(inField(x, y) || lane(x, y)); }
-  const CL = clearance(X0, Y0, W, H, blocked, 14);
-  // the static clearance (before any line): an echo stops where it would come near a word or the field's edge
-  const C0 = Float32Array.from(CL.C), c0 = (x, y) => { const i = Math.round(x - X0), j = Math.round(y - Y0); return i < 0 || j < 0 || i >= W || j >= H ? 0 : C0[j * W + i]; };
-  const toPage = ([x, y]) => [gx + (x + .5) / res, gy + (y + .5) / res];
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const x = X0 + i + .5, y = Y0 + j + .5; blocked[j * W + i] = onLetter(x, y) || inWords(x, y) || x > fx1; }
+  const CL = clearance(X0, Y0, W, H, blocked, 16);
   const accept = (pts, kind, o = {}) => { out.push({ pts, kind, ...o }); CL.stamp(pts); };
+  const room = (pts, d) => pts.every(p => CL.get(p[0], p[1]) >= d);
 
-  // counters: the paper enclosed by the letter (not reachable from the mask's border)
-  const outside = new Uint8Array(gw * gh), st = [];
-  for (let x = 0; x < gw; x++) st.push(x, (gh - 1) * gw + x); for (let y = 0; y < gh; y++) st.push(y * gw, y * gw + gw - 1);
-  while (st.length) { const i = st.pop(); if (outside[i] || ink[i]) continue; outside[i] = 1; const x = i % gw;
-    if (x > 0) st.push(i - 1); if (x < gw - 1) st.push(i + 1); if (i >= gw) st.push(i - gw); if (i < gw * (gh - 1)) st.push(i + gw); }
-  const isCounter = (p) => { const i = Math.round((p[0] - gx) * res), j = Math.round((p[1] - gy) * res); return i >= 0 && j >= 0 && i < gw && j < gh && !ink[j * gw + i] && !outside[j * gw + i]; };
+  // 1. the frame: along the top from above the letter's shoulder, round the corner, down the field's left edge and on
+  // down the margin as the staff; a hook at its head, a curl at its foot. It comes first: everything keeps to it.
+  const corner = g * 2.2;
+  const topRun = [[Math.min(fx1, right) - g * 2, fy0 + (r() - .5)], [fx0 + corner, fy0]];
+  const arc = []; for (let k = 0; k <= 10; k++) { const a = -Math.PI / 2 - k / 10 * Math.PI / 2; arc.push([fx0 + corner + Math.cos(a) * corner, fy0 + corner + Math.sin(a) * corner]); }
+  let frame = wander([...resample(topRun, 2), ...arc.slice(1), ...resample([[fx0, fy0 + corner], [fx0, sy1]], 2).slice(1)], .3, seed + 3, 40);
+  const headHook = tendril(frame[0], .1, g * 5, 0, .66 / g, 1.4).reverse();
+  const foot = tendril(frame.at(-1), Math.PI / 2, g * 9 + r() * g * 3, 0, .45 / g, 1.5);
+  frame = [...headHook.slice(0, -1), ...frame, ...foot.slice(1)];
+  accept(frame, 'frame', { w: .6, start: 'pool', end: 'ball' });
+  const lines = [frame];
+  // a second hairline outside it down the staff, so the staff is a pair as in 466179
+  if (staff) { const x2 = fx0 - g * 1.15, ya = fy0 + corner + g * 3, yb = sy1 - g * 2;
+    const s2 = wander([[x2, ya], [x2, yb]], .35, seed + 5, 50), sh = tendril(s2[0], -Math.PI / 2, g * 3.5, 0, -.5 / g, 1.3).reverse(), sf = tendril(s2.at(-1), Math.PI / 2, g * 4, 0, .5 / g, 1.3);
+    const pair = [...sh.slice(0, -1), ...s2, ...sf.slice(1)]; accept(pair, 'staff', { w: .5, start: 'pool', end: 'ball' }); lines.push(pair); }
 
-  // the letter's box and the outward normal of its distance field (pointing away from the ink)
-  let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9;
-  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) if (ink[j * gw + i]) { bx0 = Math.min(bx0, i); bx1 = Math.max(bx1, i); by0 = Math.min(by0, j); by1 = Math.max(by1, j); }
-  const box = [gx + bx0 / res, gy + by0 / res, gx + (bx1 + 1) / res, gy + (by1 + 1) / res];
-  const dl = (x, y) => { const i = Math.max(0, Math.min(gw - 1, Math.round((x - gx) * res))), j = Math.max(0, Math.min(gh - 1, Math.round((y - gy) * res))); return Dl[j * gw + i] / res; };
-  const outward = p => { const e = .75, nx = dl(p[0] + e, p[1]) - dl(p[0] - e, p[1]), ny = dl(p[0], p[1] + e) - dl(p[0], p[1] - e), l = Math.hypot(nx, ny) || 1; return [nx / l, ny / l]; };
-  const fits = (pts, skip, split = 0) => { let s = 0;
-    for (let i = 1; i < pts.length; i++) { s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); if (s < skip) continue;
-      if (CL.get(pts[i][0], pts[i][1]) < g * .85) return false; }
-    // a scroll's turns keep the gap by construction; its stem must keep it from the turns (split: where the stem ends)
-    if (split) { const sp = pts.slice(split + Math.ceil(g * 3)); for (let i = 0; i < split; i++) for (const q of sp) if (Math.hypot(pts[i][0] - q[0], pts[i][1] - q[1]) < g * .85) return false; }
-    return true; };
-  const hosts = [];
-  // a line that stops in open paper turns over into a curl, away from the letter, if there is room for one
-  const curlOff = (run, atEnd, size) => {
-    const P = atEnd ? run : [...run].reverse(), n = P.length, t = tangentAt(P, n - 1), h = Math.atan2(t[1], t[0]);
-    let best = null;
-    for (const sg of [1, -1]) { const c = tendril(P[n - 1], h, size * 2 * Math.PI * 1.5 * 2.3, sg * .02, sg / size, 1.3, .5);
-      if (!fits(c, g * .8)) continue; const m = c[(c.length * .6) | 0], away = dl(m[0], m[1]); if (!best || away > best.away) best = { c, away }; }
-    return best && best.c;
+  // 2. eyes: set first in the widest places, one in each counter that has room and a few in the field; a ring, a dot
+  // in it, and small lobes pressed round it wherever they fit
+  const counter = (() => { const outside = new Uint8Array(gw * gh), st = [];
+    for (let x = 0; x < gw; x++) st.push(x, (gh - 1) * gw + x); for (let y = 0; y < gh; y++) st.push(y * gw, y * gw + gw - 1);
+    while (st.length) { const i = st.pop(); if (outside[i] || ink[i]) continue; outside[i] = 1; const x = i % gw;
+      if (x > 0) st.push(i - 1); if (x < gw - 1) st.push(i + 1); if (i >= gw) st.push(i - gw); if (i < gw * (gh - 1)) st.push(i + gw); }
+    return (x, y) => { const i = Math.round((x - gx) * res), j = Math.round((y - gy) * res); return i >= 0 && j >= 0 && i < gw && j < gh && !ink[j * gw + i] && !outside[j * gw + i]; }; })();
+  const widest = (want) => { let best = null;
+    for (let y = Math.ceil(fy0); y < fy1; y++) for (let x = Math.ceil(fx0); x < fx1; x++) {
+      if (!fieldIn(x, y) || counter(x, y) !== want) continue;
+      const c = CL.get(x, y) + r() * .3; if (!best || c > best.c) best = { c, p: [x, y] }; }
+    return best; };
+  const placeEye = (c, R) => {
+    accept(ring(c, R, r, .07, r() * 6.28), 'eye', { w: .5, start: 'cut', end: 'cut' });
+    out.push({ kind: 'dot', p: c, r: Math.max(.7, R * .27) });
+    const nl = 3 + ((r() * 3) | 0), a0 = r() * 6.28;
+    for (let k = 0; k < nl; k++) { const a = a0 + k / nl * 2 * Math.PI + (r() - .5) * .3, lr = R * (.38 + r() * .1), d = R + lr * .62;
+      const lc = [c[0] + Math.cos(a) * d, c[1] + Math.sin(a) * d], pts = [];
+      for (let i = 0; i <= 14; i++) { const b = a - 1.9 + i / 14 * 3.8; pts.push([lc[0] + Math.cos(b) * lr, lc[1] + Math.sin(b) * lr]); }
+      if (!room(pts.slice(3, -3), g * .6)) continue;
+      accept(pts, 'lobe', { w: .45, start: 'cut', end: 'cut' }); }
   };
+  for (const inCounter of [true, false]) for (let k = 0; k < (inCounter ? 2 : eyes); k++) {
+    const b = widest(inCounter); if (!b) break;
+    const R = Math.min(g * 1.5, (b.c - g * .9) / 1.75); if (R < g * .75) break;
+    placeEye([b.p[0] + (r() - .5) * .4, b.p[1] + (r() - .5) * .4], R);
+  }
 
-  // 1. echoes: hairlines at an even gap round the inside of every counter, and outside only along the letter's top,
-  // where the margin and the paper above are open (the sides that face the words are left plain)
-  for (let k = 1; k <= Math.max(echoes, inner); k++) {
-    const d = g * k * (1 + (r() - .5) * .08);
-    for (const line of isolines(Dl, gw, gh, d * res)) {
-      const pts = line.map(toPage), closed = pts.length > 3 && Math.hypot(pts[0][0] - pts.at(-1)[0], pts[0][1] - pts.at(-1)[1]) < .01;
-      const inCounter = isCounter(pts[(pts.length / 2) | 0]); if (k > (inCounter ? inner : echoes)) continue;
-      const ok = inCounter ? () => true : p => { const n = outward(p); return n[1] < -.55 && n[0] < .5 && c0(p[0], p[1]) >= g * .7; };
-      let runs = [], cur = [];
-      for (const p of pts) { if (ok(p)) cur.push(p); else { if (cur.length) runs.push(cur); cur = []; } }
-      if (cur.length) runs.push(cur);
-      if (closed && runs.length > 1 && ok(pts[0])) { const last = runs.pop(); runs[0] = [...last, ...runs[0]]; }
-      const whole = closed && runs.length === 1 && runs[0].length === pts.length;
-      for (const run of runs) {
-        if (arclen(run) < g * 4) continue;
-        let p = chaikin(resample(run, 1.2), 2, whole); p = wander(p, g * .07, seed + k * 31 + out.length, 22);
-        if (!whole) { const a = curlOff(p, false, g * (.45 + .1 * k)), b = curlOff(p, true, g * (.5 + .1 * k));
-          if (a) p = [...a.reverse(), ...p]; if (b) p = [...p, ...b.slice(1)];
-          accept(p, 'echo', { w: .6, start: a ? 'pool' : 'taper', end: b ? 'ball' : 'taper', level: k }); }
-        else accept(p, 'echo', { w: .6 - k * .03, start: 'cut', end: 'cut', closed: true, level: k });
-        hosts.push({ pts: p, depth: 0, level: k, counter: inCounter });
-      }
+  // 3. the ruled hairlines: straight down, close and even, wherever the field is open (in the counters, beside the
+  // letter, above it); each stops a little short of whatever it meets, never quite where its neighbour did
+  const C1 = Float32Array.from(CL.C), c1 = (x, y) => { const i = Math.round(x - X0), j = Math.round(y - Y0); return i < 0 || j < 0 || i >= W || j >= H ? 0 : C1[j * W + i]; };
+  const spacing = noise1(seed ^ 0x71);
+  let k = 0;
+  for (let x0 = fx0 + g * .95; x0 < fx1 - g * .3; x0 += g * (.86 + .28 * spacing(x0 / 9)), k++) {
+    const x = x0 + (r() - .5) * g * .12; let y0 = -1;
+    for (let y = fy0; y <= fy1 + .5; y += .5) {
+      const ok = y < fy1 && fieldIn(x, y) && c1(x, y) >= g * .6;
+      if (ok && y0 < 0) y0 = y;
+      if (!ok && y0 >= 0) { const a = y0 + r() * g * .3, b = y - .5 - r() * g * .3;
+        if (b - a > g * 1.6) accept(wander([[x, a], [x + (r() - .5) * .5, b]], .2, seed + 100 + k * 7 + (y | 0), 14), 'rule', { w: .42 + r() * .08, start: 'cut', end: 'taper' });
+        y0 = -1; }
     }
   }
-  // 2. the staff: a pair of hairlines close beside the letter and on down the margin, slow, never quite parallel;
-  // at the head the inner one turns over the letter and the outer one out into the margin; the outer foot curls
-  if (staff) {
-    const sx = staff.x, s = staff.side;
-    for (let k = 0; k < 2; k++) {
-      const x = sx + s * k * g * 1.05, y0 = staff.y0 - k * g * .5, y1 = staff.y1 + (k ? g * 2 : -g * 1.5);
-      const body = wander([[x, y0], [x, (y0 + y1) / 2], [x, y1]], g * .12, seed + 900 + k, 60);
-      const head = tendril(body[0], -Math.PI / 2, (k ? 16 : 22) + r() * 6, 0, (k ? s : -s) * (.3 + r() * .08), 1.6).reverse();
-      const foot = k ? tendril(body.at(-1), Math.PI / 2, 24 + r() * 8, 0, -s * (.3 + r() * .06), 1.6) : tendril(body.at(-1), Math.PI / 2, 7, 0, s * .03, 1);
-      const pts = [...head.slice(0, -1), ...body, ...foot.slice(1)];
-      accept(pts, 'staff', { w: .66, start: 'pool', end: k ? 'ball' : 'taper' });
-      hosts.push({ pts: body, depth: 0, staff: k }); if (!k) hosts.push({ pts: head, depth: 0, maxR: g * 1.6 });
+
+  // 4. scallops strung along the frame's outer side and down the staff, and now and then an eye hung from the staff.
+  // The rhythm is regular; the hand is not: each a little larger or smaller, a little nearer or further.
+  for (const line of lines) { const P = resample(line, 1);
+  for (let i = Math.round(g * 5), next = i; i < P.length - g * 10; i++) {
+    if (i < next) continue;
+    const p = P[i], t = tangentAt(P, i), n = [t[1], -t[0]];   // the frame's left-hand side is the outside
+    const sr = g * (.6 + r() * .18), c = [p[0] + n[0] * sr * .5, p[1] + n[1] * sr * .5], a = Math.atan2(n[1], n[0]), pts = [];
+    for (let q = 0; q <= 14; q++) { const b = a - 2.05 + q / 14 * 4.1; pts.push([c[0] + Math.cos(b) * sr, c[1] + Math.sin(b) * sr]); }
+    next = i + g * (2.5 + r() * .5);
+    if (staff && p[1] > fy1 + g * 4 && r() < .18) {
+      const R = g * 1.1, L = g * 1.3, st = [p, [p[0] + n[0] * L, p[1] + n[1] * L]], ec = [p[0] + n[0] * (L + R), p[1] + n[1] * (L + R)];
+      if (room(ring(ec, R * 1.7, r), g * .6)) { accept(st, 'stalk', { w: .45, start: 'cut', end: 'cut' }); placeEye(ec, R); next = i + g * 6; continue; }
     }
-    // knots: here and there a short bar ties the pair, as the pen crossed back (never beside the letter itself)
-    const n = Math.floor((staff.y1 - staff.y0) / (g * 13));
-    for (let i = 1; i < n; i++) { const y = staff.y0 + (staff.y1 - staff.y0) * i / n + (r() - .5) * g * 2; if (y > box[1] - g * 2 && y < box[3] + g * 2) continue;
-      const a = [sx - s * g * .3, y], b = [sx + s * g * 1.75, y + g * .35]; accept([a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - .3], b], 'knot', { w: .5, start: 'taper', end: 'taper' }); }
+    if (room(pts.slice(3, -3), g * .55)) accept(pts, 'scallop', { w: .45, start: 'cut', end: 'cut' });
   }
-  // 3. scrolls: from points along the lines already drawn, small fiddleheads sprout into the open paper, the largest
-  // that fits first, each ending in a bead; a scroll's own stem can carry a smaller one. They come thicker near the
-  // letter and thin out down the staff.
-  // a scroll: a short stem leaving the line at a slant, then a spiral whose turns keep the gap, finished in a bead.
-  // R is its outer radius; sense chooses which way it winds (toward the line it hangs from, or away)
-  const scroll = (p, t, side, dir, R, sense) => {
-    const d = [t[0] * dir, t[1] * dir], n = [-t[1] * side, t[0] * side], rot = (v, a) => [v[0] * Math.cos(a) - v[1] * Math.sin(a), v[0] * Math.sin(a) + v[1] * Math.cos(a)];
-    const turnN = Math.sign(d[0] * n[1] - d[1] * n[0]);   // rotating d by +turnN·angle swings it toward n
-    const a0 = (.3 + r() * .35) * turnN, a1 = (.75 + r() * .6) * turnN, e0 = rot(d, a0), e = rot(d, a1), Ls = g * (1.2 + r() * 2.2) + R * .4;
-    const q = [p[0] + (e0[0] + e[0]) / 2 * Ls, p[1] + (e0[1] + e[1]) / 2 * Ls];
-    const stem = []; for (let i = 0; i <= 12; i++) { const u = i / 12, v = 1 - u, c1 = [p[0] + e0[0] * Ls / 3, p[1] + e0[1] * Ls / 3], c2 = [q[0] - e[0] * Ls / 3, q[1] - e[1] * Ls / 3];
-      stem.push([0, 1].map(k => v * v * v * p[k] + 3 * v * v * u * c1[k] + 3 * v * u * u * c2[k] + u * u * u * q[k])); }
-    const sg = sense * turnN, rin = g * (.42 + r() * .1), T = Math.max(.75, Math.min(2.1, (R - rin) / (g * (1 + r() * .15))));
-    const cdir = rot(e, sg * Math.PI / 2), c = [q[0] + cdir[0] * R, q[1] + cdir[1] * R], phi0 = Math.atan2(-cdir[1], -cdir[0]), Th = 2 * Math.PI * T;
-    // a hand's spiral is never round: a little oval, tilted its own way
-    const ov = .1 + r() * .12, tilt = r() * Math.PI, sp = [];
-    for (let th = 0; th <= Th; th += .81 / Math.max(R, 1)) { const a = phi0 + sg * th, rr = (R - (R - rin) * Math.pow(th / Th, .92)) * (1 + ov * Math.cos(2 * (a - tilt)) - ov * Math.cos(2 * (phi0 - tilt)) * Math.max(0, 1 - th / 1.2));
-      sp.push([c[0] + Math.cos(a) * rr, c[1] + Math.sin(a) * rr]); }
-    return [...stem, ...sp.slice(1)];
-  };
-  const SIZES = [2.3, 1.9, 1.55, 1.25, 1].map(v => v * g);
-  const far = p => Math.max(0, p[1] - box[3], box[1] - p[1]) / Math.max(10, box[3] - box[1]);
-  for (let pass = 0; pass < 3; pass++) {
-    const list = hosts.filter(h => h.depth === pass && h.staff !== 0);
-    for (const host of list) {
-      const P = resample(host.pts, 1), n = P.length, base = g * (3.6 + r() * 1.2) / density, maxR = host.maxR ?? SIZES[0];
-      for (let s0 = g * 2 + r() * base; s0 < n - g * 2;) {
-        const i = Math.round(s0), p = P[i], t = tangentAt(P, i), step = base * (1 + 2.2 * far(p));
-        s0 += step * (.8 + r() * .5);
-        for (const side of r() < .5 ? [1, -1] : [-1, 1]) {
-          const nrm = [-t[1] * side, t[0] * side], probe = [p[0] + nrm[0] * g * 1.6, p[1] + nrm[1] * g * 1.6];
-          if (CL.get(probe[0], probe[1]) < g * 1.1) continue;
-          const dirs = r() < .5 ? [1, -1] : [-1, 1];
-          let done = false;
-          const big = SIZES.filter(v => v <= maxR * (1 - .25 * pass));
-          for (const R of big) { for (const dir of dirs) for (const sense of r() < .6 ? [1, -1] : [-1, 1]) {
-            if (done) break;
-            const pts = scroll(p, t, side, dir, R * (.92 + r() * .16), sense); if (!fits(pts, g * 1.3, 13)) continue;
-            accept(pts, 'scroll', { w: .52, start: 'cut', end: 'ball', depth: pass });
-            if (pass < 2) hosts.push({ pts: pts.slice(0, 13 + Math.floor((pts.length - 13) * .3)), depth: pass + 1 });
-            done = true; } if (done) break; }
-          if (done) { s0 += step * .5; break; }
-        }
-      }
-    }
   }
   return out;
 }

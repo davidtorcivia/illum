@@ -56,7 +56,7 @@ export function spline(cp, n = 16) {
 export const INK = [36, 25, 18];
 export function pen(g, pts, o = {}) {
   const { w = 1.4, nib = .7, broad = .45, load = .95, dry = .3, swell = .45, ink = INK, paper = PAPER, seed = 1,
-    start = 'pool', end = 'taper', shade = null, from = 0, to = 1 } = o;
+    start = 'pool', end = 'taper', shade = null, from = 0, to = 1, press = null } = o;
   const ds = Math.max(.25, Math.min(1, w * .35)), P = resample(pts, ds), n = P.length; if (n < 3) return;
   const wob = noise1(seed), wob2 = noise1(seed ^ 0x55), edge = noise1(seed ^ 0x99);
   let L = 0; const S = [0]; for (let i = 1; i < n; i++) S.push(L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
@@ -72,7 +72,7 @@ export function pen(g, pts, o = {}) {
       : .08 + .92 * Math.pow(1 - smooth(1 - Math.min(.35, 34 / L), 1, u), 1.2);
     const across = 1 - broad + broad * Math.abs(Math.sin(a - nib));
     const sh = shade ? .45 + 1.25 * Math.max(0, -Math.sin(a) * shade[0] + Math.cos(a) * shade[1]) : 1;
-    const hw = Math.max(.14, w * .5 * sh * across * land * lift * (.72 + .56 * wob(s / 30)) * (1 + swell * Math.min(1, k * 5)));
+    const hw = Math.max(.14, w * .5 * sh * (press ? press(u) : 1) * across * land * lift * (.72 + .56 * wob(s / 30)) * (1 + swell * Math.min(1, k * 5)));
     // the two edges waver independently, a little, slowly: a pen line's margins are never parallel
     const el = hw * (1 + .12 * (edge(s / 5) - .5)), er = hw * (1 + .12 * (edge(s / 5 + 70) - .5)), nx = -Math.sin(a), ny = Math.cos(a);
     Lw.push([P[i][0] + nx * el, P[i][1] + ny * el]); Rw.push([P[i][0] - nx * er, P[i][1] - ny * er]);
@@ -127,7 +127,10 @@ export const PIGMENTS = {
   shellgold: { rgb: [192, 154, 78], gran: .16, rim: .35, metal: true },  // powdered gold in gum: matte, grainy
   ochre: { rgb: [186, 130, 62], gran: .14, rim: .5 },
   bole: { rgb: [168, 84, 52], gran: .1, rim: .3 },
-  rose: { rgb: [206, 120, 128], gran: .08, rim: .5 },       // rose lake with lead white, the pink of the late borders          // the red clay laid under gold
+  rose: { rgb: [206, 120, 128], gran: .08, rim: .5 },
+  carmine: { rgb: [172, 44, 70], gran: .06, rim: .5 },     // kermes/lac red, the body of the late Italian initials
+  carmineShade: { rgb: [118, 26, 48], gran: .06, rim: .35 },
+  lapisShade: { rgb: [24, 34, 86], gran: .15, rim: .4 },       // rose lake with lead white, the pink of the late borders          // the red clay laid under gold
 };
 const K = (rgb, paper) => rgb.map((c, i) => -Math.log(Math.max(.02, c / paper[i])));
 const tooth = noise2(9157), tooth2 = noise2(3319), mottle = noise2(7741), wearN = noise2(5521);

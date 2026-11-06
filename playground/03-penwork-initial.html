@@ -71,8 +71,8 @@
 <p class="colophon">Initials flourished by illum, penwork, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch them drawn</a>.</p>
 
 <script type="module">
-import { pen, paintField, stream, fnv, PAPER } from './kit/marks.js';
-import { flourish, reserve } from './kit/penwork.js';
+import { pen, dot, paintField, fnv } from './kit/marks.js';
+import { flourish, drawn } from './kit/penwork.js';
 
 const q = new URLSearchParams(location.search);
 if (q.has('ghost')) document.body.classList.add('ghost');
@@ -81,7 +81,7 @@ const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(text) % 1e7);
 document.getElementById('seed').textContent = SEED;
 
 // the inks: a blue letter takes red penwork, a red letter blue (the opposite-colour rule, 01-canon §2.2)
-const INKS = { azurite: [206, 92, 66], minium: [52, 78, 158] };
+const INKS = { azurite: [212, 108, 82], minium: [60, 86, 164] };
 const FONT = (px) => `600 ${px}px "EB Garamond"`;
 const metric = (() => { const c = document.createElement('canvas').getContext('2d'); c.font = FONT(100); const m = c.measureText('H');
   return { asc: m.fontBoundingBoxAscent / 100, desc: m.fontBoundingBoxDescent / 100, cap: m.actualBoundingBoxAscent / 100 }; });
@@ -130,22 +130,24 @@ function compose(mode) {
   document.querySelectorAll('.ini').forEach((span, k) => {
     const n = +span.dataset.lines, pig = n > 1 ? 'azurite' : 'minium', ink = INKS[pig], seed = (SEED + k * 7919) >>> 0;
     const G = glyphOf(span, sr, 4), [lx0, ly0, lx1, ly1] = G.box, Hl = ly1 - ly0;
-    // the staff runs close down the letter's left side and on down the margin; the scrolls take the room beside it,
-    // never nearer the sheet's edge than 10 px
-    const big = n > 1, gap = big ? 3 : 2.3, sx = Math.min(lx0, Tx) - gap * 1.3, lane = Math.max(0, Math.min(big ? 34 : 14, sx - 10));
-    const field = big ? [sx - lane, ly0 - .3 * Hl, lx1 + lh * .42 + 2, ly1 + .12 * Hl] : [sx - lane, ly0 - 5, lx1 + 3, ly1 + 4];
-    const staff = { x: sx, y0: big ? ly0 - .3 * Hl : ly0 - 4, y1: big ? ly1 + Math.round(5.5 * lh) : ly1 + 1.6 * lh, side: -1 };
-    const strokes = flourish({ glyph: G, field, keep, staff, g: gap, echoes: big ? 2 : 1, inner: big ? 2 : 1, seed, reach: lane / 34, density: big ? 1 : .8 });
-    // the letter first, laid with the brush from the top down; then the pen, stroke after stroke
-    const body = big ? reserve(G, .78) : G.M, paint = c => paintField(c, body, G.x0, G.y0, G.w, G.h, pig, { dpr: 4, seed, strength: 1 });
+    // the field: a square round the letter, wider on the margin side, its frame running on down the margin as the
+    // staff (never nearer the sheet's edge than 14 px)
+    const big = n > 1, gap = big ? 2.6 : 2.1, room = Math.max(0, lx0 - 14 - gap * 3);
+    const field = big ? [lx0 - Math.min(.36 * Hl, room), ly0 - .24 * Hl, lx1 + lh * .42 - 1, ly1 + .06 * Hl] : [lx0 - Math.min(11, room), ly0 - 3, lx1 + 2, ly1 + 2];
+    const staff = { y1: big ? ly1 + Math.round(5.5 * lh) : ly1 + 1.6 * lh };
+    const L = drawn(G, seed, big ? .8 : .45);
+    const marks = flourish({ glyph: L, field, keep, staff, g: gap, eyes: big ? 2 : 0, seed });
+    // the letter first, laid with the brush from the top down; then the pen, mark after mark
+    const paint = c => paintField(c, L.M, G.x0, G.y0, G.w, G.h, pig, { dpr: 4, seed, strength: 1 });
     const box = [G.x0, G.y0, G.w / 4, G.h / 4];
     parts.push(wiped(clock, clock + 1.1, paint, box, dpr, [0, 1]));
     clock += 1.4;
     const V = 220;
-    strokes.forEach((s, i) => {
-      const o = { w: s.w * 1.2, ink, seed: seed + i * 13, start: s.start, end: s.end, load: .78, dry: .3, broad: .42, swell: .25, nib: .5 };
-      const d = Math.max(.08, arclen(s.pts) / V);
-      parts.push(stem(clock, clock + d, s.pts, { ...o, live: 'cut' })); clock += d * .6;
+    marks.forEach((s, i) => {
+      if (s.kind === 'dot') { parts.push(dotted(clock, s.p, s.r, ink)); clock += .05; return; }
+      const o = { w: s.w * 1.15, ink, seed: seed + i * 13, start: s.start, end: s.end, load: .78, dry: .3, broad: .42, swell: .25, nib: .5 };
+      const d = Math.max(.06, arclen(s.pts) / V);
+      parts.push(stem(clock, clock + d, s.pts, { ...o, live: 'cut' })); clock += d * .75;
     });
     clock += .4;
   });
@@ -162,6 +164,7 @@ function stem(t0, t1, pts, o, layer = 0) {
   const { live = 'taper', ...po } = o;
   return { t0, t1, layer, at: (g, f) => { const p = upTo(f); if (p.length > 1 && S[S.length - 1] * f > .6) pen(g, p, { ...po, end: live }); }, done: g => pen(g, pts, po) };
 }
+const dotted = (t, p, r, ink) => ({ t0: t, t1: t + .04, layer: 0, at: () => {}, done: g => dot(g, p, r, ink, undefined, .95) });
 function painted(paint, [x, y, w, h], dpr) {
   let cv = null; return () => cv ??= (() => { const c = new OffscreenCanvas(Math.ceil(w * dpr), Math.ceil(h * dpr)), k = c.getContext('2d'); k.setTransform(dpr, 0, 0, dpr, -x * dpr, -y * dpr); paint(k); return c; })();
 }

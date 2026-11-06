@@ -19,6 +19,7 @@
 <style>
   @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-display: block; }
   @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-style: italic; font-display: block; }
+  @font-face { font-family: "Uncial Antiqua"; src: url(fonts/UncialAntiqua.woff2) format("woff2"); font-display: block; }
   :root { --paper: rgb(244 238 226); --ink: #2b2119; --soft: rgb(43 33 25 / .62); }
   html { background: var(--paper); color: var(--ink); }
   body { margin: 0 auto; max-width: 1180px; padding: 48px 24px 80px; font: 17px/1.5 "EB Garamond", Garamond, serif; }
@@ -47,24 +48,50 @@
 <p class="intro">The earlier attempt, kept for comparison: a raised cushion of gesso as a height field, lit. It read as 1999 WordArt.</p>
 <div class="row" id="row"></div>
 <script type="module">
-import { pen, spline, paintField, wash, mulberry, PAPER } from './kit/marks.js';
+import { pen, spline, paintField, wash, mulberry, PAPER, noise2, dot, resample } from './kit/marks.js';
 import { goldFields, goldStill, goldLit } from './kit/gold.js';
 import { loadGold, goldLeaf, softEdge } from './kit/goldleaf.js';
 import { goldShader } from './kit/goldgl.js';
 import { paintShape, contours } from './kit/brushwork.js';
 import { paintPass } from './kit/paintpass.js';
 const DETAIL = await loadGold();
-const INK = [36, 25, 18], LIGHT = [-.55, .83];
+const INK = [36, 25, 18], LIGHT = [-.55, .83], FACE = new URLSearchParams(location.search).get('face') ?? 'Uncial Antiqua';
+function blurA(A, w, h, r) { if (r < 1) return A; const T = new Float32Array(w * h), O = new Float32Array(w * h), k = 2 * r + 1, X = x => Math.min(w - 1, Math.max(0, x)), Y = y => Math.min(h - 1, Math.max(0, y));
+  for (let y = 0; y < h; y++) { let s = 0; for (let x = -r; x <= r; x++) s += A[y * w + X(x)]; for (let x = 0; x < w; x++) { T[y * w + x] = s / k; s += A[y * w + X(x + r + 1)] - A[y * w + X(x - r)]; } }
+  for (let x = 0; x < w; x++) { let s = 0; for (let y = -r; y <= r; y++) s += T[Y(y) * w + x]; for (let y = 0; y < h; y++) { O[y * w + x] = s / k; s += T[Y(y + r + 1) * w + x] - T[Y(y - r) * w + x]; } }
+  return O; }
 await document.fonts.ready;
 
 // masks for an initial: the square, the letter, its counters; in device px over the box
+function distField(M, w, h) { const D = new Float32Array(w * h); for (let i = 0; i < w * h; i++) D[i] = M[i] > .5 ? 1e6 : 0; const p = (i, j, c) => { if (D[j] + c < D[i]) D[i] = D[j] + c; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = y * w + x; if (!D[i]) continue; if (x) p(i, i - 1, 3); if (y) { p(i, i - w, 3); if (x) p(i, i - w - 1, 4); if (x < w - 1) p(i, i - w + 1, 4); } }
+  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) { const i = y * w + x; if (!D[i]) continue; if (x < w - 1) p(i, i + 1, 3); if (y < h - 1) { p(i, i + w, 3); if (x < w - 1) p(i, i + w + 1, 4); if (x) p(i, i + w - 1, 4); } }
+  for (let i = 0; i < w * h; i++) D[i] = Math.min(D[i], 1e5) / 3; return D; }
+// The letter as a scribe drew it: its ductus, the strokes in order and direction, each with its swell. Units: the
+// square, 0..1. A Lombardic D: a swelling stem, a bowl heavy on the right and fine at both ends, hairline flicks.
+const SIN = u => Math.sin(Math.PI * Math.min(1, Math.max(0, u)));
+const DUCTUS = {
+  D: [
+    { pts: [[.335, .17], [.322, .5], [.335, .835]], w: .118, press: u => .78 + .32 * SIN(u), body: true },
+    { pts: [[.3, .168], [.5, .118], [.72, .2], [.835, .46], [.775, .74], [.57, .865], [.3, .848]], w: .19, press: u => .16 + .96 * SIN(u) ** 1.15, body: true },
+    { pts: [[.335, .17], [.25, .155], [.19, .19], [.19, .245]], w: .026, press: u => 1 - .5 * u, end: 'ball' },
+    { pts: [[.335, .835], [.245, .862], [.18, .838]], w: .03, press: u => 1 - .6 * u },
+  ],
+};
 function masks(W, dpr, letter) {
   const cw = Math.ceil(W * dpr), c = new OffscreenCanvas(cw, cw).getContext('2d'), r = mulberry(7);
   c.scale(dpr, dpr); c.textAlign = 'center'; c.fillStyle = '#fff';
-  c.font = `600 100px "EB Garamond"`; const m0 = c.measureText(letter), fs = 100 * W * .74 / (m0.actualBoundingBoxAscent + m0.actualBoundingBoxDescent);
-  c.font = `600 ${fs}px "EB Garamond"`; const m = c.measureText(letter), base = W / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
+  if (DUCTUS[letter]) return ductusMasks(W, dpr, letter);
+  c.font = `400 100px "${FACE}"`; const m0 = c.measureText(letter), fs = 100 * W * .7 / (m0.actualBoundingBoxAscent + m0.actualBoundingBoxDescent);
+  c.font = `400 ${fs}px "${FACE}"`; const m = c.measureText(letter), base = W / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2;
   c.fillText(letter, W / 2, base);
-  const A = c.getImageData(0, 0, cw, cw).data, L = new Float32Array(cw * cw); for (let i = 0; i < cw * cw; i++) L[i] = A[i * 4 + 3] / 255;
+  const A = c.getImageData(0, 0, cw, cw).data, L0 = new Float32Array(cw * cw); for (let i = 0; i < cw * cw; i++) L0[i] = A[i * 4 + 3] / 255;
+  // the letter redrawn by hand: its edge wanders slowly (a hand, not a ruler) and its stroke swells and thins
+  const L = new Float32Array(cw * cw), Bl = blurA(L0, cw, cw, Math.round(1.4 * dpr)), wa = noise2(31), wb = noise2(37), wt = noise2(41), px = 1 / dpr;
+  for (let y = 0; y < cw; y++) for (let x = 0; x < cw; x++) {
+    const X = x * px, Y = y * px, dx = (wa(X / 24, Y / 24) - .5) * 2.4 * dpr, dy = (wb(X / 24, Y / 24) - .5) * 2.4 * dpr;
+    const sx = Math.min(cw - 1, Math.max(0, Math.round(x + dx))), sy = Math.min(cw - 1, Math.max(0, Math.round(y + dy))), v = Bl[sy * cw + sx];
+    const t = .5 + .22 * (wt(X / 30, Y / 30) - .5); L[y * cw + x] = Math.min(1, Math.max(0, (v - t) / .12 + .5)); }
   // the square, inset a little, its edges ruled by hand
   const S = new Float32Array(cw * cw), ins = 3 * dpr;
   for (let y = 0; y < cw; y++) for (let x = 0; x < cw; x++) S[y * cw + x] = x >= ins && y >= ins && x < cw - ins && y < cw - ins ? 1 : 0;
@@ -79,20 +106,71 @@ function masks(W, dpr, letter) {
     let near = 0; for (let k = -grow; k <= grow && !near; k++) { const j = i + k, j2 = i + k * cw; if (L[j] > .5 || L[j2] > .5) near = 1; } G[i] = near ? 0 : 1 - L[i]; }
   return { cw, L, C, G, S, fs, base };
 }
+function ductusMasks(W, dpr, letter) {
+  const cw = Math.ceil(W * dpr), c = new OffscreenCanvas(cw, cw).getContext('2d'); c.scale(dpr, dpr);
+  const strokes = DUCTUS[letter].map((s, k) => ({ ...s, P: spline(s.pts.map(([x, y]) => [x * W, y * W]), 18), wp: s.w * W }));
+  for (const s of strokes) pen(c, s.P, { w: s.wp, press: s.press, ink: [255, 255, 255], broad: .2, start: 'cut', end: s.end ?? 'cut', seed: 3 + s.wp * 7 | 0, load: 1, swell: 0 });
+  const A = c.getImageData(0, 0, cw, cw).data, L = new Float32Array(cw * cw); for (let i = 0; i < cw * cw; i++) L[i] = A[i * 4 + 3] / 255;
+  const S = new Float32Array(cw * cw), ins = 3 * dpr;
+  for (let y = 0; y < cw; y++) for (let x = 0; x < cw; x++) S[y * cw + x] = x >= ins && y >= ins && x < cw - ins && y < cw - ins ? 1 : 0;
+  const out = new Uint8Array(cw * cw), st = []; for (let i = 0; i < cw; i++) st.push(i, (cw - 1) * cw + i, i * cw, i * cw + cw - 1);
+  while (st.length) { const i = st.pop(); if (out[i] || L[i] > .5) continue; out[i] = 1; const x = i % cw, y = i / cw | 0;
+    if (x > 0) st.push(i - 1); if (x < cw - 1) st.push(i + 1); if (y > 0) st.push(i - cw); if (y < cw - 1) st.push(i + cw); }
+  const C = new Float32Array(cw * cw); for (let i = 0; i < cw * cw; i++) C[i] = !out[i] && L[i] <= .5 ? 1 : 0;
+  const G = new Float32Array(cw * cw), grow = Math.round(.5 * dpr);
+  for (let y = 0; y < cw; y++) for (let x = 0; x < cw; x++) { const i = y * cw + x; if (!S[i] || C[i]) continue;
+    let near = 0; for (let k = -grow; k <= grow && !near; k++) { const j = i + k, j2 = i + k * cw; if (L[j] > .5 || L[j2] > .5) near = 1; } G[i] = near ? 0 : 1 - L[i]; }
+  return { cw, L, C, G, S, strokes };
+}
 // paint the letter and the counters, then the ink: on its own layer, over the gold
 function paintLetter(g, W, dpr, mk, letter) {
   const { cw, L, C, fs, base } = mk;
-  // painted: a smooth modelled underpainting (counter in lapis, darker under the letter's edge; letter in rose, from its
-  // shadowed side to its lit side), on its own layer, then the painterly pass of pie-site over it, then the white
-  const P = new OffscreenCanvas(cw, cw), pg = P.getContext('2d'); pg.setTransform(dpr, 0, 0, dpr, 0, 0);
-  // the underpainting carries the variety the brush will drag: streaks of darker and lighter along the form
-  paintShape(pg, C, 0, 0, cw, cw, { tones: [[18, 26, 70], [40, 56, 124], [92, 112, 182]], under: 'lapis', dpr, seed: 3, hatch: 0, brush: 2.6 });
-  paintShape(pg, L, 0, 0, cw, cw, { tones: [[160, 70, 84], [212, 132, 138], [246, 196, 188]], under: 'rose', dpr, seed: 4, hatch: 0, brush: 2.4 });
-  const before = new OffscreenCanvas(cw, cw); before.getContext('2d').drawImage(P, 0, 0);
-  paintPass(P, dpr * PP, { seed: 7 });
-  { const k = P.getContext('2d'); k.save(); k.setTransform(1, 0, 0, 1, 0, 0); k.globalCompositeOperation = 'destination-over'; k.drawImage(before, 0, 0); k.restore(); }
-  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(P, 0, 0); g.restore();
-  paintShape(g, L, 0, 0, cw, cw, { tones: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], dpr, seed: 4, hatch: 1.1, strokes: false, under: null, whiteOnly: true });
+  // painted as the illuminator painted it, in a dozen decisions, not a texture:
+  // 1. the counter: one flat wash of lapis, a darker wash where the letter's body shades it
+  paintField(g, C, 0, 0, cw, cw, 'lapis', { dpr, seed: 3 });
+  // 2. the letter: one flat wash of carmine
+  paintField(g, L, 0, 0, cw, cw, 'carmine', { dpr, seed: 4 });
+  // 3. its shadow: a second flat wash over the part of the body that turns away from the light, its edge drifting
+  const Db = blurA(blurA(L, cw, cw, Math.round(2 * dpr)), cw, cw, Math.round(2 * dpr)), Sh = new Float32Array(cw * cw), sn = noise2(53), pxl = 1 / dpr;
+  // a band along every edge that faces away from the light: the body, stepped toward the light, no longer covers it
+  for (let y = 0; y < cw; y++) for (let x = 0; x < cw; x++) { const i = y * cw + x; if (L[i] < .5) continue;
+    const k = (W * .045 + (sn(x * pxl / 9, y * pxl / 9) - .5) * W * .03) * dpr, sx = Math.round(x + .6 * k), sy = Math.round(y + .8 * k);
+    Sh[i] = sx >= cw || sy >= cw || L[sy * cw + sx] < .5 ? 1 : 0; }
+  paintField(g, blurA(Sh, cw, cw, Math.round(.6 * dpr)), 0, 0, cw, cw, 'carmineShade', { dpr, seed: 5, strength: .55 });
+  // 4–5. the modelling and the white, laid along the scribe's own strokes on their lit side: a paler tint a little in
+  // from the edge, then a white line close to it, each running only where the stroke faces the light, landing with a bead
+  const TL = [-.6, -.8], rh = mulberry(8);
+  const offsetRuns = (s, frac, minLit) => { const P = resample(s.P, .6), runs = []; let cur = [];
+    for (let i = 1; i < P.length - 1; i++) { const u = i / (P.length - 1), t = [P[i + 1][0] - P[i - 1][0], P[i + 1][1] - P[i - 1][1]], tl = Math.hypot(...t) || 1, n = [-t[1] / tl, t[0] / tl];
+      const side = n[0] * TL[0] + n[1] * TL[1], hw = s.wp * .5 * s.press(u), off = Math.sign(side) * hw * frac;
+      if (Math.abs(side) > minLit && hw > 1.6) cur.push([P[i][0] + n[0] * off, P[i][1] + n[1] * off]); else { if (cur.length > 8) runs.push(cur); cur = []; } }
+    if (cur.length > 8) runs.push(cur); return runs; };
+  for (const st of (mk.strokes ?? []).filter(s => s.body)) {
+    // modelling: three or four fine strokes of a paler tint, parallel, each a little shorter, toward the lit side
+    [.12, .26, .4, .52].forEach((f, k) => { for (const run of offsetRuns(st, f, .2 + k * .06)) {
+      const a0 = run.length * (.04 + rh() * .14 + k * .04) | 0, a1 = run.length * (.62 + rh() * .3 - k * .05) | 0;
+      if (a1 - a0 > 8) pen(g, run.slice(a0, a1), { w: .55 + rh() * .25, ink: [232, 128 + k * 8, 142 + k * 6], load: .8, dry: .4, start: 'taper', end: 'taper', seed: 60 + a0 + k, broad: .05 }); } });
+    // white: a hairline set in from the lit edge, and a shorter second one beside it
+    [[.68, .75, 1], [.78, .5, .55]].forEach(([f, w, len], k) => { for (const run of offsetRuns(st, f, .45)) {
+      const a0 = run.length * (.12 + rh() * .12) | 0, a1 = a0 + (run.length * len * (.55 + rh() * .25) | 0);
+      if (a1 - a0 > 8) pen(g, run.slice(a0, Math.min(run.length, a1)), { w, ink: [252, 248, 238], load: .95, dry: .2, start: 'pool', end: 'taper', seed: 90 + a1 + k, broad: .05 }); } });
+  }
+  if (!mk.strokes) {
+  // (for a font letter) 4. the modelling: fine strokes of a paler tint laid along the form on its lit side, broken, a few px apart
+  const D = distField(L, cw, cw), lit = (q) => { const x = Math.round(q[0] * dpr), y = Math.round(q[1] * dpr), i = y * cw + x;
+    if (x < 1 || y < 1 || x >= cw - 1 || y >= cw - 1) return -1; const gx = Db[i + 1] - Db[i - 1], gy = Db[i + cw] - Db[i - cw], gl = Math.hypot(gx, gy) || 1; return (-gx / gl) * LIGHT[0] + (-gy / gl) * LIGHT[1]; };
+  const runs = (loops, test, min) => { const out = []; for (const lp of loops) { let cur = []; for (const q of lp) { if (test(q)) cur.push(q); else { if (cur.length > min) out.push(cur); cur = []; } } if (cur.length > min) out.push(cur); } return out; };
+  const rh = mulberry(8), iso = k => contours(D.map(v => v * pxl > k ? 1 : 0), cw, cw, { dpr });
+  for (const k of [1.6, 2.6, 3.6]) for (const run of runs(iso(k), q => lit(q) > .1, 8)) {
+    // break long runs into strokes with small gaps, as a brush runs out and is reloaded
+    for (let i = 0; i < run.length;) { const n = 10 + (rh() * 22 | 0), seg = run.slice(i, i + n); i += n + 2 + (rh() * 3 | 0); if (seg.length < 6) continue;
+      pen(g, seg, { w: .55 + rh() * .3, ink: [232, 138, 148], load: .8, dry: .4, start: 'taper', end: 'taper', seed: 60 + i + k * 100, broad: .1 }); } }
+  // 5. the white: a few long strokes just inside the lit edge, each landing with a bead, and trefoils at the swellings
+  for (const run of runs(iso(.9), q => lit(q) > .35, 14)) for (let i = 0; i < run.length;) { const n = 26 + (rh() * 30 | 0), seg = run.slice(i, i + n); i += n + 6;
+    if (seg.length > 12) pen(g, seg, { w: .85 + rh() * .35, ink: [252, 248, 238], load: .9, dry: .3, start: 'pool', end: 'taper', seed: 90 + i, broad: .15 }); }
+  let best = null, bd = 0; for (let i = 0; i < cw * cw; i++) if (D[i] > bd) { bd = D[i]; best = i; }
+  if (best !== null) { const q = [(best % cw) / dpr, (best / cw | 0) / dpr], rr = .7; [[0, -1.6], [-1.4, .9], [1.4, .9]].forEach(([u, v]) => dot(g, [q[0] + u * rr, q[1] + v * rr], .75, [252, 248, 238], undefined, 1)); }
+  }
   // the letter's own edge, drawn with the pen, heavier on the side away from the light, a little off the paint
   contours(L, cw, cw, { dpr, x0: .35, y0: .3 }).forEach((loop, k) => pen(g, [...loop, loop[0], loop[1]], { w: 1.05, seed: 40 + k, start: 'cut', end: 'cut', shade: LIGHT, broad: .25, load: 1 }));
   const r = mulberry(11), e = 3, wob = (a, b) => spline(Array.from({ length: 7 }, (_, k) => [a[0] + (b[0] - a[0]) * k / 6 + (k % 6 ? (r() - .5) * .7 : 0), a[1] + (b[1] - a[1]) * k / 6 + (k % 6 ? (r() - .5) * .7 : 0)]), 6);
