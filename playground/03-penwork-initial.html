@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Penwork initial</title>
+<!--
+  03 · Penwork initial
+
+  Instruction: paint the letter flat in one colour; then, with a fine pen in the other colour, draw hairlines that
+  follow its contour at an even gap, outside and round inside its counters, rule a pair of hairlines down the margin
+  beside the text, and let small scrolls sprout from those lines into whatever paper is left, each ending in a bead,
+  until no scroll will fit.
+
+  Function: wayfinding (06-purpose §3). The opening paragraph gets a three-line initial, a later one a one-line
+  initial in the other colour, so rank is visible at 10%. Text stays text: the letter is in the DOM (transparent),
+  the paint behind it.
+
+  After pen-flourished initials, c. 1230–1400, studied at full resolution from the Met: Decretals of Gratian, French
+  c. 1290 (466179: blue letters, pale red hairlines along the margin side, a staff of two or three hairlines running
+  lines above and below); Bible, French c. 1235 (467422: the staff ending in a curl, small scrolls off it); Italian
+  leaf, 14th c. (469041: contour echoes in the counter, circlets, a loose tail with beads); antiphonary, Italian
+  14th c. (466790: red echoes on a blue letter). Marks: kit/marks.js; growth: kit/penwork.js.
+  Text: Ruskin, The Stones of Venice II (1853), ch. VI §§ XXVIII–XXIX, Project Gutenberg #30755. EB Garamond, SIL OFL.
+
+  Seed: a hash of the text; #seed=N overrides. ?draw plays it as made: the letter laid with the brush, then the
+  penwork drawn stroke by stroke at a hand's pace. Never under prefers-reduced-motion; the still page is the same
+  score played at once. ?ghost shows the DOM letter over the paint (registration check).
+  Score 2026-11-06 (self): see the line at the end of this comment.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(176 58 36); color-scheme: light; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
+  .sheet { position: relative; max-width: 900px; margin: 0 auto; padding: 120px 100px 120px 200px; box-sizing: border-box; }
+  .sheet canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .15em; }
+  .sub { font-style: italic; margin: 0 0 1.6em; }
+  p { margin: 0; } p + p:not(.sub + p) { text-indent: 1.5em; }
+  .text p.later { text-indent: 0; }
+  /* the letter is text; its paint is on the canvas behind. Sizes are set from the font's metrics once it has loaded */
+  .ini { color: transparent; font-weight: 600; }
+  .ini.drop { float: left; line-height: 1; }
+  .ini.line { font-size: 1.5em; line-height: 0; margin-right: .04em; }
+  .ghost .ini { color: rgb(255 0 160 / .45); }
+  .colophon a { color: inherit; }
+  .colophon { max-width: 900px; margin: 0 auto; padding: 0 100px 60px 200px; box-sizing: border-box; font-size: 14px; font-style: italic; opacity: .6; }
+  @media (max-width: 640px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .sheet { padding: 64px 20px 80px 44px; }
+    .text { text-align: left; }
+    .colophon { padding: 0 20px 40px 44px; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <canvas id="orn" aria-hidden="true"></canvas>
+  <canvas id="live" aria-hidden="true"></canvas>
+  <article class="text">
+    <h1>Changefulness</h1>
+    <p class="sub">John Ruskin, The Stones of Venice, 1853</p>
+    <p><span class="ini drop" data-lines="3">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture. And this we suppose to be all the pleasure that architecture was ever intended to give us. The idea of reading a building as we would read Milton or Dante, and getting the same kind of delight out of the stones as out of the stanzas, never enters our minds for a moment.</p>
+    <p>Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art, for the production of which either rules or models can be given. Exactly so far as architecture works on known rules, and from given models, it is not an art, but a manufacture.</p>
+    <p class="later"><span class="ini line" data-lines="1">L</span>et us then understand at once, that change or variety is as much a necessity to the human heart and brain in buildings as in books; that there is no merit, though there is some occasional use, in monotony; and that we must no more expect to derive either pleasure or profit from an architecture whose ornaments are of one pattern, and whose pillars are of one proportion, than we should out of a universe in which the clouds were all of one shape, and the trees all of one size.</p>
+  </article>
+</main>
+<p class="colophon">Initials flourished by illum, penwork, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch them drawn</a>.</p>
+
+<script type="module">
+import { pen, paintField, stream, fnv, PAPER } from './kit/marks.js';
+import { flourish, reserve } from './kit/penwork.js';
+
+const q = new URLSearchParams(location.search);
+if (q.has('ghost')) document.body.classList.add('ghost');
+const text = document.querySelector('.text').textContent.replace(/\s+/g, ' ').trim();
+const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(text) % 1e7);
+document.getElementById('seed').textContent = SEED;
+
+// the inks: a blue letter takes red penwork, a red letter blue (the opposite-colour rule, 01-canon §2.2)
+const INKS = { azurite: [206, 92, 66], minium: [52, 78, 158] };
+const FONT = (px) => `600 ${px}px "EB Garamond"`;
+const metric = (() => { const c = document.createElement('canvas').getContext('2d'); c.font = FONT(100); const m = c.measureText('H');
+  return { asc: m.fontBoundingBoxAscent / 100, desc: m.fontBoundingBoxDescent / 100, cap: m.actualBoundingBoxAscent / 100 }; });
+
+// Size the drop initials so the letter's top meets the first line's cap height and its foot sits on the last line's
+// baseline; the float is cut to exactly n lines so the next line runs under it.
+function setInitials() {
+  const M = metric(), cs = getComputedStyle(document.querySelector('.text p:not(.sub)')), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight);
+  const bodyCap = fs * M.cap, base = (lh - (M.asc + M.desc) * fs) / 2 + M.asc * fs;   // a text line's baseline below its top
+  for (const s of document.querySelectorAll('.ini.drop')) {
+    const n = +s.dataset.lines, F = ((n - 1) * lh + bodyCap) / M.cap, top = (n - 1) * lh + base - F * ((1 - M.asc - M.desc) / 2 + M.asc);
+    Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', marginRight: Math.round(lh * .42) + 'px', marginLeft: '-1px' });
+  }
+}
+
+// The letter as a coverage mask at `res` cells per px, its top-left on the page; and where its baseline is.
+function glyphOf(span, origin, res) {
+  const M = metric(), F = parseFloat(span.style.fontSize || getComputedStyle(span).fontSize), rg = document.createRange(); rg.selectNodeContents(span);
+  const rc = rg.getClientRects()[0], x = rc.left - origin.left, baseline = rc.top - origin.top + M.asc * F;
+  const c = document.createElement('canvas').getContext('2d', { willReadFrequently: true }); c.font = FONT(F);
+  const m = c.measureText(span.textContent), pad = 4;
+  const x0 = Math.floor(x - m.actualBoundingBoxLeft - pad), y0 = Math.floor(baseline - m.actualBoundingBoxAscent - pad);
+  const w = Math.ceil((x + m.actualBoundingBoxRight + pad - x0) * res), h = Math.ceil((baseline + m.actualBoundingBoxDescent + pad - y0) * res);
+  c.canvas.width = w; c.canvas.height = h; c.setTransform(res, 0, 0, res, -x0 * res, -y0 * res); c.font = FONT(F); c.fillStyle = '#000'; c.fillText(span.textContent, x, baseline);
+  const d = c.getImageData(0, 0, w, h).data, A = new Float32Array(w * h); for (let i = 0; i < w * h; i++) A[i] = d[i * 4 + 3] / 255;
+  return { M: A, w, h, x0, y0, res, box: [x - m.actualBoundingBoxLeft, baseline - m.actualBoundingBoxAscent, x + m.actualBoundingBoxRight, baseline + m.actualBoundingBoxDescent], F };
+}
+// the words, as rects to keep clear of (every line box of every text node, the letters themselves excepted)
+function wordRects(origin, pad) {
+  const out = [], tw = document.createTreeWalker(document.querySelector('.text'), NodeFilter.SHOW_TEXT);
+  for (let n; (n = tw.nextNode());) { if (n.parentElement.closest('.ini') || !n.textContent.trim()) continue;
+    const rg = document.createRange(); rg.selectNodeContents(n);
+    for (const r of rg.getClientRects()) out.push([r.left - origin.left - pad, r.top - origin.top + 2 - pad * .5, r.right - origin.left + pad, r.bottom - origin.top - 2 + pad * .5]); }
+  return out;
+}
+
+function compose(mode) {
+  const sheet = document.querySelector('.sheet'), sr = sheet.getBoundingClientRect(), tr = document.querySelector('.text').getBoundingClientRect();
+  const S = { w: sr.width, h: sr.height }, Tx = tr.left - sr.left, dpr = Math.min(2, devicePixelRatio || 1);
+  const ctx = c => { c.width = Math.round(S.w * dpr); c.height = Math.round(S.h * dpr); c.style.width = S.w + 'px'; c.style.height = S.h + 'px';
+    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); return g; };
+  const g = ctx(document.getElementById('orn')), live = ctx(document.getElementById('live'));
+  const lh = parseFloat(getComputedStyle(document.querySelector('.text p:not(.sub)')).lineHeight);
+  const keep = wordRects(sr, 3), parts = [];
+  let clock = .3;
+  document.querySelectorAll('.ini').forEach((span, k) => {
+    const n = +span.dataset.lines, pig = n > 1 ? 'azurite' : 'minium', ink = INKS[pig], seed = (SEED + k * 7919) >>> 0;
+    const G = glyphOf(span, sr, 4), [lx0, ly0, lx1, ly1] = G.box, Hl = ly1 - ly0;
+    // the staff runs close down the letter's left side and on down the margin; the scrolls take the room beside it,
+    // never nearer the sheet's edge than 10 px
+    const big = n > 1, gap = big ? 3 : 2.3, sx = Math.min(lx0, Tx) - gap * 1.3, lane = Math.max(0, Math.min(big ? 34 : 14, sx - 10));
+    const field = big ? [sx - lane, ly0 - .3 * Hl, lx1 + lh * .42 + 2, ly1 + .12 * Hl] : [sx - lane, ly0 - 5, lx1 + 3, ly1 + 4];
+    const staff = { x: sx, y0: big ? ly0 - .3 * Hl : ly0 - 4, y1: big ? ly1 + Math.round(5.5 * lh) : ly1 + 1.6 * lh, side: -1 };
+    const strokes = flourish({ glyph: G, field, keep, staff, g: gap, echoes: big ? 2 : 1, inner: big ? 2 : 1, seed, reach: lane / 34, density: big ? 1 : .8 });
+    // the letter first, laid with the brush from the top down; then the pen, stroke after stroke
+    const body = big ? reserve(G, .78) : G.M, paint = c => paintField(c, body, G.x0, G.y0, G.w, G.h, pig, { dpr: 4, seed, strength: 1 });
+    const box = [G.x0, G.y0, G.w / 4, G.h / 4];
+    parts.push(wiped(clock, clock + 1.1, paint, box, dpr, [0, 1]));
+    clock += 1.4;
+    const V = 220;
+    strokes.forEach((s, i) => {
+      const o = { w: s.w * 1.2, ink, seed: seed + i * 13, start: s.start, end: s.end, load: .78, dry: .3, broad: .42, swell: .25, nib: .5 };
+      const d = Math.max(.08, arclen(s.pts) / V);
+      parts.push(stem(clock, clock + d, s.pts, { ...o, live: 'cut' })); clock += d * .6;
+    });
+    clock += .4;
+  });
+  return { layers: [[g, live]], parts, end: Math.max(...parts.map(p => p.t1)) };
+}
+const arclen = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
+
+// The parts of the score (after 01): each can show itself part-way (`at`, on the live layer, redrawn every frame) and
+// finished (`done`, laid once on the page). The pen line lengthens behind its tip; the paint is laid by a sweep.
+function stem(t0, t1, pts, o, layer = 0) {
+  const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const upTo = f => { const L = f * S[S.length - 1]; let i = 1; while (i < S.length - 1 && S[i] < L) i++;
+    const u = (L - S[i - 1]) / ((S[i] - S[i - 1]) || 1), a = pts[i - 1], b = pts[i]; return [...pts.slice(0, i), [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]]; };
+  const { live = 'taper', ...po } = o;
+  return { t0, t1, layer, at: (g, f) => { const p = upTo(f); if (p.length > 1 && S[S.length - 1] * f > .6) pen(g, p, { ...po, end: live }); }, done: g => pen(g, pts, po) };
+}
+function painted(paint, [x, y, w, h], dpr) {
+  let cv = null; return () => cv ??= (() => { const c = new OffscreenCanvas(Math.ceil(w * dpr), Math.ceil(h * dpr)), k = c.getContext('2d'); k.setTransform(dpr, 0, 0, dpr, -x * dpr, -y * dpr); paint(k); return c; })();
+}
+function wiped(t0, t1, paint, box, dpr, dir) {
+  const img = painted(paint, box, dpr), [x, y, w, h] = box, cx = x + w / 2, cy = y + h / 2, R = Math.hypot(w, h) / 2, n = [-dir[1], dir[0]];
+  return { t0, t1, layer: 0, make: img, done: g => g.drawImage(img(), x, y, w, h),
+    at: (g, f) => { const e = 1 - (1 - f) ** 2, d = -R + 2 * R * e; g.save(); g.beginPath();
+      g.moveTo(cx - dir[0] * R - n[0] * R, cy - dir[1] * R - n[1] * R); g.lineTo(cx + dir[0] * d - n[0] * R, cy + dir[1] * d - n[1] * R);
+      g.lineTo(cx + dir[0] * d + n[0] * R, cy + dir[1] * d + n[1] * R); g.lineTo(cx - dir[0] * R + n[0] * R, cy - dir[1] * R + n[1] * R); g.closePath();
+      g.clip(); g.drawImage(img(), x, y, w, h); g.restore(); } };
+}
+let raf = 0;
+function render(animate) {
+  cancelAnimationFrame(raf);
+  const t0 = performance.now(), score = compose(animate), t1 = performance.now();
+  if (!animate) { score.parts.forEach(p => p.done(score.layers[p.layer][0])); document.body.dataset.timing = `grow ${(t1 - t0) | 0} ms, draw ${(performance.now() - t1) | 0} ms`; return; }
+  score.parts.forEach(p => p.make?.());
+  const start = performance.now(), { layers, parts } = score, finished = new Uint8Array(parts.length);
+  const tick = () => {
+    const now = (performance.now() - start) / 1000;
+    for (const [, lv] of layers) { lv.save(); lv.setTransform(1, 0, 0, 1, 0, 0); lv.clearRect(0, 0, lv.canvas.width, lv.canvas.height); lv.restore(); }
+    parts.forEach((p, i) => { if (finished[i]) return; const [base, lv] = layers[p.layer];
+      if (now >= p.t1) { p.done(base); finished[i] = 1; } else if (now > p.t0) p.at(lv, (now - p.t0) / (p.t1 - p.t0)); });
+    if (now < score.end + .05) raf = requestAnimationFrame(tick); else document.body.dataset.timing = 'drawn';
+  };
+  raf = requestAnimationFrame(tick);
+}
+
+await document.fonts.ready;
+setInitials();
+const still_ = matchMedia('(prefers-reduced-motion: reduce)').matches;
+render(!still_ && q.has('draw'));
+document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); render(!still_); });
+let lastW = innerWidth, timer;
+new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; setInitials(); render(false); } }, 150); }).observe(document.querySelector('.sheet'));
+addEventListener('hashchange', () => location.reload());
+</script>
+</body>
+</html>

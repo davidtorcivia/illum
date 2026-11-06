@@ -56,8 +56,9 @@ for by in range(n):
         cost = np.zeros(len(cands), np.float32)
         if bx > 0: cost += ((cands[:, :, :O] - res[y:y + B, x:x + O]) ** 2).sum((1, 2, 3))
         if by > 0: cost += ((cands[:, :O, :] - res[y:y + O, x:x + B]) ** 2).sum((1, 2, 3))
-        best = cost.min()
-        pick = rng.choice(np.flatnonzero(cost <= best * 1.1 + 1e-6))
+        # choose among the thirty best, not the best: always taking the best lays the same quiet block again and
+        # again, which shows as a honeycomb
+        pick = rng.choice(np.argpartition(cost, 30)[:30])
         blk = cands[pick].copy()
         mask = np.ones((B, B), bool)
         if bx > 0: mask[:, :O] &= min_cut(((blk[:, :O] - res[y:y + B, x:x + O]) ** 2).sum(2))

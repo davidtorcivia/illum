@@ -39,7 +39,7 @@ void main(){
   E += near * (facing > 0. ? .12 * facing : uEdge * facing * pat);
   vec3 c = toS(clamp(ramp(E), 0., 1.));
   vec2 sp = (px * uFlip * uDetailScale + uOff) / vec2(textureSize(uDetail, 0));
-  float dv = texture(uDetail, sp).r / 255. * uHand; dv = dv < 0. ? dv * 1.25 : dv * .7;
+  float dv = (texture(uDetail, sp).r * 255. - 128.) / 127. * 48. / 255. * uHand; dv = dv < 0. ? dv * 1.25 : dv * .7;
   c += dv;
   o = vec4(clamp(c, 0., 1.) * m.r, m.r);
 }`;
@@ -55,7 +55,11 @@ export function goldShader(canvas, M, B, cw, ch, detail, { dpr = 2, W = 100, see
     gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, w, h, 0, fmt, gl.FLOAT, data); };
   const mb = new Float32Array(cw * ch * 2); for (let i = 0; i < cw * ch; i++) { mb[i * 2] = M[i]; mb[i * 2 + 1] = B[i]; }
   tex(0, cw, ch, gl.RG, gl.RG32F, mb, gl.CLAMP_TO_EDGE);
-  tex(1, detail.S, detail.S, gl.RED, gl.R32F, detail.H, gl.REPEAT);
+  // the detail as 8-bit around 128 so it can be filtered smoothly (float textures cannot, without an extension)
+  { const t = gl.createTexture(), d8 = new Uint8Array(detail.S * detail.S); for (let i = 0; i < d8.length; i++) d8[i] = Math.max(0, Math.min(255, Math.round(128 + detail.H[i] / 48 * 127)));
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT], [gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, detail.S, detail.S, 0, gl.RED, gl.UNSIGNED_BYTE, d8); }
   const U = n => gl.getUniformLocation(pr, n), r = (seed * 9301 + 49297) % 233280 / 233280;
   gl.uniform1i(U('uMask'), 0); gl.uniform1i(U('uDetail'), 1); gl.uniform2f(U('uSize'), cw, ch); gl.uniform1f(U('uPx'), 1 / dpr); gl.uniform1f(U('uW'), W);
   gl.uniform1f(U('uSeed'), seed % 97); gl.uniform1f(U('uDetailScale'), detailScale); gl.uniform1f(U('uAmp'), amp); gl.uniform1f(U('uEdge'), edge); gl.uniform1f(U('uHand'), hand); gl.uniform1f(U('uFlip'), r < .5 ? -1 : 1);

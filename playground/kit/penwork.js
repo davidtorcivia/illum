@@ -73,6 +73,23 @@ function clearance(x0, y0, w, h, blocked, cap) {
   return { get, stamp, C };
 }
 
+// ---- the letter --------------------------------------------------------------------------------------------------------------
+// The reserved hairline: down the thickest strokes the paint is kept off a fine line of bare parchment, as the
+// limner did on the blue letters of 466179. Returns a copy of the mask with the slot cut out (frac: how much of the
+// thickest stroke qualifies; width in px).
+export function reserve({ M, w, h, res }, frac = .8, width = .7) {
+  const ink = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) ink[i] = M[i] <= .5;
+  const Din = edt(ink, w, h); let mx = 0; for (const v of Din) mx = Math.max(mx, v);
+  const out = Float32Array.from(M), t = mx * frac;
+  for (let i = 0; i < w * h; i++) { const v = Din[i]; if (v < t) continue;
+    // the slot is the ridge of the distance field: cells whose distance hardly rises in any direction
+    const x = i % w, y = (i / w) | 0; if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
+    const gx = (Din[i + 1] - Din[i - 1]) / 2, gy = (Din[i + w] - Din[i - w]) / 2, gm = Math.hypot(gx, gy);
+    const k = Math.max(0, Math.min(1, (.62 - gm) / .3)) * Math.min(1, (v - t) / (res * .6));
+    out[i] = M[i] * (1 - k); }
+  return out;
+}
+
 // ---- the flourish -------------------------------------------------------------------------------------------------------------
 // glyph: { M, w, h, x0, y0, res } coverage mask of the painted letter (res cells per px), its top-left at page x0, y0.
 // field: [x0, y0, x1, y1] the cloud the penwork may fill. keep: rects [x0, y0, x1, y1] of words (already padded).
@@ -110,15 +127,36 @@ export function flourish({ glyph, field, keep = [], staff = null, g = 3, echoes 
     if (x > 0) st.push(i - 1); if (x < gw - 1) st.push(i + 1); if (i >= gw) st.push(i - gw); if (i < gw * (gh - 1)) st.push(i + gw); }
   const isCounter = (p) => { const i = Math.round((p[0] - gx) * res), j = Math.round((p[1] - gy) * res); return i >= 0 && j >= 0 && i < gw && j < gh && !ink[j * gw + i] && !outside[j * gw + i]; };
 
-  // 1. echoes: the contour at an even gap, outside the letter and round inside each counter
+  // the letter's box and the outward normal of its distance field (pointing away from the ink)
+  let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9;
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) if (ink[j * gw + i]) { bx0 = Math.min(bx0, i); bx1 = Math.max(bx1, i); by0 = Math.min(by0, j); by1 = Math.max(by1, j); }
+  const box = [gx + bx0 / res, gy + by0 / res, gx + (bx1 + 1) / res, gy + (by1 + 1) / res];
+  const dl = (x, y) => { const i = Math.max(0, Math.min(gw - 1, Math.round((x - gx) * res))), j = Math.max(0, Math.min(gh - 1, Math.round((y - gy) * res))); return Dl[j * gw + i] / res; };
+  const outward = p => { const e = .75, nx = dl(p[0] + e, p[1]) - dl(p[0] - e, p[1]), ny = dl(p[0], p[1] + e) - dl(p[0], p[1] - e), l = Math.hypot(nx, ny) || 1; return [nx / l, ny / l]; };
+  const fits = (pts, skip, split = 0) => { let s = 0;
+    for (let i = 1; i < pts.length; i++) { s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); if (s < skip) continue;
+      if (CL.get(pts[i][0], pts[i][1]) < g * .85) return false; }
+    // a scroll's turns keep the gap by construction; its stem must keep it from the turns (split: where the stem ends)
+    if (split) { const sp = pts.slice(split + Math.ceil(g * 3)); for (let i = 0; i < split; i++) for (const q of sp) if (Math.hypot(pts[i][0] - q[0], pts[i][1] - q[1]) < g * .85) return false; }
+    return true; };
   const hosts = [];
+  // a line that stops in open paper turns over into a curl, away from the letter, if there is room for one
+  const curlOff = (run, atEnd, size) => {
+    const P = atEnd ? run : [...run].reverse(), n = P.length, t = tangentAt(P, n - 1), h = Math.atan2(t[1], t[0]);
+    let best = null;
+    for (const sg of [1, -1]) { const c = tendril(P[n - 1], h, size * 2 * Math.PI * 1.5 * 2.3, sg * .02, sg / size, 1.3, .5);
+      if (!fits(c, g * .8)) continue; const m = c[(c.length * .6) | 0], away = dl(m[0], m[1]); if (!best || away > best.away) best = { c, away }; }
+    return best && best.c;
+  };
+
+  // 1. echoes: hairlines at an even gap round the inside of every counter, and outside only along the letter's top,
+  // where the margin and the paper above are open (the sides that face the words are left plain)
   for (let k = 1; k <= Math.max(echoes, inner); k++) {
     const d = g * k * (1 + (r() - .5) * .08);
     for (const line of isolines(Dl, gw, gh, d * res)) {
       const pts = line.map(toPage), closed = pts.length > 3 && Math.hypot(pts[0][0] - pts.at(-1)[0], pts[0][1] - pts.at(-1)[1]) < .01;
       const inCounter = isCounter(pts[(pts.length / 2) | 0]); if (k > (inCounter ? inner : echoes)) continue;
-      // cut the line where it would come too near words or leave the field; keep runs long enough to read as drawn
-      const ok = p => c0(p[0], p[1]) >= g * .7 || isCounter(p);
+      const ok = inCounter ? () => true : p => { const n = outward(p); return n[1] < -.55 && n[0] < .5 && c0(p[0], p[1]) >= g * .7; };
       let runs = [], cur = [];
       for (const p of pts) { if (ok(p)) cur.push(p); else { if (cur.length) runs.push(cur); cur = []; } }
       if (cur.length) runs.push(cur);
@@ -127,61 +165,74 @@ export function flourish({ glyph, field, keep = [], staff = null, g = 3, echoes 
       for (const run of runs) {
         if (arclen(run) < g * 4) continue;
         let p = chaikin(resample(run, 1.2), 2, whole); p = wander(p, g * .07, seed + k * 31 + out.length, 22);
-        accept(p, 'echo', { w: .62 - k * .03, start: whole ? 'cut' : 'taper', end: whole ? 'cut' : 'taper', closed: whole, level: k });
+        if (!whole) { const a = curlOff(p, false, g * (.45 + .1 * k)), b = curlOff(p, true, g * (.5 + .1 * k));
+          if (a) p = [...a.reverse(), ...p]; if (b) p = [...p, ...b.slice(1)];
+          accept(p, 'echo', { w: .6, start: a ? 'pool' : 'taper', end: b ? 'ball' : 'taper', level: k }); }
+        else accept(p, 'echo', { w: .6 - k * .03, start: 'cut', end: 'cut', closed: true, level: k });
         hosts.push({ pts: p, depth: 0, level: k, counter: inCounter });
       }
     }
   }
-  // 2. the staff: a pair of hairlines down the margin, slow, never quite parallel, a curl at each end
+  // 2. the staff: a pair of hairlines close beside the letter and on down the margin, slow, never quite parallel;
+  // at the head the inner one turns over the letter and the outer one out into the margin; the outer foot curls
   if (staff) {
     const sx = staff.x, s = staff.side;
     for (let k = 0; k < 2; k++) {
-      const x = sx + s * k * g * 1.05, y0 = staff.y0 - k * g * .6, y1 = staff.y1 - k * g * 1.4;
-      const body = wander([[x, y0], [x, (y0 + y1) / 2], [x, y1]], g * .14, seed + 900 + k, 60);
-      // the foot turns out into the margin and curls; the head turns the other way
-      const foot = tendril(body.at(-1), Math.PI / 2, 26 + 10 * k + r() * 8, 0, s * -(.28 + r() * .08), 1.8);
-      const head = tendril(body[0], -Math.PI / 2, 18 + 8 * k + r() * 6, 0, s * (.32 + r() * .08), 1.8).reverse();
+      const x = sx + s * k * g * 1.05, y0 = staff.y0 - k * g * .5, y1 = staff.y1 + (k ? g * 2 : -g * 1.5);
+      const body = wander([[x, y0], [x, (y0 + y1) / 2], [x, y1]], g * .12, seed + 900 + k, 60);
+      const head = tendril(body[0], -Math.PI / 2, (k ? 16 : 22) + r() * 6, 0, (k ? s : -s) * (.3 + r() * .08), 1.6).reverse();
+      const foot = k ? tendril(body.at(-1), Math.PI / 2, 24 + r() * 8, 0, -s * (.3 + r() * .06), 1.6) : tendril(body.at(-1), Math.PI / 2, 7, 0, s * .03, 1);
       const pts = [...head.slice(0, -1), ...body, ...foot.slice(1)];
-      accept(pts, 'staff', { w: .7, start: 'ball', end: 'ball' });
-      hosts.push({ pts: body, depth: 0, staff: true });
+      accept(pts, 'staff', { w: .66, start: 'pool', end: k ? 'ball' : 'taper' });
+      hosts.push({ pts: body, depth: 0, staff: k }); if (!k) hosts.push({ pts: head, depth: 0, maxR: g * 1.6 });
     }
-    // knots: every two lines or so a short bar ties the pair, as the scribe's pen crossed back
-    const n = Math.floor((staff.y1 - staff.y0) / (g * 11));
-    for (let i = 1; i < n; i++) { const y = staff.y0 + (staff.y1 - staff.y0) * i / n + (r() - .5) * g * 2;
-      const a = [sx + s * -g * .7, y], b = [sx + s * g * 1.8, y + g * .5]; accept([a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - .4], b], 'knot', { w: .55, start: 'taper', end: 'taper', soft: true }); }
+    // knots: here and there a short bar ties the pair, as the pen crossed back (never beside the letter itself)
+    const n = Math.floor((staff.y1 - staff.y0) / (g * 13));
+    for (let i = 1; i < n; i++) { const y = staff.y0 + (staff.y1 - staff.y0) * i / n + (r() - .5) * g * 2; if (y > box[1] - g * 2 && y < box[3] + g * 2) continue;
+      const a = [sx - s * g * .3, y], b = [sx + s * g * 1.75, y + g * .35]; accept([a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - .3], b], 'knot', { w: .5, start: 'taper', end: 'taper' }); }
   }
   // 3. scrolls: from points along the lines already drawn, small fiddleheads sprout into the open paper, the largest
-  // that fits first, each ending in a bead. A scroll's own stem can carry a smaller one.
-  const fits = (pts, skip) => { let s = 0;
-    for (let i = 1; i < pts.length; i++) { s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); if (s < skip) continue;
-      if (CL.get(pts[i][0], pts[i][1]) < g * .85) return false; }
-    // the scroll's turns must keep the gap from one another
-    const q = resample(pts, 1); for (let i = 0; i < q.length; i += 2) for (let j = i + Math.ceil(g * 4.2); j < q.length; j += 2)
-      if (Math.hypot(q[i][0] - q[j][0], q[i][1] - q[j][1]) < g * .8) return false;
-    return true; };
-  const scroll = (p, t, side, dir, size) => {
-    const d = [t[0] * dir, t[1] * dir], lean = side * dir, h = Math.atan2(d[1], d[0]) + lean * (.45 + r() * .3);
-    const rEnd = size * (.9 + r() * .3), turns = 1.15 + r() * .5, pw = 2.1, L = 2 * Math.PI * turns * (pw + 1) * rEnd / 1.0;
-    return tendril(p, h, L, lean * .01, lean / rEnd, pw, .5);
+  // that fits first, each ending in a bead; a scroll's own stem can carry a smaller one. They come thicker near the
+  // letter and thin out down the staff.
+  // a scroll: a short stem leaving the line at a slant, then a spiral whose turns keep the gap, finished in a bead.
+  // R is its outer radius; sense chooses which way it winds (toward the line it hangs from, or away)
+  const scroll = (p, t, side, dir, R, sense) => {
+    const d = [t[0] * dir, t[1] * dir], n = [-t[1] * side, t[0] * side], rot = (v, a) => [v[0] * Math.cos(a) - v[1] * Math.sin(a), v[0] * Math.sin(a) + v[1] * Math.cos(a)];
+    const turnN = Math.sign(d[0] * n[1] - d[1] * n[0]);   // rotating d by +turnN·angle swings it toward n
+    const a0 = (.3 + r() * .35) * turnN, a1 = (.75 + r() * .6) * turnN, e0 = rot(d, a0), e = rot(d, a1), Ls = g * (1.2 + r() * 2.2) + R * .4;
+    const q = [p[0] + (e0[0] + e[0]) / 2 * Ls, p[1] + (e0[1] + e[1]) / 2 * Ls];
+    const stem = []; for (let i = 0; i <= 12; i++) { const u = i / 12, v = 1 - u, c1 = [p[0] + e0[0] * Ls / 3, p[1] + e0[1] * Ls / 3], c2 = [q[0] - e[0] * Ls / 3, q[1] - e[1] * Ls / 3];
+      stem.push([0, 1].map(k => v * v * v * p[k] + 3 * v * v * u * c1[k] + 3 * v * u * u * c2[k] + u * u * u * q[k])); }
+    const sg = sense * turnN, rin = g * (.42 + r() * .1), T = Math.max(.75, Math.min(2.1, (R - rin) / (g * (1 + r() * .15))));
+    const cdir = rot(e, sg * Math.PI / 2), c = [q[0] + cdir[0] * R, q[1] + cdir[1] * R], phi0 = Math.atan2(-cdir[1], -cdir[0]), Th = 2 * Math.PI * T;
+    // a hand's spiral is never round: a little oval, tilted its own way
+    const ov = .1 + r() * .12, tilt = r() * Math.PI, sp = [];
+    for (let th = 0; th <= Th; th += .81 / Math.max(R, 1)) { const a = phi0 + sg * th, rr = (R - (R - rin) * Math.pow(th / Th, .92)) * (1 + ov * Math.cos(2 * (a - tilt)) - ov * Math.cos(2 * (phi0 - tilt)) * Math.max(0, 1 - th / 1.2));
+      sp.push([c[0] + Math.cos(a) * rr, c[1] + Math.sin(a) * rr]); }
+    return [...stem, ...sp.slice(1)];
   };
-  const SIZES = [2.4, 2, 1.65, 1.35, 1.1].map(v => v * g / 3);
+  const SIZES = [2.3, 1.9, 1.55, 1.25, 1].map(v => v * g);
+  const far = p => Math.max(0, p[1] - box[3], box[1] - p[1]) / Math.max(10, box[3] - box[1]);
   for (let pass = 0; pass < 3; pass++) {
-    const list = hosts.filter(h => h.depth === pass);
+    const list = hosts.filter(h => h.depth === pass && h.staff !== 0);
     for (const host of list) {
-      const P = resample(host.pts, 1), n = P.length, step = g * (3.4 + r() * 1.2) / density;
-      for (let s0 = g * 2 + r() * step; s0 < n - g * 2; s0 += step * (.8 + r() * .5)) {
-        const i = Math.round(s0), p = P[i], t = tangentAt(P, i);
+      const P = resample(host.pts, 1), n = P.length, base = g * (3.6 + r() * 1.2) / density, maxR = host.maxR ?? SIZES[0];
+      for (let s0 = g * 2 + r() * base; s0 < n - g * 2;) {
+        const i = Math.round(s0), p = P[i], t = tangentAt(P, i), step = base * (1 + 2.2 * far(p));
+        s0 += step * (.8 + r() * .5);
         for (const side of r() < .5 ? [1, -1] : [-1, 1]) {
           const nrm = [-t[1] * side, t[0] * side], probe = [p[0] + nrm[0] * g * 1.6, p[1] + nrm[1] * g * 1.6];
           if (CL.get(probe[0], probe[1]) < g * 1.1) continue;
           const dirs = r() < .5 ? [1, -1] : [-1, 1];
           let done = false;
-          for (const size of SIZES) { for (const dir of dirs) {
-            const pts = scroll(p, t, side, dir, size); if (!fits(pts, g * 1.3)) continue;
-            accept(pts, 'scroll', { w: .55, start: 'cut', end: 'ball', depth: pass });
-            const stemPart = pts.slice(0, Math.floor(pts.length * .45)); if (pass < 2) hosts.push({ pts: stemPart, depth: pass + 1 });
-            done = true; break; } if (done) break; }
-          if (done) { s0 += step * .6; break; }
+          const big = SIZES.filter(v => v <= maxR * (1 - .25 * pass));
+          for (const R of big) { for (const dir of dirs) for (const sense of r() < .6 ? [1, -1] : [-1, 1]) {
+            if (done) break;
+            const pts = scroll(p, t, side, dir, R * (.92 + r() * .16), sense); if (!fits(pts, g * 1.3, 13)) continue;
+            accept(pts, 'scroll', { w: .52, start: 'cut', end: 'ball', depth: pass });
+            if (pass < 2) hosts.push({ pts: pts.slice(0, 13 + Math.floor((pts.length - 13) * .3)), depth: pass + 1 });
+            done = true; } if (done) break; }
+          if (done) { s0 += step * .5; break; }
         }
       }
     }

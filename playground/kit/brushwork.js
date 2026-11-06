@@ -21,7 +21,7 @@ function distance(M, w, h) {
 }
 
 // M: coverage (device px, cw × ch) at page x0, y0. tones: [dark, mid, light] sRGB; light: unit vector toward the light.
-export function paintShape(g, M, x0, y0, cw, ch, { tones, white = [252, 249, 240], light = [-.6, -.8], dpr = 2, seed = 1, brush = 2.2, density = 1, hatch = 1, paper = PAPER, under = null } = {}) {
+export function paintShape(g, M, x0, y0, cw, ch, { tones, white = [252, 249, 240], light = [-.6, -.8], dpr = 2, seed = 1, brush = 2.2, density = 1, hatch = 1, paper = PAPER, under = null, strokes = true, whiteOnly = false } = {}) {
   const r = mulberry(seed), wob = noise2(seed ^ 0x5a), tooth = noise2(seed ^ 0x77), px = 1 / dpr;
   const D = distance(M, cw, ch), Db = blur(blur(D, cw, ch, Math.max(1, Math.round(1.5 * dpr))), cw, ch, Math.max(1, Math.round(1.5 * dpr)));
   let Dmax = 0; for (let i = 0; i < cw * ch; i++) if (D[i] > Dmax) Dmax = D[i];
@@ -41,8 +41,8 @@ export function paintShape(g, M, x0, y0, cw, ch, { tones, white = [252, 249, 240
   // paint everything on its own layer, then keep only what lies in the shape (a hair's breadth over its edge)
   const L = new OffscreenCanvas(cw, ch), c = L.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, -x0 * dpr, -y0 * dpr); c.lineCap = 'round';
   // underpainting: the flat mid tone, washed, so no paper shows between strokes
-  paintField(c, M, x0, y0, cw, ch, under ?? 'rose', { dpr, seed });
-  { const id = new ImageData(cw, ch); for (let i = 0; i < cw * ch; i++) if (M[i] > 0) { const t = tone(Math.min(cw * ch - cw - 2, Math.max(cw + 1, i))), col = mix(t * .8 + .1);
+  if (!whiteOnly) paintField(c, M, x0, y0, cw, ch, under ?? 'rose', { dpr, seed });
+  if (!whiteOnly) { const id = new ImageData(cw, ch); for (let i = 0; i < cw * ch; i++) if (M[i] > 0) { const t = tone(Math.min(cw * ch - cw - 2, Math.max(cw + 1, i))), col = mix(t * .8 + .1);
       id.data[i * 4] = col[0]; id.data[i * 4 + 1] = col[1]; id.data[i * 4 + 2] = col[2]; id.data[i * 4 + 3] = 255 * M[i] * .9; }
     const t2 = new OffscreenCanvas(cw, ch); t2.getContext('2d').putImageData(id, 0, 0); c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(t2, 0, 0); c.restore(); }
   // a stroke: walk the axis field, then lay a few hairs side by side that thin and skip as the brush dries
@@ -65,7 +65,7 @@ export function paintShape(g, M, x0, y0, cw, ch, { tones, white = [252, 249, 240
   };
   const area = []; for (let i = 0; i < cw * ch; i++) if (M[i] > .5) area.push(i);
   const passes = [[.55, brush, 2.4, .38, 'mid'], [.3, brush * .8, 1.8, .5, 'light']];
-  for (const [dens, bw, lenK, alpha, kind] of passes) {
+  for (const [dens, bw, lenK, alpha, kind] of strokes ? passes : []) {
     const n = Math.round(area.length * px * px / (bw * bw * 3.2) * dens * density);
     for (let k = 0; k < n; k++) {
       const i = area[(r() * area.length) | 0], t = tone(i);
@@ -89,4 +89,27 @@ export function paintShape(g, M, x0, y0, cw, ch, { tones, white = [252, 249, 240
   const mc = new OffscreenCanvas(cw, ch); mc.getContext('2d').putImageData(mk, 0, 0);
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'destination-in'; c.drawImage(mc, 0, 0);
   g.drawImage(L, x0, y0, cw * px, ch * px);
+}
+
+// The outlines of a mask as closed polylines in page px (marching squares at the 0.5 level, segments linked into
+// loops, lightly smoothed), so the pen can draw a shape's real edge rather than a uniform stroked font outline.
+export function contours(M, cw, ch, { dpr = 2, x0 = 0, y0 = 0, min = 12 } = {}) {
+  const v = (x, y) => (x < 0 || y < 0 || x >= cw || y >= ch) ? 0 : M[y * cw + x], segs = new Map(), key = p => `${p[0].toFixed(3)},${p[1].toFixed(3)}`;
+  const lerp = (x0_, y0_, a, x1_, y1_, b) => { const t = (.5 - a) / ((b - a) || 1e-6); return [x0_ + (x1_ - x0_) * t, y0_ + (y1_ - y0_) * t]; };
+  const add = (a, b) => { (segs.get(key(a)) ?? segs.set(key(a), []).get(key(a))).push(b); };
+  for (let y = -1; y < ch; y++) for (let x = -1; x < cw; x++) {
+    const a = v(x, y), b = v(x + 1, y), c = v(x + 1, y + 1), d = v(x, y + 1);
+    const idx = (a > .5) | (b > .5) << 1 | (c > .5) << 2 | (d > .5) << 3; if (!idx || idx === 15) continue;
+    const T = lerp(x, y, a, x + 1, y, b), R = lerp(x + 1, y, b, x + 1, y + 1, c), B = lerp(x, y + 1, d, x + 1, y + 1, c), L = lerp(x, y, a, x, y + 1, d);
+    const E = { 1: [[L, T]], 2: [[T, R]], 3: [[L, R]], 4: [[R, B]], 5: [[L, T], [R, B]], 6: [[T, B]], 7: [[L, B]], 8: [[B, L]], 9: [[B, T]], 10: [[T, R], [B, L]], 11: [[B, R]], 12: [[R, L]], 13: [[R, T]], 14: [[T, L]] }[idx];
+    for (const [p, q] of E) add(p, q);
+  }
+  const loops = [];
+  for (const [k0] of segs) {
+    let k = k0; const loop = [];
+    while (segs.has(k) && segs.get(k).length) { const nx = segs.get(k).pop(); loop.push(k.split(',').map(Number)); k = key(nx); if (k === k0) break; }
+    if (loop.length >= min) loops.push(loop);
+  }
+  return loops.map(l => { let p = l; for (let it = 0; it < 2; it++) p = p.map((q, i) => { const a = p[(i - 1 + p.length) % p.length], b = p[(i + 1) % p.length]; return [(a[0] + 2 * q[0] + b[0]) / 4, (a[1] + 2 * q[1] + b[1]) / 4]; });
+    return p.filter((_, i) => i % 2 === 0).map(([x, y]) => [x0 + (x + .5) / dpr, y0 + (y + .5) / dpr]); });
 }

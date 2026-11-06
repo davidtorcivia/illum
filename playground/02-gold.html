@@ -51,7 +51,8 @@ import { pen, spline, paintField, wash, mulberry, PAPER } from './kit/marks.js';
 import { goldFields, goldStill, goldLit } from './kit/gold.js';
 import { loadGold, goldLeaf, softEdge } from './kit/goldleaf.js';
 import { goldShader } from './kit/goldgl.js';
-import { paintShape } from './kit/brushwork.js';
+import { paintShape, contours } from './kit/brushwork.js';
+import { paintPass } from './kit/paintpass.js';
 const DETAIL = await loadGold();
 const INK = [36, 25, 18], LIGHT = [-.55, .83];
 await document.fonts.ready;
@@ -81,12 +82,19 @@ function masks(W, dpr, letter) {
 // paint the letter and the counters, then the ink: on its own layer, over the gold
 function paintLetter(g, W, dpr, mk, letter) {
   const { cw, L, C, fs, base } = mk;
-  // painted with the brush: the counter in lapis, darker under the letter's edge; the letter in rose, modelled from
-  // its shadowed side to its lit side, lifted with white
-  paintShape(g, C, 0, 0, cw, cw, { tones: [[22, 30, 78], [40, 56, 124], [78, 98, 168]], under: 'lapis', dpr, seed: 3, brush: 2.2, hatch: 0 });
-  paintShape(g, L, 0, 0, cw, cw, { tones: [[170, 82, 92], [212, 132, 138], [238, 184, 178]], under: 'rose', dpr, seed: 4, brush: 2.2, hatch: 1.2 });
-  g.save(); g.font = `600 ${fs}px "EB Garamond"`; g.textAlign = 'center'; g.lineJoin = 'round'; g.strokeStyle = 'rgb(36 25 18)'; g.lineWidth = .7;
-  g.strokeText(letter, W / 2 + .4, base + .3); g.restore();
+  // painted: a smooth modelled underpainting (counter in lapis, darker under the letter's edge; letter in rose, from its
+  // shadowed side to its lit side), on its own layer, then the painterly pass of pie-site over it, then the white
+  const P = new OffscreenCanvas(cw, cw), pg = P.getContext('2d'); pg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // the underpainting carries the variety the brush will drag: streaks of darker and lighter along the form
+  paintShape(pg, C, 0, 0, cw, cw, { tones: [[18, 26, 70], [40, 56, 124], [92, 112, 182]], under: 'lapis', dpr, seed: 3, hatch: 0, brush: 2.6 });
+  paintShape(pg, L, 0, 0, cw, cw, { tones: [[160, 70, 84], [212, 132, 138], [246, 196, 188]], under: 'rose', dpr, seed: 4, hatch: 0, brush: 2.4 });
+  const before = new OffscreenCanvas(cw, cw); before.getContext('2d').drawImage(P, 0, 0);
+  paintPass(P, dpr * PP, { seed: 7 });
+  { const k = P.getContext('2d'); k.save(); k.setTransform(1, 0, 0, 1, 0, 0); k.globalCompositeOperation = 'destination-over'; k.drawImage(before, 0, 0); k.restore(); }
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(P, 0, 0); g.restore();
+  paintShape(g, L, 0, 0, cw, cw, { tones: [[0, 0, 0], [0, 0, 0], [0, 0, 0]], dpr, seed: 4, hatch: 1.1, strokes: false, under: null, whiteOnly: true });
+  // the letter's own edge, drawn with the pen, heavier on the side away from the light, a little off the paint
+  contours(L, cw, cw, { dpr, x0: .35, y0: .3 }).forEach((loop, k) => pen(g, [...loop, loop[0], loop[1]], { w: 1.05, seed: 40 + k, start: 'cut', end: 'cut', shade: LIGHT, broad: .25, load: 1 }));
   const r = mulberry(11), e = 3, wob = (a, b) => spline(Array.from({ length: 7 }, (_, k) => [a[0] + (b[0] - a[0]) * k / 6 + (k % 6 ? (r() - .5) * .7 : 0), a[1] + (b[1] - a[1]) * k / 6 + (k % 6 ? (r() - .5) * .7 : 0)]), 6);
   const sq = [...wob([e, e], [W - e, e]), ...wob([W - e, e], [W - e, W - e]), ...wob([W - e, W - e], [e, W - e]), ...wob([e, W - e], [e, e])];
   pen(g, [...sq, sq[0], sq[1]], { w: 1.3, seed: 9, start: 'cut', end: 'cut', shade: LIGHT, broad: .2, load: 1 });
@@ -145,6 +153,7 @@ function specimen(W, zoom, letter, lit) {
   return box;
 }
 const row = document.getElementById('row'), fig = (el, cap) => { const f = document.createElement('figure'), c = document.createElement('figcaption'); c.textContent = cap; f.append(el, c); return f; };
+const PP = +(new URLSearchParams(location.search).get('pp') ?? .8);
 const params = new URLSearchParams(location.search), L1 = params.get('letter') ?? 'D', CUSH = +(params.get('cushion') ?? .025), WAVES = +(params.get('waves') ?? 1.5);
 const liverow = document.getElementById('liverow'), live = liveSpecimen(100, 3, L1, 1.2);
 liverow.append(fig(liveSpecimen(100, 1, L1, 1.2), 'At size, 100 px.'));
