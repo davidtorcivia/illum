@@ -7,26 +7,42 @@
 <!--
   03 · Penwork initial
 
-  Instruction: paint the letter flat in one colour; then, with a fine pen in the other colour, draw hairlines that
-  follow its contour at an even gap, outside and round inside its counters, rule a pair of hairlines down the margin
-  beside the text, and let small scrolls sprout from those lines into whatever paper is left, each ending in a bead,
-  until no scroll will fit.
+  Instruction: paint the letter flat in one colour; then, with a fine pen in the other, set an eye (a ring, a dot,
+  small lobes) in each counter and in a bay beside the letter; rule hairlines straight down, close and even, through
+  every open place in the letter and the panel beside it, stopping short of whatever they meet; cap the panel with an
+  arch and an eye standing on it; string scallops along its edges, and run its outer line on down the margin as the
+  staff, with scallops in runs and now and then an eye hung from it, ending in a curl.
 
   Function: wayfinding (06-purpose §3). The opening paragraph gets a three-line initial, a later one a one-line
   initial in the other colour, so rank is visible at 10%. Text stays text: the letter is in the DOM (transparent),
-  the paint behind it.
+  the paint behind it, registered to the glyph (?ghost shows the DOM letter over the paint).
 
-  After pen-flourished initials, c. 1230–1400, studied at full resolution from the Met: Decretals of Gratian, French
-  c. 1290 (466179: blue letters, pale red hairlines along the margin side, a staff of two or three hairlines running
-  lines above and below); Bible, French c. 1235 (467422: the staff ending in a curl, small scrolls off it); Italian
-  leaf, 14th c. (469041: contour echoes in the counter, circlets, a loose tail with beads); antiphonary, Italian
-  14th c. (466790: red echoes on a blue letter). Marks: kit/marks.js; growth: kit/penwork.js.
-  Text: Ruskin, The Stones of Venice II (1853), ch. VI §§ XXVIII–XXIX, Project Gutenberg #30755. EB Garamond, SIL OFL.
+  Sources, studied at full resolution (Met Open Access, all public domain):
+  - 466773, leaf from a psalter (King David in an initial I), North Italian, early 15th c.; its Lombardic initials
+    give the vocabulary. Dense vertical hairlines
+    in the counters and beside the letter; eyes in bays where the hairlines part; scallop chains along the edges;
+    arches with eyes as caps; hooks with a bead. Regular in rhythm, irregular in execution.
+  - 466179, Decretals of Gratian, French c. 1290, and 467422, Bible, French c. 1235: the staff, two hairlines running
+    lines below the letter on the margin side, ending in a curl.
+  - 469041 and 466790, Italian 14th c.: contour-hugging red penwork on blue letters, circlets on the tail.
+  Marks: kit/marks.js (pen, paintField, dot); geometry: kit/penwork.js (distance fields, room by clearance, the
+  flourish). Text: Ruskin, The Stones of Venice II (1853), ch. VI §§ XXVIII–XXIX, Project Gutenberg #30755.
+  EB Garamond, SIL OFL. The letter is EB Garamond 600 made to read drawn (edge moved ~1 px at a 25 px wavelength,
+  so the strokes swell and thin); Uncial Antiqua was tried and rejected: its B is a low Celtic form that reads as
+  signage, not Lombardic. A roman capital with penwork has precedent in Italian humanist books.
 
-  Seed: a hash of the text; #seed=N overrides. ?draw plays it as made: the letter laid with the brush, then the
-  penwork drawn stroke by stroke at a hand's pace. Never under prefers-reduced-motion; the still page is the same
-  score played at once. ?ghost shows the DOM letter over the paint (registration check).
-  Score 2026-11-06 (self): see the line at the end of this comment.
+  Seed: a hash of the text; #seed=N overrides (each initial takes its own stream). ?draw plays it as made: the
+  letter laid with the brush, then the penwork mark by mark at a hand's pace (~9 s). Never under
+  prefers-reduced-motion; the still page is the same score played at once.
+
+  Score 2026-11-06 (self, before the user has seen it): Beauty 2 (line quality 2: hairlines waver and swell, scallops
+  vary; colour 2; rhythm 2: hatching even, scallop runs; proportion 2: the field is compact beside a modest 3-line
+  letter). Under 4x it reads as drawn; at 1x it reads as penwork, not as texture. Short of the reference: the letter
+  is a roman B, not a Lombardic form, so the whole lacks the swelling body the penwork answers to; eyes and scallops
+  are drawn with one hand's vocabulary and fewer kinds than 466773 (no hooks with dropped teardrops at the outer
+  edge, no lobed caps on every panel); the staff's scallop runs can still read as a zipper; the right side of the
+  letter (toward the words) gets only a few hairlines. Open: compose ~90 ms on the main thread (budget 50; worker
+  next); a borderline room test can fall either way between browsers, so one eye may come or go.
 -->
 <style>
   @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
@@ -38,7 +54,7 @@
   .sheet canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
   .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; }
   h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .15em; }
-  .sub { font-style: italic; margin: 0 0 1.6em; }
+  .sub { font-style: italic; margin: 0 0 2.1em; }
   p { margin: 0; } p + p:not(.sub + p) { text-indent: 1.5em; }
   .text p.later { text-indent: 0; }
   /* the letter is text; its paint is on the canvas behind. Sizes are set from the font's metrics once it has loaded */
@@ -72,7 +88,7 @@
 
 <script type="module">
 import { pen, dot, paintField, fnv } from './kit/marks.js';
-import { flourish, drawn } from './kit/penwork.js';
+import { flourish, drawn, arclen } from './kit/penwork.js';
 
 const q = new URLSearchParams(location.search);
 if (q.has('ghost')) document.body.classList.add('ghost');
@@ -130,30 +146,29 @@ function compose(mode) {
   document.querySelectorAll('.ini').forEach((span, k) => {
     const n = +span.dataset.lines, pig = n > 1 ? 'azurite' : 'minium', ink = INKS[pig], seed = (SEED + k * 7919) >>> 0;
     const G = glyphOf(span, sr, 4), [lx0, ly0, lx1, ly1] = G.box, Hl = ly1 - ly0;
-    // the field: a square round the letter, wider on the margin side, its frame running on down the margin as the
-    // staff (never nearer the sheet's edge than 14 px)
+    // the panel of hairlines beside the letter on the margin side, its outer line running on down as the staff (never
+    // nearer the sheet's edge than 14 px)
     const big = n > 1, gap = big ? 2.6 : 2.1, room = Math.max(0, lx0 - 14 - gap * 3);
-    const field = big ? [lx0 - Math.min(.36 * Hl, room), ly0 - .24 * Hl, lx1 + lh * .42 - 1, ly1 + .06 * Hl] : [lx0 - Math.min(11, room), ly0 - 3, lx1 + 2, ly1 + 2];
+    const panel = big ? [lx0 - Math.min(.52 * Hl, room), ly0 - .06 * Hl, lx0 - gap * .7, ly1] : [lx0 - Math.min(8.5, room), ly0 - 1, lx0 - gap * .6, ly1 + 1];
     const staff = { y1: big ? ly1 + Math.round(5.5 * lh) : ly1 + 1.6 * lh };
     const L = drawn(G, seed, big ? .8 : .45);
-    const marks = flourish({ glyph: L, field, keep, staff, g: gap, eyes: big ? 2 : 0, seed });
+    const marks = flourish({ glyph: L, panel, keep, staff, g: gap, seed });
     // the letter first, laid with the brush from the top down; then the pen, mark after mark
     const paint = c => paintField(c, L.M, G.x0, G.y0, G.w, G.h, pig, { dpr: 4, seed, strength: 1 });
     const box = [G.x0, G.y0, G.w / 4, G.h / 4];
     parts.push(wiped(clock, clock + 1.1, paint, box, dpr, [0, 1]));
     clock += 1.4;
-    const V = 220;
+    const V = 300;
     marks.forEach((s, i) => {
       if (s.kind === 'dot') { parts.push(dotted(clock, s.p, s.r, ink)); clock += .05; return; }
-      const o = { w: s.w * 1.15, ink, seed: seed + i * 13, start: s.start, end: s.end, load: .78, dry: .3, broad: .42, swell: .25, nib: .5 };
+      const o = { w: s.w * 1.15, ink, seed: seed + i * 13, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 };
       const d = Math.max(.06, arclen(s.pts) / V);
-      parts.push(stem(clock, clock + d, s.pts, { ...o, live: 'cut' })); clock += d * .75;
+      parts.push(stem(clock, clock + d, s.pts, { ...o, live: 'cut' })); clock += d * .6;
     });
     clock += .4;
   });
   return { layers: [[g, live]], parts, end: Math.max(...parts.map(p => p.t1)) };
 }
-const arclen = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
 
 // The parts of the score (after 01): each can show itself part-way (`at`, on the live layer, redrawn every frame) and
 // finished (`done`, laid once on the page). The pen line lengthens behind its tip; the paint is laid by a sweep.
