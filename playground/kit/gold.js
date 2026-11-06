@@ -46,11 +46,11 @@ export function goldFields(M, cw, ch, { W, dpr = 2, seed = 1, raised = true, wea
     for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) { const i = y * cw + x; if (M[i] <= 0) continue;
       const b1 = Math.min(1, Math.max(0, (B1[i] - .5) / .45)), b2 = Math.min(1, Math.max(0, (B2[i] - .5) / .45));
       const m = .6 + .4 * nz(x * px / (W / 2.5), y * px / (W / 2.5)), prof = (b1 * (2 - b1)) * (1 - m) + (b2 * (2 - b2)) * m;
-      H[i] = Hc * prof * (.82 + .36 * nz2(x * px / (W / 3), y * px / (W / 3))); }
+      H[i] = Hc * prof * (.5 + 1 * nz2(x * px / (W / 3), y * px / (W / 3))); }
   }
   // gesso waves: the top octaves only, more as the gold gets larger (07-gold §4.4)
-  const oct = W < 60 ? 0 : W < 160 ? 2 : 5;
-  for (let o = 0; o < oct; o++) { const cell = W / (1.5 * 2 ** o), amp = [.015, .012, .006, .003, .0015][o] * cell * (W < 160 ? .66 : 1) * waves * (o ? .6 : 1);
+  const oct = W < 60 ? 0 : W < 160 ? 4 : 5;
+  for (let o = 0; o < oct; o++) { const cell = W / (1.5 * 2 ** o), amp = [.015, .012, .006, .003, .0015][o] * cell * (W < 160 ? .66 : 1) * waves * (o ? .6 : 1) * (W < 160 && o > 1 ? .5 : 1);
     for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) { const i = y * cw + x; if (M[i] > 0) H[i] += amp * (nz3(x * px / cell + o * 17, y * px / cell) - .5) * 2; } }
   const Hb = gauss(H, cw, ch, Math.max(1, .008 * W * dpr)); H.set(Hb);
   // cavity: the dark lip where the leaf breaks over the gesso edge, and a few specks

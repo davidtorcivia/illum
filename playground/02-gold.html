@@ -109,7 +109,7 @@ function specimen(W, zoom, letter, lit) {
   return box;
 }
 const row = document.getElementById('row'), fig = (el, cap) => { const f = document.createElement('figure'), c = document.createElement('figcaption'); c.textContent = cap; f.append(el, c); return f; };
-const params = new URLSearchParams(location.search), L1 = params.get('letter') ?? 'D', CUSH = +(params.get('cushion') ?? .025), WAVES = +(params.get('waves') ?? 1);
+const params = new URLSearchParams(location.search), L1 = params.get('letter') ?? 'D', CUSH = +(params.get('cushion') ?? .025), WAVES = +(params.get('waves') ?? 1.5);
 row.append(fig(specimen(100, 1, L1, false), 'A three-line initial, 100 px: the still.'));
 row.append(fig(specimen(100, 3, L1, false), 'The same at three times.'));
 const litBox = specimen(100, 3, L1, true); row.append(fig(litBox, 'Lit by you: move over it.'));
