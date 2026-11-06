@@ -69,6 +69,10 @@
   .rich input::-webkit-slider-thumb { -webkit-appearance: none; width: .62em; height: .62em; margin-top: calc(-.31em + .5px); border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
   .rich input::-moz-range-thumb { width: .62em; height: .62em; border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
   .rich input:focus-visible { outline: 1px dotted currentColor; outline-offset: 3px; }
+  /* the style chooser: the traditions named in the line, the current one in the rubric's colour */
+  .styles button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-decoration-thickness: .5px; text-underline-offset: .18em; }
+  .styles button[aria-pressed="true"] { color: var(--rubric); text-decoration: none; }
+  .styles button:focus-visible { outline: 1px dotted currentColor; outline-offset: 2px; }
   @media (max-width: 640px) {
     body { font-size: 18px; line-height: 1.55; }
     .sheet { padding: 64px 20px 80px 24px; }
@@ -118,11 +122,12 @@
   </article>
 </main>
 <p class="colophon">Rubricated by illum, wayfinding, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch it rubricated</a>.
-  <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the pen marks are"> richer</label></p>
+  <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the pen marks are"> richer</label><br>
+  <span class="styles" role="group" aria-label="Tradition of rubrication">In the manner of </span></p>
 
 <script type="module">
 import { pen, dot, fnv, stream } from './kit/marks.js';
-import { paraph, filler, breakMark, FILLERS } from './kit/wayfinding.js';
+import { STYLES } from './kit/wayfinding.js';
 
 const q = new URLSearchParams(location.search), art = document.querySelector('.text');
 const text = art.textContent.replace(/\s+/g, ' ').trim();
@@ -130,8 +135,10 @@ const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(text) % 1e7);
 document.getElementById('seed').textContent = SEED;
 let RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? art.dataset.rich ?? '.5') || 0));
 // the two colours: red (vermilion) and blue (azurite); a paraph is solid, a hairline paler as thin ink is
-const SOLID = { red: [200, 66, 40], blue: [40, 70, 160] }, HAIR = { red: [212, 100, 74], blue: [56, 84, 166] };
-const other = c => c === 'red' ? 'blue' : 'red';
+// the style: a tradition of rubrication (kit/wayfinding.js STYLES), ?style= or data-style; each has its own colours
+let STYLE = STYLES[q.get('style') ?? art.dataset.style] ? (q.get('style') ?? art.dataset.style) : 'gothic';
+const st = () => STYLES[STYLE], pairAt = k => st().alternate ? st().pair[k % 2] : st().pair[0];
+const other = c => { const [a, b] = st().pair; return c === a ? b : a; };
 
 // font metrics, for baselines and the x-height band
 const metric = font => { const c = document.createElement('canvas').getContext('2d'); c.font = font; const m = c.measureText('x'), M = c.measureText('H');
@@ -145,15 +152,16 @@ function compose() {
     const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); return g; };
   const g = ctx(document.getElementById('orn')), live = ctx(document.getElementById('live'));
   const marks = [];   // { y, list, a: colour name }  in reading order
+  const S = st(), V = S.setup(SEED);   // the variation within the style for this copy
   let nFill = 0;
   const fillAfter = (el, col, seed) => {
     const cs = getComputedStyle(el), fs = parseFloat(cs.fontSize), mt = metric(`${cs.fontStyle} ${cs.fontWeight} ${fs}px "EB Garamond"`), L = lines(el, sr);
     if (!L.length) return;
     const last = L.filter(r => Math.abs(r.t - L.at(-1).t) < 2), right = Math.max(...last.map(r => r.r)), er = el.getBoundingClientRect(), measure = er.right - sr.left;
     const x0 = right + fs * .35, x1 = measure, base = last[0].t + mt.asc;
-    if (x1 - x0 < fs * 1.4) return;
-    const kinds = RICH < .25 ? ['beads'] : RICH < .5 ? ['beads', 'zigzag'] : FILLERS, r = stream(seed, 'kind');
-    marks.push({ y: base, a: col, list: filler(x0, x1, base - mt.x, base, kinds[(r() * kinds.length) | 0], seed, RICH) }); nFill++;
+    if (x1 - x0 < fs * S.minGap) return;
+    const kinds = S.kinds(V, RICH), r = stream(seed, 'kind');
+    marks.push({ y: base, a: col, list: S.filler(x0, x1, base - mt.x, base, kinds[(r() * kinds.length) | 0], seed, RICH, V) }); nFill++;
   };
   const u0 = metric('400 20px "EB Garamond"');
   document.querySelectorAll('.book').forEach((book, bi) => {
@@ -161,27 +169,27 @@ function compose() {
     // the break above the book's head, in the room its padding leaves; the first book is opened by the title, so it
     // takes the device too: the same rank
     const u = parseFloat(getComputedStyle(art).fontSize) * u0.x / 20;
-    marks.push({ y: br.top - sr.top, a: bi % 2 ? 'red' : 'blue', list: breakMark((hr.left + hr.right) / 2 - sr.left, (br.top + hr.top) / 2 - sr.top, hr.width, 2, SEED + 101 * bi, RICH, u) });
+    marks.push({ y: br.top - sr.top, a: pairAt(bi + 1), list: S.breakMark((hr.left + hr.right) / 2 - sr.left, (br.top + hr.top) / 2 - sr.top, hr.width, 2, SEED + 101 * bi, RICH, u, V) });
     book.querySelectorAll('.chapter').forEach((ch, ci) => {
       const h3 = ch.querySelector('h3'), cr = ch.getBoundingClientRect(), h3r = h3.getBoundingClientRect();
-      if (ci > 0) marks.push({ y: cr.top - sr.top, a: ci % 2 ? 'red' : 'blue', list: breakMark((h3r.left + h3r.right) / 2 - sr.left, (cr.top + h3r.top) / 2 - sr.top + 2, h3r.width, 1, SEED + 101 * bi + 7 * ci, RICH, u) });
-      fillAfter(h3, 'blue', SEED + 31 * bi + 3 * ci);
+      if (ci > 0) marks.push({ y: cr.top - sr.top, a: pairAt(ci + 1), list: S.breakMark((h3r.left + h3r.right) / 2 - sr.left, (cr.top + h3r.top) / 2 - sr.top + 2, h3r.width, 1, SEED + 101 * bi + 7 * ci, RICH, u, V) });
+      fillAfter(h3, pairAt(1), SEED + 31 * bi + 3 * ci);
       ch.querySelectorAll('p').forEach((p, pi) => {
         const cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), mt = metric(`400 ${fs}px "EB Garamond"`), L = lines(p, sr);
         if (pi > 0 && L.length) {   // the paraph, in the indent; red and blue in turn, starting again each chapter
           const pr = p.getBoundingClientRect(), x = pr.left - sr.left + fs * .32, base = L[0].t + mt.asc;
-          marks.push({ y: base, a: pi % 2 ? 'red' : 'blue', list: paraph(x, base, mt.x, SEED + 997 * bi + 89 * ci + pi, RICH) });
+          marks.push({ y: base, a: pairAt(pi), list: S.paraph(x, base, mt.x, SEED + 997 * bi + 89 * ci + pi, RICH, V) });
         }
-        fillAfter(p, (nFill % 2) ? 'blue' : 'red', SEED + 1009 * bi + 113 * ci + 17 * pi);
+        fillAfter(p, pairAt(nFill), SEED + 1009 * bi + 113 * ci + 17 * pi);
       });
     });
   });
   // the score: down the page as the rubricator went, each mark at a hand's pace, then compressed to ~14 s
   const parts = []; let clock = .3;
   marks.sort((m, n) => m.y - n.y).forEach((m, mi) => m.list.forEach((s, i) => {
-    const col = s.col === 'a' ? m.a : other(m.a);
-    if (s.dot) { parts.push(dotted(clock, s.p, s.r, SOLID[col])); clock += .03; return; }
-    const ink = s.broad ? SOLID[col] : HAIR[col];
+    const col = s.col === 'g' ? 'gold' : s.col === 'a' ? m.a : other(m.a), INK = S.ink[col] ?? S.ink[S.pair[0]];
+    if (s.dot) { parts.push(dotted(clock, s.p, s.r, INK.solid)); clock += .03; return; }
+    const ink = s.broad ? INK.solid : INK.hair;
     const o = { w: s.w * (s.broad ? 1 : 1.1), ink, seed: (SEED + mi * 131 + i * 7) >>> 0, start: s.start, end: s.end, load: s.load ?? .85, dry: s.dry ?? .3, broad: s.broad ?? .3, swell: s.swell ?? .25, nib: s.nib ?? .55 };
     const d = Math.max(.05, arclen(s.pts) / (s.broad ? 70 : 260)); parts.push(stem(clock, clock + d, s.pts, { ...o, live: 'cut' })); clock += d * .8;
   }));
@@ -220,6 +228,12 @@ const still_ = matchMedia('(prefers-reduced-motion: reduce)').matches;
 render(!still_ && q.has('draw'));
 document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); render(!still_); });
 const richIn = document.getElementById('rich'); richIn.value = RICH;
+// the traditions, named in the colophon's line; choosing one redraws at once and is kept in the address
+const group = document.querySelector('.styles');
+Object.entries(STYLES).forEach(([key, sty], i, all) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = sty.label; b.dataset.style = key;
+  b.setAttribute('aria-pressed', key === STYLE); group.append(b, i < all.length - 1 ? ', ' : '.');
+  b.addEventListener('click', () => { STYLE = key; group.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x.dataset.style === STYLE)); render(false);
+    const u = new URL(location.href); u.searchParams.set('style', STYLE); history.replaceState(null, '', u); }); });
 richIn.addEventListener('input', () => { RICH = +richIn.value; render(false); const u = new URL(location.href); u.searchParams.set('rich', RICH); history.replaceState(null, '', u); });
 let lastW = innerWidth, timer;
 new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; render(false); } }, 150); }).observe(document.querySelector('.sheet'));

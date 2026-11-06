@@ -8,9 +8,10 @@
   05 · Real strokes: a specimen sheet of the stroke library in materials/strokes/.
 
   Instruction: show each stroke as it was laid, cut from its leaf or scroll with its paint unmixed from the ground,
-  on flat paper, at one scale (half its crop, so two crop pixels to one CSS pixel, and the sizes compare across the
-  sheet), grouped by pigment and then by kind; name its source under it. Hover (or focus) shows the extracted
-  centerline faintly, with a dot at the loaded end where the stroke starts.
+  on flat paper, at half its crop (two crop pixels to one CSS pixel; small pen marks up to their crop's own size, never
+  more), grouped by pigment and then by kind; name its source under it. Hover (or focus) shows the extracted
+  centerline faintly, with a dot at the loaded end where the stroke starts. ?class=lapis,vermilion and
+  ?kind=dry-brush,flick show only those.
 
   Function: the material itself. Every simulated brush read as digital; these are exemplars from real objects, to be
   warped along new paths (RealBrush, Lu et al. 2013), and this page is where they are judged one by one.
@@ -32,11 +33,12 @@
   .counts { font-size: 15px; color: var(--soft); margin: 0 0 12px; }
   .grid { display: flex; flex-wrap: wrap; gap: 22px 26px; align-items: flex-end; }
   figure { margin: 0; position: relative; outline: none; max-width: 100%; }
-  figure .art { position: relative; }
+  figure .art { position: relative; width: fit-content; }   /* hug the image, so the centerline overlay sits on it */
   figure img, figure svg { display: block; max-width: 100%; height: auto; }
   figure svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .15s; pointer-events: none; overflow: visible; }
   figure:hover svg, figure:focus svg { opacity: .55; }
-  figcaption { font-size: 12.5px; line-height: 1.3; color: var(--soft); margin-top: 5px; max-width: max(100%, 7.5em); min-width: 6em; }
+  figcaption { font-size: 12.5px; line-height: 1.3; color: var(--soft); margin-top: 5px; max-width: max(100%, 8.5em); min-width: 8.5em; }
+  figcaption a { color: inherit; text-decoration: none; white-space: nowrap; }
   figcaption i { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .colophon { font-size: 14px; font-style: italic; color: var(--soft); margin-top: 56px; max-width: 46em; }
   .colophon a { color: inherit; }
@@ -58,10 +60,14 @@ const ORDER = ['lapis', 'vermilion', 'carmine', 'gold', 'ink', 'green', 'other']
 const TITLES = { lapis: 'Lapis', vermilion: 'Vermilion', carmine: 'Carmine and lake', gold: 'Gold', ink: 'Ink', green: 'Green', other: 'Other' };
 const KINDS = ['body stroke', 'curve', 'straight', 'hook', 'flick', 'dry-brush', 'hairline', 'dab/ball'];
 const MUSEUM = { 'The Metropolitan Museum of Art': 'Met', 'Cleveland Museum of Art': 'Cleveland' };
-const K = .5;   // CSS px per crop px: one scale for the whole sheet
+// CSS px per crop px: half the crop (two crop px to a CSS px) for the large strokes, up to the crop's own size for the
+// small ones (the pen marks of a leaf are cut at fewer pixels than a brush stroke of a scroll), never larger
+const scaleOf = (w, h) => Math.min(1, Math.max(.5, 150 / Math.max(w, h)));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-const lib = (await (await fetch('materials/strokes/manifest.json')).json()).strokes;
+const Q = new URLSearchParams(location.search), only = Q.get('class')?.split(','), kinds = Q.get('kind')?.split(',');
+const lib = (await (await fetch('materials/strokes/manifest.json')).json()).strokes
+  .filter(s => (!only || only.includes(s.class)) && (!kinds || kinds.includes(s.kind)));
 const sheet = document.getElementById('sheet'), imgs = [];
 const by = {};
 for (const s of lib) ((by[s.class] ??= {})[s.kind] ??= []).push(s);
@@ -74,14 +80,14 @@ for (const c of ORDER.filter(c => by[c])) {
     const h3 = document.createElement('h3'); h3.textContent = `${k} · ${by[c][k].length}`; sheet.append(h3);
     const grid = document.createElement('div'); grid.className = 'grid'; sheet.append(grid);
     for (const s of by[c][k].sort((a, b) => b.length - a.length)) {
-      const [w, hgt] = s.size, src = s.source;
+      const [w, hgt] = s.size, src = s.source, K = scaleOf(w, hgt);
       const f = document.createElement('figure'); f.tabIndex = 0;
       const pts = s.centerline.map(p => p.join(',')).join(' '), [x0, y0] = s.centerline[0];
       const sw = Math.max(1.2, Math.max(w, hgt) / 160);
       f.innerHTML = `<div class="art"><img src="materials/strokes/${esc(s.file)}" width="${Math.round(w * K)}" height="${Math.round(hgt * K)}" alt="">` +
         `<svg viewBox="0 0 ${w} ${hgt}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="rgb(176 58 36)" stroke-width="${sw}"/>` +
         `<circle cx="${x0}" cy="${y0}" r="${sw * 2.5}" fill="rgb(176 58 36)"/></svg></div>` +
-        `<figcaption title="${esc(`${src.title}, ${src.date}. ${src.museum} ${src.object_id}. ${src.licence}`)}"><a href="${esc(src.url)}" style="color:inherit;text-decoration:none">${MUSEUM[src.museum] ?? src.museum} ${esc(src.object_id)}</a>` +
+        `<figcaption title="${esc(`${src.title}, ${src.date}. ${src.museum} ${src.object_id}. ${src.licence}`)}"><a href="${esc(src.url)}">${MUSEUM[src.museum] ?? src.museum} ${esc(src.object_id)}</a>` +
         `<i>${esc(src.title)}</i></figcaption>`;
       f.querySelector('figcaption').style.width = `${Math.round(w * K)}px`;
       imgs.push(f.querySelector('img')); grid.append(f);

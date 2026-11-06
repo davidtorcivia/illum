@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ink</title>
+<!--
+  08 · Ink: the medium engine, first tool.
+
+  Instruction: let the paper be a surface that remembers; let a quill, moved by a hand, lay water and iron-gall ink on it;
+  let the wet spread along the fibres and dry, so that what you see is a moment of that process and not a drawn result.
+
+  Function: the visible hand (06-purpose §8), at its root: everything else in illum is to be painted through this.
+  Calibration: beside the magnifier, a real broad-nib iron-gall line from Met 466773 (public domain) at a like scale.
+  Input: a stylus's own pressure where the device gives one; otherwise pressure from speed (slow is heavy).
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-style: italic; font-display: block; }
+  :root { --paper: rgb(243 237 225); --ink: #2b2119; --soft: rgb(43 33 25 / .6); --rubric: rgb(176 58 36); }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0 auto; max-width: 1240px; padding: 40px 24px 60px; font: 17px/1.5 "EB Garamond", Garamond, serif; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .2em; }
+  .intro { max-width: 46em; font-style: italic; color: var(--soft); margin: 0 0 22px; }
+  .work { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+  #sheet { width: 100%; aspect-ratio: 16 / 10; display: block; touch-action: none; cursor: crosshair; box-shadow: 0 0 0 1px rgb(43 33 25 / .08); }
+  .side figure { margin: 0 0 18px; }
+  .side canvas, .side img { width: 300px; height: 300px; display: block; box-shadow: 0 0 0 1px rgb(43 33 25 / .1); }
+  figcaption { font-style: italic; font-size: 14px; color: var(--soft); margin-top: 6px; }
+  .controls { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 14px 26px; font-style: italic; font-size: 15px; color: var(--soft); }
+  .controls label { display: flex; align-items: center; gap: 8px; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 110px; height: 14px; background: transparent; }
+  input[type=range]::-webkit-slider-runnable-track { height: 1px; background: var(--soft); }
+  input[type=range]::-moz-range-track { height: 1px; background: var(--soft); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 11px; margin-top: -5px; border-radius: 50%; background: var(--paper); border: 1px solid var(--ink); }
+  input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--paper); border: 1px solid var(--ink); }
+  button { font: inherit; font-style: italic; color: var(--rubric); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .2em; }
+  @media (max-width: 760px) { .work { grid-template-columns: 1fr; } .side { display: flex; gap: 12px; } .side canvas, .side img { width: 160px; height: 160px; } }
+</style>
+</head>
+<body>
+<h1>Ink</h1>
+<p class="intro">Write on the sheet. The quill is cut broad and held at an angle; pressure spreads its tines (or, with a mouse, slowness does); it carries a charge of iron-gall ink that runs down as you write. The paper keeps what you do: the wet spreads along its fibres and dries, darker at its edges. Beside it, what you just wrote at four times, and a real pen line from a fifteenth-century psalter.</p>
+<div class="work">
+  <canvas id="sheet" aria-label="A sheet to write on with a simulated quill and iron-gall ink"></canvas>
+  <div class="side">
+    <figure><canvas id="loupe" aria-hidden="true"></canvas><figcaption>Four times, where the pen last was.</figcaption></figure>
+    <figure><img src="materials/ref-ink-466773.webp" alt="A detail of broad-nib iron-gall writing on parchment, Metropolitan Museum 466773, magnified."><figcaption>Real: Met 466773, North Italian psalter, early 15th c.</figcaption></figure>
+  </div>
+</div>
+<div class="controls">
+  <label>sized <input type="range" id="sizing" min="0" max="1" step=".01" value=".6"> soft</label>
+  <label>dry <input type="range" id="spread" min="0" max="2" step=".01" value=".9"> wet</label>
+  <label>stiff <input type="range" id="flex" min="0" max="2" step=".01" value="1"> flexible</label>
+  <label>fine <input type="range" id="width" min="1" max="6" step=".1" value="2.6"> broad</label>
+  <label>fresh <input type="range" id="age" min="0" max="1" step=".01" value=".35"> aged</label>
+  <button id="replay">write the D</button> <button id="clear">a fresh sheet</button>
+</div>
+<script type="module">
+import { createMedium, Quill } from './kit/medium.js';
+import { DUCTUS } from './kit/ductus.js';
+import { spline } from './kit/marks.js';
+
+const cv = document.getElementById('sheet'), dpr = Math.min(2, devicePixelRatio || 1);
+const fit = () => { const r = cv.getBoundingClientRect(); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); };
+fit();
+let M = createMedium(cv, { dpr, seed: 7 }), quill = new Quill(M);
+const loupe = document.getElementById('loupe'), lg = loupe.getContext('2d'); loupe.width = loupe.height = 600;
+let focus = [cv.width / 2, cv.height / 2];
+
+// the hand: pointer samples (coalesced, so a quick stroke is not a polygon), pressure from the device or from speed
+let down = false, last = null, pSmooth = .5, queue = [];
+const sample = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: e.timeStamp, p: e.pointerType === 'mouse' || !e.pressure ? null : e.pressure }; };
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); down = true; last = null; quill.dip(); quill.lift(); queue.push(sample(e)); });
+cv.addEventListener('pointermove', e => { if (!down) return; for (const ev of (e.getCoalescedEvents?.() ?? [e])) queue.push(sample(ev)); });
+const up = () => { down = false; queue.push('lift'); };
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+function feed(s) {
+  if (s === 'lift') { quill.lift(); last = null; return; }
+  const sp = last ? Math.hypot(s.x - last.x, s.y - last.y) / Math.max(1, s.t - last.t) : 0;
+  const want = s.p ?? Math.max(.12, Math.min(.95, .9 - sp * .55));
+  pSmooth += (want - pSmooth) * .25; quill.to([s.x, s.y], pSmooth, sp); focus = [s.x * dpr, s.y * dpr]; last = s;
+}
+
+// write the Lombardic D's ductus through the engine: each stroke a hand moving, slow at its ends, quick through the middle
+let replay = [];
+document.getElementById('replay').onclick = () => {
+  const size = Math.min(cv.width, cv.height) / dpr * .62, ox = cv.width / dpr * .5 - size * .5, oy = cv.height / dpr * .5 - size * .48;
+  let t = performance.now() + 200;
+  for (const s of DUCTUS.D) {
+    const P = spline(s.pts.map(([x, y]) => [ox + x * size, oy + y * size]), 22);
+    let L = 0; for (let i = 1; i < P.length; i++) L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
+    replay.push({ at: t, dip: true, width: Math.max(1.2, size * (s.w > .05 ? .13 : .025)) });
+    P.forEach((q, i) => { const u = i / (P.length - 1), v = .12 + .5 * Math.sin(Math.PI * u) ** .7; t += (L / P.length) / v;
+      replay.push({ at: t, x: q[0], y: q[1], p: Math.min(.95, .25 + .7 * (s.press ? s.press(u) : 1) * (s.w > .05 ? 1 : .4)), sp: v }); });
+    replay.push({ at: t += 1, lift: true }); t += 260;
+  }
+};
+document.getElementById('clear').onclick = () => { M.clear(); quill.width = +document.getElementById('width').value; };
+for (const id of ['sizing', 'spread', 'flex', 'width', 'age']) document.getElementById(id).addEventListener('input', e => {
+  const v = +e.target.value; if (id === 'flex') quill.flex = v; else if (id === 'width') quill.width = v; else M.settings[id] = v; if (id === 'sizing') M.makePaper(); });
+
+function frame(now) {
+  for (const s of queue.splice(0)) feed(s);
+  while (replay.length && replay[0].at <= now) { const r = replay.shift(); if (r.dip) { quill.dip(); quill.lift(); quill.width = r.width; } else if (r.lift) quill.lift(); else { quill.to([r.x, r.y], r.p, r.sp); focus = [r.x * dpr, r.y * dpr]; } }
+  M.step(3, 1); M.render();
+  // the loupe: four times, centred on where the pen last was
+  const z = 4, s = 600 / z; lg.imageSmoothingEnabled = true; lg.imageSmoothingQuality = 'high';
+  lg.drawImage(cv, focus[0] - s / 2, focus[1] - s / 2, s, s, 0, 0, 600, 600);
+  document.body.dataset.timing = 'live';
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+const Q = new URLSearchParams(location.search); if (Q.has("age")) { M.settings.age = +Q.get("age"); document.getElementById("age").value = Q.get("age"); } if (Q.has("demo")) document.getElementById("replay").click();
+</script>
+</body>
+</html>

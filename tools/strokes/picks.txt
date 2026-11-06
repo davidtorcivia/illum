@@ -1,11 +1,11 @@
 # Hand-curated picks from segment.py's contact sheets: "<source>: n n n". Overrides: n=kind (body hairline curve
 # straight dab flick hook dry), n! reverses the direction. Rejected: stubs of crossing strokes, closed loops, cut ends.
 # Ink: Chinese and Japanese calligraphy, cursive and running script
-met-829393: 173 275 87 276 207 22 26 32 36 37 38 40 41 44 51 73 74 78 84 148 157 158 160=hairline 164=hairline 166 170 196 221 231 232 242 243 249 251 252
-met-60470: 86 45 0 47 59 93 107 109 112 130 141 148 149 150 153 155 161 163 174 185 187 190 197 198 213 77 233 64
-met-829384: 33 64 82 114 180 329 365 334 37 115 315 364 94 366 67 122 121 351 65 66 223 12 105 270 271 7 317 42 58 63 76 127 162 201 257 298 306 128 129 68
-met-845131: 44 91 105 109 143 22 21 85 8 70 116 119 131 138 41 45 48 13 17 20 43 78 80 81 94 101 30 75 25 121=dab 39 29 84 77 3 4 107 15
-cma-162868: 23 26 27 41 9 11 12 95 110 14 36 84 93 45 49 99 98=straight 54 58 56 13 75 86 88 108
+met-829393: 173 275 87 276 207 22 26 32 37 38 40 41 44 51 73 84 148 157 158 160=hairline 164=hairline 166 170 196 221 232 243 249 251 252
+met-60470: 86 45 0 47 59 107 109 112 130 148 149 153 174 187 190 213 77 233 64
+met-829384: 33 64 82 114 180 329 365 334 37 115 315 364 366 122 121 66 42 58 63 76 127 162 201 257 298 306 128 129 68
+met-845131: 44 91 105 109 143 70 45 48 13 17 20 81 94 101 30 75 25 121=dab 39 29 84 77 3 4 107 15
+cma-162868: 23 26 27 41 9 110 14 36 84 45 49 54 58 56 13 75 86 88 108
 # Ink: large characters (Hakuin, Zen bokuseki)
 met-77197: 98 99 102 108 100=dry 109=dab 39
 met-916547: 9=dry 12=dry 18 24=dry 26 31 36 11 4 3=body 27=hairline 15=dry 14 19 22
@@ -16,17 +16,27 @@ met-60485: 2=flick 8=flick 42=flick 32=flick 48=flick 39=flick 41 20
 # Choir books: Lombardic capitals (bowls, stems, flicks), line-filler diamonds, pen hairlines, in lapis and vermilion
 cma-423610: 9 0 11 20 16 2=body 6 21=body 3 14 5 4=flick 1 8=hairline 12=hook 17=hook 22 7=flick 18=hairline 23=hairline
 cma-423609: 122 94 30 7 4=body 9=body 3=hairline 5=hairline 97 17 81 57 28 100 112=body 27=dab 96=flick 36=flick 14=flick 33 105 101=body
-cma-160825: 49 12 119=body 47=body 0=hairline
-cma-171451: 0 66=body 41=hairline 43=hairline
+cma-160825: 49 12 119=body 47=body
+cma-171451: 66=body 41=hairline 43=hairline
 met-466773: 36=body 39=body 58=body 40=body 59=body 42=dab 52 51=hairline 72=hairline 23=hairline 33=hook 37=hairline
 cma-130959: 6=body 29 12=body 4=body 14=body 26=body 11=hairline 3=hairline 7=hairline 8=hairline 10=flick 5=flick 28=flick 24
 met-466792: 0 203=body 207=flick 34=hairline
-met-466790: 154=body 0
+met-466790: 154=body 0=curve
 cma-423575: 56=body 54=flick 57 59=dab 61=body
 cma-109282: 12 11=body 13=dab 14=dab 131=hairline 37 102=flick 98=flick
 # Lapis: blue Lombards of the Decretals of Gratian, Bible penwork, a Book of Hours' blue acanthus
-met-466179: 22 6 18 9=body 1=body 20 4 5 7 15=body 11=body 21=straight 27=body 0=hairline
-cma-162141: 0 15=hairline 21=hook 2=hook
-cma-160827: 2=body 5=flick 0=dab 4=flick 3 6=hairline
+met-466179: 22 6 18 9=body 1=body 20 4 5 7=curve 15=body 11=body 21=straight 27=body
+cma-162141: 0 15=hairline
+cma-160827: 2=body 5=flick 0=dab 4=flick 3=flick 6=hairline
 # Line-fillers of an English royal psalter (lapis and rose lake bands, worked with white)
 met-466376: 1 2 3 14 21 50 41 16=body 19
+# Dabs: calligraphy dots (dian) and choir-book diamonds
+met-816190: 39=dab 41=dab
+cma-90151: 0=dab
+cma-86105: 57=dab
+cma-668914: 11=dab
+met-829384: 95=dab 24=dab 36=dab 38=dab
+cma-112227: 19=dab 20=dab
+# Ink painting: bamboo leaves and stems (one loaded stroke each, pressed and lifted)
+met-78108: 60 63 65 92 105 107 193 194 195 200 199 57=hook 58 99=hairline 59 191 201 66 93 39 1 19 33 34 129
+met-916546: 4 152 155 161 37 167 171 154 162 157 151 46 72=hook 76 78 8 130 71=flick 142
