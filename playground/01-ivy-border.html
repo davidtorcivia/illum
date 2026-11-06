@@ -178,21 +178,21 @@ function compose(mode) {
     if (s.pts.length < 2) continue;
     const tip = s.ids[s.ids.length - 1], e = endAt.get(tip), pts = chaikin(s.pts, 3).map(toPage);
     const o = { w: .5 + .8 * Math.log(1 + s.size) / Math.log(1 + maxS), seed: (tip * 7919) & 0xffff, start: s.root ? 'pool' : 'cut', end: !e || e.kind === 'dot' ? 'ball' : 'cut' };
-    lines.push({ pts, o, t0: s.t0, t1: s.t1, root: rootOf(s.ids[0]) });
+    lines.push({ pts, o, t0: s.t0, t1: s.t1, root: rootOf(s.ids[0]), tipId: tip, ids: s.ids });
   }
   const dirAt = k => { const n = N[k], q = toPage(n.p), b = toPage([n.p[0] - n.dir[0], n.p[1] - n.dir[1]]); return norm([q[0] - b[0], q[1] - b[1]]); };
   for (const e of ends) {
     const q = toPage(N[e.node].p), sd = (e.node * 104729) & 0xffff, rr = mulberry(sd), at = e.p[0];
     if (e.kind === 'hero') { const c = toPage(e.hero.c), R = e.hero.r + 6, sb = e.hero.kind === 'strawberry';
       const to = sb ? (() => { const a = norm([c[0] - q[0], c[1] - q[1]]), L = e.hero.r * 1.8; return [c[0] - a[0] * L * .46, c[1] - a[1] * L * .46]; })() : c;
-      lines.push({ pts: [q, [(q[0] + to[0]) / 2, (q[1] + to[1]) / 2], to], o: { w: .9, seed: sd, start: 'cut', end: 'cut' }, t0: e.t, t1: e.t + 4, root: rootOf(e.node), stalk: true });
+      lines.push({ pts: [q, [(q[0] + to[0]) / 2, (q[1] + to[1]) / 2], to], o: { w: .9, seed: sd, start: 'cut', end: 'cut' }, t0: e.t, t1: e.t + 4, root: rootOf(e.node), stalk: true, tipId: 'h' + e.node });
       const fn = sb ? (cx, st) => strawberry(cx, c, norm([c[0] - q[0], c[1] - q[1]]), e.hero.r, SEED + sd, dpr, st)
         : (cx, st) => flower(cx, c, e.hero.r, e.hero.kind === 'rose' ? 'vermilion' : 'lapis', SEED + sd, dpr, st);
-      things.push({ fn, box: [c[0] - R - 4, c[1] - R - 4, 2 * R + 8, 2 * R + 8], anchor: sb ? q : c, turn: (rr() < .5 ? -1 : 1) * 1.1, t: e.t, dur: 1.1, at, hero: true }); }
+      things.push({ fn, box: [c[0] - R - 4, c[1] - R - 4, 2 * R + 8, 2 * R + 8], anchor: sb ? q : c, turn: (rr() < .5 ? -1 : 1) * 1.1, t: e.t, dur: 1.1, at, hero: true, node: 'h' + e.node }); }
     else if (e.kind === 'ivy') { const c = toPage(e.p), d = norm([c[0] - q[0], c[1] - q[1]]), ax = norm([d[0] * 1.6 + dirAt(e.node)[0], d[1] * 1.6 + dirAt(e.node)[1]]), L = 17 + rr() * 4;
-      things.push({ fn: (cx, st) => goldIvy(cx, q, ax, L, sd, dpr, st), box: [q[0] - L - 4, q[1] - L - 4, 2 * L + 8, 2 * L + 8], anchor: q, turn: (rr() < .5 ? -1 : 1) * .7, t: e.t, dur: .75, at, ax }); }
+      things.push({ fn: (cx, st) => goldIvy(cx, q, ax, L, sd, dpr, st), box: [q[0] - L - 4, q[1] - L - 4, 2 * L + 8, 2 * L + 8], anchor: q, turn: (rr() < .5 ? -1 : 1) * .7, t: e.t, dur: .75, at, ax, node: e.node }); }
     else if (e.kind === 'bezant') { const d = dirAt(e.node), c = [q[0] + d[0] * 2.4, q[1] + d[1] * 2.4];
-      things.push({ fn: (cx, st) => bezant(cx, c, 2.5, sd, dpr, st), box: [c[0] - 6, c[1] - 6, 12, 12], anchor: q, turn: 0, t: e.t, dur: .35, at, ax: d }); }
+      things.push({ fn: (cx, st) => bezant(cx, c, 2.5, sd, dpr, st), box: [c[0] - 6, c[1] - 6, 12, 12], anchor: q, turn: 0, t: e.t, dur: .35, at, ax: d, node: e.node }); }
   }
 
   const parts = [];
@@ -203,23 +203,37 @@ function compose(mode) {
     for (const l of lines) parts.push(stem(sec(l.t0), l.stalk ? sec(l.t0) + .25 : Math.max(sec(l.t0) + .05, sec(l.t1)), l.pts, l.o));
     for (const t of things) parts.push(opening(sec(t.t) + (t.hero ? .2 : 0), sec(t.t) + (t.hero ? .2 : 0) + t.dur, cx => t.fn(cx, ALL), t.box, dpr, t.anchor, t.turn));
   } else {
-    // drawn: as the illuminator worked. The pen draws every stem along the border, stroke after stroke; then the bole is
-    // laid, then the gold, then the colours, the details, the white; the black outlines go in last.
-    const V = 950, lenOf = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
-    const order = lines.slice().sort((a, b) => (N[a.root].p[0] - N[b.root].p[0]) || (a.stalk - b.stalk) || (a.t0 - b.t0));
-    let t = .2, last = 0; const STEMS = [];
-    for (const l of order) { const d = Math.max(.06, lenOf(l.pts) / V); STEMS.push([t, t + d, l]); last = Math.max(last, t + d); t += d * .3; }
-    const squeeze = Math.min(1, 6.5 / last); STEMS.forEach(([a, b, l]) => parts.push(stem(.2 + (a - .2) * squeeze, .2 + (b - .2) * squeeze, l.pts, { ...l.o, live: 'cut' })));
-    let T = .2 + (last - .2) * squeeze + .3;
-    const seq = things.slice().sort((a, b) => a.at - b.at), all = [{ fn: barFn, box: barBox, bar: true }, ...seq];
-    const wipe = (stage, span, each) => { all.forEach((th, i) => { if (stage === 'ground' || stage === 'gold' || stage === 'color' || stage === 'detail') {
-        const probe = { has: s2 => s2 === stage, collect: null }; let used = false; const test = { has: s2 => { if (s2 === stage) used = true; return false; }, collect: [] }; th.fn(new OffscreenCanvas(1, 1).getContext('2d'), test);
-        if (!used) return;
-        const a0 = T + (th.bar ? 0 : span * i / all.length), a1 = a0 + (th.bar ? span * .8 : each);
-        parts.push(wiped(a0, a1, c => th.fn(c, probe), th.box, dpr, th.bar ? norm(along) : th.ax ?? [0, 1])); } }); T += span + each; };
-    const trace = (stage, span) => { all.forEach((th, i) => { const got = []; th.fn(new OffscreenCanvas(1, 1).getContext('2d'), { has: () => false, collect: got });
-        let a0 = T + span * i / all.length; for (const k of got.filter(k => k.stage === stage)) { const d = Math.max(.05, lenOf(k.pts) / 700); parts.push(stem(a0, a0 + d, k.pts, { ...k.o, live: 'cut' }, 1)); a0 += d * .6; } }); T += span + .3; };
-    wipe('ground', 1.1, .3); wipe('gold', 1.3, .35); wipe('color', .9, .35); wipe('detail', .5, .2); trace('white', .8); trace('ink', 1.8);
+    // drawn: as the illuminator worked, travelling down the border. Each spray is drawn by the pen at a speed a hand
+    // could keep, stroke after stroke from the bar outward; close behind the pen its leaves are laid with bole, then
+    // gold, then colour, white and the black outline, while the pen has already moved on. Slow in each place, short as a whole.
+    const V = 300, lenOf = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
+    const roots = [...new Set(lines.map(l => l.root))].sort((a, b) => N[a].p[0] - N[b].p[0]);
+    const FRONT = Math.min(7, 2.5 + len / 160), startOf = new Map(roots.map((r, i) => [r, .4 + FRONT * i / Math.max(1, roots.length - 1)]));
+    const doneAt = new Map();   // node id at a stroke's tip -> when the pen gets there
+    for (const r of roots) {
+      // the spray in the order a hand would take it: each branch after the stroke it leaves, from the bar outward
+      let t = startOf.get(r);
+      for (const l of lines.filter(l => l.root === r).sort((a, b) => (a.stalk - b.stalk) || (a.t0 - b.t0))) {
+        const d = Math.max(.12, lenOf(l.pts) / V); parts.push(stem(t, t + d, l.pts, { ...l.o, live: 'cut' }));
+        doneAt.set(l.tipId, t + d); (l.ids ?? []).forEach((id, k, a) => doneAt.has(id) || doneAt.set(id, t + d * (k + 1) / a.length)); t += d * .55;
+      }
+    }
+    // the bar: laid with bole and gold down its length as the front passes, outlined after
+    const barAx = norm(along);
+    parts.push(wiped(.6, .6 + FRONT, c => barFn(c, { has: s2 => s2 === 'ground' }), barBox, dpr, barAx));
+    parts.push(wiped(1.1, 1.1 + FRONT, c => barFn(c, { has: s2 => s2 === 'gold' }), barBox, dpr, barAx));
+    { const got = []; barFn(null, { has: () => false, collect: got }); got.forEach((k, i) => parts.push(stem(1.6 + i * .2, 1.6 + i * .2 + FRONT, k.pts, { ...k.o, live: 'cut' }, 1))); }
+    // each leaf and flower, close behind the pen that reached it
+    const STAGES = [['ground', 0, .5], ['gold', .45, .55], ['color', .9, .6], ['detail', 1.4, .35], ['white', 1.6, 0], ['ink', 1.9, 0]];
+    for (const th of things) {
+      const t0 = (doneAt.get(th.node) ?? 1) + .25, got = [];
+      th.fn(new OffscreenCanvas(1, 1).getContext('2d'), { has: () => false, collect: got });
+      for (const [stage, off, dur] of STAGES) {
+        if (dur) { let used = false; th.fn(new OffscreenCanvas(1, 1).getContext('2d'), { has: s2 => { if (s2 === stage) used = true; return false; }, collect: [] });
+          if (used) parts.push(wiped(t0 + off, t0 + off + dur, c => th.fn(c, { has: s2 => s2 === stage }), th.box, dpr, th.ax ?? [0, 1])); }
+        else { let a0 = t0 + off; for (const k of got.filter(k => k.stage === stage)) { const d = Math.max(.08, lenOf(k.pts) / 260); parts.push(stem(a0, a0 + d, k.pts, { ...k.o, live: 'cut' }, 1)); a0 += d * .7; } }
+      }
+    }
   }
   return { layers: [[g, live], [fg, flive]], parts, end: Math.max(...parts.map(p => p.t1)) };
 }
