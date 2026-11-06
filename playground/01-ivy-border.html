@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ivy border</title>
+<!--
+  01 · Ivy border
+
+  Instruction: around the opening of a text, grow hairline ink stems through the room the text leaves; each branch
+  goes to the largest open place within reach and ends there in an ivy leaf of gold, lapis or vermilion sized to that
+  place, or in a curl; stop when no place is larger than a bezant, then set bezants in what is left.
+
+  Function: threshold (06-purpose §3, wayfinding). In a Book of Hours the full border marks where a text begins.
+  The container is the input: on a phone the side bands are too narrow to hold a leaf, so the same rule grows a
+  headpiece and a tailpiece instead.
+
+  Sources: the "largest free disc" loop after Wong, Zongker & Salesin 1998 (as florilegium-grow.lua does it);
+  the substrate after research/02-analog §5.1. Text: Ruskin, The Stones of Venice II (1853), ch. VI §§ XXIV–XXV,
+  Project Gutenberg #30755, public domain. EB Garamond, SIL OFL (fonts/OFL.txt).
+
+  Seed: a hash of the text (same text, same border); #seed=N overrides.
+  Score: (pending the protocol)
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  :root {
+    --paper: #f3ecdf;
+    --ink: #2b2119;
+    --rubric: oklch(0.56 0.17 33);
+    color-scheme: light;
+  }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 20px/1.58 "EB Garamond", Garamond, serif; font-kerning: normal;
+    font-variant-ligatures: common-ligatures; -webkit-font-smoothing: antialiased; position: relative; }
+  #paper { position: absolute; left: 0; top: 0; z-index: -1; }
+  .sheet { position: relative; max-width: 1000px; margin: 0 auto; padding: 156px 172px 220px 132px; box-sizing: border-box; }
+  .sheet canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric);
+    margin: 0 0 .2em; text-align: left; }
+  .sub { font-style: italic; margin: 0 0 1.1em; text-align: left; }
+  p { margin: 0; }
+  p + p { text-indent: 1.5em; }
+  .pil { color: var(--rubric); margin-right: .25em; }
+  .colophon { max-width: 1000px; margin: 0 auto; padding: 0 172px 60px 132px; box-sizing: border-box;
+    font-size: 14px; font-style: italic; opacity: .62; position: relative; }
+  .colophon a { color: inherit; }
+  @media (max-width: 640px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .sheet { padding: 118px 22px 150px; }
+    .colophon { padding: 0 22px 40px; }
+    .text { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<canvas id="paper" aria-hidden="true"></canvas>
+<main class="sheet">
+  <canvas id="orn" aria-hidden="true"></canvas>
+  <article class="text">
+    <h1>The Nature of Gothic</h1>
+    <p class="sub">John Ruskin, The Stones of Venice, 1853</p>
+    <p>And therefore, if we are to have great men working at all, or less men doing their best, the work will be imperfect, however beautiful. Of human work none but what is bad can be perfect, in its own bad way.</p>
+    <p><span class="pil" aria-hidden="true">¶</span>The second reason is, that imperfection is in some sort essential to all that we know of life. It is the sign of life in a mortal body, that is to say, of a state of progress and change. Nothing that lives is, or can be, rigidly perfect; part of it is decaying, part nascent. The foxglove blossom,—a third part bud, a third part past, a third part in full bloom,—is a type of the life of this world. And in all things that live there are certain irregularities and deficiencies which are not only signs of life, but sources of beauty. No human face is exactly the same in its lines on each side, no leaf perfect in its lobes, no branch in its symmetry. All admit irregularity as they imply change; and to banish imperfection is to destroy expression, to check exertion, to paralyse vitality.</p>
+    <p>All things are literally better, lovelier, and more beloved for the imperfections which have been divinely appointed, that the law of human life may be Effort, and the law of human judgment, Mercy. Accept this then for a universal law, that neither architecture nor any other noble work of man can be good unless it be imperfect.</p>
+  </article>
+</main>
+<p class="colophon">Border grown by illum, ivy, seed <span id="seed"></span>. Text from Project Gutenberg.</p>
+
+<script type="module">
+// ---- determinism: everything comes from the seed and the container, never Math.random ----------------------------
+const fnv = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
+const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const stream = (seed, name) => mulberry(fnv(name + ':' + seed));
+const hash2 = (x, y, s) => { let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(s, 2246822519) | 0; h = Math.imul(h ^ h >>> 13, 1274126177); return ((h ^ h >>> 16) >>> 0) / 4294967296; };
+
+const text = document.querySelector('.text').textContent.replace(/\s+/g, ' ').trim();
+const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(text) % 1e7);
+document.getElementById('seed').textContent = SEED;
+
+// ---- the substrate: one paper height field in page px, shared by the paper and every mark --------------------------
+const vnoise = (seed) => (x, y) => {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi, seed), b = hash2(xi + 1, yi, seed), c = hash2(xi, yi + 1, seed), d = hash2(xi + 1, yi + 1, seed);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+};
+const nBig = vnoise(SEED ^ 11), nTooth = vnoise(SEED ^ 23), nFine = vnoise(SEED ^ 37);
+// h in [0,1]: large cockle, the paper's tooth (felt marks, slightly elongated), and fine fibre
+const height = (x, y) => .25 * nBig(x / 260, y / 260) + .5 * nTooth(x / 7.5, y / 5.5) + .25 * nFine(x / 2.1, y / 2.6);
+
+function paintPaper() {
+  const cv = document.getElementById('paper'), W = document.documentElement.scrollWidth, H = document.documentElement.scrollHeight;
+  cv.width = W; cv.height = H; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  const g = cv.getContext('2d'), im = g.createImageData(W, H), d = im.data, base = [243, 236, 223];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const h = height(x, y), k = 1 + (h - .5) * .06, i = (y * W + x) * 4;
+    d[i] = base[0] * k; d[i + 1] = base[1] * k; d[i + 2] = base[2] * (k * .98 + .02); d[i + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  // a few long fibres, lighter than the sheet (rag paper shows them)
+  const r = stream(SEED, 'fibres'); g.lineCap = 'round';
+  for (let n = 0; n < W * H / 9000; n++) {
+    let x = r() * W, y = r() * H, a = r() * 6.3; g.beginPath(); g.moveTo(x, y);
+    for (let s = 0; s < 6 + r() * 14; s++) { a += (r() - .5) * .5; x += Math.cos(a) * 3; y += Math.sin(a) * 3; g.lineTo(x, y); }
+    g.strokeStyle = r() < .7 ? 'rgba(255,252,244,.55)' : 'rgba(120,100,80,.10)'; g.lineWidth = .6; g.stroke();
+  }
+}
+
+// ---- geometry helpers ------------------------------------------------------------------------------------------------
+const rot = ([x, y], a) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
+const norm = ([x, y]) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
+function bez(p0, p1, p2, p3, step = 2) {
+  const L = Math.hypot(p3[0] - p0[0], p3[1] - p0[1]) + Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) + Math.hypot(p3[0] - p2[0], p3[1] - p2[1]);
+  const n = Math.max(4, Math.ceil(L / step)), out = [];
+  for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t;
+    out.push([u*u*u*p0[0] + 3*u*u*t*p1[0] + 3*u*t*t*p2[0] + t*t*t*p3[0], u*u*u*p0[1] + 3*u*u*t*p1[1] + 3*u*t*t*p2[1] + t*t*t*p3[1]]); }
+  return out;
+}
+// a curl: start at p heading h, turning to side s, radius shrinking from r0 by exp(-k·phi) over `turns`
+function curl(p, h, r0, turns, s, rEnd = .16) {
+  const out = [p.slice()], k = Math.log(1 / rEnd) / (turns * 2 * Math.PI);
+  let [x, y] = p, a = Math.atan2(h[1], h[0]), phi = 0;
+  while (phi < turns * 2 * Math.PI) { const r = r0 * Math.exp(-k * phi), ds = Math.min(1.5, r * .3), dp = ds / r;
+    phi += dp; a += s * dp; x += Math.cos(a) * ds; y += Math.sin(a) * ds; out.push([x, y]); }
+  return out;
+}
+
+// ---- the free-space field -------------------------------------------------------------------------------------------
+// free[c]  = clearance from the cell to the nearest obstacle (sheet edge, text, everything drawn), capped
+// sdist[c] = distance to the nearest stem point; snear[c] its index; a branch can only reach places near a stem
+const CELL = 4, CAP = 44, REACH = 74, FLOOR = 7.5, GUARD = 18, EDGE = 12, AIR = 7;
+function grow(S, T) {
+  const W = Math.ceil(S.w / CELL), H = Math.ceil(S.h / CELL), N = W * H;
+  const free = new Float32Array(N), sdist = new Float32Array(N).fill(1e9), snear = new Int32Array(N).fill(-1);
+  const tx0 = T.x - GUARD, ty0 = T.y - GUARD, tx1 = T.x + T.w + GUARD, ty1 = T.y + T.h + GUARD;
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const x = (i + .5) * CELL, y = (j + .5) * CELL;
+    const edge = Math.min(x, y, S.w - x, S.h - y) - EDGE;
+    const dx = Math.max(tx0 - x, 0, x - tx1), dy = Math.max(ty0 - y, 0, y - ty1);
+    free[j * W + i] = Math.max(0, Math.min(CAP, edge, Math.hypot(dx, dy)));
+  }
+  const stamp = (q, rad) => {
+    const R = rad + CAP, i0 = Math.max(0, ((q[0] - R) / CELL) | 0), i1 = Math.min(W - 1, ((q[0] + R) / CELL) | 0);
+    const j0 = Math.max(0, ((q[1] - R) / CELL) | 0), j1 = Math.min(H - 1, ((q[1] + R) / CELL) | 0);
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const c = j * W + i, d = Math.hypot((i + .5) * CELL - q[0], (j + .5) * CELL - q[1]) - rad;
+      if (d < free[c]) free[c] = Math.max(0, d);
+    }
+  };
+  const pts = [], tans = [];  // stem points branches may leave from
+  const addStem = (poly, rad = 2.6, source = true) => {
+    for (let k = 0; k < poly.length; k++) {
+      const q = poly[k]; stamp(q, rad);
+      if (!source || k % 2) continue;
+      const a = poly[Math.max(0, k - 1)], b = poly[Math.min(poly.length - 1, k + 1)];
+      pts.push(q); tans.push(norm([b[0] - a[0], b[1] - a[1]]));
+      const id = pts.length - 1, R = REACH, i0 = Math.max(0, ((q[0] - R) / CELL) | 0), i1 = Math.min(W - 1, ((q[0] + R) / CELL) | 0);
+      const j0 = Math.max(0, ((q[1] - R) / CELL) | 0), j1 = Math.min(H - 1, ((q[1] + R) / CELL) | 0);
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const c = j * W + i, d = Math.hypot((i + .5) * CELL - q[0], (j + .5) * CELL - q[1]);
+        if (d < sdist[c]) { sdist[c] = d; snear[c] = id; }
+      }
+    }
+  };
+  const marks = { stems: [], leaves: [], bezants: [] };
+  const rStem = stream(SEED, 'stems'), rBranch = stream(SEED, 'branches'), rLeaf = stream(SEED, 'leaves');
+
+  // 1 · main stems along the middle of each band thick enough to hold one; a closed ring when all four are
+  const band = { t: ty0 - EDGE, b: S.h - EDGE - ty1, l: tx0 - EDGE, r: S.w - EDGE - tx1 }, MIN = 34;
+  const cy = { t: EDGE + band.t / 2, b: ty1 + band.b / 2 }, cx = { l: EDGE + band.l / 2, r: tx1 + band.r / 2 };
+  const wave = (line, closed) => {   // resample and swing the line by a slow wave whose size follows the room
+    const out = [], ph = rStem() * 6.3, lam = 150 + rStem() * 60; let s = 0;
+    for (let k = 0; k < line.length; k++) {
+      const a = line[Math.max(0, k - 1)], b = line[Math.min(line.length - 1, k + 1)], t = norm([b[0] - a[0], b[1] - a[1]]);
+      if (k) s += Math.hypot(line[k][0] - line[k - 1][0], line[k][1] - line[k - 1][1]);
+      const c = Math.min(W - 1, (line[k][0] / CELL) | 0) + Math.min(H - 1, (line[k][1] / CELL) | 0) * W;
+      const A = .3 * free[c] * (closed ? 1 : Math.min(1, s / 60, (line.length * 3 - s) / 60));
+      const o = A * Math.sin(s / lam * 2 * Math.PI + ph);
+      out.push([line[k][0] - t[1] * o, line[k][1] + t[0] * o]);
+    }
+    return out;
+  };
+  const seg = (a, b) => { const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 3), o = [];
+    for (let i = 0; i < n; i++) o.push([a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n]); return o; };
+  const arc = (c, r, a0, a1) => { const n = Math.ceil(Math.abs(a1 - a0) * r / 3), o = [];
+    for (let i = 0; i < n; i++) { const a = a0 + (a1 - a0) * i / n; o.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]); } return o; };
+  const lines = [];
+  if (band.t > MIN && band.b > MIN && band.l > MIN && band.r > MIN) {
+    const R = Math.min(band.l, band.r, band.t, band.b) * .45, P = Math.PI;
+    const [l, r, t, b] = [cx.l, cx.r, cy.t, cy.b];
+    const ring = [...seg([l + R, t], [r - R, t]), ...arc([r - R, t + R], R, -P / 2, 0), ...seg([r, t + R], [r, b - R]),
+      ...arc([r - R, b - R], R, 0, P / 2), ...seg([r - R, b], [l + R, b]), ...arc([l + R, b - R], R, P / 2, P),
+      ...seg([l, b - R], [l, t + R]), ...arc([l + R, t + R], R, P, 1.5 * P)];
+    lines.push([wave(ring, true), true]);
+  } else {
+    for (const k of ['t', 'b']) if (band[k] > MIN) lines.push([wave(seg([EDGE + 26, cy[k]], [S.w - EDGE - 26, cy[k]]), false), false]);
+  }
+  for (const [line, closed] of lines) {
+    if (!closed) {  // an open stem ends in a curl at each end
+      for (const end of [0, 1]) {
+        const p = end ? line[line.length - 1] : line[0], q = end ? line[line.length - 4] : line[3], h = norm([p[0] - q[0], p[1] - q[1]]);
+        const c = curl(p, h, Math.min(16, band.t * .22), 1.35, end ? -1 : 1);
+        if (end) line.push(...c.slice(1)); else line.unshift(...c.slice(1).reverse());
+      }
+    }
+    marks.stems.push({ pts: line, w: 1.5, closed }); addStem(line, 4);
+  }
+
+  // 2 · branches: the largest open place within reach of a stem, every time, until none is larger than the floor
+  const colored = [];
+  const jit = new Float32Array(N); for (let c = 0; c < N; c++) jit[c] = .82 + .36 * hash2(c % W, (c / W) | 0, SEED);
+  for (let iter = 0; iter < 600; iter++) {
+    let best = -1, bs = 0;
+    for (let c = 0; c < N; c++) if (snear[c] >= 0 && free[c] > FLOOR) { const sc = free[c] * jit[c]; if (sc > bs) { bs = sc; best = c; } }
+    if (best < 0) break;
+    const c = [(best % W + .5) * CELL, ((best / W | 0) + .5) * CELL], p = pts[snear[best]];
+    let t = tans[snear[best]]; const to = [c[0] - p[0], c[1] - p[1]];
+    if (t[0] * to[0] + t[1] * to[1] < 0) t = [-t[0], -t[1]];
+    const side = Math.sign(t[0] * to[1] - t[1] * to[0]) || 1, r = free[best] * .94, u = norm(to);
+    const leafy = r > 10 ? rBranch() < .55 : false;
+    if (leafy) {
+      const L = Math.min(r / .6, 23) * (.9 + rLeaf() * .2), ax = rot(u, (rBranch() - .5) * .7);
+      const base = [c[0] - ax[0] * .38 * L, c[1] - ax[1] * .38 * L], d = Math.hypot(base[0] - p[0], base[1] - p[1]);
+      const out = norm([t[0] + u[0] * 1.4, t[1] + u[1] * 1.4]);
+      const stalk = bez(p, [p[0] + out[0] * d * .45, p[1] + out[1] * d * .45], [base[0] - ax[0] * d * .35, base[1] - ax[1] * d * .35], base);
+      marks.stems.push({ pts: stalk, w: .85 }); addStem(stalk, 3);
+      const far = colored.every(q => Math.hypot(q[0] - c[0], q[1] - c[1]) > 120);
+      const kind = far && rLeaf() < .45 ? (colored.push(c), colored.length % 3 ? 'lapis' : 'vermilion') : 'gold';
+      marks.leaves.push({ base, ax, L, kind, seed: (rLeaf() * 1e9) | 0 });
+      stamp([base[0] + ax[0] * L * .42, base[1] + ax[1] * L * .42], L * .52 + AIR);
+    } else {
+      // a curl round the open place: in at its rim, round its centre, tightening
+      const a0 = Math.atan2(p[1] - c[1], p[0] - c[0]) - side * .5, r0 = r * .78;
+      const e = [c[0] + Math.cos(a0) * r0, c[1] + Math.sin(a0) * r0], h = rot([Math.cos(a0), Math.sin(a0)], side * Math.PI / 2);
+      const d = Math.hypot(e[0] - p[0], e[1] - p[1]);
+      const lead = bez(p, [p[0] + t[0] * d * .5, p[1] + t[1] * d * .5], [e[0] - h[0] * d * .4, e[1] - h[1] * d * .4], e);
+      const tail = curl(e, h, r0, 1.1 + rBranch() * .5, side);
+      const line = [...lead, ...tail.slice(1)];
+      marks.stems.push({ pts: line, w: .7 }); addStem(line, 3);
+      stamp(c, r * .7 + AIR * .5);
+    }
+  }
+  // 3 · bezants in what is left: gold dots with three pen sprays
+  const rBez = stream(SEED, 'bezants');
+  for (let k = 0; k < 400; k++) {
+    let best = -1, bs = 0;
+    for (let c = 0; c < N; c++) if (free[c] > 6) { const sc = free[c] * jit[c]; if (sc > bs) { bs = sc; best = c; } }
+    if (best < 0) break;
+    const c = [(best % W + .5) * CELL, ((best / W | 0) + .5) * CELL], r = Math.min(3.3, free[best] * .42);
+    marks.bezants.push({ c, r, a: rBez() * 6.3, seed: (rBez() * 1e9) | 0 }); stamp(c, r + 16);
+  }
+  return marks;
+}
+
+// ---- drawing ---------------------------------------------------------------------------------------------------------
+const INK = 'oklch(0.27 0.025 55)';
+// a hairline drawn as a filled ribbon: the pen swells and thins a little with pressure and tapers at both ends
+function hairline(g, pts, w, seed) {
+  const n = pts.length; if (n < 2) return;
+  const L = [], R = [], wob = vnoise(seed);
+  for (let k = 0; k < n; k++) {
+    const a = pts[Math.max(0, k - 1)], b = pts[Math.min(n - 1, k + 1)], t = norm([b[0] - a[0], b[1] - a[1]]);
+    const u = k / (n - 1), taper = Math.min(1, u * 9, (1 - u) * 5) * .7 + .3;
+    const hw = w / 2 * taper * (.8 + .45 * wob(k * .06, 0));
+    L.push([pts[k][0] - t[1] * hw, pts[k][1] + t[0] * hw]); R.push([pts[k][0] + t[1] * hw, pts[k][1] - t[0] * hw]);
+  }
+  g.beginPath(); g.moveTo(L[0][0], L[0][1]);
+  for (const q of L) g.lineTo(q[0], q[1]);
+  for (let k = n - 1; k >= 0; k--) g.lineTo(R[k][0], R[k][1]);
+  g.closePath(); g.fill();
+}
+// the ivy leaf of the borders: pointed basal lobes, a shoulder, a concave flank drawn out to the point; never two alike
+function leafOutline(r) {
+  const j = () => 1 + (r() - .5) * .18, tip = (r() - .5) * .08;
+  const side = (s) => { const w = .5 * j(), lb = .13 * j(), sx = .32 * j();
+    return [[.1, 0], [.04, .1 * s], [-.04, .22 * s], [-lb, w * .74 * s],      // down to the basal lobe's point
+      [0, w * s], [.16, w * 1.08 * s], [sx, w * s],                           // round the shoulder
+      [.56, w * .52 * s], [.8, w * .16 * s], [1, tip]];                       // concave flank to the point
+  };
+  const sample = (pts) => { const out = [pts[0]];
+    for (let k = 1; k < pts.length - 2; k += 3) for (let i = 1; i <= 12; i++) { const t = i / 12, u = 1 - t, [p0, p1, p2, p3] = [pts[k - 1], pts[k], pts[k + 1], pts[k + 2]];
+      out.push([u*u*u*p0[0] + 3*u*u*t*p1[0] + 3*u*t*t*p2[0] + t*t*t*p3[0], u*u*u*p0[1] + 3*u*u*t*p1[1] + 3*u*t*t*p2[1] + t*t*t*p3[1]]); }
+    return out; };
+  return { R: sample(side(1)), Lf: sample(side(-1)), tip };
+}
+const RIM = { gold: 'oklch(0.42 0.08 62 / .3)', lapis: 'oklch(0.28 0.1 266 / .45)', vermilion: 'oklch(0.4 0.13 30 / .4)' };
+function drawLeaf(g, lf) {
+  const r = mulberry(lf.seed), { R, Lf, tip } = leafOutline(r), ax = lf.ax, pp = [-ax[1], ax[0]];
+  const P = ([x, y]) => [lf.base[0] + (ax[0] * x + pp[0] * y) * lf.L, lf.base[1] + (ax[1] * x + pp[1] * y) * lf.L];
+  const loop = [...R, ...Lf.slice(0, -1).reverse()].map(P), path = new Path2D();
+  loop.forEach((q, k) => k ? path.lineTo(q[0], q[1]) : path.moveTo(q[0], q[1])); path.closePath();
+  const halfPath = (side) => { const h = new Path2D(), pts = side.map(P); pts.forEach((q, k) => k ? h.lineTo(q[0], q[1]) : h.moveTo(q[0], q[1])); h.closePath(); return h; };
+  const tilt = r(), light = .5 + .5 * Math.cos(Math.atan2(ax[1], ax[0]) + 2.2 + tilt * 2.4), dark = r() < .5 ? R : Lf;
+  if (lf.kind === 'gold') {
+    // burnished gold is mostly dark, and flashes where it faces the light: a narrow bright band across each leaf
+    const da = tilt * 6.3, d = [Math.cos(da) * lf.L * .6, Math.sin(da) * lf.L * .6], c = P([.4, 0]);
+    const gr = g.createLinearGradient(c[0] - d[0], c[1] - d[1], c[0] + d[0], c[1] + d[1]), pk = .35 + .3 * r();
+    gr.addColorStop(0, 'oklch(0.5 0.095 68)'); gr.addColorStop(Math.max(0, pk - .22), `oklch(${.64 + .08 * light} 0.12 78)`);
+    gr.addColorStop(pk, `oklch(${.8 + .14 * light} ${.09 + .03 * (1 - light)} 94)`);
+    gr.addColorStop(Math.min(1, pk + .26), `oklch(${.66 + .06 * light} 0.12 80)`); gr.addColorStop(1, 'oklch(0.55 0.1 72)');
+    g.fillStyle = gr; g.fill(path);
+    g.fillStyle = 'oklch(0.38 0.07 60 / .09)'; g.fill(halfPath(dark));
+  } else {
+    g.fillStyle = lf.kind === 'lapis' ? 'oklch(0.49 0.12 262)' : 'oklch(0.6 0.16 34)'; g.fill(path);
+    g.fillStyle = lf.kind === 'lapis' ? 'oklch(0.3 0.1 265 / .3)' : 'oklch(0.4 0.13 30 / .25)'; g.fill(halfPath(dark));
+  }
+  // the pigment pools where the wash met its edge
+  g.save(); g.clip(path); g.strokeStyle = RIM[lf.kind]; g.lineJoin = 'round';
+  g.lineWidth = lf.L * .2; g.globalAlpha = .45; g.stroke(path); g.lineWidth = lf.L * .07; g.globalAlpha = 1; g.stroke(path); g.restore();
+  if (lf.kind !== 'gold') {
+    // lead white: a fine line laid just inside one flank
+    const side = dark === R ? Lf : R, s = dark === R ? -1 : 1, from = (side.length * .36) | 0, to = (side.length * .86) | 0;
+    g.fillStyle = 'rgba(255,253,246,.82)';
+    hairline(g, side.slice(from, to).map(([x, y]) => P([x * .92 + .04, y * .7])), .7, lf.seed);
+  }
+  g.fillStyle = INK;
+  hairline(g, [...loop, loop[0], loop[1]], .8, lf.seed ^ 77);
+  g.globalAlpha = lf.kind === 'gold' ? .45 : .35;
+  hairline(g, Array.from({ length: 14 }, (_, k) => P([.12 + k / 13 * .66, tip * k / 13 * .8 + Math.sin(k / 13 * 3) * .015])), .55, lf.seed ^ 99);
+  g.globalAlpha = 1;
+}
+function drawBezant(g, b) {
+  const r = mulberry(b.seed);
+  g.strokeStyle = INK; g.fillStyle = INK;
+  for (let k = 0; k < 3; k++) {   // three sprays fanned away from the dot, each a small hooked stroke
+    const a = b.a + k * 2.09 + (r() - .5) * .5, l = 5 + r() * 3, s = r() < .5 ? -1 : 1;
+    const p0 = [b.c[0] + Math.cos(a) * (b.r + 1.4), b.c[1] + Math.sin(a) * (b.r + 1.4)], p3 = [p0[0] + Math.cos(a) * l, p0[1] + Math.sin(a) * l];
+    const m = rot([Math.cos(a), Math.sin(a)], s * .9);
+    hairline(g, bez(p0, [p0[0] + Math.cos(a) * l * .5, p0[1] + Math.sin(a) * l * .5], [p3[0] - m[0] * l * .3, p3[1] - m[1] * l * .3], p3, 1), .75, b.seed + k);
+  }
+  const light = .5 + .5 * Math.cos(b.a);
+  g.beginPath(); g.arc(b.c[0], b.c[1], b.r, 0, 7); g.fillStyle = `oklch(${.68 + light * .16} 0.125 82)`; g.fill();
+  g.lineWidth = .7; g.strokeStyle = INK; g.stroke();
+}
+
+// the ink settles by the paper: thinner on the tooth's peaks, fuller in its valleys
+function settle(g, ox, oy, dpr) {
+  const W = g.canvas.width, H = g.canvas.height, im = g.getImageData(0, 0, W, H), d = im.data;
+  for (let y = 0; y < H; y++) { const py = oy + y / dpr;
+    for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; if (!d[i + 3]) continue;
+      const h = height(ox + x / dpr, py); d[i + 3] *= 1.06 - .16 * h * h; } }
+  g.putImageData(im, 0, 0);
+}
+
+function render() {
+  const sheet = document.querySelector('.sheet'), text = document.querySelector('.text'), cv = document.getElementById('orn');
+  const sr = sheet.getBoundingClientRect(), tr = text.getBoundingClientRect();
+  const S = { w: sr.width, h: sr.height }, T = { x: tr.left - sr.left, y: tr.top - sr.top, w: tr.width, h: tr.height };
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = Math.round(S.w * dpr); cv.height = Math.round(S.h * dpr); cv.style.width = S.w + 'px'; cv.style.height = S.h + 'px';
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const t0 = performance.now(), marks = grow(S, T), t1 = performance.now();
+  // the ruling: a faint red frame where the scribe ruled the text block
+  g.strokeStyle = 'oklch(0.56 0.17 33 / .5)'; g.lineWidth = .7;
+  g.strokeRect(T.x - 9.5, T.y - 9.5, T.w + 19, T.h + 19);
+  g.fillStyle = INK; marks.stems.forEach((s, k) => hairline(g, s.pts, s.w, SEED + k));
+  marks.leaves.forEach(l => drawLeaf(g, l));
+  marks.bezants.forEach(b => drawBezant(g, b));
+  settle(g, sr.left + scrollX, sr.top + scrollY, dpr);
+  console.log(`illum ivy: ${marks.leaves.length} leaves, ${marks.stems.length} stems, ${marks.bezants.length} bezants; grew in ${(t1 - t0) | 0} ms, drew in ${(performance.now() - t1) | 0} ms`);
+}
+
+await document.fonts.ready;
+paintPaper(); render();
+let lastW = innerWidth, timer;
+new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; paintPaper(); } render(); }, 150); })
+  .observe(document.querySelector('.sheet'));
+addEventListener('hashchange', () => location.reload());
+</script>
+</body>
+</html>
