@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>illum playground</title>
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; }
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(176 58 36); --soft: rgb(43 33 25 / .62); }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0 auto; max-width: 980px; padding: 72px 32px 96px; font: 400 19px/1.55 "EB Garamond", Garamond, serif; -webkit-font-smoothing: antialiased; }
+  header { max-width: 34em; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .16em; text-transform: uppercase; color: var(--rubric); margin: 0; }
+  header p { margin: .5em 0 0; }
+  header .bar { font-style: italic; color: var(--soft); }
+  #rule { display: block; width: 100%; height: 24px; margin: 28px 0 40px; }
+  ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 48px; }
+  li > a { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 28px; align-items: start; color: inherit; text-decoration: none; }
+  li img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; object-position: left top; display: block; box-shadow: 0 0 0 1px rgb(43 33 25 / .12); }
+  .n { font-variant-numeric: oldstyle-nums; color: var(--rubric); letter-spacing: .08em; }
+  h2 { font-weight: 500; font-size: 1.25em; margin: .1em 0 .3em; }
+  li p { margin: 0 0 .5em; }
+  .kind { font-style: italic; color: var(--soft); font-size: .9em; }
+  li > a:hover h2, li > a:focus-visible h2 { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .18em; }
+  .also { font-size: .9em; margin: 10px 0 0; }
+  .also a { color: inherit; }
+  footer { margin-top: 64px; font-size: 15px; font-style: italic; color: var(--soft); }
+  footer a { color: inherit; }
+  @media (max-width: 680px) {
+    body { padding: 44px 20px 64px; font-size: 18px; }
+    li > a { grid-template-columns: 1fr; gap: 14px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>illum</h1>
+  <p>Experiments in illuminating the web page: ornament grown from the page it sits on, drawn with a pen that deposits ink and paint that pools, and held to one measure: would it belong in the permanent collection of a museum?</p>
+  <p class="bar">Each experiment is one idea on one page. Most can grow in front of you; none will unless asked.</p>
+</header>
+<canvas id="rule" aria-hidden="true"></canvas>
+<ol>
+  <li>
+    <a href="01-ivy-border.html">
+      <img src="thumbs/01-ivy-border.webp" alt="A page of Ruskin's text beside a gold bar, with a spray of fine black pen stems, gold ivy leaves and two painted flowers in the margin.">
+      <div>
+        <span class="n">i.</span>
+        <h2>Ivy border</h2>
+        <p>The bar border of a French Book of Hours, c. 1450–1500. Gold ivy and pen dots are placed first, evenly, and the stems grow from the foot of the margin until they have reached every one. On a phone the same rule grows a headpiece.</p>
+        <p class="kind">Space colonization, worn gold on bole, a pen that pools.</p>
+      </div>
+    </a>
+    <p class="also"><a href="01-ivy-border.html?grow">Watch it grow</a> · <a href="01-ivy-border.html?p=7">with a longer text</a></p>
+  </li>
+  <li>
+    <a href="00-pen-and-paint.html">
+      <img src="thumbs/00-pen-and-paint.webp" alt="Studies of single pen strokes, curling branches, and gold and painted ivy leaves, each at size and at four times.">
+      <div>
+        <span class="n">study</span>
+        <h2>Pen and paint</h2>
+        <p>A study of single marks, at size and at four times: the pen line, the branch that leaves its stem and curls, the leaf in each pigment, gold laid on red bole and worn through. Nothing larger can be better than these.</p>
+        <p class="kind">A study, not a composition.</p>
+      </div>
+    </a>
+  </li>
+</ol>
+<footer>
+  <p>Text by Ruskin from Project Gutenberg. EB Garamond under the SIL Open Font License. Source and research on <a href="https://github.com/davidtorcivia/illum">GitHub</a>.</p>
+</footer>
+<script type="module">
+// the rule under the header is drawn with the same pen as the experiments: one slow stroke, a bead where it landed
+import { pen, spline, mulberry } from './kit/marks.js';
+const cv = document.getElementById('rule'), draw = () => {
+  const w = cv.clientWidth, h = cv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = w * dpr; cv.height = h * dpr; const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const r = mulberry(7), pts = Array.from({ length: 7 }, (_, k) => [2 + (w - 40) * k / 6, h / 2 + (r() - .5) * 1.6]);
+  pen(g, spline(pts), { w: 1.3, seed: 5, broad: .25, end: 'taper' });
+  pen(g, [[w - 24, h / 2 - 1], [w - 23, h / 2 - 1]], { w: 2.6, seed: 6, start: 'cut', end: 'ball' });
+};
+draw(); new ResizeObserver(draw).observe(cv);
+</script>
+</body>
+</html>

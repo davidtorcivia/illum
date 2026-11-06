@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pen and paint</title>
+<!--
+  00 · Pen and paint: a study of single marks, at size and at four times.
+
+  Instruction: draw each mark the way its tool would leave it. Ink is deposited in overlapping dabs that pool where
+  the pen dwells and thin as it runs dry. A branch leaves its stem at a shallow angle on one rising curvature, so it
+  has no joins. Paint fills an outline it does not quite follow, pools at its rim and settles in the paper's tooth.
+
+  Function: the mark itself (06-purpose §8, the visible hand). Nothing at a larger scale can be better than this.
+  Gate: the 4× column must read as ink and paint, not as vectors.
+-->
+<style>
+  :root { --paper: rgb(244 238 226); --ink: #2a1d14; }
+  html { background: var(--paper); color: var(--ink); }
+  body { margin: 0 auto; max-width: 1200px; padding: 40px 24px 80px; font: 17px/1.5 "EB Garamond", Garamond, serif; }
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; }
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-style: italic; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 .2em; }
+  .row { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; margin: 36px 0; }
+  .row p { margin: 6px 0 0; font-style: italic; font-size: 15px; opacity: .7; }
+  canvas { display: block; }
+  @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>Pen and paint</h1>
+<div id="rows"></div>
+<script type="module">
+import { pen, tendril, branch, spline, wash, ivyLeaf, trefoil, place, stream, mulberry } from './kit/marks.js';
+const INK = [42, 29, 20], WHITE = [252, 249, 240];
+const seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+
+function leaf(g, b, ax, L, pig, s, dpr) {
+  const r = mulberry(s), { right, left, tip } = ivyLeaf(r);
+  const outline = place([...right, ...left.slice(0, -1).reverse()], b, ax, L);
+  wash(g, outline, pig, { dpr, seed: s });
+  // lead white: a fine vein laid beside the midrib, the way the painter lifted the leaf's flat colour
+  if (pig !== 'shellgold') pen(g, place(Array.from({ length: 14 }, (_, k) => [.22 + k / 13 * .5, .07 + k / 13 * .02]), b, ax, L),
+    { w: .6, ink: WHITE, load: .8, dry: .4, start: 'cut', end: 'taper', broad: .1, seed: s + 3 });
+  pen(g, place(right, b, ax, L), { w: .95, ink: INK, seed: s + 1, start: 'cut', end: 'cut', load: .9 });
+  pen(g, place(left, b, ax, L), { w: .95, ink: INK, seed: s + 2, start: 'cut', end: 'cut', load: .88 });
+  pen(g, place(Array.from({ length: 20 }, (_, k) => [.1 + k / 19 * .66, tip * k / 19 * .7]), b, ax, L), { w: .6, ink: INK, load: .6, seed: s + 4, start: 'cut' });
+}
+// gold ivy as it was laid: red bole, leaf gold over it (worn through in places), then the black outline, drawn last
+// and not quite on the gold, heavier on the side away from the light
+function goldIvy(g, b, ax, L, s, dpr) {
+  const r = mulberry(s), shape = place(trefoil(r), b, ax, L);
+  wash(g, shape, 'bole', { dpr, seed: s, grow: .3 });
+  wash(g, shape, 'shellgold', { dpr, seed: s + 1, wear: .4, grow: -.4 });
+  pen(g, [...shape, shape[0], shape[1]], { w: 1.05, seed: s + 2, start: 'cut', end: 'cut', shade: [-.55, .83], broad: .2, load: 1 });
+}
+function sprig(g, root, h, len, s, dpr) {
+  const r = mulberry(s), stem = spline(Array.from({ length: 6 }, (_, k) => [root[0] + Math.cos(h) * len * k / 5 + (r() - .5) * 9, root[1] + Math.sin(h) * len * k / 5])); pen(g, stem, { w: 1.05, seed: s, start: 'taper', end: 'ball' });
+  for (let d = 8 + r() * 4, side = r() < .5 ? 1 : -1; d < len - 6; d += 8 + r() * 6, side = -side) {
+    const i = Math.round(d / len * (stem.length - 3)), p = stem[i], q = stem[i + 2], a = Math.atan2(q[1] - p[1], q[0] - p[0]) + side * (.75 + r() * .3);
+    const roll = r(), sl = roll < .2 ? 14 + r() * 6 : 6 + r() * 7;
+    const sp = branch(p, a, sl, -side * (.05 + r() * .09), { away: .25 });
+    if (roll < .2) { pen(g, sp, { w: .8, seed: s + i, start: 'taper', end: 'cut' });
+      const e = sp[sp.length - 1], f = sp[sp.length - 5], l = Math.hypot(e[0] - f[0], e[1] - f[1]);
+      goldIvy(g, e, [(e[0] - f[0]) / l, (e[1] - f[1]) / l], 15 + r() * 5, s * 31 + i, dpr); }
+    else pen(g, sp, { w: .85, seed: s + i, start: 'taper', end: 'ball' });
+  }
+}
+const scenes = [
+  ['A pen line: an S, a rule, a slow curve', 300, 170, (g, dpr) => {
+    const r = stream(seed, 's');
+    pen(g, spline([[20, 120], [70, 40], [130, 60], [170, 120], [230, 130], [280, 50]]), { w: 1.6, seed: 11 });
+    pen(g, spline(Array.from({ length: 6 }, (_, k) => [20 + k * 52, 150 + (r() - .5) * 2.2])), { w: 1.1, seed: 12, broad: .2, end: 'cut' });
+    pen(g, tendril([30, 40], -.3, 160, .004, .07, 1.2), { w: 1.2, seed: 13 });
+  }],
+  ['Branches leave a stem at a shallow angle and curl on one rising curvature', 300, 200, (g, dpr) => {
+    const stem = spline([[0, 120], [60, 104], [130, 126], [200, 108], [300, 118]]);
+    pen(g, stem, { w: 1.7, seed: 21, start: 'taper', end: 'taper' });
+    pen(g, branch([56, 106], -.12, 105, .3), { w: 1.15, seed: 22, end: 'ball', start: 'taper' });
+    pen(g, branch([128, 125], .1, 95, -.32), { w: 1.05, seed: 23, end: 'ball', start: 'taper' });
+    pen(g, branch([192, 110], -.1, 68, .36), { w: .95, seed: 24, end: 'taper', start: 'taper' });
+    pen(g, branch([246, 112], .08, 110, -.26), { w: 1.1, seed: 25, end: 'ball', start: 'taper' });
+  }],
+  ['Gold ivy as it was laid: red bole, worn leaf gold, an outline heavier away from the light', 300, 120, (g, dpr) => {
+    for (let k = 0; k < 5; k++) { const a = -1.9 + k * .55, ax = [Math.cos(a), Math.sin(a)]; goldIvy(g, [30 + k * 58, 80], ax, 34, 500 + k + seed * 7, dpr); }
+  }],
+  ['A sprig: a stem with spurs ending in pen balls and gold ivy', 300, 220, (g, dpr) => {
+    sprig(g, [70, 215], -1.62, 200, 40 + seed, dpr); sprig(g, [200, 215], -1.5, 180, 90 + seed, dpr);
+  }],
+  ['Ivy leaves: lapis, vermilion, verdigris, shell gold, ochre', 300, 150, (g, dpr) => {
+    ['lapis', 'vermilion', 'verdigris', 'shellgold', 'ochre'].forEach((pig, k) => {
+      const a = -1.3 + k * .35 + .25, ax = [Math.cos(a), Math.sin(a)];
+      leaf(g, [22 + k * 58, 122], ax, 46, pig, 100 + k + seed * 13, dpr);
+    });
+  }],
+  ['A leaf on its stalk, a bezant with its sprays', 300, 170, (g, dpr) => {
+    const stem = spline([[0, 130], [120, 118], [300, 134]]); pen(g, stem, { w: 1.6, seed: 31, start: 'cut', end: 'cut' });
+    const st = tendril([70, 124], -.45, 70, -.012, .018, 1.4); pen(g, st, { w: .95, seed: 32, end: 'cut' });
+    const e = st[st.length - 1], q = st[st.length - 6], ax = [(e[0] - q[0]) / Math.hypot(e[0] - q[0], e[1] - q[1]), (e[1] - q[1]) / Math.hypot(e[0] - q[0], e[1] - q[1])];
+    leaf(g, e, ax, 40, 'lapis', 300 + seed, dpr);
+    const bz = tendril([190, 124], -.5, 52, -.01, .03, 1.3); pen(g, bz, { w: .9, seed: 33, end: 'cut' });
+    const c = bz[bz.length - 1], r = 4.2, circle = Array.from({ length: 40 }, (_, k) => [c[0] + Math.cos(k / 40 * 6.283) * r, c[1] + Math.sin(k / 40 * 6.283) * r]);
+    const h = Math.atan2(c[1] - bz[bz.length - 4][1], c[0] - bz[bz.length - 4][0]);
+    wash(g, circle, 'shellgold', { dpr, seed: 9 }); pen(g, [...circle, circle[0], circle[1]], { w: .8, seed: 34, start: 'cut', end: 'cut' });
+    [-0.9, 0, .9].forEach((da, k) => { const a = h + da, p0 = [c[0] + Math.cos(a) * (r + 1.5), c[1] + Math.sin(a) * (r + 1.5)];
+      pen(g, tendril(p0, a, 9, 0, (k - 1) * .25 + .12, 1.5), { w: .8, seed: 35 + k, end: 'ball', start: 'cut' }); });
+  }],
+];
+const rows = document.getElementById('rows');
+for (const [label, w, h, draw] of scenes) {
+  const row = document.createElement('div'); row.className = 'row';
+  const left = document.createElement('div'), right = document.createElement('div');
+  const c1 = document.createElement('canvas'), c4 = document.createElement('canvas'), cap = document.createElement('p');
+  cap.textContent = label; left.append(c1, cap); right.append(c4); row.append(left, right); rows.append(row);
+  const base = Math.min(2, devicePixelRatio || 1);
+  for (const [c, z] of [[c1, 1], [c4, 4]]) {
+    const cw = z === 1 ? w : Math.min(860, w * z) , chh = z === 1 ? h : Math.min(h * z, 560);
+    c.style.width = cw + 'px'; c.style.height = chh + 'px'; c.width = cw * base; c.height = chh * base;
+    const g = c.getContext('2d'), dpr = base * z;
+    // 4×: centre on the middle of the scene
+    const ox = z === 1 ? 0 : (w * z - cw) / 2, oy = z === 1 ? 0 : (h * z - chh) / 2;
+    g.setTransform(dpr, 0, 0, dpr, -ox * base, -oy * base); draw(g, dpr);
+  }
+}
+document.body.dataset.timing = 'done';
+</script>
+</body>
+</html>
