@@ -100,6 +100,12 @@ export function pen(g, pts, o = {}) {
   if (end === 'ball' && i1 === n - 1 && to >= 1) bead(P[n - 1], Math.max(1.05, w * (.75 + .5 * wob(L))));
 }
 
+// A single dot of ink or paint, as the pen leaves it when touched to the page and lifted.
+export function dot(g, p, r, ink = INK, paper = PAPER, rho = 1.1) {
+  const Kc = ink.map((c, i) => -Math.log(Math.max(.02, c / paper[i])));
+  g.beginPath(); g.arc(p[0], p[1], r, 0, 7); g.fillStyle = `rgb(${paper.map((q, j) => Math.round(q * Math.exp(-Kc[j] * rho)))})`; g.fill();
+}
+
 // A branch as a hand draws it: it leaves the parent almost along it, bends away, then turns back on one smooth
 // curvature into a curl (or, for a leaf's stalk, only part way). kAway < 0 relative to the curl's sense.
 export function branch(p, h, L, kCurl, { away = .7, pw = 2.6, ds = .5 } = {}) {

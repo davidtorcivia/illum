@@ -63,7 +63,7 @@
 <p class="colophon">Border grown by illum, ivy, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="regrow">Watch it grow.</a></p>
 
 <script type="module">
-import { pen, spline, wash, trefoil, place, mulberry, stream, fnv } from './kit/marks.js';
+import { pen, spline, wash, trefoil, place, mulberry, stream, fnv, dot } from './kit/marks.js';
 
 const pn = +new URLSearchParams(location.search).get('p');
 if (pn) { const ps = [...document.querySelectorAll('.text p:not(.sub)')], art = document.querySelector('.text');
@@ -128,8 +128,10 @@ function compose() {
     const by = T.y - 26; len = S.w - 36; depth = by - 22;
     toPage = ([u, v]) => [18 + u, by - 6 - v]; bar = [[18, by], [S.w - 18, by]];
   }
-  const rH = stream(SEED, 'heroes'), heroes = [];
-  for (const f of phone ? [.27, .73] : [.24, .66]) heroes.push({ c: [len * (f + (rH() - .5) * .06), depth * (.5 + (rH() - .5) * .2)], r: Math.min(21, depth * .2) });
+  // the flowers come first and set the band's rhythm: one about every 250 px, alternating across it, the kinds in turn
+  const rH = stream(SEED, 'heroes'), heroes = [], nh = Math.max(2, Math.round(len / 250)), KINDS = ['rose', 'strawberry', 'cornflower'];
+  for (let k = 0; k < nh; k++) heroes.push({ c: [len * (k + .5 + (rH() - .5) * .3) / nh, depth * (k % 2 ? .62 : .38) + (rH() - .5) * depth * .1],
+    r: Math.min(21, depth * .2), kind: KINDS[(k + (SEED % 3)) % 3] });
   const { N, ends, steps } = grow(len, depth, heroes, SEED), ST = strokes(N);
   const GROW = 5.2, sec = t => .5 + t / Math.max(1, steps) * GROW, parts = [];
 
@@ -155,8 +157,11 @@ function compose() {
   for (const e of ends) {
     const q = toPage(N[e.node].p), sd = (e.node * 104729) & 0xffff, rr = mulberry(sd), t = sec(e.t);
     if (e.kind === 'hero') { const c = toPage(e.hero.c), R = e.hero.r + 6;
-      parts.push(stem(t, t + .25, [q, [(q[0] + c[0]) / 2, (q[1] + c[1]) / 2], c], { w: .9, seed: sd, start: 'cut', end: 'cut' }));
-      parts.push(opening(t + .2, t + 1.1, cx => flower(cx, c, e.hero.r, heroes.indexOf(e.hero) ? 'lapis' : 'vermilion', SEED + sd, dpr), [c[0] - R, c[1] - R, 2 * R, 2 * R], dpr, c, (rr() < .5 ? -1 : 1) * 1.1)); }
+      const to = e.hero.kind === 'strawberry' ? (() => { const a = norm([c[0] - q[0], c[1] - q[1]]), L = e.hero.r * 1.8; return [c[0] - a[0] * L * .46, c[1] - a[1] * L * .46]; })() : c;
+      parts.push(stem(t, t + .25, [q, [(q[0] + to[0]) / 2, (q[1] + to[1]) / 2], to], { w: .9, seed: sd, start: 'cut', end: 'cut' }));
+      const paint = e.hero.kind === 'strawberry' ? cx => strawberry(cx, c, norm([c[0] - q[0], c[1] - q[1]]), e.hero.r, SEED + sd, dpr)
+        : cx => flower(cx, c, e.hero.r, e.hero.kind === 'rose' ? 'vermilion' : 'lapis', SEED + sd, dpr);
+      parts.push(opening(t + .2, t + 1.1, paint, [c[0] - R - 4, c[1] - R - 4, 2 * R + 8, 2 * R + 8], dpr, e.hero.kind === 'strawberry' ? q : c, (rr() < .5 ? -1 : 1) * 1.1)); }
     else if (e.kind === 'ivy') { const c = toPage(e.p), d = norm([c[0] - q[0], c[1] - q[1]]), ax = norm([d[0] + dirAt(e.node)[0], d[1] + dirAt(e.node)[1]]), L = 14 + rr() * 6;
       parts.push(opening(t, t + .75, cx => goldIvy(cx, q, ax, L, sd, dpr), [q[0] - L - 4, q[1] - L - 4, 2 * L + 8, 2 * L + 8], dpr, q, (rr() < .5 ? -1 : 1) * .7)); }
     else if (e.kind === 'bezant') { const d = dirAt(e.node), c = [q[0] + d[0] * 2.4, q[1] + d[1] * 2.4];
@@ -164,6 +169,23 @@ function compose() {
   }
   return { g, live, parts, end: Math.max(...parts.map(p => p.t1)) };
 }
+// The wild strawberry of the borders: a berry hanging from its stalk, its seeds picked out, a green calyx at the top
+function strawberry(g, c, ax, R, s, dpr) {
+  // ax points from the stalk into the fruit: the calyx sits where the stalk arrives, the point hangs away from it
+  const r = mulberry(s), L = R * 1.8, top = [c[0] - ax[0] * L * .46, c[1] - ax[1] * L * .46], w = .44 * (1 + (r() - .5) * .1);
+  const berry = place(spline([[.02, 0], [.06, w * .7], [.3, w], [.62, w * .72], [.9, w * .22], [1, 0], [.9, -w * .2], [.62, -w * .74], [.3, -w], [.06, -w * .7], [.02, 0]], 8), top, ax, L);
+  wash(g, berry, 'vermilion', { dpr, seed: s, grow: .2 });
+  // the seeds: a quincunx of pale points, each with a dark tick beside it, fewer toward the edge
+  const sd = place([[.16, -.18], [.18, .14], [.34, -.32], [.36, 0], [.36, .3], [.52, -.18], [.54, .16], [.68, -.3], [.7, .02], [.7, .28], [.84, -.1], [.84, .14]].map(([u, v]) => [u + (r() - .5) * .04, v * w / .44 + (r() - .5) * .04]), top, ax, L);
+  sd.forEach(q => { dot(g, [q[0] + .7, q[1] + .6], .55, [40, 20, 14]); dot(g, q, 1.05, [246, 222, 150], undefined, 1); });
+  pen(g, place(spline([[.2, w * .62], [.42, w * .74], [.62, w * .55]], 6), top, ax, L), { w: .8, ink: [252, 248, 238], load: .7, start: 'taper', end: 'taper', seed: s + 60 });
+  pen(g, [...berry, berry[1]], { w: 1, seed: s + 1, start: 'cut', end: 'cut', shade: LIGHT, broad: .2 });
+  // calyx: five green sepals spread back over the shoulder from where the stalk joins
+  for (let k = 0; k < 5; k++) { const a = (k - 2) * .62 + (r() - .5) * .18, d = [Math.cos(a), Math.sin(a)], n = [-d[1], d[0]], l = .38 + r() * .1;
+    const sep = place(spline([[0, 0], [l * .45 * d[0] + .07 * n[0], l * .45 * d[1] + .07 * n[1]], [l * d[0], l * d[1]], [l * .45 * d[0] - .07 * n[0], l * .45 * d[1] - .07 * n[1]], [0, 0]], 6), top, ax, L * .55);
+    wash(g, sep, 'verdigris', { dpr, seed: s + 20 + k, grow: .3 }); pen(g, sep, { w: .75, seed: s + 30 + k, start: 'cut', end: 'cut', shade: LIGHT }); }
+}
+
 // The parts of the score. Each knows how to show itself part-way (`at`, on the live layer, redrawn every frame) and
 // finished (`done`, laid once on the page). Nothing fades: stems lengthen behind a tapered growing tip, leaves and
 // flowers unfold from where they are attached, the bar is laid down its length.

@@ -40,7 +40,9 @@ export function grow(len, depth, heroes, seed) {
   const blocked = (q, target) => (rcell[(Math.max(0, q[1]) / RG | 0) * rgw + (Math.max(0, q[0]) / RG | 0)] ?? []).some(a => a !== target && a.alive !== false && Math.hypot(a.p[0] - q[0], a.p[1] - q[1]) < (a.kind === 'ivy' ? 8 : a.hero.r + 1));
   const N = [], nr = Math.max(2, Math.round(depth / 46));
   for (let k = 0; k < nr; k++) N.push({ p: [len - 1, depth * (k + .5 + (r() - .5) * .35) / nr], parent: -1, dir: [-1, (r() - .5) * .4] });
-  if (len > 420) for (let k = 0; k < nr - 1; k++) N.push({ p: [1, depth * (k + .5 + (r() - .5) * .4) / (nr - 1)], parent: -1, dir: [1, (r() - .5) * .4] });
+  for (let k = 0; k < nr - 1; k++) N.push({ p: [1, depth * (k + .5 + (r() - .5) * .4) / (nr - 1)], parent: -1, dir: [1, (r() - .5) * .4] });
+  // and a few rise from the bar itself, unevenly, as stems spring from a border's bar
+  for (let u = 90 + r() * 60; u < len - 90; u += 150 + r() * 90) N.push({ p: [u, 1], parent: -1, dir: [(r() - .5) * .6, 1] });
   // nodes live in a grid of 12 px cells, so the nearest one is found by looking outward ring by ring
   const G = 12, gw = Math.ceil(len / G) + 2, gh = Math.ceil(depth / G) + 2, cells = Array.from({ length: gw * gh }, () => []);
   const cellOf = p => (Math.max(0, Math.min(gh - 1, (p[1] / G | 0) + 1))) * gw + Math.max(0, Math.min(gw - 1, (p[0] / G | 0) + 1));
@@ -72,8 +74,11 @@ export function grow(len, depth, heroes, seed) {
     for (const [k, { v, t }] of pull) {
       const n = N[k], l = Math.hypot(v[0], v[1]) || 1, wa = (wander(n.p[0] / 50, n.p[1] / 50) - .5) * .45;
       let d = [v[0] / l + n.dir[0] * .75 - n.dir[1] * wa, v[1] / l + n.dir[1] * .75 + n.dir[0] * wa]; const m = Math.hypot(d[0], d[1]) || 1; d = [d[0] / m, d[1] / m];
-      const q = [n.p[0] + d[0] * D, n.p[1] + d[1] * D];
-      if (blocked(q, t)) continue;
+      // a stem that meets a leaf's room or a flower steers round it rather than stopping
+      let q = null;
+      for (const turn of [0, .5, -.5, 1, -1]) { const c = Math.cos(turn), sn = Math.sin(turn), dd = [d[0] * c - d[1] * sn, d[0] * sn + d[1] * c];
+        const p2 = [n.p[0] + dd[0] * D, n.p[1] + dd[1] * D]; if (p2[0] < 0 || p2[1] < 0 || p2[0] > len || p2[1] > depth) continue; if (!blocked(p2, t)) { q = p2; d = dd; break; } }
+      if (!q) continue;
       const [nb, nd] = nearest(q, D); if (nb >= 0 && nb !== k && nd < D * .7) continue;
       addNode({ p: q, parent: k, dir: d, t: it + 1 });
     }
