@@ -51,6 +51,7 @@
 <body>
 <main class="sheet">
   <canvas id="orn" aria-hidden="true"></canvas>
+  <canvas id="live" aria-hidden="true"></canvas>
   <article class="text">
     <h1>The Nature of Gothic</h1>
     <p class="sub">John Ruskin, The Stones of Venice, 1853</p>
@@ -115,8 +116,9 @@ function compose() {
   const sr = sheet.getBoundingClientRect(), tr = text.getBoundingClientRect();
   const S = { w: sr.width, h: sr.height }, T = { x: tr.left - sr.left, y: tr.top - sr.top, w: tr.width, h: tr.height };
   const dpr = Math.min(2, devicePixelRatio || 1);
-  cv.width = Math.round(S.w * dpr); cv.height = Math.round(S.h * dpr); cv.style.width = S.w + 'px'; cv.style.height = S.h + 'px';
-  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const ctx = c => { c.width = Math.round(S.w * dpr); c.height = Math.round(S.h * dpr); c.style.width = S.w + 'px'; c.style.height = S.h + 'px';
+    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); return g; };
+  const g = ctx(cv), live = ctx(document.getElementById('live'));
   const phone = T.x < 120;
   let len, depth, toPage, bar;
   if (!phone) {   // side border: the bar runs down beside the text; v grows leftward into the margin
@@ -136,51 +138,73 @@ function compose() {
   const off = (p, k) => [p[0] + na[0] * k, p[1] + na[1] * k];
   const fine = (a, b) => Array.from({ length: 80 }, (_, k) => { const t = k / 79; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; });
   const sideA = fine(off(bar[0], bw), off(bar[1], bw)), sideB = fine(off(bar[1], -bw), off(bar[0], -bw));
-  parts.push(still(0, .5, c => { wash(c, [...sideA, ...sideB], 'bole', { dpr, seed: SEED ^ 5, grow: .3 }); wash(c, [...sideA, ...sideB], 'shellgold', { dpr, seed: SEED ^ 6, wear: .3, grow: -.3 });
-    pen(c, sideA, { w: .9, seed: 3, start: 'cut', end: 'cut' }); pen(c, sideB, { w: .9, seed: 4, start: 'cut', end: 'cut' }); }, [Math.min(bar[0][0], bar[1][0]) - 6, Math.min(bar[0][1], bar[1][1]) - 6, Math.abs(along[0]) + 12, Math.abs(along[1]) + 12], dpr));
+  // the bar is laid down its length, as the gilder worked it
+  const barBox = [Math.min(bar[0][0], bar[1][0]) - 6, Math.min(bar[0][1], bar[1][1]) - 6, Math.abs(along[0]) + 12, Math.abs(along[1]) + 12];
+  parts.push(laid(0, .9, c => { wash(c, [...sideA, ...sideB], 'bole', { dpr, seed: SEED ^ 5, grow: .3 }); wash(c, [...sideA, ...sideB], 'shellgold', { dpr, seed: SEED ^ 6, wear: .3, grow: -.3 });
+    pen(c, sideA, { w: .9, seed: 3, start: 'cut', end: 'cut' }); pen(c, sideB, { w: .9, seed: 4, start: 'cut', end: 'cut' }); }, barBox, dpr, bar));
   // stems: a stroke's width follows how much it carries; each is drawn as it grew, from its fork to its tip
   const maxS = Math.max(...ST.map(s => s.size)), endAt = new Map(ends.map(e => [e.node, e]));
   for (const s of ST) {
     if (s.pts.length < 2) continue;
     const tip = s.ids[s.ids.length - 1], e = endAt.get(tip), pts = chaikin(s.pts, 3).map(toPage);
     const o = { w: .5 + .8 * Math.log(1 + s.size) / Math.log(1 + maxS), seed: (tip * 7919) & 0xffff, start: s.root ? 'pool' : 'taper', end: !e || e.kind === 'dot' ? 'ball' : 'cut' };
-    parts.push({ t0: sec(s.t0), t1: Math.max(sec(s.t0) + .05, sec(s.t1)), draw: (c, f0, f1) => pen(c, pts, { ...o, from: f0, to: f1 }) });
+    parts.push(stem(sec(s.t0), Math.max(sec(s.t0) + .05, sec(s.t1)), pts, o));
   }
   // what the stems reached opens when they reach it: flowers (set first), then gold
   const dirAt = k => { const n = N[k], q = toPage(n.p), b = toPage([n.p[0] - n.dir[0], n.p[1] - n.dir[1]]); return norm([q[0] - b[0], q[1] - b[1]]); };
   for (const e of ends) {
     const q = toPage(N[e.node].p), sd = (e.node * 104729) & 0xffff, rr = mulberry(sd), t = sec(e.t);
     if (e.kind === 'hero') { const c = toPage(e.hero.c), R = e.hero.r + 6;
-      parts.push({ t0: t, t1: t + .15, draw: (cx, f0, f1) => pen(cx, [q, c], { w: .9, seed: sd, start: 'cut', end: 'cut', from: f0, to: f1 }) });
-      parts.push(still(t + .15, t + .7, cx => flower(cx, c, e.hero.r, heroes.indexOf(e.hero) ? 'lapis' : 'vermilion', SEED + sd, dpr), [c[0] - R, c[1] - R, 2 * R, 2 * R], dpr)); }
+      parts.push(stem(t, t + .25, [q, [(q[0] + c[0]) / 2, (q[1] + c[1]) / 2], c], { w: .9, seed: sd, start: 'cut', end: 'cut' }));
+      parts.push(opening(t + .2, t + 1.1, cx => flower(cx, c, e.hero.r, heroes.indexOf(e.hero) ? 'lapis' : 'vermilion', SEED + sd, dpr), [c[0] - R, c[1] - R, 2 * R, 2 * R], dpr, c, (rr() < .5 ? -1 : 1) * 1.1)); }
     else if (e.kind === 'ivy') { const c = toPage(e.p), d = norm([c[0] - q[0], c[1] - q[1]]), ax = norm([d[0] + dirAt(e.node)[0], d[1] + dirAt(e.node)[1]]), L = 14 + rr() * 6;
-      parts.push(still(t, t + .45, cx => goldIvy(cx, q, ax, L, sd, dpr), [q[0] - L - 4, q[1] - L - 4, 2 * L + 8, 2 * L + 8], dpr)); }
+      parts.push(opening(t, t + .75, cx => goldIvy(cx, q, ax, L, sd, dpr), [q[0] - L - 4, q[1] - L - 4, 2 * L + 8, 2 * L + 8], dpr, q, (rr() < .5 ? -1 : 1) * .7)); }
     else if (e.kind === 'bezant') { const d = dirAt(e.node), c = [q[0] + d[0] * 2.4, q[1] + d[1] * 2.4];
-      parts.push(still(t, t + .3, cx => bezant(cx, c, 2.5, sd, dpr), [c[0] - 6, c[1] - 6, 12, 12], dpr)); }
+      parts.push(opening(t, t + .35, cx => bezant(cx, c, 2.5, sd, dpr), [c[0] - 6, c[1] - 6, 12, 12], dpr, q, 0)); }
   }
-  return { g, parts, end: Math.max(...parts.map(p => p.t1)) };
+  return { g, live, parts, end: Math.max(...parts.map(p => p.t1)) };
 }
-// a part painted once into its own small canvas, then laid on the page (and, in the growth, faded in)
-function still(t0, t1, paint, [x, y, w, h], dpr) {
-  let cv = null;
-  const make = () => { cv = new OffscreenCanvas(Math.ceil(w * dpr), Math.ceil(h * dpr)); const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, -x * dpr, -y * dpr); paint(c); };
-  return { t0, t1, make: () => cv || make(), draw: (g, f0, f1) => { if (!cv) make();
-    // successive partial layers: after the last, the part is exactly opaque
-    const a = f1 >= 1 ? 1 : 1 - (1 - f1) / (1 - f0 || 1); g.globalAlpha = Math.max(0, Math.min(1, a)); g.drawImage(cv, x, y, w, h); g.globalAlpha = 1; } };
+// The parts of the score. Each knows how to show itself part-way (`at`, on the live layer, redrawn every frame) and
+// finished (`done`, laid once on the page). Nothing fades: stems lengthen behind a tapered growing tip, leaves and
+// flowers unfold from where they are attached, the bar is laid down its length.
+const ease = f => { const c = 1.6; return 1 + (c + 1) * (f - 1) ** 3 + c * (f - 1) ** 2; };   // overshoots a little, then settles
+function stem(t0, t1, pts, o) {
+  const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const upTo = f => { const L = f * S[S.length - 1]; let i = 1; while (i < S.length - 1 && S[i] < L) i++;
+    const u = (L - S[i - 1]) / ((S[i] - S[i - 1]) || 1), a = pts[i - 1], b = pts[i]; return [...pts.slice(0, i), [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]]; };
+  return { t0, t1, at: (g, f) => { const p = upTo(f); if (p.length > 1 && S[S.length - 1] * f > .6) pen(g, p, { ...o, end: 'taper' }); }, done: g => pen(g, pts, o) };
 }
-// play the score from time a to time b onto the page; still parts are drawn in score order, so gold lies over stems
-function play({ g, parts }, a, b) {
-  const f = (p, t) => Math.max(0, Math.min(1, (t - p.t0) / (p.t1 - p.t0)));
-  for (const p of parts) { const f0 = f(p, a), f1 = f(p, b); if (f1 > f0 || (b === Infinity && f0 < 1)) p.draw(g, a === -Infinity ? 0 : f0, f1); }
+function painted(paint, [x, y, w, h], dpr) {
+  let cv = null; return () => cv ??= (() => { const c = new OffscreenCanvas(Math.ceil(w * dpr), Math.ceil(h * dpr)), k = c.getContext('2d'); k.setTransform(dpr, 0, 0, dpr, -x * dpr, -y * dpr); paint(k); return c; })();
 }
-let score = null, raf = 0;
+// a leaf or flower: grows out from its point of attachment, turning open as it comes
+function opening(t0, t1, paint, box, dpr, anchor, turn) {
+  const img = painted(paint, box, dpr), [x, y, w, h] = box;
+  return { t0, t1, make: img, done: g => g.drawImage(img(), x, y, w, h),
+    at: (g, f) => { const e = Math.max(.02, ease(f)); g.save(); g.translate(anchor[0], anchor[1]); g.rotate(turn * (1 - Math.min(1, e)) ** 2); g.scale(e, e);
+      g.translate(-anchor[0], -anchor[1]); g.globalAlpha = Math.min(1, f * 4); g.drawImage(img(), x, y, w, h); g.restore(); } };
+}
+// the bar: revealed from its head to its foot
+function laid(t0, t1, paint, box, dpr, [a, b]) {
+  const img = painted(paint, box, dpr), [x, y, w, h] = box;
+  return { t0, t1, make: img, done: g => g.drawImage(img(), x, y, w, h),
+    at: (g, f) => { g.save(); g.beginPath(); const e = 1 - (1 - f) ** 2;
+      if (Math.abs(b[1] - a[1]) > Math.abs(b[0] - a[0])) g.rect(x, y, w, h * e); else g.rect(x, y, w * e, h);
+      g.clip(); g.drawImage(img(), x, y, w, h); g.restore(); } };
+}
+let raf = 0;
 function render(animate) {
   cancelAnimationFrame(raf);
-  const t0 = performance.now(); score = compose(); const t1 = performance.now();
-  if (!animate) { play(score, -Infinity, Infinity); document.body.dataset.timing = `grow ${(t1 - t0) | 0} ms, draw ${(performance.now() - t1) | 0} ms`; return; }
+  const t0 = performance.now(), score = compose(), t1 = performance.now();
+  if (!animate) { score.parts.forEach(p => p.done(score.g)); document.body.dataset.timing = `grow ${(t1 - t0) | 0} ms, draw ${(performance.now() - t1) | 0} ms`; return; }
   score.parts.forEach(p => p.make?.());   // paint the leaves and flowers before the clock starts, so it never stutters
-  let prev = 0; const start = performance.now();
-  const tick = () => { const now = (performance.now() - start) / 1000; play(score, prev, now); prev = now; if (now < score.end) raf = requestAnimationFrame(tick); else document.body.dataset.timing = 'grown'; };
+  const start = performance.now(), { g, live, parts } = score, W = live.canvas.width, H = live.canvas.height, finished = new Uint8Array(parts.length);
+  const tick = () => {
+    const now = (performance.now() - start) / 1000;
+    live.save(); live.setTransform(1, 0, 0, 1, 0, 0); live.clearRect(0, 0, W, H); live.restore();
+    parts.forEach((p, i) => { if (finished[i]) return; if (now >= p.t1) { p.done(g); finished[i] = 1; } else if (now > p.t0) p.at(live, (now - p.t0) / (p.t1 - p.t0)); });
+    if (now < score.end + .05) raf = requestAnimationFrame(tick); else document.body.dataset.timing = 'grown';
+  };
   raf = requestAnimationFrame(tick);
 }
 
