@@ -1,0 +1,10 @@
+{
+  "name": "illum",
+  "private": true,
+  "type": "module",
+  "description": "Tools for illuminating websites. The library itself has no dependencies; these are for looking at it.",
+  "license": "MIT",
+  "devDependencies": {
+    "puppeteer-core": "23.11.1"
+  }
+}

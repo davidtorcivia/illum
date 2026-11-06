@@ -20,7 +20,13 @@
   Project Gutenberg #30755, public domain. EB Garamond, SIL OFL (fonts/OFL.txt).
 
   Seed: a hash of the text (same text, same border); #seed=N overrides.
-  Score: (pending the protocol)
+  Score 2026-11-06 (05-the-bar): 28/42, good, not yet museum.
+    Beauty 2 (×3): colour 3, line 2, rhythm 2, proportion 2. Density is uniform in every band, with no hero and no
+      pause; on a long text (?p=7) the side bands go monotonous.
+    Craft 2 (thinnest hairlines speckle at 400%) · Viewport 3 · Integration 2 · Behaviour 2 (grow takes 300–700 ms
+    on the main thread) · System 2 (12 seeds, no failures, little variety) · Imperfection 2 · Restraint 2 ·
+    Pastiche 1 (still a Book of Hours look, not yet native to the web) · Longevity 2 · Point of view 2 · Provenance 2.
+    Next: rank before placing: a hero at the opening, with density falling away from it, and pauses in the long runs.
 -->
 <style>
   @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
@@ -76,6 +82,10 @@ const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(
 const stream = (seed, name) => mulberry(fnv(name + ':' + seed));
 const hash2 = (x, y, s) => { let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(s, 2246822519) | 0; h = Math.imul(h ^ h >>> 13, 1274126177); return ((h ^ h >>> 16) >>> 0) / 4294967296; };
 
+// ?p=N keeps the first N paragraphs, repeating them if needed (the swap-the-text test)
+const pn = +new URLSearchParams(location.search).get('p');
+if (pn) { const ps = [...document.querySelectorAll('.text p:not(.sub)')], art = document.querySelector('.text');
+  ps.forEach(e => e.remove()); for (let k = 0; k < pn; k++) art.append(ps[k % ps.length].cloneNode(true)); }
 const text = document.querySelector('.text').textContent.replace(/\s+/g, ' ').trim();
 const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(text) % 1e7);
 document.getElementById('seed').textContent = SEED;
@@ -360,6 +370,7 @@ function render() {
   marks.leaves.forEach(l => drawLeaf(g, l));
   marks.bezants.forEach(b => drawBezant(g, b));
   settle(g, sr.left + scrollX, sr.top + scrollY, dpr);
+  document.body.dataset.timing = `grow ${(t1 - t0) | 0} ms, draw ${(performance.now() - t1) | 0} ms`;
   console.log(`illum ivy: ${marks.leaves.length} leaves, ${marks.stems.length} stems, ${marks.bezants.length} bezants; grew in ${(t1 - t0) | 0} ms, drew in ${(performance.now() - t1) | 0} ms`);
 }
 
