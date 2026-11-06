@@ -29,9 +29,10 @@ own code at build time.
 | map plate (`js/map.js`) | browser | SVG + Canvas2D + CSS mask | runtime composition of prebaked layers; arrows revealed by vector clip |
 
 Payload (desktop + `-m` phone variants): `art/` 23 MB (initials 4.0 MB, horse 2.3 MB, voices 1.9 MB, brush 1.2 MB,
-21 growth WebMs 53–794 KB each, garden stills 51–536 KB), `gardens/` 2.3 MB (leaf WebP + MP4 pairs, 87–184 KB),
+17 growth WebMs 53–794 KB each, garden stills 51–536 KB), `gardens/` 2.3 MB (leaf WebP + MP4 pairs, 87–184 KB),
 `map/` 9.1 MB (`relief-l.webp` 4.0 MB alone, `wash.webp` 1.8 MB, `arrows.webp` 257 KB). JS that draws at runtime is
-under 10 KB. The build is five Puppeteer scripts pointed at a running dev server (`localhost:4747`), a Lua CLI,
+under 10 KB; the one remaining heavy runtime paint is the map's homeland wash (3,400 strokes and two blur
+filters at load, `map.js:173-191`). The build is five Puppeteer scripts pointed at a running dev server (`localhost:4747`), a Lua CLI,
 two Python/numpy scripts and ffmpeg; Chrome path hard-coded to macOS (`build_static.mjs:6`).
 
 Why it moved: phones. `map.js:37-39` documents four plate-sized canvases at 0.75 scale costing ~250 MB; `main.js:563`
@@ -51,7 +52,7 @@ painting moved into the build and the browser became a compositor.
   radius 7.5% of height (`:35-39`, three boxes ≈ Gaussian) → orientation `θ = ½·atan2(2Jxy, Jxx−Jyy) + π/2` and
   **coherence** `C = √((Jxx−Jyy)²+4Jxy²)/(Jxx+Jyy)` (`:40-42`). Where C is low the angle is blended toward 0 (the
   body's run, `:55-56`); a little simplex noise is added (`:58`). Because θ is a line field (mod π), the tracer flips
-  by π when the new direction opposes the last step (`:89`). `tools/paintpass.js:144-150` builds the same tensor on
+  by π when the new direction opposes the last step (`:89`). `tools/paintpass.js:10-16` builds the same tensor on
   **luminance** of an existing raster instead of a distance field.
 - *Implication*: one `orientationField(scalarField, {blur})` → `{angle, coherence}` primitive with two front-ends:
   `fromMask` (distance field) for silhouettes, `fromImage` (luminance) for repainting any drawing. Box-blur-cubed
@@ -62,12 +63,12 @@ painting moved into the build and the browser became a compositor.
 - *Why*: when frames of a growth animation are each repainted, a running RNG shifts all later strokes the moment
   one earlier stroke appears, so brushwork shimmers. Hashing (gridX, gridY, channel) makes a stroke identical in
   every frame where its pixel exists.
-- *How*: `tools/paintpass.js:151` integer hash (`a·374761393 + b·668265263 + k·2147483647`, xorshift-multiply
-  finalizer). Grid at spacing `sp`, jittered by `hash(gx,gy,pass)` (`:155-156`); skip transparent (`:157`); stroke
-  takes the **colour of the pixel beneath** with alpha `0.55–0.95 × A` (`:159`), runs along T1's angle with a slight
-  quadratic bow (`:161`); two passes (3.2/1.8 px spacing × scale, `:154`); the crisp original stays beneath at 60%
-  (`:153`). Then a **thin-feature guard**: 2-px min-filter erosion of alpha; wherever the original survives in A but
-  not in the eroded A (hairlines, tendrils, stars) the crisp pixels are restored (`:164-168`). The older inline copy
+- *How*: `tools/paintpass.js:17` integer hash (`a·374761393 + b·668265263 + k·2147483647`, xorshift-multiply
+  finalizer). Grid at spacing `sp`, jittered by `hash(gx,gy,pass)` (`:21-22`); skip transparent (`:23`); stroke
+  takes the **colour of the pixel beneath** with alpha `0.55–0.95 × A` (`:25`), runs along T1's angle with a slight
+  quadratic bow (`:27`); two passes (3.2/1.8 px spacing × scale, `:20`); the crisp original stays beneath at 60%
+  (`:19`). Then a **thin-feature guard**: 2-px min-filter erosion of alpha; wherever the original survives in A but
+  not in the eroded A (hairlines, tendrils, stars) the crisp pixels are restored (`:30-34`). The older inline copy
   in `build_section_gardens.mjs:80-110` uses a running LCG (`:92`) — the shimmering version this file replaced
   (and `build_section_gardens.mjs` itself looks superseded by `build_growth.mjs`).
 - *Implication*: the library's RNG contract must be `hash(seed, ...coords)` first, streams second. Any filter that
@@ -188,7 +189,7 @@ painting moved into the build and the browser became a compositor.
 **T14. Smaller pieces worth keeping.**
 - Stipple-by-point-in-polygon petroglyphs: jittered grid, even-odd test, 82% fill probability, dot radius jitter;
   lines as dotted runs (`js/illum.js:79-94`). The "pecked" look comes from the dropout, not the jitter.
-- Staged grow-in closure: ops tagged with a time `t`, sorted, replayed to `k` (`illum.js:151-160`); `hatch.js:107-119`
+- Staged grow-in closure: ops tagged with a time `t`, sorted, replayed to `k` (`illum.js:151-160`); `hatch.js:60-72`
   per-stroke delay `d` so strokes grow staggered. Cheap growth animation without a recorder.
 - Twisted cord as repeated quadratic arcs at pitch 0.9·w (`illum.js:27-35`) and as filled lozenges in the kind
   (`steppe.js:133-149`).
@@ -229,7 +230,7 @@ painting moved into the build and the browser became a compositor.
   be running. Not reproducible in CI as written.
 - **Payload**: ~34 MB of art/map/gardens. `relief-l.webp` alone is 4 MB for what is a 1-bit-ish line drawing — a
   vector or a tiled/LOD format would be an order of magnitude smaller.
-- **Duplicated primitives**: LCG in `hatch.js:74`, `brush.js:8`, `map.js:133,178`; hash in `paintpass.js:151`; three
+- **Duplicated primitives**: LCG in `hatch.js:27`, `brush.js:8`, `map.js:133,178`; hash in `paintpass.js:17`; three
   different "tooth" functions (`map.js:135` sinusoid, `painter.js:74` simplex threshold, `brush.js:25` probability
   tail); structure tensor implemented twice; paint pass copied twice with different RNG semantics.
 - **Non-determinism left in**: `painter.js:131` `grain()` uses `Math.random`.
@@ -244,26 +245,302 @@ painting moved into the build and the browser became a compositor.
 
 ## 2. initialis — browser drop-cap generator
 
-_(pending subagent report)_
+Paths under `render/src/` unless noted.
+
+### 2.1 Architecture
+
+Fully runtime, in the browser, off the main thread. `lib/initialis.js:52` spawns 1–3 module workers (cross-origin
+pages get a blob shim, `:43-47`); each owns a `Renderer` (`render.js:25`) and one **WebGL2** context on an
+OffscreenCanvas and returns an `ImageBitmap`; GPU context loss respawns and retries ×3 (`initialis.js:63-68`).
+Three stages, each tagged in the param table (`params.js:24-188`: `[key, section, stage geo|paint|ink, default,
+spec, …]`) so a change invalidates only what it must:
+
+1. **geo** — `buildScene` (`compose.js:277-517`), CPU, in a 1000-unit square: frame polygon, glyph layout, raster
+   masks on a grid of 6.5→3 units by quality (`:288-323`), clearance field, grown ornament, textures. Cached by a
+   signature of geo params in an LRU of 40 (`render.js:37-48`).
+2. **paint** — `paintScene` (`compose.js:534-960`), Canvas2D, paints an **ink-separation coverage image**: R = ink A,
+   G = ink B, B = ink C, black = paper (`:521`). No colours yet.
+3. **ink** — the WebGL2 print shader (`ink.js:322-392`) turns coverage into printed colour; cached at fixed sizes
+   192…1088 px (`render.js:9`).
+
+Glyphs come prebaked: `render/fonts/caps/*.json` (`{upm, "A":[advance, svgPath]}`, 61 faces, 2.2 MB raw; the build
+tool `tools/caps.cjs` is not in the repo). `fonts.js:66-85` fakes the slice of the opentype.js API needed, flattens
+adaptively (`:100-138`); overlapping contours are unioned by raster + marching squares (`outline.js:24-56`). Kinds
+are lazy-loaded plugins (`kinds.js:60-65`) that **return geometry `{polys, lines, dots}` or coverage and never
+paint** (`kinds/README.md`) — the API pie-site's `steppe.js` implements (§1 T13). WebGPU **ageing** (`ageing/`) runs
+only in the "in context" page view and ages the page around a crisp cap (`src/context.js:99-100`); no fallback.
+
+### 2.2 Techniques
+
+**I1. Print pass: blur → re-threshold → subtractive multiply** — the single highest-value lift for "analog".
+- *Principle*: printed ink is a binary deposit whose edge is set by pressure, paper and spread; simulate the process,
+  not the look.
+- *Why*: blurring coverage then re-thresholding it rounds corners, fills counters slightly (ink gain) and lets a noise
+  term move the threshold, so edges go ragged in a correlated, woodcut way. Multiplying inks over paper makes
+  overlaps darken like real overprint.
+- *How*: `ink.js:21-103`. Pass 1 warps UVs by 4-octave value fbm (`rough·6`) + horizontal 25-tap Gaussian; pass 2
+  vertical. `printed()` (`:67-73`): `t = .42 − spread + edgeNoise`, `smoothstep(t±aa, v)` with `aa` from `fwidth`;
+  edge noise = fbm + per-cell hash. Then mottle (`1−mottle·fbm`), speckle (ink that didn't take), dirt. Paper grain
+  includes an anisotropic `fbm(x·.02, y·1.4)` term for laid-paper striation (`:97`); composite
+  `paper·(1+g)·mix(1,inkA,a)·mix(1,inkB,b)·mix(1,inkC,c)` (`:97-101`). Misregistration offsets channels B, C
+  (`:385-388`). Noise is pinned to page coordinates (zoom/pan uniforms) so grain does not swim.
+- *Implication*: illum's universal last stage. Any motif renders to coverage channels; one shader prints it. Needs
+  a Canvas2D/CPU fallback (initialis has none, `src/app.js:66-68` shows a notice).
+
+**I2. EDT + clearance field with "biggest gap" query and transactions.**
+- *How*: `util.js:122-155` exact Felzenszwalb–Huttenlocher squared EDT. `field.js:7-145`: grid of min(distance to
+  obstacle, cap) seeded by EDT; `stamp(x,y,r)` lowers `d=min(d,|p−c|−r)` locally (`:87-109`); `begin/rollback/
+  detach/lift` log old values so a failed stem is undone or a stem lifted out while its own leaves are fitted
+  (`:64-84`); `biggest()` keeps per-16×16-block maxima with dirty flags (`:131-145`).
+- *Why*: "largest empty region next" is what makes fills look composed; transactions make greedy growth safe to try.
+- *Implication*: the core spatial index of the library, shared by ornament, florilegium-style gardens, texture
+  placement and DOM avoidance (obstacles are just stamped).
+
+**I3. Rinceau grower: curvature fitted to free space.**
+- *How*: `ornament.js:24-387`. Curvature `k = sign/fitR · curl · (0.12+0.88·age²)` (`:90`) so scrolls tighten with
+  age; `fitR` (`:45-58`) is the largest circle on the curling side that clears, tried from rMax down by ÷1.35, refit
+  every 3 steps; noise wander added (`:92`). Each step tries 15 headings alternating ±0.075 rad with look-ahead
+  clearance (`:104-113`); stamping lags so a stem does not block itself (`:63,118-119`); stems under minLen roll
+  back. Leaves shrink ×0.84 until they fit (`:153-172`); branches spawn on the outer side of the curl (`:253-268`);
+  gap-fill loop off `field.biggest()` sprouts stems, flowers, leaves or golden-angle berry clusters (`:336-373`).
+  Every item has `t0/dur` in stem-length time, so growth animates by truncation (`compose.js:251-275`).
+- *Weakness*: budget is wall-clock (`ornament.js:34-36` `late()`), so a slow machine grows less for the same seed.
+
+**I4. Broad-nib stroke.** `ornament.js:390-420`: width `w·lerp(1, .12+.88|sin(θ−penAngle)|, contrast)`, smoothed
+[1,2,1]/4 twice, offset along normals. Calligraphic thick/thin from a fixed pen angle — the right default for
+anything letter-adjacent. Leaves are blades on a bending axis `a = dir + bend·t + curl·t³` with per-type profiles,
+e.g. acanthus lobing `env·(1−depth+depth·lobe(frac(t·n+phase)))`, sides phase-shifted (`shapes.js:13-60`).
+
+**I5. Shape-dome shading → engraving and halftone.** `fill.js:41-53`: height = triple box blur of the mask, normal from
+its gradient, Lambert against a fixed light. `kinds/pattern/engrave.js:13-25`: line phase
+`v = (x cosα + y sinα)/sp + 2.6H` so lines bow over the dome; width `w(.25+3.4·dark)`. Halftone dot radius
+`√(.08+.9·dark)·sp·.6` (`halftone.js:39-58`). Same shape-follows-form intent as pie-site T1/T9, done as an implicit
+phase field — resolution-independent and GPU-friendly.
+
+**I6. Distance-driven fills** (`relief.js`, depth = EDT from the edge): mosaic rows `floor(depth/tile)` with
+Poisson seeds and bisector grout (`:148-186`); **wash** with density `.22+.62·exp(−d/.3sp)` (pigment at the edge —
+the same rule as pie-site T10), noisy backruns, then hash-stipple because print is binary (`:190-222`); frost
+needles (`:229-299`) and mycelium walkers (`:305-351`). Each writes coverage *and arrival time*, so all animate.
+
+**I7. Textures on the distance map.** Marching-squares iso-lines for ripples and flow-following streams
+(`texture.js:50-98,135-138`); Voronoi cells (`kinds/texture/cells.js`); Gray–Scott reaction–diffusion on GPU,
+9-point Laplacian, presets coral/spots/maze (`ink.js:107-149`), fence-synced batches of ~6 ms (`:200-225`).
+
+**I8. Hand wobble and offset-by-stroke.** Polylines resampled and displaced by Perlin; `sketch` = N passes with
+different noise offsets (`compose.js:543-569`). Insets/outlines without polygon offsetting: `{sdf ≥ s}` = fill + a
+`2|s|`-wide stroke or `destination-out` (`:599-624`). Cheap, robust, Canvas-native.
+
+**I9. Paper, torn edge, stain reveal** (`src/`, UI chrome). Paper tile: five octaves of *periodic* value noise
+(lattice periods 5…110) so it tiles seamlessly, plus 340 Bézier fibres drawn at all 9 offsets to cross seams
+(`paper.js:7-55`). Torn/deckle edge: sides walked in 2.2/4-unit steps pushed inward by
+`2.4+2.2n(s/38)+1.0n(s/9)+jitter`, tapered to 0 near corners, pale fibre bevel along torn segments (`torn.js:20-101`).
+Ink-stain reveal: arrival time by **multi-source Dijkstra** on a 72² grid where steps inside inked regions cost 0.1
+and colour boundaries add cost, so ink floods a shape and hesitates at edges (`inking.js:166-210`).
+
+**I10. WebGPU ageing as analytic functions of page position** (`ageing/src/shader.js`). Ink carried as absorbance so it
+can be blurred/faded then multiplied (`:1210`); folds/cockle height → Lambert (`:383-436,1226-1232`); foxing as hashed
+spot layers with birth time ∝ hash so spots grow with age, snowflake vs tide-ring types (`:585-640`); yellowing with
+edge browning (`:454-460,670-692`); fade by ink chemistry — iron gall → brown, aniline → violet (`:1138-1149`); ink
+SDF by jump flooding in compute (`gpu.js:122-169`); every feature LOD-gated by `detail(size)` (`:120`) so nothing
+aliases at any zoom. Effects are data, 8 floats each (`effects.js:20-134`).
+
+**I11. Breeding by locality, not fitness.** `styles.js:395-431` mutate: Gaussian numeric noise quantised to step,
+enum re-picks, palette swaps; `breed.js:228-248` per-section crossover; `breed.js:254-299` an axial hex plane where a
+cell's parents are its neighbours one ring in, so any cell is a pure function of (seed, q, r). Every result passes
+`restrain → readable → legible → coarse → tame` (`breed.js:184`). This is the playground's exploration model.
+
+### 2.3 Taste rules
+- **≤3 inks + paper**, palettes named after real pigments (iron gall, minium, Prussian, vermilion, Riso Federal
+  Blue); warm off-white papers, `#fff` only in "Clean" (`styles.js:8-38`). Body text in the darkest ink: "books keep
+  colour for the initial" (`render.js:12-13`).
+- **Restraint caps** (`breed.js:141-157`): ground holds ≤2 of {pattern, texture, ornament}; letter ≤2 of {fill pattern,
+  filigree, echo, shadow, inline}; split two-ink letters "never liked".
+- **Legibility gate** (`breed.js:89-113`); **pattern pitch floors** — finer "reads as grey tint" (`:160-165`); strokes
+  ≥1.05 px "or the print pass loses it" (`compose.js:618-620`).
+- Presets are historical references with notes (Kelmscott, Ratdolt, criblé, Lombardic, Insular, Fraktur cadel);
+  breeding mixes by section so hybrids stay inside a vocabulary. Prebaked initial fonts excluded: "frames and grounds
+  are drawn by the renderer, not borrowed" (`breed.js:64-67`).
+- Ageing deliberately light; folds removed because "the even ripple read as a pattern laid over the page"
+  (`src/context.js:17-25`).
+
+### 2.4 Weaknesses
+Determinism gaps (wall-clock growth budget; geometry varies with `quality`; RD floats vary across GPUs;
+`ageing/src/effects.js:144` defaults to `Math.random`; a second mulberry variant in `ageing/src/fields.js:10-21`).
+Max 1088 px output; per-pixel CPU fills over size² (frost/mycelium take seconds). WebGL2-in-worker mandatory; WebGPU
+for ageing, no fallbacks. `compose.js` is a 960-line monolith that knows every param; three ink channels hard-wired
+to RGB; kinds mutate global `PARAMS`; ageing tied to one page layout.
 
 ---
 
 ## 3. florilegium — procedural floral margins (LuaLaTeX)
 
-_(pending subagent report)_
+### 3.1 Architecture
+
+~13 kLoC of plain Lua; TeX does no arithmetic. `florilegium-ink.lua` builds paths under a 6-number affine and writes
+**raw PDF operators** into layers (`florilegium-ink.lua:223-265`); opacity and multiply are ExtGStates
+(`/BM /Multiply`, `:268-278`). At shipout `florilegium.lua:264-321` walks the page's node list to find heading
+markers' y. **SVG** output (`florilegium-svg.lua:48-136`) stubs `tex/node` and translates the PDF operator stream
+token by token (multiply → `mix-blend-mode:multiply`). TikZ and PostScript ports exist; pgf's RNG is replayed in Lua
+for parity. The **web playground is not a port**: `web/worker.js:9-10` loads wasmoon 1.16 (Lua 5.4 → wasm) and runs
+the same modules; `setTop(0)` per page or it leaks ~2.7 MB (`:72-74`); a page takes seconds and is ~1 MB+ of SVG.
+pie-site consumes it as a CLI (`tools/steppe-svg.lua`).
+
+### 3.2 Techniques
+
+**F1. RNG stream discipline.** mulberry32 (`ink.lua:25-62`); `fork()` seeds a child from one draw. Layout draws only
+from its own stream and hands every primitive `rng.fork()`, so editing a primitive never shifts the layout;
+features get their own streams (`seed·7919+101`, `+211`, …) so adding one leaves old pages byte-stable; never iterate
+`pairs()` where order feeds an RNG (CLAUDE.md:204-207). *Implication*: together with pie-site T2 this gives illum's
+contract — **hash for spatial decisions, forked streams for structural ones**.
+
+**F2. OKLCH ink ramp from one colour.** `ink.lua:140-147` six stops (t, L, C, hue drift): L .25→.92, chroma peaking
+.175 at t=.38 and falling to .03, hue +6° in the darks and −8° in the lights ("as ultramarine does when thinned").
+`set_ink` (`:172-176`) takes the document ink's hue and scales chroma; `oklch_clamped` (`:129-135`) binary-searches
+max in-gamut chroma so out-of-gamut tones lose chroma, never hue. *Why*: a dilution in sRGB goes grey; this stays
+blue. *Implication*: replace pie-site's `mix(ink, paper, t)` (`illum.js:13`) with this; it is pie-site's own rule
+("an ink and its washes") done correctly.
+
+**F3. Pigment logic: multiply to darken, white to lift.** Washes multiplied; dark blotches multiply at .10–.22, light
+ones normal at .12–.26; **highlights are white fills — pigment lifted out**, not lighter paint (`ink.lua:348-358`,
+`flora.lua:33-47`). No gradients, no shadows.
+
+**F4. Taper / ribbon / blade.** `taper` (`ink.lua:458-469`): a variable-width cubic as two offset cubics, half-widths
+at the Bézier thirds — 5× smaller than a sampled ribbon. `ribbon` (`:419-455`): normals by central differences,
+arclength-parametrised width, closed and smoothed by Catmull–Rom→Bézier (`:319-335`). `blade` (`:506-525`): spine +
+left/right half-width functions + edge fbm scaled by v so the base stays clean; petal `round_half` claw-then-ellipse
+(`flora.lua:65-75`); species leaves as superellipse halves with base/apex exponents and trait-driven lobes, drip tips,
+ears (`florilegium-native.lua:2021-2085`); margins as per-tooth profiles (`:2101-2132`). Rule: **line widths are
+absolute; anything that scales with the motif is a filled shape, never a stroke** (CLAUDE.md:155-157).
+
+**F5. Watercolour paint order inside a clip** (`flora.lua:78-147` petal, `:385-469` leaf): clip to outline → flood
+wash → pale nested "heart" → mottle blobs and specks (granulation) → dark streaks fanning from the base → **pooling**:
+outline re-stroked 1.6 bp, multiply .3, clip shows only its inner half → 9–13 lifted white streaks → faint veins.
+Leaves add a multiplied darker half from spine to one side. Almost no outlines. *Implication*: a generic
+`paintInside(outline, recipe)` pipeline; pie-site T10 and initialis I6 apply the same "pigment pools at the edge"
+rule in raster.
+
+**F6. Space-filling growth, largest hole first** (after Wong–Zongker–Salesin 1998). Regions = union of rects; lattice
+every 2 mm stores distance to nearest *closed* edge (`florilegium-grow.lua:281-324`); `disc(x,y,r,κ=.85)` lowers
+free space (`:313`; κ<1 lets leaves tuck under flowers); `REACH = 3 cm` from a stem (`:50`). Branch loop
+(`:1400-1480`): cell maximising `free·U(.85,1.15)` within reach → motif chosen by `w·season/(1+count/cap)` with hard
+caps → scale binary-searched so proxy radius ≤ .95·free → a cubic branch leaving the stem tangent and arriving on the
+motif axis (`flora.lua:516-526`), so every flower traces to a root. Stop at 3.6 mm; filler to 1.7 mm with buds and
+≤6 copper accents; tiny far holes stay paper (`:1513-1570`). Main stems `x = midx + A·fbm(y/λ)` with staggered
+heights (`:718-745`). "Largest-hole-first is the whole reason the margin looks composed rather than scattered"
+(docs/how-it-works.md:60-62). Same engine as initialis I2/I3, different motif grammar.
+
+**F7. Genome → morphology.** `florilegium-species.lua:29-460`: distribution combinators `W/I/R/C/BY(trait,map)`; a
+**fixed draw order** of ~60 traits (`:40-50`) plan → clade → syndrome → colour → … → fruit; 14 body plans enforce
+botany by construction (lily merosity 3); `violations` (`:466-490`) is a test oracle; `describe` (`:492-585`) turns
+traits into captions and alt text. pie-site overrides the pool with steppe genomes (`steppe-svg.lua:82-129`).
+
+**F8. LOD by device scale.** `ink.unit() = √|det T|`; specks/veins skipped below .45 cm, sub-1.2 mm petals unmottled
+(`flora.lua:22-23`) — introduced after sub-mm petals made a 20 MB page. **F9. Growth animation by replay**: closures
+re-run with `rng.save/load` so frame N of N equals the page (`ink.lua:250-265,393-413`); pie-site's `PIE_FRAME`
+uses it. **F10. Ghosts**: any motif redrawn with tone lift `t+(1−t)·.62` as pale depth (`flora.lua:1023-1027`).
+Curls/tendrils integrate a heading function `h(s)` (`flora.lua:528-568`).
+
+### 3.3 Taste rules
+One hue (default Delft `#2456C4`) + copper accent `#B56630` used sparingly; red/orange species barred from heroes
+because they would "take the copper" (`species.lua:587-590`). Hardly any stroked outlines; stems taper to hairlines.
+Largest-first with a stop threshold; "no dust" (CLAUDE.md:394); caps on statement motifs. Density thins
+*structurally* (fewer stems) not by scattering (CLAUDE.md:247-251). "Always look before declaring a change good"
+(CLAUDE.md:104-105). Playground as "a printer's proof and its colophon, not a sidebar of sliders"
+(CLAUDE.md:301-303).
+
+### 3.4 Weaknesses
+Output weight: thousands of translucent paths; in browsers each multiplied SVG path is a compositing layer, and
+Chromium draws sub-pixel hairlines heavier than PDF (CLAUDE.md:288-291). SVG is a string translator over PDF ops.
+Collision proxies are single discs; regions only axis-aligned rects (pie-site had to monkey-patch obstacles in). No
+paper grain, no wet-edge simulation; granulation is random blobs. pgf-parity arithmetic bloats `native.lua`
+(5.4 kLoC). Composition tuned for a vertical margin column.
 
 ---
 
 ## 4. blank-page — design-method skill
 
-_(pending subagent report)_
+A Claude skill that turns a one-line motion/design brief into a prompt of **references + beats**
+(`skills/blank-page/SKILL.md:12-18`). Method (`SKILL.md:28-102`): ground the look with five stills from **one**
+aesthetic, each with a job — overall look, palette, material/surface, composition, detail/motif — "never blend two
+aesthetics; if a second keeps winning, switch wholesale" (`:44-48`); pick "for remarkable, not for matching the
+draft's words" (`:49-51`); a user-named style is a **fence** constraining palette, material, type, components — never
+layout or motion (`:52-58`; `references/finding-references.md:39-94`); every reference gets a beat and a scoped
+**take** ("never 'like a1'", `finding-references.md:305`); every piece needs a **turn** — reveal, medium change, becoming
+something else; "enter, animate, hold is not finished" (`SKILL.md:69-81`). Vocabulary worth adopting: *contraption*
+(animate a thing's own mechanism, not a default draw-in, `SKILL.md:209-211`), *in-process morph* (transform, don't
+tear down, `references/patterns.md:220`), mechanism verbs (grow out, bleed, unravel, unfold, boil,
+`vocabulary.md:83-95`), print/textile terms (riso, misregistration, grain, stitch, `vocabulary.md:64-65`). Its corpus
+finding (`patterns.md:131-175`): unassisted output fails by *not committing* to a look, not copying a striking move,
+not using a real asset, not adding a turn. Adjectives fail where mechanisms succeed (`SKILL.md:212-214`).
+
+**Rules for illum**: (1) presets are named traditions (Kelmscott, Delft, Corded Ware, Redouté), never "floral";
+(2) parameters are physical processes (pooling, lift-out, ink gain, foxing), never "vintage: 0.7"; (3) separable
+roles — palette, surface, composition, motif — map to separable modules; (4) growth is the contraption — stems extend,
+ink floods, nothing fades in; (5) recognisable things come from real sources (Muybridge masks, font outlines,
+Natural Earth), procedural only for what must grow or vary; (6) the paper is the ground, never `#fff`; (7) judge at
+real size, by looking.
 
 ---
 
-## 5. Primitives a shared library should offer
+## 5. Primitives a shared library should offer (ranked)
 
-_(pending)_
+Ranked by (used in production) × (duplicated across repos) × (leverage on the "museum" bar).
+
+1. **Determinism kernel** — `hash(seed, …coords)` for spatial decisions, forked mulberry32 streams for structure,
+   periodic/simplex/fbm noise. From `paintpass.js:17`, `florilegium-ink.lua:25-62` (fork discipline),
+   `initialis/render/src/util.js:3-44`. Ban `Math.random` (pie-site `painter.js:131`, initialis
+   `ageing/src/effects.js:144`) and wall-clock budgets (initialis `ornament.js:34-36`).
+2. **Ink model** — one ink → OKLCH ramp with hue drift and gamut-clamped chroma, one accent, a paper; multiply to
+   darken, white to lift. From `florilegium-ink.lua:94-212`; replaces `pie-site/js/illum.js:12-14`.
+3. **Print pass** (coverage channels → printed colour: blur/threshold ink gain, ragged edge, mottle, speckle,
+   misregistration, laid-paper grain, subtractive multiply; page-pinned noise). From `initialis/render/src/ink.js:21-103`;
+   needs a CPU/Canvas2D fallback.
+4. **Distance/clearance field** — exact EDT, stamp, biggest-gap with block maxima, transactions; obstacles from DOM
+   rects or masks. From `initialis/render/src/field.js`, `util.js:122-155`; florilegium's κ-disc; pie-site's
+   segment-vs-rect `steppe-svg.lua:15-24`.
+5. **Growth engines on that field** — rinceau (`initialis/render/src/ornament.js`) and largest-hole botanical
+   (`florilegium-grow.lua:1400-1570`), both emitting geometry with `t0/dur` so growth animates by truncation
+   (`initialis compose.js:251-275`, florilegium replay `ink.lua:393-413`).
+6. **Path + stroke geometry** — arc-length path with frame (`pie-site js/map.js:47-71`), ribbon/taper/blade
+   (`florilegium-ink.lua:419-525`), broad-nib (`initialis ornament.js:390-420`), tapered arrow (`map.js:75-89`).
+7. **Orientation field** — structure tensor + coherence from a mask's distance field or an image's luminance
+   (`pie-site js/painter.js:13-44`, `tools/paintpass.js:10-16`); feeds streamlines (`hatch.js:41-58`),
+   engraving phase (`initialis kinds/pattern/engrave.js`), hachures (`build_map.py:105-157`).
+8. **Brushwork** — bristle stroke with genome and dry tail (`pie-site js/brush.js:5-33`), hairs-along-curve with
+   tooth breakup (`map.js:135-163`), position-hashed paint pass with thin-feature guard (`tools/paintpass.js`).
+9. **Paint-inside-outline recipes** — wash with edge pooling (`build_wash.py:80-86`, `initialis relief.js:190-222`,
+   florilegium `flora.lua:78-147`), granulation, lift-out, veins.
+10. **Paper** — one shared tooth field used both as visible grain and as the dry-brush mask (pie-site T4); periodic
+    tile with fibres (`initialis src/paper.js`); torn/deckle edge (`src/torn.js`).
+11. **Ornament kinds API** — `band/pattern/corner/leaf/flower` emitting `{polys, lines, dots}`, symmetric `evenly()`
+    layout (`pie-site js/kinds/steppe.js:73-84`, `initialis kinds/README.md`).
+12. **Bake/reveal** — prebake to atlas/WebP/alpha video, reveal by growing vector clip or mask (`map.js:193-199`,
+    `main.css:333-336`, `build_growth.mjs`); ink-as-luminance-mask coloured at composite (`main.css:72`).
+13. **Ageing** (later) — absorbance-space ink, foxing, fade by chemistry, LOD-gated (`initialis ageing/src/shader.js`).
+14. **Variation** — param table with stage tags for cache invalidation (`initialis params.js`), mutate/crossover/hex
+    lineage (`breed.js`), trait genomes with a violations oracle and captions (`florilegium-species.lua`).
 
 ## 6. Gaps none of them cover
 
-_(pending)_
+- **Runtime layout awareness.** Every obstacle map is measured once in headless Chrome at a fixed viewport and frozen
+  (pie-site T11; florilegium reads only TeX boxes). Nothing re-grows on resize, reflow, font swap or container query.
+  Needs a fast incremental grow (budgeted by work, not time) or LOD tiers chosen at runtime.
+- **Glyph-level avoidance.** Regions are rects; nothing grows into a ragged right edge or round a drop cap's shape.
+  Line boxes from the DOM (Range rects) are available and unused.
+- **One source, two outputs.** pie-site's art is raster; florilegium's SVG is heavy and multiply-blended; initialis
+  ends in a bitmap. No renderer emits the same scene as lightweight vector *and* print-passed raster, choosing per
+  device.
+- **Cheap delivery.** 34 MB of baked art; `relief-l.webp` 4 MB for line art. No tiling, no LOD pyramid, no
+  vector-first format, no shared atlas of strokes.
+- **Fallbacks.** initialis: WebGL2-in-worker or nothing; ageing: WebGPU or nothing. No Canvas2D path, no static
+  poster contract for no-JS.
+- **Wet media proper.** Washes are blur + high-pass rules; no pigment advection, back-runs from flow, granulation by
+  paper height, or wet-in-wet bleeding between adjacent washes.
+- **Colour management.** Only florilegium works in OKLCH; nothing handles dark mode (pie-site just deepens the paper,
+  `css/main.css:20`), P3 pigments, or contrast checks for text over ornament beyond initialis's letter/ground gate.
+- **Interaction.** Growth is time- or scroll-scrubbed playback; no ornament responds to pointer, selection or
+  reading position beyond reveal.
+- **Accessibility semantics.** No decorative-vs-informative contract, no reduced-motion API beyond ad-hoc checks,
+  florilegium's trait captions aside.
+- **Test harness for taste.** Rules live in comments and restraint functions; there is no visual regression or
+  "looks composed" metric (coverage evenness, hole-size histogram, motif repetition) to keep presets honest.
