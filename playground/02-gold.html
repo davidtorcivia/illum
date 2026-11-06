@@ -35,11 +35,24 @@
 </head>
 <body>
 <h1>Gold</h1>
-<p class="intro">Large gold, laid on a raised cushion of gesso and lit. Left, the still, as a photograph of a manuscript shows it; then the same at four times; then lit by you: move the pointer, or a finger, over it. Right, a real raised burnished ground for comparison.</p>
+<p class="intro">A study of large gold, after research/07-gold.md and three rejected attempts.</p>
+<h1>Live</h1>
+<p class="intro">Gold lit as gold is: broad sweeps of reflection over an undulating ground, dark olive where the leaf turns away from the light at its edges, and the real detail (cracks, specks, burnishing strokes) of a photographed ground. Move the pointer, or a finger, across it and the light travels over the leaf; let go and it rests.</p>
+<div class="row" id="liverow"></div>
+<h1>Fallback</h1>
+<p class="intro">Without WebGL2: the light from broad sweeps of reflection over an undulating ground, dark olive where the leaf turns away from the light at its edges; the hand from the real detail (cracks, specks, burnishing strokes) of a photographed ground, Met 477838. At size, then three times, the detail at three scales.</p>
+<div class="row" id="leafrow"></div>
+
+<h1>Rejected</h1>
+<p class="intro">The earlier attempt, kept for comparison: a raised cushion of gesso as a height field, lit. It read as 1999 WordArt.</p>
 <div class="row" id="row"></div>
 <script type="module">
 import { pen, spline, paintField, wash, mulberry, PAPER } from './kit/marks.js';
 import { goldFields, goldStill, goldLit } from './kit/gold.js';
+import { loadGold, goldLeaf, softEdge } from './kit/goldleaf.js';
+import { goldShader } from './kit/goldgl.js';
+import { paintShape } from './kit/brushwork.js';
+const DETAIL = await loadGold();
 const INK = [36, 25, 18], LIGHT = [-.55, .83];
 await document.fonts.ready;
 
@@ -68,18 +81,41 @@ function masks(W, dpr, letter) {
 // paint the letter and the counters, then the ink: on its own layer, over the gold
 function paintLetter(g, W, dpr, mk, letter) {
   const { cw, L, C, fs, base } = mk;
-  paintField(g, C, 0, 0, cw, cw, 'lapis', { dpr, seed: 3 });
-  paintField(g, L, 0, 0, cw, cw, 'rose', { dpr, seed: 4 });
-  // lead white: a band just inside the letter's lit edge, and fine white tracery in the counter
-  const o1 = Math.round(1.1 * dpr), o2 = Math.round(2.3 * dpr), hi = new ImageData(cw, cw);
-  for (let y = o2; y < cw; y++) for (let x = o2; x < cw; x++) { const k = y * cw + x;
-    if (L[k] > .5 && L[k - o1 * cw - o1] > .5 && L[k - o2 * cw - o2] < .5) { hi.data[k * 4] = 252; hi.data[k * 4 + 1] = 249; hi.data[k * 4 + 2] = 240; hi.data[k * 4 + 3] = 225; } }
-  const hc = new OffscreenCanvas(cw, cw); hc.getContext('2d').putImageData(hi, 0, 0); g.drawImage(hc, 0, 0, W, W);
-  g.save(); g.font = `600 ${fs}px "EB Garamond"`; g.textAlign = 'center'; g.lineJoin = 'round'; g.strokeStyle = 'rgb(36 25 18)'; g.lineWidth = .9;
+  // painted with the brush: the counter in lapis, darker under the letter's edge; the letter in rose, modelled from
+  // its shadowed side to its lit side, lifted with white
+  paintShape(g, C, 0, 0, cw, cw, { tones: [[22, 30, 78], [40, 56, 124], [78, 98, 168]], under: 'lapis', dpr, seed: 3, brush: 2.2, hatch: 0 });
+  paintShape(g, L, 0, 0, cw, cw, { tones: [[170, 82, 92], [212, 132, 138], [238, 184, 178]], under: 'rose', dpr, seed: 4, brush: 2.2, hatch: 1.2 });
+  g.save(); g.font = `600 ${fs}px "EB Garamond"`; g.textAlign = 'center'; g.lineJoin = 'round'; g.strokeStyle = 'rgb(36 25 18)'; g.lineWidth = .7;
   g.strokeText(letter, W / 2 + .4, base + .3); g.restore();
   const r = mulberry(11), e = 3, wob = (a, b) => spline(Array.from({ length: 7 }, (_, k) => [a[0] + (b[0] - a[0]) * k / 6 + (k % 6 ? (r() - .5) * .7 : 0), a[1] + (b[1] - a[1]) * k / 6 + (k % 6 ? (r() - .5) * .7 : 0)]), 6);
   const sq = [...wob([e, e], [W - e, e]), ...wob([W - e, e], [W - e, W - e]), ...wob([W - e, W - e], [e, W - e]), ...wob([e, W - e], [e, e])];
   pen(g, [...sq, sq[0], sq[1]], { w: 1.3, seed: 9, start: 'cut', end: 'cut', shade: LIGHT, broad: .2, load: 1 });
+}
+function leafSpecimen(W, zoom, letter, scale) {
+  const dpr = Math.min(2, devicePixelRatio || 1) * zoom, D = W * zoom, box = document.createElement('div'); box.className = 'spec';
+  box.style.width = box.style.height = D + 'px';
+  const mk = masks(W, dpr, letter), cv = document.createElement('canvas'); cv.width = mk.cw; cv.height = mk.cw; cv.style.width = cv.style.height = D + 'px'; box.append(cv);
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  goldLeaf(g, mk.G, 0, 0, mk.cw, mk.cw, { dpr, seed: 5, W, detailScale: scale });
+  paintLetter(g, W, dpr, mk, letter);
+  return box;
+}
+function liveSpecimen(W, zoom, letter, scale) {
+  const dpr = Math.min(2, devicePixelRatio || 1) * zoom, D = W * zoom, box = document.createElement('div'); box.className = 'spec lit';
+  box.style.width = box.style.height = D + 'px';
+  const mk = masks(W, dpr, letter), gc = document.createElement('canvas'), pc = document.createElement('canvas');
+  for (const c of [gc, pc]) { c.width = mk.cw; c.height = mk.cw; c.style.width = c.style.height = D + 'px'; } box.append(gc, pc);
+  const draw = goldShader(gc, mk.G, softEdge(mk.G, mk.cw, mk.cw, W, dpr), mk.cw, mk.cw, DETAIL, { dpr, W, seed: 5, detailScale: scale, amp: +(params.get('amp') ?? .14), edge: +(params.get('edge') ?? .9), hand: +(params.get('hand') ?? 1.7) });
+  const g = pc.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); paintLetter(g, W, dpr, mk, letter);
+  const REST = [-.6, -.8]; let L = REST.slice(), T = REST.slice(), glint = 0, want = 0, raf = 0, last = 0;
+  const frame = () => { L = L.map((v, i) => v + (T[i] - v) * .16); glint += (want - glint) * .1; draw(L, glint);
+    if (performance.now() - last > 1600) { T = REST.slice(); want = 0; }
+    raf = Math.abs(glint - want) > .003 || L.some((v, i) => Math.abs(v - T[i]) > .003) ? requestAnimationFrame(frame) : 0; };
+  const move = e => { const b = box.getBoundingClientRect(), x = (e.clientX - b.left) / b.width * 2 - 1, y = (e.clientY - b.top) / b.height * 2 - 1;
+    T = [x * 1.1, y * 1.1]; want = .5; last = performance.now(); if (!raf) raf = requestAnimationFrame(frame); };
+  box.addEventListener('pointermove', move); box.addEventListener('pointerdown', move);
+  draw(L, 0); box._set = (x, y, gl_) => { L = [x, y]; draw(L, gl_); };
+  return box;
 }
 function specimen(W, zoom, letter, lit) {
   const dpr = Math.min(2, devicePixelRatio || 1) * zoom, D = W * zoom, box = document.createElement('div'); box.className = 'spec' + (lit ? ' lit' : '');
@@ -110,12 +146,20 @@ function specimen(W, zoom, letter, lit) {
 }
 const row = document.getElementById('row'), fig = (el, cap) => { const f = document.createElement('figure'), c = document.createElement('figcaption'); c.textContent = cap; f.append(el, c); return f; };
 const params = new URLSearchParams(location.search), L1 = params.get('letter') ?? 'D', CUSH = +(params.get('cushion') ?? .025), WAVES = +(params.get('waves') ?? 1.5);
+const liverow = document.getElementById('liverow'), live = liveSpecimen(100, 3, L1, 1.2);
+liverow.append(fig(liveSpecimen(100, 1, L1, 1.2), 'At size, 100 px.'));
+liverow.append(fig(live, 'Three times. Move over it.'));
+const refL = document.createElement('div'); refL.className = 'ref'; refL.innerHTML = '<img src="../research/gold-refs/met-477838-raised-burnished-ground.webp" alt="A detail of a real raised burnished gold ground beside a pink painted letter, Metropolitan Museum 477838.">';
+liverow.append(fig(refL, 'A real raised burnished ground (Met 477838, public domain).'));
+const leafrow = document.getElementById('leafrow');
+leafrow.append(fig(leafSpecimen(100, 3, L1, 1.2), 'The same model drawn on the CPU, the fallback without WebGL2.'));
+if (params.get('lx') !== null) live._set(+params.get('lx'), +(params.get('ly') ?? 0), +(params.get('glint') ?? .5));
 row.append(fig(specimen(100, 1, L1, false), 'A three-line initial, 100 px: the still.'));
 row.append(fig(specimen(100, 3, L1, false), 'The same at three times.'));
 const litBox = specimen(100, 3, L1, true); row.append(fig(litBox, 'Lit by you: move over it.'));
 const ref = document.createElement('div'); ref.className = 'ref'; ref.innerHTML = '<img src="../research/gold-refs/met-477838-raised-burnished-ground.webp" alt="A detail of a real raised burnished gold ground beside a pink painted letter, Metropolitan Museum 477838.">';
 row.append(fig(ref, 'A real raised burnished ground (Met 477838, public domain).'));
-const lx = params.get('lx'); if (lx !== null && litBox._light) litBox._light(+lx, +(params.get('ly') ?? 0));
+
 document.body.dataset.timing = 'done';
 </script>
 </body>
