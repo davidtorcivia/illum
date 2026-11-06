@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lombardic</title>
+<!--
+  04 · Lombardic: a drawn alphabet of painted capitals.
+
+  Instruction: draw each capital as the scribe drew it, stroke by stroke in order (kit/ductus.js: the stem down, then
+  the bowl, then the hairlines and their balls; bowls heavy at the flank and fine at both ends, stems swelling a
+  little); then paint it as the initials were painted (kit/letterpaint.js): one flat wash, a darker band where the form
+  turns from the light, three or four fine strokes of a paler tint along the scribe's own strokes on their lit side, a
+  white hairline inside the lit edge, the pen round the real contour. Blue and red alternate, as they do down a page.
+
+  Function: wayfinding (06-purpose §3). The painted capital marks where a text begins; the letter stays text (it is
+  in the DOM, visually hidden, beside its paint).
+
+  Sources (Met Open Access, public domain), studied at full resolution before each letter was drawn:
+  - 466773, leaf from a psalter, North Italian, early 15th c.: painted Lombards A C M O P (vermilion and lapis, with
+    penwork). The red here is vermilion as on that leaf, shaded with a red earth (bole); a carmine shade went
+    purple over vermilion. The outline is a deep tone of the body colour, not black: 466773's Lombards have none,
+    463605 and the royal psalter have one, and a black line read as a cartoon at this size.
+  - 466790, antiphonary, Italian 14th c.: the round h, the D. 466179, Decretals of Gratian, French c. 1290: tall
+    Lombards A B D M N P Q R S. 466375, 466376, royal psalter, English 13th c.: round E, N, Q. 471898, Benedictine
+    antiphonary, Italian c. 1467–70: painted E G S, modelled with white. 466732, 466729, German antiphonary and
+    gradual, 15th c.: round T, V. 466792, antiphonary, Italian c. 1320: A. 463605 (the P modelled with white).
+  Text: Ruskin, The Stones of Venice II (1853), ch. VI, Project Gutenberg #30755. EB Garamond, SIL OFL.
+
+  Seed: a hash of the text; #seed=N overrides. Each initial moves the hand a little (its own seed), so no two are the
+  same. ?draw plays each letter as made: the strokes in their order in the body colour, then the wash, the shade, the
+  tint, the white and the outline. Never under prefers-reduced-motion; the still page is the same score played at once.
+
+  Score 2026-11-06 (self, before the user has seen it): Beauty 2 (form 2: at 4x beside the leaves A, C, D, M, O, P,
+  H read as the same family, bowls heavy at the flank and hairline at head and foot, terminals turned in to a ball;
+  paint 1-2: wash and shade read as paint, but the tint and white, laid as the 02 method lays them, read as sheen on
+  some strokes, the I, K, Z and the inside of P's bowl). Forms taken from the period that a modern eye may not read at
+  once: the round (uncial) D, which replaces 02's roman D because 466790 shows it; the round M (an O with a stem
+  through it); the uncial h and n for H and N; the round T. F, I, J, K, L, U, W, X, Y, Z have no painted reference
+  here and are drawn by family; they are the weakest. Open: painting the whole sheet costs ~900 ms (26 letters, nine
+  at 4x; the other pages budget 50-100 ms; a worker next); the flick ball on every stem repeats like a font's serif.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --soft: rgb(43 33 25 / .62); --rubric: rgb(176 58 36); color-scheme: light; }
+  html { background: var(--paper); }
+  body { margin: 0 auto; max-width: 1000px; padding: 56px 24px 80px; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; -webkit-font-smoothing: antialiased; }
+  h1, h2 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .2em; }
+  h2 { font-size: .8em; margin-top: 48px; }
+  .intro { max-width: 36em; color: var(--soft); font-style: italic; margin: 0 0 28px; font-size: 17px; line-height: 1.5; }
+  canvas { display: block; }
+  .alpha { display: flex; flex-wrap: wrap; gap: 0 2px; margin: 0 -6px; }
+  .pairs { display: flex; flex-wrap: wrap; gap: 28px 36px; }
+  .pair { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+  .pair img { display: block; width: 352px; height: 352px; object-fit: cover; }
+  .pair figcaption { flex-basis: 100%; font-style: italic; font-size: 14px; color: var(--soft); }
+  .text { max-width: 34em; hyphens: auto; text-align: justify; margin-top: 8px; }
+  .text p { margin: 0; }
+  .drop { float: left; position: relative; }
+  .drop canvas { position: absolute; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .colophon { font-size: 14px; font-style: italic; color: var(--soft); margin-top: 48px; }
+  .colophon a { color: inherit; }
+  @media (max-width: 640px) {
+    body { padding: 40px 16px 64px; font-size: 18px; line-height: 1.55; }
+    .text { text-align: left; }
+    .pair img, .pair canvas { width: 100% !important; height: auto !important; max-width: 352px; aspect-ratio: 1; }
+  }
+</style>
+</head>
+<body>
+<h1>Lombardic</h1>
+<p class="intro">A drawn alphabet: each capital made from the strokes a scribe makes, in order, each with its swell; then painted as the initials were painted, in a dozen decisions. Blue and red alternate, as they do down a page.</p>
+<div class="alpha" id="alpha"></div>
+
+<h2>Four times, beside the real thing</h2>
+<p class="intro">The same letters at four times, each beside a painted capital of the same letter from a real leaf.</p>
+<div class="pairs" id="pairs"></div>
+
+<h2>In use</h2>
+<article class="text">
+  <p><span class="drop" data-letter="B" aria-hidden="true"></span><span class="sr">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture. And this we suppose to be all the pleasure that architecture was ever intended to give us.</p>
+</article>
+<p class="colophon">Capitals drawn and painted by illum, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch them made</a>.</p>
+
+<script type="module">
+import { pen, fnv, PIGMENTS } from './kit/marks.js';
+import { letterMask } from './kit/ductus.js';
+import { paintLetter, STEPS } from './kit/letterpaint.js';
+
+const q = new URLSearchParams(location.search);
+const text = document.querySelector('.text').textContent.replace(/\s+/g, ' ').trim();
+const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(text) % 1e7);
+document.getElementById('seed').textContent = SEED;
+const DPR = Math.min(2, devicePixelRatio || 1), LIGHT = [-.6, -.8];
+// the two colours: lapis shaded with a deeper lapis, lifted with lapis and lead white; vermilion shaded with lake
+const COLOURS = {
+  blue: { pigment: 'lapis', shade: 'lapisShade', shadeStrength: .55, tint: [100, 128, 196], ink: [30, 38, 92] },
+  red: { pigment: 'vermilion', shade: 'bole', shadeStrength: .6, tint: [230, 126, 92], ink: [128, 36, 26] },
+};
+const REFS = { A: ['466773', 'Psalter, North Italian, early 15th c.'], D: ['466790', 'Antiphonary, Italian, 14th c.'], H: ['466790', 'Antiphonary, Italian, 14th c.'],
+  M: ['466773', 'Psalter, North Italian, early 15th c.'], O: ['466773', 'Psalter, North Italian, early 15th c.'], P: ['466773', 'Psalter, North Italian, early 15th c.'],
+  S: ['471898', 'Benedictine antiphonary, Italian, c. 1467–70'], E: ['471898', 'Benedictine antiphonary, Italian, c. 1467–70'], C: ['466773', 'Psalter, North Italian, early 15th c.'] };
+const BIG = (q.get('big') ?? 'A,C,D,E,H,M,O,P,S').split(',');
+// how the letter is painted: 'flat' as the penwork capitals of 466773 are (one wash, its pigment pooled at the edge,
+// nothing laid over it); 'modelled' as the grander initials of 463605 (shade, tint, white, outline). The tint and white
+// read as sheen on letters this small, so flat is the default.
+const STYLE = q.get('style') ?? 'flat', USE = STYLE === 'flat' ? ['wash'] : STEPS;
+
+// A letter as a score: its strokes drawn in order with the pen in the body colour, then each painting decision laid
+// over it in turn. Each part shows itself part-way on the live layer and, finished, is laid once on the base.
+function letterParts(base, live, letter, W, zoom, colour, seed, t) {
+  const dpr = DPR * zoom, mk = letterMask(letter, W, dpr, seed), col = COLOURS[colour], parts = [];
+  const o = { ...col, dpr, seed, light: LIGHT };
+  for (const s of mk.strokes) {
+    const po = { w: s.wp, press: s.press, ink: PIGMENTS[col.pigment].rgb, broad: .2, start: 'cut', end: s.end ?? 'cut', seed: s.seed, load: 1, swell: 0 };
+    const d = Math.max(.12, s.P.length / 18 * .16 * (s.body ? 1 : .6));
+    parts.push({ t0: t, t1: t + d, base, live, at: (g, f) => pen(g, s.P, { ...po, to: f, end: 'cut' }), done: g => pen(g, s.P, po) });
+    t += d + .06;
+  }
+  t += .15;
+  for (const step of USE) {
+    let img = null; const make = () => img ??= (() => { const c = new OffscreenCanvas(mk.cw, mk.cw), k = c.getContext('2d'); k.scale(dpr, dpr); paintLetter(k, mk, { ...o, steps: [step] }); return c; })();
+    const d = step === 'wash' ? .5 : .35;
+    parts.push({ t0: t, t1: t + d, base, live, make, at: (g, f) => { g.globalAlpha = f; g.drawImage(make(), 0, 0, W, W); g.globalAlpha = 1; }, done: g => g.drawImage(make(), 0, 0, W, W) });
+    t += d + .05;
+  }
+  return { mk, parts, end: t };
+}
+// a canvas pair (base, live) of W × W page px shown at `zoom` times
+function easel(W, zoom) {
+  const box = document.createElement('div'), dpr = DPR * zoom; box.style.cssText = `position:relative;width:${W * zoom}px;height:${W * zoom}px`;
+  const cs = [0, 1].map(() => { const c = document.createElement('canvas'); c.width = c.height = Math.ceil(W * dpr); c.style.cssText = `position:absolute;left:0;top:0;width:100%;height:100%`; box.append(c);
+    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); return g; });
+  return { box, base: cs[0], live: cs[1] };
+}
+
+function compose() {
+  const parts = [], alpha = document.getElementById('alpha'), pairs = document.getElementById('pairs');
+  alpha.replaceChildren(); pairs.replaceChildren();
+  const W = innerWidth < 640 ? 60 : 88;   // an initial of two lines (its cap ~64 px); on a phone, a little smaller
+  [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].forEach((ch, i) => {
+    const e = easel(W, 1); e.box.setAttribute('role', 'img'); e.box.setAttribute('aria-label', ch); alpha.append(e.box);
+    parts.push(...letterParts(e.base, e.live, ch, W, 1, i % 2 ? 'red' : 'blue', (SEED + i * 7919) >>> 0, .2 + i * .35).parts);
+  });
+  BIG.forEach((ch, i) => {
+    const f = document.createElement('figure'); f.className = 'pair'; pairs.append(f); const e = easel(88, 4); e.box.setAttribute('role', 'img'); e.box.setAttribute('aria-label', ch);
+    const [id, what] = REFS[ch] ?? [];
+    f.append(e.box);
+    if (id) { const im = new Image(); im.src = `materials/lombardic/met-${id}-${ch}.webp`; im.alt = `A painted Lombardic ${ch} on a real leaf, Met ${id}.`; f.append(im); }
+    const cap = document.createElement('figcaption'); cap.textContent = id ? `${ch}: drawn and painted here; beside it, Met ${id}, ${what}` : ch; f.append(cap);
+    parts.push(...letterParts(e.base, e.live, ch, 88, 4, i % 2 ? 'red' : 'blue', (SEED + 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.indexOf(ch) * 7919) >>> 0, 1 + i * .5).parts);
+  });
+  // the initial in the text: its cap on the first line's cap height, its foot on the third line's baseline
+  for (const span of document.querySelectorAll('.drop')) {
+    span.replaceChildren();
+    const p = span.parentElement, cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight);
+    const m = (() => { const c = document.createElement('canvas').getContext('2d'); c.font = `400 100px "EB Garamond"`; const t = c.measureText('H'); return { asc: t.fontBoundingBoxAscent / 100, desc: t.fontBoundingBoxDescent / 100, cap: t.actualBoundingBoxAscent / 100 }; })();
+    const base1 = (lh - (m.asc + m.desc) * fs) / 2 + m.asc * fs, capTop = base1 - m.cap * fs, foot = 2 * lh + base1, n = 3;
+    const W = (foot - capTop) / .71, e = easel(W, 1), mk = letterMask(span.dataset.letter, W, DPR, SEED);
+    let x0 = W, x1 = 0; for (let i = 0; i < mk.cw * mk.cw; i++) if (mk.L[i] > .5) { const x = (i % mk.cw) / DPR; x0 = Math.min(x0, x); x1 = Math.max(x1, x); }
+    Object.assign(span.style, { width: (x1 - x0 + lh * .35) + 'px', height: (n * lh - 2) + 'px' });
+    Object.assign(e.box.style, { position: 'absolute', left: -x0 + 'px', top: (capTop - .15 * W) + 'px' });
+    span.append(e.box);
+    parts.push(...letterParts(e.base, e.live, span.dataset.letter, W, 1, 'blue', SEED, .5).parts);
+  }
+  return { parts, end: Math.max(...parts.map(p => p.t1)) };
+}
+
+let raf = 0;
+function render(animate) {
+  cancelAnimationFrame(raf);
+  const t0 = performance.now(), score = compose(), t1 = performance.now();
+  if (!animate) { score.parts.forEach(p => p.done(p.base)); document.body.dataset.timing = `compose ${(t1 - t0) | 0} ms, paint ${(performance.now() - t1) | 0} ms`; return; }
+  // the paint for each decision is made a little ahead of its turn, one per frame, so the clock starts at once
+  const start = performance.now(), { parts } = score, finished = new Uint8Array(parts.length), lives = [...new Set(parts.map(p => p.live))];
+  const tick = () => {
+    const now = (performance.now() - start) / 1000;
+    for (const lv of lives) { lv.save(); lv.setTransform(1, 0, 0, 1, 0, 0); lv.clearRect(0, 0, lv.canvas.width, lv.canvas.height); lv.restore(); }
+    parts.forEach((p, i) => { if (finished[i]) return; if (now >= p.t1) { p.done(p.base); finished[i] = 1; } else if (now > p.t0) p.at(p.live, (now - p.t0) / (p.t1 - p.t0)); });
+    const ahead = parts.find(p => p.make && !p.made && p.t0 < now + 2.5); if (ahead) { ahead.make(); ahead.made = 1; }
+    if (now < score.end + .05) raf = requestAnimationFrame(tick); else document.body.dataset.timing = 'drawn';
+  };
+  raf = requestAnimationFrame(tick);
+}
+
+await document.fonts.ready;
+const still_ = matchMedia('(prefers-reduced-motion: reduce)').matches;
+render(!still_ && q.has('draw'));
+document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); render(!still_); });
+let lastW = innerWidth, timer;
+addEventListener('resize', () => { clearTimeout(timer); timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; render(false); } }, 200); });
+addEventListener('hashchange', () => location.reload());
+</script>
+</body>
+</html>
