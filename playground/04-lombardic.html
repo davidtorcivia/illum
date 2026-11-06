@@ -89,6 +89,7 @@ import { pen, fnv, PIGMENTS } from './kit/marks.js';
 import { letterMask } from './kit/ductus.js';
 import { paintLetter, STEPS } from './kit/letterpaint.js';
 import { brushStroke, brushDab } from './kit/brushstroke.js';
+import { temperaLetter } from './kit/tempera.js';
 
 const q = new URLSearchParams(location.search);
 const text = document.querySelector('.text').textContent.replace(/\s+/g, ' ').trim();
@@ -107,7 +108,7 @@ const BIG = (q.get('big') ?? 'A,C,D,E,H,M,O,P,S').split(',');
 // how the letter is painted: 'flat' as the penwork capitals of 466773 are (one wash, its pigment pooled at the edge,
 // nothing laid over it); 'modelled' as the grander initials of 463605 (shade, tint, white, outline). The tint and white
 // read as sheen on letters this small, so flat is the default.
-const STYLE = q.get('style') ?? 'brush', USE = STYLE === 'flat' ? ['wash'] : STEPS;
+const STYLE = q.get('style') ?? 'tempera', USE = STYLE === 'flat' ? ['wash'] : STEPS;
 // 'brush' (the default): each stroke of the ductus laid by a brush of many hairs, not a filled shape
 const BRUSH = { blue: [38, 58, 138], red: [206, 72, 40] };
 
@@ -116,6 +117,14 @@ const BRUSH = { blue: [38, 58, 138], red: [206, 72, 40] };
 function letterParts(base, live, letter, W, zoom, colour, seed, t) {
   const dpr = DPR * zoom, mk = letterMask(letter, W, dpr, seed), col = COLOURS[colour], parts = [];
   const o = { ...col, dpr, seed, light: LIGHT };
+  if (STYLE === 'tempera') {
+    // tempera by its measured statistics (kit/tempera.js): the letter laid in one opaque coat over the parchment
+    let img = null; const make = () => img ??= (() => { const c = new OffscreenCanvas(mk.cw, mk.cw), k = c.getContext('2d'); k.scale(dpr, dpr);
+      temperaLetter(k, mk, { pigment: col.pigment === 'lapis' ? 'lapis' : 'vermilion', dpr, seed, mm: W / 30 }); return c; })();
+    const d = .9;
+    parts.push({ t0: t, t1: t + d, base, live, make, at: (g, f) => { g.save(); g.beginPath(); g.rect(0, 0, W, W * f); g.clip(); g.drawImage(make(), 0, 0, W, W); g.restore(); }, done: g => g.drawImage(make(), 0, 0, W, W) });
+    return { mk, parts, end: t + d };
+  }
   if (STYLE === 'brush') {
     for (const s of mk.strokes) {
       const bo = { w: s.wp, press: s.press, color: BRUSH[colour], seed: s.seed ?? (seed * 31 + t * 7 | 0), dry: s.body ? .22 : 0, broad: .25, start: 'loaded', end: s.end === 'ball' ? 'loaded' : 'lift' };
