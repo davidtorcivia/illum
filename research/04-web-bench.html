@@ -1,0 +1,69 @@
+<!doctype html><meta charset=utf-8><body style="margin:0"><div id=host></div><script>
+const R=s=>{let x=s>>>0;return()=>(x=(x*1664525+1013904223)>>>0)/4294967296};
+const med=a=>a.sort((x,y)=>x-y)[a.length>>1];
+const frame=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
+function brush(g,w,h,batched,seed=1){const r=R(seed);g.lineCap='round';let calls=0;
+ for(let i=0;i<420;i++){const v=r()*2-1;g.strokeStyle=`rgb(${200+r()*40|0},${180+r()*30|0},20)`;g.globalAlpha=.55+r()*.45;g.lineWidth=1.2+r()*3.2;
+  let px=w*.03,py=h/2+v*h*.35; if(batched)g.beginPath(),g.moveTo(px,py);
+  for(let x=px;x<w*.95;x+=6){const ny=h/2+v*h*.35+(r()-.5)*.8; if(batched){g.lineTo(x+6,ny)}else{g.beginPath();g.moveTo(px,py);g.lineTo(x+6,ny);g.stroke();calls++} px=x+6;py=ny}
+  if(batched){g.stroke();calls++}}
+ return calls}
+async function T(fn,n=5){const a=[];for(let i=0;i<n;i++){const t=performance.now();await fn();a.push(performance.now()-t)}return +med(a).toFixed(2)}
+const svgImg=(w,h,body)=>{const im=new Image();im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<!--${Math.random()}--><svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${body}</svg>`);return im};
+window.run=async()=>{const O=new Proxy({},{set(t,k,v){t[k]=v;console.log(k,JSON.stringify(v));return true}});
+ // capabilities
+ const c0=document.createElement('canvas'); O.webgl2=!!c0.getContext('webgl2');
+ try{O.webgpu=!!(navigator.gpu&&await Promise.race([navigator.gpu.requestAdapter(),new Promise(r=>setTimeout(()=>r(null),3000))]))}catch(e){O.webgpu=false}
+ O.ctxFilter='filter' in CanvasRenderingContext2D.prototype; O.schedulerYield=!!(window.scheduler&&scheduler.yield); O.rIC='requestIdleCallback' in window;
+ O.paintWorklet=!!(window.CSS&&CSS.paintWorklet); O.initialLetter=CSS.supports('initial-letter','3'); O.textBoxTrim=CSS.supports('text-box-trim','trim-both');
+ O.anchor=CSS.supports('anchor-name','--a'); O.scrollTimeline=CSS.supports('animation-timeline','view()'); O.maskBorder=CSS.supports('mask-border-source','none');
+ O.vp9alpha=document.createElement('video').canPlayType('video/webm; codecs="vp09.00.10.08"'); O.hevc=document.createElement('video').canPlayType('video/mp4; codecs="hvc1"');
+ // A: brush strokes per-segment vs batched
+ const c=document.createElement('canvas');c.width=900;c.height=180;const g=c.getContext('2d');
+ O.brush_perSegment_ms=await T(()=>{g.clearRect(0,0,900,180);O.brush_calls=brush(g,900,180,false)});
+ O.brush_batched_ms=await T(()=>{g.clearRect(0,0,900,180);brush(g,900,180,true)});
+ g.getImageData(0,0,1,1);
+ // B: 5000 bezier strokes, individual vs one Path2D (single style)
+ const big=document.createElement('canvas');big.width=1600;big.height=900;const G=big.getContext('2d');const r=R(7);const curves=Array.from({length:5000},()=>Array.from({length:8},()=>r()*1600));
+ O.bez5000_individual_ms=await T(()=>{G.clearRect(0,0,1600,900);G.lineWidth=1.5;for(const q of curves){G.beginPath();G.moveTo(q[0],q[1]*.56);G.bezierCurveTo(q[2],q[3]*.56,q[4],q[5]*.56,q[6],q[7]*.56);G.stroke()}G.getImageData(0,0,1,1)});
+ O.bez5000_onePath2D_ms=await T(()=>{G.clearRect(0,0,1600,900);const p=new Path2D();for(const q of curves){p.moveTo(q[0],q[1]*.56);p.bezierCurveTo(q[2],q[3]*.56,q[4],q[5]*.56,q[6],q[7]*.56)}G.stroke(p);G.getImageData(0,0,1,1)});
+ // F: encoding
+ g.clearRect(0,0,900,180);brush(g,900,180,false);G.clearRect(0,0,1600,900);G.drawImage(c,0,0,1600,900);
+ O.enc900_png_dataURL_ms=await T(()=>c.toDataURL('image/png'),3); O.enc900_webp_dataURL_ms=await T(()=>c.toDataURL('image/webp',.84),3);
+ O.enc900_webp_bytes=c.toDataURL('image/webp',.84).length*3/4|0; O.enc900_png_bytes=c.toDataURL('image/png').length*3/4|0;
+ O.enc1600_png_dataURL_ms=await T(()=>big.toDataURL('image/png'),3); O.enc1600_toBlob_webp_ms=await T(()=>new Promise(r=>big.toBlob(r,'image/webp',.84)),3);
+ O.createImageBitmap1600_ms=await T(async()=>(await createImageBitmap(big)).close(),3);
+ // D: SVG filters rasterised into a canvas (img decode + drawImage), 1200x400
+ const out=document.createElement('canvas');out.width=1200;out.height=400;const og=out.getContext('2d');
+ const svgs={plainRect:'<rect width="100%" height="100%" fill="#e8dcc0"/>',
+  turb1:'<filter id="f" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".02" numOctaves="1"/></filter><rect width="100%" height="100%" filter="url(#f)"/>',
+  turb5:'<filter id="f" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".02" numOctaves="5"/></filter><rect width="100%" height="100%" filter="url(#f)"/>',
+  turb5_disp_blur:'<filter id="f"><feTurbulence type="fractalNoise" baseFrequency=".03" numOctaves="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="30" xChannelSelector="R" yChannelSelector="G"/><feGaussianBlur stdDeviation="2"/></filter><rect x="100" y="80" width="1000" height="240" rx="30" fill="#c33" filter="url(#f)"/>',
+  blur10:'<filter id="f"><feGaussianBlur stdDeviation="10"/></filter><rect x="100" y="80" width="1000" height="240" fill="#c33" filter="url(#f)"/>'};
+ for(const[k,b]of Object.entries(svgs)){O['svgimg_'+k+'_ms']=await T(async()=>{const im=svgImg(1200,400,b);await im.decode();og.clearRect(0,0,1200,400);og.drawImage(im,0,0);og.getImageData(0,0,1,1)},3)}
+ // E: canvas filter blur
+ if(O.ctxFilter){O.ctxFilter_blur10_1200x400_ms=await T(()=>{og.clearRect(0,0,1200,400);og.filter='blur(10px)';og.drawImage(big,0,0,1200,400);og.filter='none';og.getImageData(0,0,1,1)},3)}
+ // C: SVG DOM with N paths: insert -> next frame
+ for(const N of [1000,5000,20000]){O['svgdom_'+N+'paths_ms']=await T(async()=>{const host=document.getElementById('host');host.innerHTML='';const rr=R(3);let s='';for(let i=0;i<N;i++){const q=Array.from({length:8},()=>rr()*1200|0);s+=`<path d="M${q[0]} ${q[1]/3}C${q[2]} ${q[3]/3} ${q[4]} ${q[5]/3} ${q[6]} ${q[7]/3}" stroke="#333" fill="none" stroke-width="1.5"/>`}host.innerHTML=`<svg width=1200 height=400>${s}</svg>`;host.firstChild.getBoundingClientRect();await frame()},3)}
+ document.getElementById('host').innerHTML='';
+ // G: OffscreenCanvas worker round trip (brush, per-segment)
+ try{const src=`const R=${R.toString()};const brush=${brush.toString()};onmessage=e=>{const c=new OffscreenCanvas(900,180),g=c.getContext('2d');brush(g,900,180,false,e.data);const b=c.transferToImageBitmap();postMessage(b,[b])}`;
+  const w=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));const once=s=>new Promise(r=>{w.onmessage=e=>{e.data.close();r()};w.postMessage(s)});await once(1);
+  O.worker_brush_roundtrip_ms=await T(()=>once(2));
+  const ws=Array.from({length:4},()=>new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'}))));const one=(W,s)=>new Promise(r=>{W.onmessage=e=>{e.data.close();r()};W.postMessage(s)});await Promise.all(ws.map(W=>one(W,0)));
+  O.worker_8brushes_4workers_ms=await T(()=>Promise.all(ws.map(async(W,i)=>{await one(W,i);await one(W,i+4)})),3);ws.forEach(x=>x.terminate())}catch(e){O.worker_err=String(e)}
+ // I: WebGL2 instanced stamps: 50k quads, finish via readPixels
+ if(O.webgl2){const cv=document.createElement('canvas');cv.width=1600;cv.height=900;const gl=cv.getContext('webgl2');
+  const vs=`#version 300 es
+in vec2 o;in vec4 a;out vec2 uv;void main(){uv=vec2(gl_VertexID&1,gl_VertexID>>1);vec2 p=a.xy+(uv-.5)*a.z;gl_Position=vec4(p,0,1);}`,fs=`#version 300 es
+precision mediump float;in vec2 uv;out vec4 c;void main(){float d=length(uv-.5);c=vec4(.6,.1,.1,.08*smoothstep(.5,.3,d));}`;
+  const sh=(t,s)=>{const x=gl.createShader(t);gl.shaderSource(x,s);gl.compileShader(x);return x},pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);gl.useProgram(pr);
+  const N=50000,rr=R(5),d=new Float32Array(N*4);for(let i=0;i<N;i++){d[i*4]=rr()*2-1;d[i*4+1]=rr()*2-1;d[i*4+2]=.01+rr()*.04;}
+  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,d,gl.STATIC_DRAW);const loc=gl.getAttribLocation(pr,'a');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,4,gl.FLOAT,false,0,0);gl.vertexAttribDivisor(loc,1);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);const px=new Uint8Array(4);
+  O.webgl2_50k_stamps_ms=await T(()=>{gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,N);gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px)});
+  const ext=gl.getExtension('WEBGL_debug_renderer_info');O.gl_renderer=ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER);}
+ // canvas2d equivalent: 50k soft dots via arc fill
+ O.canvas2d_50k_dots_ms=await T(()=>{G.clearRect(0,0,1600,900);const rr=R(5);G.fillStyle='rgba(153,25,25,.08)';for(let i=0;i<50000;i++){G.beginPath();G.arc(rr()*1600,rr()*900,8+rr()*30,0,6.283);G.fill()}G.getImageData(0,0,1,1)},3);
+ O.ua=navigator.userAgent;return O};
+</script>

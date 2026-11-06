@@ -8,3 +8,7 @@ Tools for illuminating websites: procedural illustration, brushwork, ornament, g
 The bar: would it belong in the permanent collection of a major institution? If not, it isn't done.
 
 Builds on the author's [pie-site](https://github.com/davidtorcivia/pie-site), with admiration for [florilegium](https://github.com/kevinraymond/florilegium), [initialis](https://github.com/azlen/initialis) and [blank-page](https://github.com/StewdioAI/blank-page) (cloned into `refs/` for study, not redistributed).
+
+## Licence
+
+MIT. Code adapted from another project keeps a credit at the point of use and a line in `THIRD-PARTY.md`, with that project's licence (initialis and florilegium are MIT; florilegium's `florilegium-pgfmath.lua` is LPPL and is not to be ported).
