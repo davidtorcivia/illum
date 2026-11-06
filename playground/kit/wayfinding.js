@@ -10,15 +10,15 @@
 // Every function takes `rich` 0..1: what the rubricator was paid to do.
 import { tendril, resample, stream, noise1 } from './marks.js';
 
-const wander = (p, amp, seed, scale = 20) => { const n = noise1(seed), q = resample(p, 1);
+export const wander = (p, amp, seed, scale = 20) => { const n = noise1(seed), q = resample(p, 1);
   return q.map((pt, i) => { const a = q[Math.max(0, i - 1)], b = q[Math.min(q.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, o = (n(i / scale) - .5) * 2 * amp;
     return [pt[0] - (b[1] - a[1]) / l * o, pt[1] + (b[0] - a[0]) / l * o]; }); };
-const arc = (c, R, a0, a1, n = 16) => Array.from({ length: n + 1 }, (_, k) => { const a = a0 + (a1 - a0) * k / n; return [c[0] + Math.cos(a) * R, c[1] + Math.sin(a) * R]; });
-const hook = (p, h, size, sense) => tendril(p, h, size * 2 * Math.PI * .8, 0, sense / size, 1.6, .4);
-const hair = (pts, col, o = {}) => ({ pts, col, w: .5, start: 'cut', end: 'taper', ...o });
-const bead = (p, r, col) => ({ dot: true, p, r, col });
+export const arc = (c, R, a0, a1, n = 16) => Array.from({ length: n + 1 }, (_, k) => { const a = a0 + (a1 - a0) * k / n; return [c[0] + Math.cos(a) * R, c[1] + Math.sin(a) * R]; });
+export const hook = (p, h, size, sense) => tendril(p, h, size * 2 * Math.PI * .8, 0, sense / size, 1.6, .4);
+export const hair = (pts, col, o = {}) => ({ pts, col, w: .5, start: 'cut', end: 'taper', ...o });
+export const bead = (p, r, col) => ({ dot: true, p, r, col });
 // an eye as in the penwork: a ring, a dot, small lobes round it
-function eye(c, R, col, r, lobes = 4) {
+export function eye(c, R, col, r, lobes = 4) {
   const s0 = r() * 6.28, out = [hair(arc(c, R, s0, s0 + 6.5, 32), col, { end: 'cut' }), bead(c, Math.max(.7, R * .3), col)];
   const a0 = r() * 6.28; for (let k = 0; k < lobes; k++) { const a = a0 + k / lobes * 6.283, lr = R * .42, lc = [c[0] + Math.cos(a) * (R + lr * .6), c[1] + Math.sin(a) * (R + lr * .6)];
     out.push(hair(arc(lc, lr, a - 1.9, a + 1.9, 12), col, { w: .45, end: 'cut' })); }
