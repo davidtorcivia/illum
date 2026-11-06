@@ -31,6 +31,13 @@
   so the strokes swell and thin); Uncial Antiqua was tried and rejected: its B is a low Celtic form that reads as
   signage, not Lombardic. A roman capital with penwork has precedent in Italian humanist books.
 
+  Richness: ?rich=0..1 (default .5), or data-rich on an initial, or the control in the colophon (re-renders live).
+  It is not a density: it rounds to one of five budgets in kit/penwork.js, each what a scribe would make at that
+  price. plain (0): one panel of hairlines, a single eye, a short staff. modest (.25): counters ruled, an eye in each,
+  an arch with hooks, scallops down the panel. usual (.5): as first made. fine (.75): hairlines rise higher, a panel on
+  the text side, teardrop hooks among the scallops, eyes on the contour, a longer staff. lavish (1): a triple staff
+  scalloped all the way down ending in a spray, and a few dots in the letter's own colour. The one-line initial
+  takes the same budget at its own smaller size. Richer pages draw faster under ?draw, so the score stays under ~14 s.
   Seed: a hash of the text; #seed=N overrides (each initial takes its own stream). ?draw plays it as made: the
   letter laid with the brush, then the penwork mark by mark at a hand's pace (~9 s). Never under
   prefers-reduced-motion; the still page is the same score played at once.
@@ -94,7 +101,7 @@
   </article>
 </main>
 <p class="colophon">Initials flourished by illum, penwork, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch them drawn</a>.
-  <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the penwork is"> richer, <output id="richName" for="rich"></output></label></p>
+  <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the penwork is"> richer <span>(<output id="richName" for="rich"></output>)</span></label></p>
 
 <script type="module">
 import { pen, dot, paintField, fnv, PIGMENTS } from './kit/marks.js';
@@ -107,9 +114,9 @@ const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(text) % 1e7);
 // how rich the penwork is, 0..1 (?rich=, or data-rich on an initial); it rounds to one of five budgets in kit/penwork.js
 let RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0));
 const levelFor = span => levelOf(span.dataset.rich ?? RICH);
-// per level: the panel's width (of the letter's height), how far it rises above the letter and runs below (lines),
+// per level: the panel's width (of the letter's height), how far its hairlines rise above the letter,
 // the staff's length (lines), and how much wider the gap to the words is (px, for a text-side panel)
-const GEOM = { panelW: [.3, .4, .52, .6, .68], rise: [0, .03, .06, .14, .22], below: [0, 0, 0, .35, .6], staff: [1.4, 3.2, 5.5, 7, 9], wider: [0, 0, 0, 5, 9],
+const GEOM = { panelW: [.3, .4, .52, .6, .68], rise: [0, .03, .06, .14, .22], staff: [1.4, 3.2, 5.5, 7, 9], wider: [0, 0, 0, 5, 9],
   small: { panelW: [5, 7, 8.5, 10, 12], staff: [.7, 1.2, 1.6, 2.2, 3] } };
 document.getElementById('seed').textContent = SEED;
 
@@ -167,7 +174,7 @@ function compose(mode) {
     // the panel of hairlines beside the letter on the margin side, its outer line running on down as the staff (never
     // nearer the sheet's edge than 14 px)
     const big = n > 1, gap = big ? 2.6 : 2.1, room = Math.max(0, lx0 - 14 - gap * 3);
-    const panel = big ? [lx0 - Math.min(GEOM.panelW[li] * Hl, room), ly0 - GEOM.rise[li] * Hl, lx0 - gap * .7, ly1 + GEOM.below[li] * lh]
+    const panel = big ? [lx0 - Math.min(GEOM.panelW[li] * Hl, room), ly0 - GEOM.rise[li] * Hl, lx0 - gap * .7, ly1]
       : [lx0 - Math.min(GEOM.small.panelW[li], room), ly0 - 1, lx0 - gap * .6, ly1 + 1];
     const staff = { y1: Math.min(S.h - 30, ly1 + Math.round((big ? GEOM.staff[li] : GEOM.small.staff[li]) * lh)) };
     const L = drawn(G, seed, big ? .8 : .45);

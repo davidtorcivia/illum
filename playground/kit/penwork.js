@@ -150,7 +150,9 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
   // its foot; a second beside it for the staff's run
   const sx = px0, lines = [];
   const outer = wander([[sx, py0 + g * .5], [sx, sy1]], .32, seed + 3, 46), foot = hook(outer.at(-1), Math.PI / 2, g * (1.6 + r() * .4), 1);
-  const staff1 = [...outer, ...foot.slice(1)]; accept(staff1, 'staff', { w: .58, start: 'cut', end: 'ball' }); lines.push(staff1);
+  // with no arch over the panel, the line's head turns over outward and ends in a bead, so no line just stops
+  const head = cap && B.cap ? [outer[0]] : hook(outer[0], -Math.PI / 2, g * (1 + r() * .3), -1).reverse();
+  const staff1 = [...head.slice(0, -1), ...outer, ...foot.slice(1)]; accept(staff1, 'staff', { w: .58, start: head.length > 1 ? 'pool' : 'cut', end: 'ball' }); lines.push(staff1);
   out.push({ kind: 'dot', p: foot.at(-1), r: 1.15 });
   // the second (and on a lavish page a third, shorter) hairline beside it down the staff
   if (staff) for (let k = 1; k < B.staffLines; k++) { const x2 = sx - g * 1.1 * k, ya = py1 + g * (2 + 5 * (k - 1)), yb = sy1 - g * (3 + 7 * (k - 1));
