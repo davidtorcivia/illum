@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real strokes</title>
+<!--
+  05 · Real strokes: a specimen sheet of the stroke library in materials/strokes/.
+
+  Instruction: show each stroke as it was laid, cut from its leaf or scroll with its paint unmixed from the ground,
+  on flat paper, at one scale (half its crop, so two crop pixels to one CSS pixel, and the sizes compare across the
+  sheet), grouped by pigment and then by kind; name its source under it. Hover (or focus) shows the extracted
+  centerline faintly, with a dot at the loaded end where the stroke starts.
+
+  Function: the material itself. Every simulated brush read as digital; these are exemplars from real objects, to be
+  warped along new paths (RealBrush, Lu et al. 2013), and this page is where they are judged one by one.
+
+  Sources: CC0 / public-domain images from The Metropolitan Museum of Art Open Access and the Cleveland Museum of Art
+  Open Access; each stroke's object, title, date and licence are in materials/strokes/manifest.json. Built by
+  tools/strokes/ (fetch.py, segment.py, build.py; sources.txt and picks.txt make it re-runnable).
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --soft: rgb(43 33 25 / .62); --rubric: rgb(176 58 36); color-scheme: light; }
+  html { background: var(--paper); }
+  body { margin: 0 auto; max-width: 1200px; padding: 56px 24px 80px; color: var(--ink); font: 400 19px/1.55 "EB Garamond", Garamond, serif; -webkit-font-smoothing: antialiased; }
+  h1, h2 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .2em; }
+  h2 { font-size: .8em; margin-top: 56px; }
+  h3 { font-weight: 400; font-style: italic; font-size: .85em; color: var(--soft); margin: 28px 0 10px; }
+  .intro { max-width: 38em; color: var(--soft); font-style: italic; margin: 0 0 8px; font-size: 17px; line-height: 1.5; }
+  .counts { font-size: 15px; color: var(--soft); margin: 0 0 12px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 22px 26px; align-items: flex-end; }
+  figure { margin: 0; position: relative; outline: none; max-width: 100%; }
+  figure .art { position: relative; }
+  figure img, figure svg { display: block; max-width: 100%; height: auto; }
+  figure svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .15s; pointer-events: none; overflow: visible; }
+  figure:hover svg, figure:focus svg { opacity: .55; }
+  figcaption { font-size: 12.5px; line-height: 1.3; color: var(--soft); margin-top: 5px; max-width: max(100%, 7.5em); min-width: 6em; }
+  figcaption i { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .colophon { font-size: 14px; font-style: italic; color: var(--soft); margin-top: 56px; max-width: 46em; }
+  .colophon a { color: inherit; }
+  @media (max-width: 640px) {
+    body { padding: 40px 16px 64px; font-size: 18px; }
+    .grid { gap: 18px 18px; }
+  }
+</style>
+</head>
+<body>
+<h1>Real strokes</h1>
+<p class="intro">Brush and pen strokes cut from open-access images of real leaves and scrolls: the painted capitals and penwork of choir books, and the ink of Chinese and Japanese calligraphy and bamboo painting. Each keeps its own paint, its pooling and its dry streaks; the paper is taken away. Hover a stroke for its centerline, which starts at the loaded end.</p>
+<p class="counts" id="counts"></p>
+<main id="sheet"></main>
+<p class="colophon">Every image here is from The Metropolitan Museum of Art Open Access or the Cleveland Museum of Art Open Access, both public domain (CC0); the object, title, date and licence of each stroke are in <a href="materials/strokes/manifest.json">materials/strokes/manifest.json</a>. Cut by tools/strokes/: the ground estimated per region, the paint unmixed from it, each stroke's skeleton traced from tip to tip, and then chosen by hand.</p>
+
+<script type="module">
+const ORDER = ['lapis', 'vermilion', 'carmine', 'gold', 'ink', 'green', 'other'];
+const TITLES = { lapis: 'Lapis', vermilion: 'Vermilion', carmine: 'Carmine and lake', gold: 'Gold', ink: 'Ink', green: 'Green', other: 'Other' };
+const KINDS = ['body stroke', 'curve', 'straight', 'hook', 'flick', 'dry-brush', 'hairline', 'dab/ball'];
+const MUSEUM = { 'The Metropolitan Museum of Art': 'Met', 'Cleveland Museum of Art': 'Cleveland' };
+const K = .5;   // CSS px per crop px: one scale for the whole sheet
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+const lib = (await (await fetch('materials/strokes/manifest.json')).json()).strokes;
+const sheet = document.getElementById('sheet'), imgs = [];
+const by = {};
+for (const s of lib) ((by[s.class] ??= {})[s.kind] ??= []).push(s);
+document.getElementById('counts').textContent = `${lib.length} strokes from ${new Set(lib.map(s => s.source.museum + s.source.object_id)).size} objects: ` +
+  ORDER.filter(c => by[c]).map(c => `${Object.values(by[c]).flat().length} ${TITLES[c].toLowerCase()}`).join(', ') + '.';
+
+for (const c of ORDER.filter(c => by[c])) {
+  const h = document.createElement('h2'); h.textContent = TITLES[c]; sheet.append(h);
+  for (const k of [...KINDS, ...Object.keys(by[c]).filter(k => !KINDS.includes(k))].filter(k => by[c][k])) {
+    const h3 = document.createElement('h3'); h3.textContent = `${k} · ${by[c][k].length}`; sheet.append(h3);
+    const grid = document.createElement('div'); grid.className = 'grid'; sheet.append(grid);
+    for (const s of by[c][k].sort((a, b) => b.length - a.length)) {
+      const [w, hgt] = s.size, src = s.source;
+      const f = document.createElement('figure'); f.tabIndex = 0;
+      const pts = s.centerline.map(p => p.join(',')).join(' '), [x0, y0] = s.centerline[0];
+      const sw = Math.max(1.2, Math.max(w, hgt) / 160);
+      f.innerHTML = `<div class="art"><img src="materials/strokes/${esc(s.file)}" width="${Math.round(w * K)}" height="${Math.round(hgt * K)}" alt="">` +
+        `<svg viewBox="0 0 ${w} ${hgt}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="rgb(176 58 36)" stroke-width="${sw}"/>` +
+        `<circle cx="${x0}" cy="${y0}" r="${sw * 2.5}" fill="rgb(176 58 36)"/></svg></div>` +
+        `<figcaption title="${esc(`${src.title}, ${src.date}. ${src.museum} ${src.object_id}. ${src.licence}`)}"><a href="${esc(src.url)}" style="color:inherit;text-decoration:none">${MUSEUM[src.museum] ?? src.museum} ${esc(src.object_id)}</a>` +
+        `<i>${esc(src.title)}</i></figcaption>`;
+      f.querySelector('figcaption').style.width = `${Math.round(w * K)}px`;
+      imgs.push(f.querySelector('img')); grid.append(f);
+    }
+  }
+}
+await Promise.all(imgs.map(i => i.decode().catch(() => {})));
+document.body.dataset.timing = `${lib.length} strokes`;
+</script>
+</body>
+</html>

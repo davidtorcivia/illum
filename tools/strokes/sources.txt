@@ -1,0 +1,52 @@
+# museum id  segment.py arguments (box = x0,y0,x1,y1 as fractions of the image; classes = pigments to keep)
+# East Asian calligraphy (ink)
+met 60485   --box 0.12,0.3,0.97,0.68 --min 80
+met 916547  --box 0.14,0.1,0.86,0.92
+met 77197   --box 0.2,0.04,0.87,0.96 --min 80
+met 897126  --box 0.06,0.05,0.94,0.93
+met 897107  --box 0.16,0.03,0.84,0.97
+met 679649  --box 0.22,0.02,0.8,0.98
+met 670887  --box 0.38,0.03,0.62,0.97
+met 78058   --box 0.12,0.03,0.85,0.97
+met 845131  --box 0.08,0.04,0.92,0.96
+met 60470   --box 0.03,0.1,0.97,0.88
+met 816190  --box 0.1,0.03,0.9,0.97
+met 829384  --box 0.02,0.1,0.98,0.9
+met 829393  --box 0.12,0.08,0.9,0.85
+cma 162868  --box 0.03,0.05,0.97,0.95
+cma 162869  --box 0.05,0.02,0.95,0.98
+cma 86105   --box 0.1,0.02,0.9,0.98
+cma 90151   --box 0.05,0.02,0.95,0.98
+cma 668914  --box 0.1,0.02,0.95,0.98
+cma 668916  --box 0.05,0.02,0.9,0.98
+# East Asian ink painting (bamboo, orchid, figure)
+met 49241   --box 0.04,0.38,0.66,0.82
+met 916546  --box 0.14,0.05,0.86,0.95
+met 78108   --box 0.17,0.03,0.83,0.97
+met 48890   --box 0.03,0.02,0.97,0.98
+met 36096   --box 0.03,0.1,0.95,0.95
+met 48932   --box 0.0,0.55,0.9,0.98
+met 78145   --box 0.1,0.05,0.9,0.95 --min 80
+# Choir books, psalters: painted Lombardic capitals, paraphs, penwork (lapis, vermilion, carmine)
+cma 423609  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 423610  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 423594  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 160825  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 171451  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 423575  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 130959  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 109282  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 112227  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+met 466773  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+met 466792  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+met 471898  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+met 466790  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+met 466375  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+# More lapis: Bible leaves with blue stems and penwork flourishing, a royal psalter's line-fillers, the Decretals, a Book of Hours' blue acanthus
+cma 160827  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+met 466376  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+met 466179  --box 0.04,0.04,0.96,0.96 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 162141  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 163804  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 169737  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
+cma 133419  --box 0.03,0.03,0.97,0.97 --classes lapis,vermilion,carmine --min 40 --contact .3
