@@ -6,18 +6,19 @@ import sys
 import numpy as np
 from PIL import Image
 
-out, size, B, O, seed, *srcs = sys.argv[1:]
+out, size, B, O, seed, *srcs = [a for a in sys.argv[1:] if not a.startswith('--')]
 size, B, O, seed = int(size), int(B), int(O), int(seed)
 rng = np.random.default_rng(seed)
 S = [np.asarray(Image.open(p).convert('RGB')).astype(np.float32) for p in srcs]
 # every block of every source, upright and half-turned
 cands = []
 for im in S:
-    for t in (0, 2):   # upright and half-turned only: mirrored or quarter-turned blocks make a kaleidoscope
+    for t in ((0, 2) if '--turn4' not in sys.argv else (0, 1, 2, 3)):   # upright and half-turned only (mirrored or quarter-turned blocks make a kaleidoscope), unless asked
         a = np.rot90(im, t)
         h, w, _ = a.shape
-        for y in range(0, h - B + 1, 10):
-            for x in range(0, w - B + 1, 10):
+        st = max(2, min(10, (h - B) // 6 or 2))
+        for y in range(0, h - B + 1, st):
+            for x in range(0, w - B + 1, st):
                 cands.append(a[y:y + B, x:x + B])
 cands = np.stack(cands)
 # keep the field, not the shadows: blocks brighter than the darker third, and not split by a hard dark edge

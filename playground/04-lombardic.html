@@ -88,6 +88,7 @@
 import { pen, fnv, PIGMENTS } from './kit/marks.js';
 import { letterMask } from './kit/ductus.js';
 import { paintLetter, STEPS } from './kit/letterpaint.js';
+import { brushStroke, brushDab } from './kit/brushstroke.js';
 
 const q = new URLSearchParams(location.search);
 const text = document.querySelector('.text').textContent.replace(/\s+/g, ' ').trim();
@@ -106,13 +107,29 @@ const BIG = (q.get('big') ?? 'A,C,D,E,H,M,O,P,S').split(',');
 // how the letter is painted: 'flat' as the penwork capitals of 466773 are (one wash, its pigment pooled at the edge,
 // nothing laid over it); 'modelled' as the grander initials of 463605 (shade, tint, white, outline). The tint and white
 // read as sheen on letters this small, so flat is the default.
-const STYLE = q.get('style') ?? 'flat', USE = STYLE === 'flat' ? ['wash'] : STEPS;
+const STYLE = q.get('style') ?? 'brush', USE = STYLE === 'flat' ? ['wash'] : STEPS;
+// 'brush' (the default): each stroke of the ductus laid by a brush of many hairs, not a filled shape
+const BRUSH = { blue: [38, 58, 138], red: [206, 72, 40] };
 
 // A letter as a score: its strokes drawn in order with the pen in the body colour, then each painting decision laid
 // over it in turn. Each part shows itself part-way on the live layer and, finished, is laid once on the base.
 function letterParts(base, live, letter, W, zoom, colour, seed, t) {
   const dpr = DPR * zoom, mk = letterMask(letter, W, dpr, seed), col = COLOURS[colour], parts = [];
   const o = { ...col, dpr, seed, light: LIGHT };
+  if (STYLE === 'brush') {
+    for (const s of mk.strokes) {
+      const bo = { w: s.wp, press: s.press, color: BRUSH[colour], seed: s.seed ?? (seed * 31 + t * 7 | 0), dry: s.body ? .22 : 0, broad: .25, start: 'loaded', end: s.end === 'ball' ? 'loaded' : 'lift' };
+      const ball = s.end === 'ball' ? s.P[s.P.length - 1] : null, d = Math.max(.15, s.P.length / 18 * .2 * (s.body ? 1 : .6));
+      // hairlines are the pen's work (a brush that fine is a pen); the body strokes are the brush's
+      const thin = s.wp * Math.max(...Array.from({ length: 9 }, (_, k) => s.press ? s.press(k / 8) : 1)) < 3.2;
+      const draw = (g, f) => { if (thin) pen(g, s.P, { w: s.wp * 1.1, press: s.press, ink: BRUSH[colour], start: 'cut', end: 'taper', seed: bo.seed, load: 1, broad: .2, to: f });
+        else brushStroke(g, s.P, { ...bo, to: f });
+        if (ball && f >= 1) brushDab(g, ball, Math.max(1.7, s.wp * 1.5), { color: BRUSH[colour], seed: bo.seed + 1 }); };
+      parts.push({ t0: t, t1: t + d, base, live, at: (g, f) => draw(g, f), done: g => draw(g, 1) });
+      t += d + .05;
+    }
+    return { mk, parts, end: t };
+  }
   for (const s of mk.strokes) {
     const po = { w: s.wp, press: s.press, ink: PIGMENTS[col.pigment].rgb, broad: .2, start: 'cut', end: s.end ?? 'cut', seed: s.seed, load: 1, swell: 0 };
     const d = Math.max(.12, s.P.length / 18 * .16 * (s.body ? 1 : .6));

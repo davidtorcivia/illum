@@ -64,6 +64,15 @@
   .ghost .ini { color: rgb(255 0 160 / .45); }
   .colophon a { color: inherit; }
   .colophon { max-width: 900px; margin: 0 auto; padding: 0 100px 60px 200px; box-sizing: border-box; font-size: 14px; font-style: italic; opacity: .6; }
+  /* the richness control: a thin rule with a small ring on it, as quiet as the line it sits in */
+  .rich { display: inline-flex; align-items: center; gap: .45em; white-space: nowrap; }
+  .rich input { -webkit-appearance: none; appearance: none; width: 6.5em; height: 1.1em; margin: 0; background: transparent; color: inherit; cursor: pointer; }
+  .rich input::-webkit-slider-runnable-track { height: 1px; background: currentColor; }
+  .rich input::-moz-range-track { height: 1px; background: currentColor; }
+  .rich input::-webkit-slider-thumb { -webkit-appearance: none; width: .62em; height: .62em; margin-top: calc(-.31em + .5px); border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
+  .rich input::-moz-range-thumb { width: .62em; height: .62em; border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
+  .rich input:focus-visible { outline: 1px dotted currentColor; outline-offset: 3px; }
+  .rich output { min-width: 3.2em; }
   @media (max-width: 640px) {
     body { font-size: 18px; line-height: 1.55; }
     .sheet { padding: 64px 20px 80px 44px; }
@@ -84,16 +93,24 @@
     <p class="later"><span class="ini line" data-lines="1">L</span>et us then understand at once, that change or variety is as much a necessity to the human heart and brain in buildings as in books; that there is no merit, though there is some occasional use, in monotony; and that we must no more expect to derive either pleasure or profit from an architecture whose ornaments are of one pattern, and whose pillars are of one proportion, than we should out of a universe in which the clouds were all of one shape, and the trees all of one size.</p>
   </article>
 </main>
-<p class="colophon">Initials flourished by illum, penwork, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch them drawn</a>.</p>
+<p class="colophon">Initials flourished by illum, penwork, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch them drawn</a>.
+  <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the penwork is"> richer, <output id="richName" for="rich"></output></label></p>
 
 <script type="module">
-import { pen, dot, paintField, fnv } from './kit/marks.js';
-import { flourish, drawn, arclen } from './kit/penwork.js';
+import { pen, dot, paintField, fnv, PIGMENTS } from './kit/marks.js';
+import { flourish, drawn, arclen, levelOf, BUDGETS } from './kit/penwork.js';
 
 const q = new URLSearchParams(location.search);
 if (q.has('ghost')) document.body.classList.add('ghost');
 const text = document.querySelector('.text').textContent.replace(/\s+/g, ' ').trim();
 const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(text) % 1e7);
+// how rich the penwork is, 0..1 (?rich=, or data-rich on an initial); it rounds to one of five budgets in kit/penwork.js
+let RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0));
+const levelFor = span => levelOf(span.dataset.rich ?? RICH);
+// per level: the panel's width (of the letter's height), how far it rises above the letter and runs below (lines),
+// the staff's length (lines), and how much wider the gap to the words is (px, for a text-side panel)
+const GEOM = { panelW: [.3, .4, .52, .6, .68], rise: [0, .03, .06, .14, .22], below: [0, 0, 0, .35, .6], staff: [1.4, 3.2, 5.5, 7, 9], wider: [0, 0, 0, 5, 9],
+  small: { panelW: [5, 7, 8.5, 10, 12], staff: [.7, 1.2, 1.6, 2.2, 3] } };
 document.getElementById('seed').textContent = SEED;
 
 // the inks: a blue letter takes red penwork, a red letter blue (the opposite-colour rule, 01-canon §2.2)
@@ -109,7 +126,7 @@ function setInitials() {
   const bodyCap = fs * M.cap, base = (lh - (M.asc + M.desc) * fs) / 2 + M.asc * fs;   // a text line's baseline below its top
   for (const s of document.querySelectorAll('.ini.drop')) {
     const n = +s.dataset.lines, F = ((n - 1) * lh + bodyCap) / M.cap, top = (n - 1) * lh + base - F * ((1 - M.asc - M.desc) / 2 + M.asc);
-    Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', marginRight: Math.round(lh * .42) + 'px', marginLeft: '-1px' });
+    Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', marginRight: Math.round(lh * .42 + GEOM.wider[levelFor(s)]) + 'px', marginLeft: '-1px' });
   }
 }
 
@@ -144,15 +161,17 @@ function compose(mode) {
   const keep = wordRects(sr, 3), parts = [];
   let clock = .3;
   document.querySelectorAll('.ini').forEach((span, k) => {
-    const n = +span.dataset.lines, pig = n > 1 ? 'azurite' : 'minium', ink = INKS[pig], seed = (SEED + k * 7919) >>> 0;
+    const n = +span.dataset.lines, pig = n > 1 ? 'azurite' : 'minium', ink = INKS[pig], seed = (SEED + k * 7919) >>> 0, li = levelFor(span);
+    const accent = PIGMENTS[pig].rgb;   // a dot now and then in the letter's own colour, on a lavish page
     const G = glyphOf(span, sr, 4), [lx0, ly0, lx1, ly1] = G.box, Hl = ly1 - ly0;
     // the panel of hairlines beside the letter on the margin side, its outer line running on down as the staff (never
     // nearer the sheet's edge than 14 px)
     const big = n > 1, gap = big ? 2.6 : 2.1, room = Math.max(0, lx0 - 14 - gap * 3);
-    const panel = big ? [lx0 - Math.min(.52 * Hl, room), ly0 - .06 * Hl, lx0 - gap * .7, ly1] : [lx0 - Math.min(8.5, room), ly0 - 1, lx0 - gap * .6, ly1 + 1];
-    const staff = { y1: big ? ly1 + Math.round(5.5 * lh) : ly1 + 1.6 * lh };
+    const panel = big ? [lx0 - Math.min(GEOM.panelW[li] * Hl, room), ly0 - GEOM.rise[li] * Hl, lx0 - gap * .7, ly1 + GEOM.below[li] * lh]
+      : [lx0 - Math.min(GEOM.small.panelW[li], room), ly0 - 1, lx0 - gap * .6, ly1 + 1];
+    const staff = { y1: Math.min(S.h - 30, ly1 + Math.round((big ? GEOM.staff[li] : GEOM.small.staff[li]) * lh)) };
     const L = drawn(G, seed, big ? .8 : .45);
-    const marks = flourish({ glyph: L, panel, keep, staff, g: gap, seed });
+    const marks = flourish({ glyph: L, panel, keep, staff, g: gap, seed, level: li, right: big && li > 2 ? lh * .42 + GEOM.wider[li] : gap });
     // the letter first, laid with the brush from the top down; then the pen, mark after mark
     const paint = c => paintField(c, L.M, G.x0, G.y0, G.w, G.h, pig, { dpr: 4, seed, strength: 1 });
     const box = [G.x0, G.y0, G.w / 4, G.h / 4];
@@ -160,14 +179,17 @@ function compose(mode) {
     clock += 1.4;
     const V = 300;
     marks.forEach((s, i) => {
-      if (s.kind === 'dot') { parts.push(dotted(clock, s.p, s.r, ink)); clock += .05; return; }
+      if (s.kind === 'dot') { parts.push(dotted(clock, s.p, s.r, s.accent ? accent : ink)); clock += .05; return; }
       const o = { w: s.w * 1.15, ink, seed: seed + i * 13, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 };
       const d = Math.max(.06, arclen(s.pts) / V);
       parts.push(stem(clock, clock + d, s.pts, { ...o, live: 'cut' })); clock += d * .6;
     });
     clock += .4;
   });
-  return { layers: [[g, live]], parts, end: Math.max(...parts.map(p => p.t1)) };
+  // a richer page has more to draw; the hand goes faster rather than the watching going on past ~14 s
+  let end = Math.max(...parts.map(p => p.t1)); const k = Math.min(1, 14 / end);
+  if (k < 1) { parts.forEach(p => { p.t0 *= k; p.t1 *= k; }); end *= k; }
+  return { layers: [[g, live]], parts, end };
 }
 
 // The parts of the score (after 01): each can show itself part-way (`at`, on the live layer, redrawn every frame) and
@@ -213,6 +235,12 @@ setInitials();
 const still_ = matchMedia('(prefers-reduced-motion: reduce)').matches;
 render(!still_ && q.has('draw'));
 document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); render(!still_); });
+// the richness control: re-lays the initials (a text-side panel widens the gap to the words) and redraws at once
+const richIn = document.getElementById('rich'), richName = document.getElementById('richName');
+const showRich = () => { richIn.value = RICH; richName.value = BUDGETS[levelOf(RICH)].name; };
+showRich();
+richIn.addEventListener('input', () => { RICH = +richIn.value; showRich(); setInitials(); render(false);
+  const u = new URL(location.href); u.searchParams.set('rich', RICH); history.replaceState(null, '', u); });
 let lastW = innerWidth, timer;
 new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; setInitials(); render(false); } }, 150); }).observe(document.querySelector('.sheet'));
 addEventListener('hashchange', () => location.reload());

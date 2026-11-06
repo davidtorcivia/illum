@@ -64,14 +64,35 @@ function clearance(x0, y0, w, h, blocked, cap) {
   return { get, stamp, C };
 }
 
+// ---- budgets ---------------------------------------------------------------------------------------------------------------
+// How much a scribe was paid to do. Not a density: each level is a different set of things a flourisher would make at
+// that price, from the cheapest Book of Hours to the grandest choir book. (Levels 0..4; `rich` 0..1 rounds to one.)
+//   plain:  one panel of hairlines on the margin side, a single eye, a short staff; the counters left bare.
+//   modest: hairlines in the counters too, an eye in each, an arch with hooks over the panel, scallops down its edge.
+//   usual:  a bay with an eye in the panel, an eye on the arch, a line over the letter, a foot, a pair of staff lines
+//           with scallops in runs and eyes hung on them.
+//   fine:   hairlines run longer, a small panel on the text side, teardrop hooks among the scallops, eyes strung
+//           along the contour, the staff further down.
+//   lavish: a third staff line, scallops all the way down, the staff ending in a little spray, and here and there a
+//           dot in the letter's own colour.
+export const BUDGETS = [
+  { name: 'plain', counterEyes: 1, counterRules: false, bay: false, cap: 0, top: false, base: false, panelScallops: false, staffLines: 1, runs: null, staffEyes: 0, hooks: 0, contourEyes: 0, spray: false, accent: 0, textPanel: false },
+  { name: 'modest', counterEyes: 9, counterRules: true, bay: false, cap: 1, top: false, base: false, panelScallops: true, staffLines: 1, runs: .6, staffEyes: 0, hooks: 0, contourEyes: 0, spray: false, accent: 0, textPanel: false },
+  { name: 'usual', counterEyes: 9, counterRules: true, bay: true, cap: 2, top: true, base: true, panelScallops: true, staffLines: 2, runs: .42, staffEyes: .2, hooks: 0, contourEyes: 0, spray: false, accent: 0, textPanel: false },
+  { name: 'fine', counterEyes: 9, counterRules: true, bay: true, cap: 2, top: true, base: true, panelScallops: true, staffLines: 2, runs: .3, staffEyes: .24, hooks: .2, contourEyes: .16, spray: false, accent: 0, textPanel: true },
+  { name: 'lavish', counterEyes: 9, counterRules: true, bay: true, cap: 2, top: true, base: true, panelScallops: true, staffLines: 3, runs: -1, staffEyes: .28, hooks: .3, contourEyes: .3, spray: true, accent: .4, textPanel: true },
+];
+export const levelOf = rich => Math.max(0, Math.min(4, Math.round(+rich * 4)));
+
 // ---- the flourish -------------------------------------------------------------------------------------------------------------
 // glyph: { M, w, h, x0, y0, res } coverage of the painted letter (as painted). panel: [x0, y0, x1, y1] the field of
 // hairlines beside the letter on the margin side (its left edge runs on down as the staff). keep: rects of words,
 // padded. staff: null or { y1 } where the staff ends. g: the gap between ruled hairlines (px). cap: whether the panel
 // gets an arch over it (with an eye standing on it where there is room) and a foot under it. Returns the marks in the order the pen made them: strokes { pts, kind, w, start,
-// end } and dots { kind: 'dot', p, r }.
-export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap = true, seed = 1 }) {
-  const r = stream(seed, 'penwork'), out = [];
+// end } and dots { kind: 'dot', p, r, accent }. level: a budget (0..4, see above); right: how far past the letter, on
+// the text side, the hairlines may go (px).
+export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap = true, seed = 1, level = 2, right = g }) {
+  const r = stream(seed, 'penwork'), out = [], B = BUDGETS[level];
   const { M, w: gw, h: gh, x0: gx, y0: gy, res } = glyph, ink = new Uint8Array(gw * gh);
   for (let i = 0; i < gw * gh; i++) ink[i] = M[i] > .5;
   let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9;
@@ -98,7 +119,7 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
   const hook = (p, h, size, sense) => tendril(p, h, size * 2 * Math.PI * .8, 0, sense / size, 1.6, .4);
   const eye = (c, R) => {
     accept(ring(c, R, r, .07, r() * 6.28), 'eye', { w: .5, start: 'cut', end: 'cut' });
-    out.push({ kind: 'dot', p: c, r: Math.max(.7, R * .27) });
+    out.push({ kind: 'dot', p: c, r: Math.max(.7, R * .27), accent: !!B.accent && r() < B.accent });
     const nl = 4 + ((r() * 2) | 0), a0 = r() * 6.28;
     for (let k = 0; k < nl; k++) { const a = a0 + k / nl * 2 * Math.PI + (r() - .5) * .25, lr = R * (.36 + r() * .1), d = R + lr * .62;
       const lc = [c[0] + Math.cos(a) * d, c[1] + Math.sin(a) * d], pts = [];
@@ -116,13 +137,13 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
         for (const [du, dv] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = u + du, b = v + dv, k2 = a + ',' + b; if (!mark.has(k2) && encl(a, b)) { mark.add(k2); st.push([a, b]); } } }
       for (const k2 of mark) { const [a, b] = k2.split(',').map(Number); seen.add(Math.round((a - gx) * res) + ',' + Math.round((b - gy) * res)); }
       comps.push(best); } }
-  for (const b of comps) { const R = Math.min(g * 2.2, (b.c - g * .8) / 1.7); if (R >= g * .8) eye([b.p[0] + (r() - .5) * .4, b.p[1] + (r() - .5) * .4], R); }
+  for (const b of B.counterEyes >= comps.length ? comps : [...comps].sort((u, v) => v.c - u.c).slice(0, B.counterEyes)) { const R = Math.min(g * 2.2, (b.c - g * .8) / 1.7); if (R >= g * .8) eye([b.p[0] + (r() - .5) * .4, b.p[1] + (r() - .5) * .4], R); }
 
   // and, where the panel is wide enough, a bay of bare paper down its inner side (next to the letter) with an eye at
   // its middle: the hairlines part for it, and scallops along their edge face into it (as beside 466773's O)
   let bay = null;
   { const R = Math.min(g * 2.2, (px1 - px0) * .14), bw = 2 * R * 1.45 + g * .8;
-    if (px1 - px0 > bw + g * 5 && R >= g * 1.1) { bay = [px1 - bw, px1]; const ec = [(bay[0] + bay[1]) / 2 + (r() - .5) * .5, (py0 + py1) / 2 + (r() - .5) * g];
+    if (B.bay && px1 - px0 > bw + g * 5 && R >= g * 1.1) { bay = [px1 - bw, px1]; const ec = [(bay[0] + bay[1]) / 2 + (r() - .5) * .5, (py0 + py1) / 2 + (r() - .5) * g];
       eye(ec, R); bay.eye = ec; } }
 
   // 2. the panel's outer hairline, which is also the staff: down beside the panel and on down the margin, a curl at
@@ -131,22 +152,29 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
   const outer = wander([[sx, py0 + g * .5], [sx, sy1]], .32, seed + 3, 46), foot = hook(outer.at(-1), Math.PI / 2, g * (1.6 + r() * .4), 1);
   const staff1 = [...outer, ...foot.slice(1)]; accept(staff1, 'staff', { w: .58, start: 'cut', end: 'ball' }); lines.push(staff1);
   out.push({ kind: 'dot', p: foot.at(-1), r: 1.15 });
-  if (staff) { const x2 = sx - g * 1.1, s2 = wander([[x2, py1 + g * 2], [x2, sy1 - g * 3]], .35, seed + 5, 50), sf = hook(s2.at(-1), Math.PI / 2, g * 1.1, 1);
+  // the second (and on a lavish page a third, shorter) hairline beside it down the staff
+  if (staff) for (let k = 1; k < B.staffLines; k++) { const x2 = sx - g * 1.1 * k, ya = py1 + g * (2 + 5 * (k - 1)), yb = sy1 - g * (3 + 7 * (k - 1));
+    if (yb - ya < g * 8) break;
+    const s2 = wander([[x2, ya], [x2, yb]], .35, seed + 5 * k, 50), sf = hook(s2.at(-1), Math.PI / 2, g * (1.1 + .3 * (k - 1)), 1);
     const pair = [...s2, ...sf.slice(1)]; accept(pair, 'staff', { w: .48, start: 'pool', end: 'ball' }); lines.push(pair); }
+  // the foot of a lavish staff ends in a little spray: two more hooks leave the outer line just above its curl
+  if (staff && B.spray && lines.length > 1) { const L = resample(lines.at(-1), 1), i = Math.max(0, L.length - Math.round(g * 9));
+    for (const [h, s] of [[Math.PI / 2 + .75, 1], [Math.PI / 2 + 1.35, -1]]) { const hk = hook(L[i - Math.round(g * 2.5 * (s < 0))] ?? L[i], h, g * (1 + r() * .3), s);
+      if (room(hk.slice(5), g * .55)) { accept(hk, 'hook', { w: .48, start: 'cut', end: 'ball' }); out.push({ kind: 'dot', p: hk.at(-1), r: 1.15 + r() * .3, accent: !!B.accent && r() < B.accent }); } } }
 
   const topLines = [];
   // 3. the cap: an arch over the panel, an eye standing on it, a hook curling out from each end with a bead; from its
   // inner end a hairline runs on along the letter's top and ends in a hook over the shoulder
-  if (cap) {
+  if (cap && B.cap) {
     const cx0 = sx, cx1 = Math.min(px1, box[0] - g * .6), mid = (cx0 + cx1) / 2, span = cx1 - cx0, rise = span * (.22 + r() * .06), base = py0 + g * .5;
     const archP = []; for (let k = 0; k <= 24; k++) { const u = k / 24; archP.push([cx0 + span * u, base - rise * Math.sin(Math.PI * u) - (r() - .5) * .15]); }
     accept(archP, 'cap', { w: .5, start: 'cut', end: 'cut' });
     const er = Math.min(g * 1.8, span * .18), ec = [mid + (r() - .5), base - rise - er - g * .7];
-    if (room(ring(ec, er + g * .25, r), g * .35)) eye(ec, er);
+    if (B.cap > 1 && room(ring(ec, er + g * .25, r), g * .35)) eye(ec, er);
     for (const [p, h, s] of [[archP[0], Math.PI * 1.15, 1], [archP.at(-1), -.1, -1]]) { const hk = hook(p, h, g * (1 + r() * .3), s);
       if (room(hk.slice(4), g * .6)) { accept(hk, 'hook', { w: .48, start: 'cut', end: 'ball' }); out.push({ kind: 'dot', p: hk.at(-1), r: 1.05 + r() * .25 }); } }
     // along the letter's top, a gap above it
-    const ty = box[1] - g * 1.05, top = []; for (let x = cx1 + g * 1.5; x < box[2] - g * 2; x += 1) { if (c0(x, ty) >= g * .8 && !onLetter(x, ty + g * .6)) top.push([x, ty + (r() - .5) * .1]); else if (top.length > 4) break; }
+    const ty = box[1] - g * 1.05, top = []; if (B.top) for (let x = cx1 + g * 1.5; x < box[2] - g * 2; x += 1) { if (c0(x, ty) >= g * .8 && !onLetter(x, ty + g * .6)) top.push([x, ty + (r() - .5) * .1]); else if (top.length > 4) break; }
     if (top.length > g * 4) { const tl = wander(top, .2, seed + 9, 30), hk = hook(tl.at(-1), 0, g * 1.1, -1), tline = [...tl, ...hk.slice(1)];
       if (room(tline, g * .5)) { accept(tline, 'top', { w: .48, start: 'cut', end: 'ball' }); topLines.push(tl); } }
   }
@@ -155,11 +183,11 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
   // the letter's box; each stops a little short of whatever it meets, never quite where its neighbour did
   const C1 = Float32Array.from(CL.C), c1 = (x, y) => { const i = Math.round(x - X0), j = Math.round(y - Y0); return i < 0 || j < 0 || i >= W || j >= H ? 0 : C1[j * W + i]; };
   const inPanel = (x, y) => x > sx && x < px1 && y > py0 && y < py1;
-  const inBox = (x, y) => x > box[0] && x < box[2] + g && y > box[1] - g * .3 && y < box[3];
+  const inBox = (x, y) => B.counterRules && x > box[0] && x < box[2] + right && y > box[1] - g * .3 && y < box[3];
   const inBay = (x, y) => bay && x > bay[0] && x < bay[1] + g && y > py0 - g && y < py1 + g;
   const open = (x, y) => (inPanel(x, y) || inBox(x, y)) && !inBay(x, y) && !onLetter(x, y) && !inWords(x, y) && c1(x, y) >= g * .62;
   const spacing = noise1(seed ^ 0x71), lineRows = [];
-  for (let x0 = sx + g * .95, k = 0; x0 < box[2] + g; x0 += g * (.82 + .38 * spacing(x0 / 7)), k++) {
+  for (let x0 = sx + g * .95, k = 0; x0 < box[2] + right; x0 += g * (.82 + .38 * spacing(x0 / 7)), k++) {
     const x = x0 + (r() - .5) * g * .12; let y0 = -1;
     for (let y = Math.min(py0, box[1]) - g; y <= Math.max(py1, box[3]) + .5; y += .5) {
       const ok = y < Math.max(py1, box[3]) && open(x, y);
@@ -174,24 +202,29 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
   // a border (rhythm regular, the hand not); now and then down the staff an eye hung on a short stalk. Then the
   // bay's edges: scallops on the last hairline each side, facing into the bay, above and below its eye.
   // side +1: the left of the line's travel as seen on the page (west of a line going down, below one going right)
-  const chain = (line, keepY, side, { eyes = false, runs = false } = {}) => { const P = resample(line, 1), gate = noise1(seed ^ (line.length * 31));
+  const chain = (line, keepY, side, { eyes = 0, runs = null, hooks = B.hooks, onStaff = false } = {}) => { const P = resample(line, 1), gate = noise1(seed ^ (line.length * 31));
     for (let i = 0, next = Math.round(g * 1.5); i < P.length - g * 4; i++) {
       if (i < next || !keepY(P[i])) continue; next = i + g * (2.25 + r() * .35);
-      if (runs && gate(i / (g * 9)) < .42) continue;   // down the staff they come in runs, with bare stretches between
+      if (runs != null && gate(i / (g * 9)) < runs) continue;   // down the staff they come in runs, with bare stretches between
       const p = P[i], t = tangentAt(P, i), n = [-t[1] * side, t[0] * side], sr = g * (.82 + r() * .2), c = [p[0] + n[0] * sr * .45, p[1] + n[1] * sr * .45], a0 = Math.atan2(n[1], n[0]), pts = [];
       for (let q = 0; q <= 14; q++) { const b = a0 - 2.1 + q / 14 * 4.2; pts.push([c[0] + Math.cos(b) * sr, c[1] + Math.sin(b) * sr]); }
-      if (eyes && p[1] > py1 + g * 6 && r() < .2) { const R = g * 1.3, L = g * 1.3, ec = [p[0] + n[0] * (L + R), p[1] + n[1] * (L + R)];
+      if (eyes && (!onStaff || p[1] > py1 + g * 6) && r() < eyes) { const R = g * (onStaff ? 1.3 : 1), L = g * 1.3, ec = [p[0] + n[0] * (L + R), p[1] + n[1] * (L + R)];
         if (room(ring(ec, R * 1.7, r), g * .6)) { accept([p, [p[0] + n[0] * L, p[1] + n[1] * L]], 'stalk', { w: .45, start: 'cut', end: 'cut' }); eye(ec, R); next = i + g * 6; continue; } }
-      if (room(pts.slice(3, -3), g * .5)) accept(pts, 'scallop', { w: .5, start: 'cut', end: 'cut' });
+      // on a richer page some of the scallops are hooks instead, curling off with a dropped bead
+      if (hooks && r() < hooks) { const hk = hook(p, Math.atan2(n[1], n[0]) + (r() < .5 ? .5 : -.5), g * (.85 + r() * .25), r() < .5 ? 1 : -1);
+        if (room(hk.slice(4), g * .55)) { accept(hk, 'hook', { w: .46, start: 'cut', end: 'ball' }); out.push({ kind: 'dot', p: hk.at(-1), r: 1.1 + r() * .35, accent: !!B.accent && r() < B.accent }); next = i + g * 3; continue; } }
+      if (room(pts.slice(3, -3), g * .5)) { accept(pts, 'scallop', { w: .5, start: 'cut', end: 'cut' }); if (B.accent && r() < B.accent * .35) out.push({ kind: 'dot', p: [c[0] + n[0] * sr * .2, c[1] + n[1] * sr * .2], r: .75, accent: true }); }
     } };
-  chain(staff1, p => p[1] < py1 + g * 2.5, 1);
-  if (lines[1]) chain(lines[1], () => true, 1, { eyes: !!staff, runs: true });
+  if (B.panelScallops) chain(staff1, p => p[1] < py1 + g * 2.5, 1, { eyes: B.contourEyes * .5 });
+  for (const line of lines.slice(1)) chain(line, () => true, 1, { eyes: staff ? B.staffEyes : 0, runs: B.runs, onStaff: true });
+  // a text-side panel: the hairlines past the letter's right edge get scallops on their outer side
+  if (B.textPanel) { const edge = lineRows.filter(l => l.x > box[2]).sort((u, v) => v.x - u.x)[0]; if (edge) chain(edge.pts, () => true, -1, { hooks: 0 }); }
   if (bay) for (const [pick, side] of [[l => l.x < bay[0], -1], [l => l.x > bay[1], 1]]) {
     const cand = lineRows.filter(l => pick(l) && l.pts[0][1] < bay.eye[1] && l.pts.at(-1)[1] > bay.eye[1]);
     const edge = cand.sort((u, v) => side < 0 ? v.x - u.x : u.x - v.x)[0]; if (edge) chain(edge.pts, () => true, side); }
-  for (const tl of topLines) chain(tl, () => true, -1);
+  for (const tl of topLines) chain(tl, () => true, -1, { eyes: B.contourEyes });
   // the panel's foot: a hairline under it from the staff to the letter, scallops hanging below
-  if (cap) { const by = py1 + g * .9, x1 = Math.min(px1, box[0] - g * .5), base = wander([[sx + g * .4, by], [x1, by + (r() - .5) * .6]], .2, seed + 13, 30);
+  if (cap && B.base) { const by = py1 + g * .9, x1 = Math.min(px1, box[0] - g * .5), base = wander([[sx + g * .4, by], [x1, by + (r() - .5) * .6]], .2, seed + 13, 30);
     if (room(base.slice(2), g * .45)) { accept(base, 'base', { w: .48, start: 'cut', end: 'ball' }); chain(base, () => true, 1); } }
   return out;
 }
