@@ -159,10 +159,10 @@ function wordRects(origin, pad) {
   return out;
 }
 
-// ?ink=medium: the penwork is written by the medium (kit/medium.js): a pen with mass, moved along each mark at a hand's
-// pace (slow into a stroke and out of it), its ink pouring, merging and drying on the sheet. One medium per initial,
-// sized to its marks, multiplied over the page.
-const MEDIUM = q.get('ink') === 'medium';
+// The penwork is written by the medium (kit/medium.js): a pen moved along each mark at a hand's pace (slow into a stroke
+// and out of it), its ink pouring, merging and drying on the sheet. One medium per initial, sized to its marks,
+// multiplied over the page. ?ink=pen draws it with the older stamped pen instead (and where WebGL2 is missing).
+const MEDIUM = q.get('ink') !== 'pen' && (() => { try { return !!document.createElement('canvas').getContext('webgl2')?.getExtension('EXT_color_buffer_float'); } catch { return false; } })();
 let media = [];
 function written(t0, t1, strokes, ink, sr, dpr, sheet) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
