@@ -769,7 +769,18 @@ function mediumFor(w, h, dpr) {
   const Md = createMedium(cv, { dpr, paper: [255, 255, 255] }), gl = Md.gl; Md.settings.over = true;
   return shared = { cv, Md, gl, dpr };
 }
-export function inkLetter(bake, L, rgb, { dpr = 2, wet = L.wet ?? .1, dry = L.dry ?? .22 } = {}) {
+// If the ink engine is unavailable or fails (no WebGL2, a lost context), the letter is still laid, flat in its colour:
+// a drop cap must never come out blank.
+export function inkLetter(bake, L, rgb, opts = {}) {
+  try { inkLetterMedium(bake, L, rgb, opts); }
+  catch (e) { console.warn('illum: ink engine unavailable, the letter is laid flat', e); flatLetter(bake, L, rgb); }
+}
+function flatLetter(bake, { M, w, h, x0, y0, res }, rgb) {
+  const c = new OffscreenCanvas(w, h), g = c.getContext('2d'), im = g.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) { im.data[i * 4] = rgb[0]; im.data[i * 4 + 1] = rgb[1]; im.data[i * 4 + 2] = rgb[2]; im.data[i * 4 + 3] = Math.round(Math.min(1, M[i]) * 255); }
+  g.putImageData(im, 0, 0); bake.drawImage(c, x0, y0, w / res, h / res);
+}
+function inkLetterMedium(bake, L, rgb, { dpr = 2, wet = L.wet ?? .1, dry = L.dry ?? .22 } = {}) {
   const pad = 5, ox = Math.floor(L.x0 * dpr) / dpr - pad, oy = Math.floor(L.y0 * dpr) / dpr - pad, { M, w, h, res } = L;
   const cw = Math.ceil((w / res + pad * 2) * dpr), ch = Math.ceil((h / res + pad * 2) * dpr), { cv, Md } = mediumFor(cw, ch, dpr);
   Md.clear(); Md.wetness(wet); Md.settings.ink = rgb; Md.makePaper([ox * dpr, oy * dpr]);

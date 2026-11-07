@@ -41,11 +41,23 @@ void main(){
 // one step of the nib's sweep: the quad [A0, A1, B1, B0] its edge passes over. The sides are anti-aliased; the two
 // ends (the edge at a and at b) are pushed out half a pixel so consecutive steps join with no seam.
 // R ink, G coverage, B dryness; MAX-blended into the stroke.
+// The sweep steps are batched: each is an instance (its quad, its start and end, its ink and dryness) drawn over its
+// own bounding box, all of a batch in one draw call (MAX blending is order-free, so the result is the same as one by one).
+const SWEEP_VS = `#version 300 es
+in vec2 aPos; in vec4 iQ01, iQ23, iAB, iInk; uniform vec2 uRes;
+out vec2 vP; flat out vec2 Q0, Q1, Q2, Q3, A, B; flat out vec3 K;
+void main(){
+  vec2 lo = min(min(iQ01.xy, iQ01.zw), min(iQ23.xy, iQ23.zw)), hi = max(max(iQ01.xy, iQ01.zw), max(iQ23.xy, iQ23.zw));
+  vec2 o = floor(lo - 2.), sz = ceil(hi - lo + 4.);
+  vP = o + aPos * sz; gl_Position = vec4(vP / uRes * 2. - 1., 0, 1);
+  Q0 = iQ01.xy; Q1 = iQ01.zw; Q2 = iQ23.xy; Q3 = iQ23.zw; A = iAB.xy; B = iAB.zw; K = iInk.xyz;
+}`;
 const SWEEP_FS = `#version 300 es
-precision highp float; in vec2 vUV; out vec4 o; uniform vec2 uRes, uA, uB; uniform vec2 uQ[4]; uniform float uInk0, uInk1, uDry, uRim;
+precision highp float; in vec2 vP; out vec4 o; flat in vec2 Q0, Q1, Q2, Q3, A, B; flat in vec3 K; uniform float uRim;
 float edge(vec2 p, vec2 a, vec2 b){ vec2 e = b - a; return dot(p - a, normalize(vec2(e.y, -e.x))); }
 void main(){
-  vec2 p = vUV * uRes;
+  vec2 uQ[4] = vec2[4](Q0, Q1, Q2, Q3), uA = A, uB = B; float uInk0 = K.x, uInk1 = K.y, uDry = K.z;
+  vec2 p = vP;
   vec2 u = uQ[1] - uQ[0], v = uQ[3] - uQ[0]; float s = u.x * v.y - u.y * v.x < 0. ? 1. : -1.;
   float ds = min(s * edge(p, uQ[1], uQ[2]), s * edge(p, uQ[3], uQ[0]));
   float de = min(s * edge(p, uQ[0], uQ[1]), s * edge(p, uQ[2], uQ[3]));
@@ -113,9 +125,9 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   gl.getExtension('EXT_float_blend');
   const W = canvas.width, H = canvas.height;
   const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
-  const prog = fs => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  const prog = (fs, vs = VS) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); const U = {}; return { p, u: n => U[n] ??= gl.getUniformLocation(p, n) }; };
-  const P = { paper: prog(PAPER_FS), sweep: prog(SWEEP_FS), flow: prog(FLOW_FS), render: prog(RENDER_FS), pour: prog(POUR_FS) };
+  const P = { paper: prog(PAPER_FS), sweep: prog(SWEEP_FS, SWEEP_VS), flow: prog(FLOW_FS), render: prog(RENDER_FS), pour: prog(POUR_FS) };
   const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, W, H, 0, gl.RGBA, gl.HALF_FLOAT, null);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
@@ -133,25 +145,40 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   function makePaper(off = [0, 0]) { gl.viewport(0, 0, W, H); gl.bindFramebuffer(gl.FRAMEBUFFER, F.paper); gl.disable(gl.BLEND); gl.useProgram(P.paper.p);
     gl.uniform2f(P.paper.u('uOff'), off[0], off[1]);
     gl.uniform1f(P.paper.u('uSeed'), seed % 97); gl.uniform1f(P.paper.u('uPx'), 1 / dpr); gl.uniform1f(P.paper.u('uRough'), S.rough); run(P.paper); }
-  function clear() { for (const t of [...T.dry, ...T.wet, T.stroke]) { const f = fbo(t); clearT(f); gl.deleteFramebuffer(f); } wetting = 0; area = null; }
+  function clear() { nb = 0; for (const t of [...T.dry, ...T.wet, T.stroke]) { const f = fbo(t); clearT(f); gl.deleteFramebuffer(f); } wetting = 0; area = null; }
   // where there is ink: the union of everything swept since the last clear (outside it every layer is empty in both
   // ping-pong buffers, so the flow need only run inside it)
-  let area = null;
+  let area = null, batch = new Float32Array(16 * 1024), nb = 0;
   makePaper(); clear();
 
   // one sweep step: quad q (four device-px points), ink at its start and end, the pen's dryness
+  // the sweep steps wait in a batch (16 floats each) and are drawn together before anything reads the stroke layer
+  const inst = gl.createBuffer(), vao = gl.createVertexArray();
+  gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  { const a = gl.getAttribLocation(P.sweep.p, 'aPos'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0); }
+  gl.bindBuffer(gl.ARRAY_BUFFER, inst);
+  ['iQ01', 'iQ23', 'iAB', 'iInk'].forEach((n, k) => { const a = gl.getAttribLocation(P.sweep.p, n); gl.enableVertexAttribArray(a);
+    gl.vertexAttribPointer(a, 4, gl.FLOAT, false, 64, k * 16); gl.vertexAttribDivisor(a, 1); });
+  gl.bindVertexArray(null);
+  function drawBatch() {
+    if (!nb) return;
+    gl.viewport(0, 0, W, H); gl.bindFramebuffer(gl.FRAMEBUFFER, F.stroke); gl.enable(gl.BLEND); gl.blendEquation(gl.MAX);
+    const pr = P.sweep; gl.useProgram(pr.p); gl.uniform2f(pr.u('uRes'), W, H); gl.uniform1f(pr.u('uRim'), S.rim);
+    gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, inst); gl.bufferData(gl.ARRAY_BUFFER, batch.subarray(0, nb * 16), gl.STREAM_DRAW);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nb); gl.bindVertexArray(null);
+    gl.blendEquation(gl.FUNC_ADD); gl.disable(gl.BLEND); nb = 0;
+  }
   function sweep(q, a, b, ink0, ink1, dry) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const [x, y] of q) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-    gl.viewport(0, 0, W, H); gl.bindFramebuffer(gl.FRAMEBUFFER, F.stroke); gl.enable(gl.BLEND); gl.blendEquation(gl.MAX);
-    const pr = P.sweep; gl.useProgram(pr.p); gl.uniform2fv(pr.u('uQ[0]'), q.flat()); gl.uniform2f(pr.u('uA'), ...a); gl.uniform2f(pr.u('uB'), ...b);
-    gl.uniform1f(pr.u('uInk0'), ink0); gl.uniform1f(pr.u('uInk1'), ink1); gl.uniform1f(pr.u('uDry'), dry); gl.uniform1f(pr.u('uRim'), S.rim);
-    run(pr, [Math.floor(x0 - 2), Math.floor(y0 - 2), Math.ceil(x1 - x0 + 4), Math.ceil(y1 - y0 + 4)]);
-    gl.blendEquation(gl.FUNC_ADD); gl.disable(gl.BLEND); pour();
+    if (nb * 16 >= batch.length) { const g = new Float32Array(batch.length * 2); g.set(batch); batch = g; }
+    batch.set([q[0][0], q[0][1], q[1][0], q[1][1], q[2][0], q[2][1], q[3][0], q[3][1], a[0], a[1], b[0], b[1], ink0, ink1, dry, 0], nb++ * 16);
+    pour();
     const m = 12; area = area ? [Math.min(area[0], x0 - m), Math.min(area[1], y0 - m), Math.max(area[2], x1 + m), Math.max(area[3], y1 + m)] : [x0 - m, y0 - m, x1 + m, y1 + m];
   }
   // pour a deposit given as RGBA8 data (w x h texels: R coverage, G ink/2, B dryness) over the device-px rect [x, y, w, h]
   let srcT = null;
   function pourImage(data, w, h, rect) {
+    drawBatch();
     if (!srcT) { srcT = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, srcT);
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); }
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, srcT); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -165,7 +192,7 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   }
   // the ink moves: pour the pen's fresh ink in, level it, let it dry. Three small steps a frame while anything is wet.
   function step(ms) {
-    if (wetting <= 0 || !area) return; wetting -= ms;
+    drawBatch(); if (wetting <= 0 || !area) return; wetting -= ms;
     gl.viewport(0, 0, W, H); gl.disable(gl.BLEND); const pr = P.flow;
     const x0 = Math.max(0, Math.floor(area[0])), y0 = Math.max(0, Math.floor(area[1])), rect = [x0, y0, Math.min(W, Math.ceil(area[2])) - x0, Math.min(H, Math.ceil(area[3])) - y0];
     for (let k = 0; k < 3; k++) {
@@ -180,6 +207,7 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   // dry it all now: one step with the water gone settles every bit of wet ink where it lies
   function finish() { if (wetting > 0) { wetting = 1; step(1); } }
   function render() {
+    drawBatch();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H); const pr = P.render; gl.useProgram(pr.p);
     bind(pr, 'uDry', 0, T.dry[cur]); bind(pr, 'uWet', 1, T.wet[cur]); bind(pr, 'uPaper', 2, T.paper);
     gl.uniform3f(pr.u('uPaperRGB'), ...S.paper.map(c => c / 255)); gl.uniform1f(pr.u('uBase'), S.base); gl.uniform3f(pr.u('uInk'), ...S.ink.map(c => c / 255)); gl.uniform1f(pr.u('uOver'), S.over ? 1 : 0);
