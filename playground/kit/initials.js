@@ -33,7 +33,7 @@ function gothic({ G, keep, lh, big, level: li, seed, room: margin, bottom }) {
   const marks = flourish({ glyph: L, panel, keep, staff, g: gap, seed, level: li, right: big && li > 2 ? lh * .42 + GEOM.wider[li] : gap });
   return { letter: { M: L, pigment: pig }, marks: marks.map((s, i) => s.kind === 'dot'
     ? { dot: true, p: s.p, r: s.r, col: s.accent ? 'a' : 'b', ink: s.accent ? PIGMENTS[pig].rgb : ink }
-    : { pts: s.pts, col: 'b', ink, seed: seed + i * 13, w: s.w * 1.15, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 }) };
+    : { pts: s.pts, col: 'b', ink, seed: seed + i * 13, w: s.w * 1.15, rho: s.rho, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 }) };
 }
 gothic.wider = GEOM.wider;
 

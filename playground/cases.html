@@ -5,39 +5,63 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rubricate cases</title>
 <!--
-  The cases of research/10-rubricate.md, one style at a time: a drop initial and a line initial, the contents, a
-  quotation, a figure, an aside, a pull quote, code. ?style=key (default gothic), ?rich=0..1, ?theme=dark|light,
-  #seed=n. Stage one: initials and frames, still, with the stamped pen (kit/illum.js collect + drawStill). Paraphs,
-  fillers, breaks, the score and the medium join in stage two.
+  The acceptance page of research/10-rubricate.md: every case the walk finds, in one style at a time, drawn by
+  kit/illum.js rubricate(). A book opened by its break; a chapter heading with its filler; a drop initial and a line
+  initial; paraphs; paragraph fillers where the last line leaves a long gap, a short one (a last line set right,
+  2.2 em short of the measure) and none (a last line justified to the measure); a second chapter opened by a chapter break;
+  the six frames (the contents, a quotation, a figure, an aside, a pull quote, code); a second book. And outside the
+  chapters, by markup alone: a paraph on p.par, a filler on .fill, breaks on hr and .break[data-rank].
+
+  ?style=key (default gothic), ?rich=0..1, ?scale=0.5..2, ?theme=light|dark, ?draw (now) | ?draw=read, ?ink=pen|medium,
+  #seed=n; ?specimen (the style as a pattern book; &kind=), ?sweep (every style's paraph over thirty seeds), ?audit (text
+  collisions, overlaps, joins and what the guard left out, as JSON in body.dataset.audit; tools/audit.mjs reads it).
+  The controls below the page change the same things without reloading. body.dataset.timing: the still's grow and draw
+  ms; with ?draw=read, body.dataset.frames: the per-frame cost while writing (median, p95 and worst ms).
 -->
 <style>
   @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
   @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
   :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(176 58 36); color-scheme: light; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: rgb(28 25 23); --ink: rgb(226 216 200); --rubric: rgb(230 120 96); color-scheme: dark; } }
-  :root[data-theme="dark"] { --paper: rgb(28 25 23); --ink: rgb(226 216 200); --rubric: rgb(230 120 96); color-scheme: dark; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: rgb(29 26 23); --ink: rgb(226 218 204); --rubric: rgb(232 112 88); color-scheme: dark; } }
+  :root[data-theme="dark"] { --paper: rgb(29 26 23); --ink: rgb(226 218 204); --rubric: rgb(232 112 88); color-scheme: dark; }
   html { background: var(--paper); }
-  body { margin: 0; color: var(--ink); background: var(--paper); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
+  body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
   .sheet { position: relative; max-width: 900px; margin: 0 auto; padding: 100px 100px 140px 200px; box-sizing: border-box; }
-  .sheet canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
   .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; }
-  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 1.4em; }
-  h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
-  p { margin: 0 0 .9em; }
-  a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .15em; }
+  .sub { font-style: italic; margin: 0; }
+  .book { padding-top: 5.2em; }
+  h2 { font-weight: 500; font-size: 1.15em; letter-spacing: .2em; text-transform: uppercase; color: var(--rubric); text-align: center; margin: 0 0 .8em; }
+  .chapter + .chapter { padding-top: 2.6em; }
+  h3 { font-weight: 400; font-size: 1em; color: var(--rubric); margin: 0 0 .35em; text-align: left; hyphens: manual; }
+  p { margin: 0; } .chapter > p ~ p, p.par { text-indent: max(1.6em, calc(.65em + var(--orn, 1) * .72em)); }
+  .chapter > p:has(.ini) { text-indent: 0; }
+  /* the three ends of a paragraph: none (justified to the measure), short (its last line set right against an unseen
+     2.2 em: a pseudo-element is not in the text's ranges, so the walk sees the gap), long (as it falls) */
+  .gap-none { text-align-last: justify; }
+  .gap-short { text-align-last: right; }
+  .gap-short::after { content: ""; display: inline-block; width: 2.2em; }
   .ini { color: transparent; font-weight: 600; }
   .ini.drop { float: left; line-height: 1; }
   .ini.line { font-size: 1.5em; line-height: 0; margin-right: .04em; }
-  nav.toc { margin: 0 0 2.4em; font-style: italic; }
+  a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
+  nav.toc { margin: 1.6em 0 2em; font-style: italic; }
   nav.toc ol { list-style: none; margin: 0; padding: 0; }
-  blockquote { margin: 1.4em 0 1.4em; padding: 0 0 0 2.4em; }
+  blockquote { margin: 1.4em 0; padding: 0 0 0 2.4em; }
   blockquote p { margin: 0 0 .3em; }
   figure { margin: 2.8em auto 2em; max-width: 20em; }
   figure svg { display: block; width: 100%; height: auto; }
   figcaption { font-style: italic; font-size: .9em; margin-top: 1.6em; }
-  pre { margin: 1.8em 0; padding: 1.3em 1.6em; font: 15px/1.6 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; }
-  .pull { margin: 2.8em 1.5em; font-size: 1.35em; line-height: 1.4; font-style: italic; text-align: center; }
+  pre { margin: 1.8em 0; padding: 1.3em 1.6em; font: 15px/1.6 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; hyphens: none; }
+  .pull { margin: 2.8em 1.5em; font-size: 1.35em; line-height: 1.4; font-style: italic; text-align: center; hyphens: manual; }
   aside.note { margin: 2em 0 2em 2.5em; padding: 1em 0 .2em 1.4em; font-size: .9em; }
+  hr { border: 0; height: 2.6em; margin: 0; }
+  .break { height: 5.2em; }
+  .loose { margin-top: 3em; }
+  .controls { max-width: 900px; margin: 0 auto; padding: 0 100px 60px 200px; box-sizing: border-box; font-size: 14px; font-style: italic; color: var(--ink); opacity: .7; line-height: 1.9; }
+  .controls button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-decoration-thickness: .5px; text-underline-offset: .18em; }
+  .controls button[aria-pressed="true"] { color: var(--rubric); text-decoration: none; }
+  .controls button:focus-visible { outline: 1px dotted currentColor; outline-offset: 2px; }
   @media (max-width: 640px) {
     body { font-size: 18px; line-height: 1.55; }
     .sheet { padding: 64px 20px 80px 44px; }
@@ -45,72 +69,115 @@
     blockquote { padding-left: 2em; }
     .pull { margin: 2.6em .4em; }
     aside.note { margin-left: .8em; }
+    .controls { padding: 0 20px 40px 44px; }
   }
 </style>
 </head>
 <body>
 <main class="sheet">
-  <canvas id="orn" aria-hidden="true"></canvas>
   <article class="text">
     <h1 id="title">Cases</h1>
-    <p><span class="ini drop" data-lines="3">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture.</p>
-    <p><span class="ini line">L</span>et us then understand at once, that change or variety is as much a necessity to the human heart and brain in buildings as in books; that there is no merit, though there is some occasional use, in monotony.</p>
-    <nav class="toc" aria-label="Contents">
-      <ol>
-        <li><a href="#q">The quotation</a></li>
-        <li><a href="#f">The figure</a></li>
-        <li><a href="#c">The code</a></li>
-      </ol>
-    </nav>
-    <blockquote id="q">
-      <p>You must either make a tool of the creature, or a man of him. You cannot make both. Men were not intended to work with the accuracy of tools, to be precise and perfect in all their actions.</p>
-    </blockquote>
-    <figure id="f">
-      <svg viewBox="0 0 420 320" role="img" aria-label="Two facing pages with their diagonals.">
-        <g fill="none" stroke="currentColor" stroke-linecap="round">
-          <path d="M10 10 L410 310 M410 10 L10 310" stroke-opacity=".4" stroke-width=".5"/>
-          <rect x="10" y="10" width="200" height="300" stroke-width=".7"/><rect x="210" y="10" width="200" height="300" stroke-width=".7"/>
-        </g>
-      </svg>
-      <figcaption>The spread, after Van de Graaf.</figcaption>
-    </figure>
-    <aside class="note">
-      <p><b>The pilcrow.</b> The scribe left a gap at the head of a paragraph for the rubricator to paint a ¶ in red. When the rubricator ran out of time the gap stayed empty.</p>
-    </aside>
-    <p class="pull">An ornament that was never painted.</p>
+    <p class="sub">Every case of the rubricator’s pass, in one hand</p>
+    <section class="book">
+      <h2>Book I</h2>
+      <section class="chapter">
+        <h3>Chapter I. Of the initial, the paraph and the ends of lines.</h3>
+        <p><span class="ini drop" data-lines="3">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture.</p>
+        <p>And this we suppose to be all the pleasure that architecture was ever intended to give us. The idea of reading a building as we would read Milton or Dante never enters our minds.</p>
+        <p class="gap-none">Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art, for the production of which either rules or models can be given.</p>
+        <p class="gap-short">Exactly so far as architecture works on known rules, and from given models, it is not an art, but a manufacture; and of the two procedures, the latter is the less noble.</p>
+        <p><span class="ini line">L</span>et us then understand at once, that change or variety is as much a necessity to the human heart and brain in buildings as in books; that there is no merit, though there is some occasional use, in monotony.</p>
+        <nav class="toc" aria-label="Contents">
+          <ol>
+            <li><a href="#q">The quotation</a></li>
+            <li><a href="#f">The figure</a></li>
+            <li><a href="#c">The code</a></li>
+          </ol>
+        </nav>
+        <blockquote id="q">
+          <p>You must either make a tool of the creature, or a man of him. You cannot make both. Men were not intended to work with the accuracy of tools, to be precise and perfect in all their actions.</p>
+        </blockquote>
+        <p>A program cannot be a man, but it can refuse to be a cog-wheel.</p>
+      </section>
+      <section class="chapter">
+        <h3>Chapter II. Of the frames.</h3>
+        <p>The scribe’s page was ruled before a word was written, and its proportions were not arbitrary.</p>
+        <figure id="f">
+          <svg viewBox="0 0 420 320" role="img" aria-label="Two facing pages with their diagonals.">
+            <g fill="none" stroke="currentColor" stroke-linecap="round">
+              <path d="M10 10 L410 310 M410 10 L10 310" stroke-opacity=".4" stroke-width=".5"/>
+              <rect x="10" y="10" width="200" height="300" stroke-width=".7"/><rect x="210" y="10" width="200" height="300" stroke-width=".7"/>
+            </g>
+          </svg>
+          <figcaption>The spread, after Van de Graaf.</figcaption>
+        </figure>
+        <aside class="note">
+          <p><b>The pilcrow.</b> The scribe left a gap at the head of a paragraph for the rubricator to paint a ¶ in red. When the rubricator ran out of time the gap stayed empty.</p>
+        </aside>
+        <p class="pull">An ornament that was never painted.</p>
 <pre id="c"><code>// a frame for every box, grown from its own box
 for (const el of boxes(document))
   draw(frameFor(el, measure(el)));</code></pre>
-    <p>Nothing here covers or crowds a word.</p>
+        <p>Nothing here covers or crowds a word. Take the marks away and the page is complete; put them back and it is a place.</p>
+      </section>
+    </section>
+    <section class="book">
+      <h2>Book II</h2>
+      <section class="chapter">
+        <h3>Chapter I. Of rank.</h3>
+        <p>Ornament that marks everything marks nothing. In the book the ladder was strict: a painted initial opened a book, a penwork initial a chapter, a paraph a paragraph.</p>
+        <p>A reader could count the parts of an opening at a glance, because the marks were spent by rank.</p>
+      </section>
+    </section>
+    <div class="loose">
+      <hr>
+      <p class="par fill">Outside the chapters, by markup alone: a paraph on this paragraph, a filler after it.</p>
+      <div class="break" data-rank="2"></div>
+      <p>And a book’s break between two paragraphs, above.</p>
+    </div>
   </article>
 </main>
+<p class="controls">
+  <span id="styles" role="group" aria-label="Style"></span><br>
+  <span role="group" aria-label="Light or dark">Seen by <button data-k="theme" data-v="light">day</button>, <button data-k="theme" data-v="dark">night</button>, <button data-k="theme" data-v="">as the system is</button></span> ·
+  <span role="group" aria-label="Scale">at <button data-k="scale" data-v="0.5">½</button>, <button data-k="scale" data-v="1">1</button>, <button data-k="scale" data-v="2">2</button></span> ·
+  <span role="group" aria-label="Richness">rich <button data-k="rich" data-v="0">0</button> <button data-k="rich" data-v="0.25">¼</button> <button data-k="rich" data-v="0.5">½</button> <button data-k="rich" data-v="0.75">¾</button> <button data-k="rich" data-v="1">1</button></span><br>
+  <span role="group" aria-label="Drawing">drawn <button data-k="draw" data-v="still">still</button>, <button data-k="draw" data-v="now">now</button>, <button data-k="draw" data-v="read">as you read</button></span> ·
+  <span role="group" aria-label="Ink">in <button data-k="ink" data-v="medium">ink</button> or <button data-k="ink" data-v="pen">the stamped pen</button></span> · seed <span id="seed"></span> · <span id="timing"></span>
+</p>
 <script type="module">
-import { fnv } from './kit/marks.js';
-import { setInitials, collect, drawStill, wordRects, STYLES } from './kit/illum.js';
+import { rubricate, STYLES } from './kit/illum.js';
+import { audit } from './kit/audit.js';
 
-const q = new URLSearchParams(location.search), art = document.querySelector('.text'), sheet = document.querySelector('.sheet');
-const STYLE = STYLES[q.get('style')] ? q.get('style') : 'gothic', RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0));
-if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
-const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(art.textContent.replace(/\s+/g, ' ').trim()) % 1e7);
-document.getElementById('title').textContent = `Cases · ${STYLES[STYLE].label}`;
-const mode = () => document.documentElement.dataset.theme ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-const paper = () => getComputedStyle(document.documentElement).getPropertyValue('--paper').match(/\d+/g).slice(0, 3).map(Number);
-function render() {
-  setInitials(art, { style: STYLE, rich: RICH });
-  const sr = sheet.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1), c = document.getElementById('orn');
-  c.width = Math.round(sr.width * dpr); c.height = Math.round(sr.height * dpr); c.style.width = sr.width + 'px'; c.style.height = sr.height + 'px';
-  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const items = collect(art, sheet, { style: STYLE, rich: RICH, seed: SEED });
-  // the guard: nothing drawn on a word (a stroke that would be is left out; the audit counts them)
-  const words = wordRects(art, sr, 0);
-  let cut = 0; const where = [], clear = s => s.dot ? true : !s.pts.some(([x, y]) => words.some(w => x > w[0] && x < w[2] && y > w[1] && y < w[3]));
-  for (const it of items) for (const k of ['marks', 'ground']) if (it[k]) { const n = it[k].length; it[k] = it[k].filter(s => clear(s) || !where.push([it.kind, Math.round(s.pts[0][0]), Math.round(s.pts[0][1])])); cut += n - it[k].length; }
-  document.body.dataset.cutWhere = JSON.stringify(where);
-  drawStill(g, items, { mode: mode(), paper: paper(), seed: SEED });
-  document.body.dataset.timing = 'drawn'; document.body.dataset.cut = cut;
-}
-await document.fonts.ready; render();
-let lastW = innerWidth; new ResizeObserver(() => { if (innerWidth !== lastW) { lastW = innerWidth; render(); } }).observe(sheet);
+const q = new URLSearchParams(location.search), art = document.querySelector('.text'), sd = location.hash.match(/seed=(\d+)/)?.[1];
+const S = { style: STYLES[q.get('style')] ? q.get('style') : 'gothic', rich: q.get('rich') ?? '0.5', scale: q.get('scale') ?? '1', theme: q.get('theme') ?? '',
+  draw: q.get('draw') === 'read' ? 'read' : q.has('draw') ? 'now' : 'still', ink: q.get('ink') ?? 'medium' };
+const setTheme = () => { if (S.theme) document.documentElement.dataset.theme = S.theme; else delete document.documentElement.dataset.theme; };
+setTheme();
+document.getElementById('title').textContent = `Cases · ${STYLES[S.style].label}`;
+const show = (state, info) => {
+  const t = info ? `grow ${info.grow} ms, draw ${info.draw} ms` : state;
+  document.body.dataset.timing = t; document.getElementById('timing').textContent = t; document.getElementById('seed').textContent = r.state.seed ?? '';
+  if (state === 'written' || (state === 'reading' && r.state.frames)) { const f = [...(r.state.frames ?? [])].sort((a, b) => a - b); if (f.length) document.body.dataset.frames = `median ${f[f.length >> 1].toFixed(2)} ms, p95 ${f[Math.floor(f.length * .95)].toFixed(2)} ms, worst ${f.at(-1).toFixed(2)} ms, ${f.length} frames`; }
+  if (q.has('audit') && r.state.drawn) document.body.dataset.audit = JSON.stringify(audit(r.state, { where: q.has('showjoins') }));
+};
+const r = rubricate(art, { style: S.style, rich: +S.rich, scale: +S.scale, draw: S.draw, ink: S.ink, seed: sd ? +sd : undefined, kind: q.get('kind') ?? undefined,
+  view: q.has('specimen') ? 'specimen' : q.has('sweep') ? 'sweep' : undefined, on: show });
+window.R = r;
+
+// the controls: each redraws at once and is kept in the address
+const keep = () => { const u = new URL(location.href); for (const [k, v] of Object.entries(S)) if (k === 'draw') { u.searchParams.delete('draw'); if (v !== 'still') u.searchParams.set('draw', v === 'read' ? 'read' : ''); } else if (v) u.searchParams.set(k, v); else u.searchParams.delete(k); history.replaceState(null, '', u); };
+const pressed = () => document.querySelectorAll('.controls button').forEach(b => b.setAttribute('aria-pressed', String(S[b.dataset.k] === b.dataset.v)));
+const styles = document.getElementById('styles');
+Object.entries(STYLES).forEach(([key, sty], i, all) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = sty.label; b.dataset.k = 'style'; b.dataset.v = key; styles.append(b, i < all.length - 1 ? ', ' : ''); });
+document.querySelectorAll('.controls button').forEach(b => b.addEventListener('click', () => {
+  const k = b.dataset.k, v = b.dataset.v; S[k] = v; pressed(); keep();
+  if (k === 'theme') { setTheme(); r.redraw(); }
+  else if (k === 'style') { document.getElementById('title').textContent = `Cases · ${STYLES[v].label}`; r.redraw({ style: v }); }
+  else if (k === 'draw') { if (v === 'read') scrollTo(0, 0); r.redraw({ draw: v }); }
+  else r.redraw({ [k]: k === 'ink' ? v : +v });
+}));
+pressed();
 </script>
 </body>
 </html>
