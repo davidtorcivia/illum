@@ -17,6 +17,9 @@
 //   ink     'medium' (the ink engine, kit/writer.js: the penwork's hairlines written with a round quill in a dry ink;
 //           fills, points and the painted letter stay with kit/marks.js) | 'pen' (the stamped pen throughout; also
 //           what 'medium' falls back to without WebGL2)
+//   audit   true: state.drawn holds every mark's outline for kit/audit.js (default: ?audit in the page's address). cache: false
+//           draws live every time (also ?nocache); baked: the URL of a bake made by tools/bake.mjs (or data-baked on root;
+//           default kit/bake.json, which a built site ships: tools/build-site.sh)
 //   seed    default: a hash of the text. on(state, info): 'drawn' (still: { grow, draw } ms), 'reading', 'written'
 //   initial, frame   a written style's options for its initials and its frames (Astrology's { set, title }, { form }); an
 //           element's own data-* (data-set, data-title, data-form) override them
@@ -31,17 +34,13 @@
 // Every mark is on aria-hidden canvases behind the text (the medium's working window lies over it while it writes);
 // the text is untouched apart from the drop initial's size and float.
 import { pen, dot, paintField, PIGMENTS, fnv, stream } from './marks.js';
-import { STYLES, paletteOf, grammar, lift } from './wayfinding.js';
-import { createWriter, supported } from './writer.js';
-import { inkLetter, letterWriter, settle, warmInk, sweepIn } from './inkletter.js';
-import { libraryHash, fingerprint, lookup, paint, remember, hashText } from './cache.js';
-import './initials.js';
-import './frames.js';
-import blackletter from './styles/blackletter.js';
-import tarot from './styles/tarot.js';
-import occult from './styles/occult.js';
-import astrology from './styles/astrology.js';
-import draft from './styles/draft.js';
+import { STYLES } from './registry.js';
+import { libraryHash, fingerprint, lookup, manifest, paint, remember, hashText } from './cache.js';
+// Loaded when a page needs them, not before: the pilot registry (kit/wayfinding.js, with kit/initials.js and kit/frames.js),
+// each written style (kit/styles/*.js, with its faces), and the ink engine (kit/writer.js, kit/inkletter.js). A page drawn
+// from the store (kit/cache.js) loads none of them. kit/all.js loads everything at once, for a page that lists every style.
+let paletteOf, grammar, lift;                                                     // kit/wayfinding.js's
+let createWriter, supported = () => false, inkLetter, letterWriter, settle = () => {}, warmInk, sweepIn;   // the engine's
 
 // The written styles (kit/styles/*.js) join the registry. A written style's marks are in the writer's own terms, at page
 // size: strokes { pts (page px), w (the nib's edge), col (a key of its palette, 'k' | 'r'), hair, angle?, press?, rho? },
@@ -72,8 +71,21 @@ import draft from './styles/draft.js';
 // the code's own lines (starts: a line the box wraps runs on unruled).
 // (Order matters: the registry's style list keeps Draft, Occult, Astrology and Tarot where they stood, before Blackletter;
 // Draft stands where Cyber stood, and ?style=cyber, retired, is Draft.)
-Object.assign(STYLES, { draft, occult, astrology, tarot, blackletter });
-Object.defineProperty(STYLES, 'cyber', { value: draft, enumerable: false });
+export const WRITTEN = { draft: './styles/draft.js', occult: './styles/occult.js', astrology: './styles/astrology.js', tarot: './styles/tarot.js', blackletter: './styles/blackletter.js' };
+const own = {}; let regP = null, engP = null;
+const put = k => { STYLES[k] = own[k]; if (k === 'draft') Object.defineProperty(STYLES, 'cyber', { value: own.draft, enumerable: false, configurable: true }); };
+export const loadRegistry = () => regP ??= Promise.all([import('./wayfinding.js'), import('./initials.js'), import('./frames.js')])
+  .then(([w]) => { ({ paletteOf, grammar, lift } = w); for (const k of Object.keys(WRITTEN)) if (own[k]) put(k); });   // (the pilots' placeholders give way to what is loaded)
+// the styles these keys name, and the registry if any of them is a pilot (an unknown key is drawn as Gothic, a pilot)
+export async function loadStyles(keys) {
+  keys = [...new Set(keys.filter(Boolean).map(k => k === 'cyber' ? 'draft' : k))];
+  if (keys.some(k => !WRITTEN[k] && !isWritten(STYLES[k])) || !keys.length) await loadRegistry();
+  const mods = await Promise.all(keys.filter(k => WRITTEN[k]).map(async k => [k, own[k] ??= (await import(WRITTEN[k])).default]));
+  for (const k of Object.keys(WRITTEN)) if (mods.some(([m]) => m === k)) put(k);   // (in the registry's order)
+}
+export const loadAll = async () => { await loadRegistry(); await loadStyles(Object.keys(WRITTEN)); };
+const loadEngine = () => engP ??= Promise.all([import('./writer.js'), import('./inkletter.js')])
+  .then(([w, i]) => { ({ createWriter, supported } = w); ({ inkLetter, letterWriter, settle, warmInk, sweepIn } = i); });
 const isWritten = S => !!S?.palette;
 // a written part's output as { marks, fills?, letters?, letter? }: given as its marks alone, or wrapped once more
 const asMade = m => Array.isArray(m) ? { marks: m } : m.marks && !Array.isArray(m.marks) ? { ...m, ...m.marks } : m;
@@ -497,8 +509,8 @@ function scoreWritten(items, c, animate) {
   for (const it of items) {
     const S = STYLES[it.style], P = S.palette[DARK ? 'dark' : 'light'], marks = (it.marks ?? []).flat(3), own = [], g0 = t, from = parts.length; let run = null, u = 0;
     for (const m of marks) drawn.push({ mi: it.i, type: it.kind, own: it.own, pts: m.pts, w: m.w, ends: [m.pts[0], m.pts.at(-1)], cap: ['cut', 'cut'], plate: 0, solid: true });
-    // (and its lettering and signs, for the audit, as the outline of where their ink lies)
-    for (const L of it.letters ?? []) for (const b of inkBoxes(L)) drawn.push({ mi: it.i, type: it.kind, own: it.own, pts: [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]], [b[0], b[1]]], w: 1, ends: [], cap: ['cut', 'cut'], plate: 0, solid: true, free: true });
+    // (and its lettering and signs, for the audit, as the outline of where their ink lies: only when it is asked for, they are slow to find)
+    if (c.audit) for (const L of it.letters ?? []) for (const b of inkBoxes(L)) drawn.push({ mi: it.i, type: it.kind, own: it.own, pts: [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]], [b[0], b[1]]], w: 1, ends: [], cap: ['cut', 'cut'], plate: 0, solid: true, free: true });
     if (S.timeline) { const tl = S.timeline(it, it.kind, animate), k = Math.min(1, tl.cap / Math.max(tl.u, .01));
       it.y0 ??= Math.min(...marks.map(m => m.pts[0][1]));
       for (const e of tl.own) parts.push({ ...piece(e, t + e.t0 * k, t + e.t1 * k, it, P, c, animate), under: !e.run && !e.over, over: !!e.over });
@@ -587,12 +599,17 @@ export function rubricate(root, opts = {}) {
   let pre = null, warmed = false; const warm = () => { if (warmed) return; warmed = true; try { const dpr = Math.min(2, devicePixelRatio || 1), DARK = themeMode() === 'dark';
     if (isWritten(STYLES[o.style]) && o.ink !== 'pen' && supported()) { pre = createWriter(host, base.getContext('2d'), { dpr, dark: DARK }); pre.wk = `${dpr}|${DARK}|${o.ink}`; pre.warm(); }
     if (isWritten(STYLES[o.style])) warmInk(dpr); } catch {} };   // (and the letters' and pours' medium)
-  // The still remembered (kit/cache.js): its key is the library's code and faces, the text, the options, the theme, the host's
-  // colours and the density; a record is used only where the text falls exactly where it fell when it was drawn. Off with
+  // The still remembered (kit/cache.js): its key is the text, the host's width, the options, the theme, its colours and the density; a
+  // record is used only if the library's code and faces are those that drew it and the text falls exactly where it fell. Off with
   // { cache: false } or ?nocache in the page's address (and under ?audit, which needs the marks themselves).
   const cacheOn = () => o.cache !== false && !o.view && typeof indexedDB !== 'undefined' && !/[?&](nocache|audit)\b/.test(location.search);
-  const keyOf = async () => { const { on, host: _h, cache, baked, ...rest } = o, cs = getComputedStyle(root), dpr = Math.min(2, devicePixelRatio || 1);
-    return [await libraryHash(import.meta.url), hashText(text), JSON.stringify(rest, (k, v) => typeof v === 'function' ? String(v) : v), themeMode(), dpr,
+  // a state reached: told to `on`, and as an event on root (illum:drawn, illum:written; detail: the timing), for a host or a
+  // tool that did not make the call
+  const done = (st, info) => { o.on?.(st, info); root.dispatchEvent(new CustomEvent('illum:' + st, { bubbles: true, detail: info ?? null })); };
+  const lib = () => libraryHash(import.meta.url), baked = () => o.baked ?? root.dataset.baked ?? new URL('bake.json', import.meta.url).href;
+  if (cacheOn()) manifest(baked());   // (asked for now, while the fonts load)
+  const keyOf = () => { const { on, host: _h, cache, baked, ...rest } = o, cs = getComputedStyle(root), dpr = Math.min(2, devicePixelRatio || 1);
+    return [hashText(text), Math.round(host.getBoundingClientRect().width), JSON.stringify(rest, (k, v) => typeof v === 'function' ? String(v) : v), themeMode(), dpr,
       ...['--paper', '--ink', '--rubric'].map(v => cs.getPropertyValue(v).trim())].join('|'); };
   const inis = () => [...root.querySelectorAll({ ...SELECT, ...o.select }.initial)];
   const setStyles = (els, list) => els.forEach((e, i) => list[i] == null ? e.removeAttribute('style') : e.setAttribute('style', list[i]));
@@ -602,7 +619,13 @@ export function rubricate(root, opts = {}) {
     if (fingerprint(root, host) === rec.fp) return true;
     setStyles(els, prev); if (orn) root.style.setProperty('--orn', orn); else root.style.removeProperty('--orn'); return false; };
   // what the page's styles need before anything is measured: a typeface initial's face (its initial.load)
-  const ready = () => Promise.all([...new Set([o.style, ...[...root.querySelectorAll('[data-style]')].map(e => e.dataset.style)])].map(k => STYLES[k]?.initial?.load?.(o.initial ?? {}))).catch(e => console.warn('illum:', e));
+  const keys = () => [...new Set([o.style, ...[...root.querySelectorAll('[data-style]')].map(e => e.dataset.style)])];
+  const load = () => Promise.all([o.view === 'sweep' ? loadAll() : loadStyles(keys()), loadEngine()]);
+  const ready = () => Promise.all(keys().map(k => STYLES[k]?.initial?.load?.(o.initial ?? {}))).catch(e => console.warn('illum:', e));
+  // The store is asked at once, before the fonts are in; and the page's styles and the engine start loading at once too,
+  // beside it (a page drawn from the store never waits for them; a page drawn live never waits on the store)
+  const k0 = cacheOn() && (still.matches || o.draw === 'still') ? keyOf() : null, early = k0 ? lookup(k0, lib, baked()) : null;
+  load().catch(() => {});
 
   // the cases measured and the registry's marks made and scored (a written style's are made when their turn comes)
   function compose() {
@@ -616,7 +639,7 @@ export function rubricate(root, opts = {}) {
     if (mode === 'still') live.width = live.height = 0;   // nothing is shown part-written: no page-sized live layer
     for (const c of mode === 'still' ? [base] : [base, live]) { c.width = Math.round(sr.width * dpr); c.height = Math.round(sr.height * dpr); c.style.width = sr.width + 'px'; c.style.height = sr.height + 'px'; c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); }
     const wk = `${dpr}|${DARK}|${o.ink}`; if (pre?.wk === wk) W = pre; else { W?.destroy(); pre?.destroy(); W = o.ink !== 'pen' && supported() ? createWriter(host, base.getContext('2d'), { dpr, dark: DARK }) : null; } pre = null;
-    const c = { SEED, sel, style: key, rich, scale, gram, setups, kind: o.kind, mode: tm, own, DARK, PAPER, dpr, W, initial: o.initial ?? {}, frame: o.frame ?? {}, hand: { open: null }, g: base.getContext('2d'), host, base };
+    const c = { SEED, sel, style: key, rich, scale, gram, setups, kind: o.kind, mode: tm, own, DARK, PAPER, dpr, W, initial: o.initial ?? {}, frame: o.frame ?? {}, hand: { open: null }, g: base.getContext('2d'), host, base, audit: o.audit ?? /[?&]audit\b/.test(location.search) };
     const t0 = performance.now(), w = o.view === 'specimen' ? { items: specimen(c), words: [], dropped: {} } : walk(root, host, c);
     w.items.forEach((it, i) => { it.i = i; });
     // a hand about to write: the medium made now, not in the first frame of writing. (A written style's still is laid
@@ -637,19 +660,20 @@ export function rubricate(root, opts = {}) {
   async function render(m) {
     cancelAnimationFrame(raf); io?.disconnect(); sentinels.forEach(n => n.remove()); sentinels = []; settle(); const tok = ++gen;
     const t00 = performance.now(), cacheable = cacheOn() && (still.matches || m === 'still');
-    const key = cacheable ? await keyOf().catch(() => null) : null, rec = key ? await lookup(key, o.baked ?? root.dataset.baked) : null;
+    const key = cacheable ? keyOf() : null, rec = key ? await (key === k0 ? early : lookup(key, lib, baked())) : null;
     if (!alive || tok !== gen) return;
     if (rec && fits(rec)) { first = false; mode = 'still'; W?.destroy(); W = null; pre?.destroy(); pre = null; live.width = live.height = 0;
       await paint(rec, base, host); if (!alive || tok !== gen) return;
       const ms = Math.round(performance.now() - t00); state = { seed: rec.seed, cached: true, items: [], sr: host.getBoundingClientRect() };
-      o.on?.('drawn', { grow: 0, draw: ms, view: ms, all: ms, parts: 0, cached: true }); return; }
+      done('drawn', { grow: 0, draw: ms, view: ms, all: ms, parts: 0, cached: true }); return; }
+    await load(); if (!alive || tok !== gen) return;
     warm();
     await ready();
     if (first) { first = false; await new Promise(r => requestAnimationFrame(() => setTimeout(r))); }   // the text is painted before any ornament
     if (!alive || tok !== gen) return;
     if (o.view === 'sweep') return sweep();
     mode = still.matches ? 'still' : m;
-    const t0 = performance.now(), k = compose(), g = base.getContext('2d'), lv = live.getContext('2d'), fp = key && mode === 'still' ? fingerprint(root, host) : null;
+    const t0 = performance.now(), k = compose(), g = base.getContext('2d'), lv = live.getContext('2d');
     const clear = () => { lv.save(); lv.setTransform(1, 0, 0, 1, 0, 0); lv.clearRect(0, 0, live.width, live.height); lv.restore(); };
     if (mode === 'read') return read(k, g, lv, clear);
     if (mode === 'now') {
@@ -660,7 +684,7 @@ export function rubricate(root, opts = {}) {
       const end = Math.max(k.reg.end, ...wp.map(p => p.t1)), start = performance.now(), fin = new Uint8Array(parts.length);
       const tick = () => { const now = (performance.now() - start) / 1000; clear();
         parts.forEach((p, i) => { if (fin[i]) return; if (now >= p.t1) { p.done(g); fin[i] = 1; } else if (now > p.t0) p.at(lv, (now - p.t0) / (p.t1 - p.t0)); });
-        if (now < end + .05) raf = requestAnimationFrame(tick); else { W?.flush(); o.on?.('drawn'); } };
+        if (now < end + .05) raf = requestAnimationFrame(tick); else { W?.flush(); done('drawn'); } };
       raf = requestAnimationFrame(tick); return;
     }
     // still: what is in view first, the rest in the next idle moment, each in an order that changes the medium's ink as
@@ -669,18 +693,28 @@ export function rubricate(root, opts = {}) {
     // (a registry style's parts keep their places: reordered, its approved looks drift by a few pixels where marks cross)
     // (what lies under the line, a print's colours and lettering, first, as a printer lays the block over them)
     // (and what is written into the lines, a style's lettering marked `over`, last, once the lines are dry)
-    const draw = list => { const ps = partsOf(k, list, false), wr = ps.filter(p => p.it.written), wb = inkOrder(wr.filter(p => !p.under && !p.over)); let j = 0;
-      wr.forEach(p => p.under && p.done(g)); ps.forEach(p => p.under || p.over || (p.it.written ? wb[j++] : p).done(g)); W?.flush(); wr.forEach(p => p.over && p.done(g)); n += ps.length; };
-    draw(k.items.filter(it => it.y < fold)); const view = performance.now() - t0;
+    // (where the text lay when it was measured: the layer is remembered only if it lies there still once all is drawn)
+    const fp = key ? fingerprint(root, host) : null;
+    // (in the same order as ever, but handing the page back every few milliseconds, so the reader's scrolling and the text
+    // never wait on a long task; true if a newer drawing has begun meanwhile)
+    let t1 = performance.now();
+    const slice = async () => { if (performance.now() - t1 < 10) return false; await (globalThis.scheduler?.yield?.() ?? new Promise(r => setTimeout(r))); t1 = performance.now(); return !alive || tok !== gen; };
+    const draw = async list => { for (const it of list) if (it.written && !it.marks) { made([it], k.c, false); if (await slice()) return true; }
+      const ps = partsOf(k, list, false), wr = ps.filter(p => p.it.written), wb = inkOrder(wr.filter(p => !p.under && !p.over)); let j = 0;
+      const seq = [...wr.filter(p => p.under), ...ps.filter(p => !p.under && !p.over).map(p => p.it.written ? wb[j++] : p), null, ...wr.filter(p => p.over)];
+      // (a registry style's stamped marks are laid without a pause: the 2D canvas may raster a stroke cut across tasks a level differently)
+      for (const p of seq) { if (p) p.done(g); else W?.flush(); if ((!p || p.it.written) && await slice()) return true; }
+      n += ps.length; return false; };
+    if (await draw(k.items.filter(it => it.y < fold))) return; const view = performance.now() - t0;
     await new Promise(r => (self.requestIdleCallback ?? setTimeout)(r, { timeout: 200 }));
     if (!alive || tok !== gen) return;
-    draw(k.items.filter(it => it.y >= fold)); state.draw = performance.now() - t0 - state.grow;
+    if (await draw(k.items.filter(it => it.y >= fold))) return; state.draw = performance.now() - t0 - state.grow;
     const w = W; (self.requestIdleCallback ?? setTimeout)(() => { if (W === w) { W?.destroy(); W = null; } });   // the medium let go once all is written
-    o.on?.('drawn', { grow: Math.round(state.grow), draw: Math.round(state.draw), view: Math.round(view), all: Math.round(performance.now() - t0), parts: n });
+    done('drawn', { grow: Math.round(state.grow), draw: Math.round(state.draw), view: Math.round(view), all: Math.round(performance.now() - t0), parts: n });
     // kept for next time, if the text still falls where it fell while it was drawn
     if (fp) (self.requestIdleCallback ?? setTimeout)(() => { if (!alive || tok !== gen || fingerprint(root, host) !== fp) return;
       const sr = parseFloat(base.style.width), sh = parseFloat(base.style.height);
-      remember(key, { fp, ini: inis().map(e => e.getAttribute('style')), orn: root.style.getPropertyValue('--orn'), seed: state.seed, w: sr, h: sh }, base).then(() => { state.stored = true; }, e => console.warn('illum: not remembered', e)); });
+      lib().then(L => remember(key, { lib: L, fp, ini: inis().map(e => e.getAttribute('style')), orn: root.style.getPropertyValue('--orn'), seed: state.seed, w: sr, h: sh }, base)).then(() => { state.stored = true; }, e => console.warn('illum: not remembered', e)); });
   }
   // As you read: each ornament is its own small score, unwritten until its line comes up into the reading window (an
   // IntersectionObserver on a sentinel at that line, firing 15% into the viewport from the bottom); a written style's
@@ -724,7 +758,7 @@ export function rubricate(root, opts = {}) {
         if (gr.fin.every(Boolean)) { gr.state = 'done'; readDone.add(groups.indexOf(gr)); active.splice(k--, 1); } }
       if (state.frames.length < 2000) state.frames.push(performance.now() - now);
       if (active.length || queue.length) raf = requestAnimationFrame(tick);
-      else { running = false; W?.flush(); if (groups.every(g => g.state === 'done')) o.on?.('written'); }
+      else { running = false; W?.flush(); if (groups.every(g => g.state === 'done')) done('written'); }
     };
     io = new IntersectionObserver(es => { es.filter(e => e.isIntersecting).map(e => groups[+e.target.dataset.g]).sort((a, b) => a.y - b.y)
         .forEach(gr => { if (gr.state === 'waiting') { gr.state = 'queued'; gr.initial = firstBatch; queue.push(gr); } }); firstBatch = false; es.forEach(e => e.isIntersecting && io.unobserve(e.target)); if (queue.length) kick(); },

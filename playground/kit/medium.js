@@ -142,9 +142,10 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   const clearT = f => { gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); };
   const S = { rough, ink, paper, rim: 0, density: 1, base: .62, drying: 500 };
 
-  function makePaper(off = [0, 0]) { gl.viewport(0, 0, W, H); gl.bindFramebuffer(gl.FRAMEBUFFER, F.paper); gl.disable(gl.BLEND); gl.useProgram(P.paper.p);
+  // sc: only this rect [x, y, w, h] (device px, y down) of the sheet, where a window wants it
+  function makePaper(off = [0, 0], sc = null) { gl.viewport(0, 0, W, H); if (sc) { gl.enable(gl.SCISSOR_TEST); gl.scissor(sc[0], sc[1], sc[2], sc[3]); } gl.bindFramebuffer(gl.FRAMEBUFFER, F.paper); gl.disable(gl.BLEND); gl.useProgram(P.paper.p);
     gl.uniform2f(P.paper.u('uOff'), off[0], off[1]);
-    gl.uniform1f(P.paper.u('uSeed'), seed % 97); gl.uniform1f(P.paper.u('uPx'), 1 / dpr); gl.uniform1f(P.paper.u('uRough'), S.rough); run(P.paper); }
+    gl.uniform1f(P.paper.u('uSeed'), seed % 97); gl.uniform1f(P.paper.u('uPx'), 1 / dpr); gl.uniform1f(P.paper.u('uRough'), S.rough); run(P.paper); gl.disable(gl.SCISSOR_TEST); }
   function clear() { nb = 0; for (const t of [...T.dry, ...T.wet, T.stroke]) { const f = fbo(t); clearT(f); gl.deleteFramebuffer(f); } wetting = 0; area = null; }
   // where there is ink: the union of everything swept since the last clear (outside it every layer is empty in both
   // ping-pong buffers, so the flow need only run inside it)
@@ -206,12 +207,12 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   const pour = () => { wetting = Math.max(wetting, 12000); };
   // dry it all now: one step with the water gone settles every bit of wet ink where it lies
   function finish() { if (wetting > 0) { wetting = 1; step(1); } }
-  function render() {
-    drawBatch();
+  function render(sc = null) {
+    drawBatch(); if (sc) { gl.enable(gl.SCISSOR_TEST); gl.scissor(sc[0], H - sc[1] - sc[3], sc[2], sc[3]); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H); const pr = P.render; gl.useProgram(pr.p);
     bind(pr, 'uDry', 0, T.dry[cur]); bind(pr, 'uWet', 1, T.wet[cur]); bind(pr, 'uPaper', 2, T.paper);
     gl.uniform3f(pr.u('uPaperRGB'), ...S.paper.map(c => c / 255)); gl.uniform1f(pr.u('uBase'), S.base); gl.uniform3f(pr.u('uInk'), ...S.ink.map(c => c / 255)); gl.uniform1f(pr.u('uOver'), S.over ? 1 : 0);
-    gl.uniform3f(pr.u('uK'), ...S.ink.map((c, i) => -Math.log(Math.max(.02, c / S.paper[i])) / S.density)); run(pr);
+    gl.uniform3f(pr.u('uK'), ...S.ink.map((c, i) => -Math.log(Math.max(.02, c / S.paper[i])) / S.density)); run(pr); gl.disable(gl.SCISSOR_TEST);
   }
   // how wet the ink is, 0 (a dry, quick ink: barely moves) .. 1 (a wet, slow ink: merges, softens, creeps).
   // The pigment hardly travels on sized paper: the level is kept small, or a hairline is spread over three pixels

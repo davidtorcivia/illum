@@ -14,11 +14,14 @@ export function launch() {
 export async function open(b, { width = 1440, height = 1000, dpr = 1, dark = false } = {}) {
   const p = await b.newPage(); await p.setViewport({ width, height, deviceScaleFactor: dpr });
   await p.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: dark ? 'dark' : 'light' }]);
-  p.on('pageerror', e => console.log('pageerror:', e.message)); return p;
+  p.on('pageerror', e => console.log('pageerror:', e.message));
+  await p.evaluateOnNewDocument(() => addEventListener('illum:drawn', () => { window.__illumDrawn = (window.__illumDrawn ?? 0) + 1; }));   // (a page that sets no data-timing)
+  return p;
 }
-// load and wait until the page says it has drawn (body.dataset.timing, anything but 'reading' unless asked)
+// load and wait until the page says it has drawn (body.dataset.timing, anything but 'reading' unless asked; or, on a page
+// that sets none, rubricate's illum:drawn)
 export async function load(p, url, { reading = false, timeout = 60000 } = {}) {
   await p.goto('about:blank'); await p.goto(url, { waitUntil: 'load' });
-  await p.waitForFunction(r => { const t = document.body.dataset.timing; return t && (r || t !== 'reading'); }, { timeout }, reading);
-  return p.evaluate(() => document.body.dataset.timing);
+  await p.waitForFunction(r => { const t = document.body.dataset.timing; return t && (r || t !== 'reading') || (!t && window.__illumDrawn); }, { timeout }, reading);
+  return p.evaluate(() => document.body.dataset.timing || 'illum:drawn');
 }

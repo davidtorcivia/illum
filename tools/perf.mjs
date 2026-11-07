@@ -37,6 +37,8 @@ const PROBE = baked => {
   const di = G.drawArraysInstanced; G.drawArraysInstanced = function (...a) { P.inst = (P.inst ?? 0) + a[3]; return di.apply(this, a); };
   const gc = HTMLCanvasElement.prototype.getContext;
   HTMLCanvasElement.prototype.getContext = function (k, ...a) { const t = performance.now(), r = gc.call(this, k, ...a); if (k === 'webgl2' && r && !this.__c) { this.__c = 1; P.ctx++; P.ctxms = (P.ctxms ?? 0) + performance.now() - t; } return r; };
+  // the page says it has drawn: its data-timing, or rubricate's illum:drawn event (the last of them, for a page of several texts)
+  addEventListener('illum:drawn', () => { P.all = performance.now(); P.timing ??= 'illum:drawn'; });
   addEventListener('DOMContentLoaded', () => new MutationObserver(() => { const t = document.body.dataset.timing; if (t && t !== 'reading' && !P.all) { P.all = performance.now(); P.timing = t; } })
     .observe(document.body, { attributes: true, attributeFilter: ['data-timing'] }));
 };

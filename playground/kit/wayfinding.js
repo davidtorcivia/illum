@@ -9,6 +9,7 @@
 // colour). The fillers there are painted bars with pen detail; here they are pen only, the same hand as kit/penwork.js.
 // Every function takes `rich` 0..1: what the rubricator was paid to do.
 import { tendril, resample, stream, noise1 } from './marks.js';
+import { STYLES as REGISTRY } from './registry.js';
 
 export const wander = (p, amp, seed, scale = 20) => { const n = noise1(seed), q = resample(p, 1);
   return q.map((pt, i) => { const a = q[Math.max(0, i - 1)], b = q[Math.min(q.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, o = (n(i / scale) - .5) * 2 * amp;
@@ -170,7 +171,7 @@ const dotOutline = (pts, c, gap, step, col, r) => { const out = [], q = resample
 const fitN = (L, p) => { const n = Math.max(1, Math.round(L / p)); return { n, p: L / n }; };
 const pickKinds = (r, all, min = 2) => { const k = [...all].sort(() => r() - .5); return k.slice(0, Math.max(min, Math.round(min + r() * (all.length - min)))); };
 
-export const STYLES = {
+export const STYLES = Object.assign(REGISTRY, {
   // ---- Italian Gothic choir book: the set first made (466179, 466376, 466773)
   gothic: { label: 'Gothic', pair: ['red', 'blue'], alternate: true, minGap: 1.4,
     ink: { red: { solid: [200, 66, 40], hair: [212, 100, 74] }, blue: { solid: [40, 70, 160], hair: [56, 84, 166] } },
@@ -366,7 +367,7 @@ export const STYLES = {
         out.push(hair([[a, y], [b, y]], 'b', { w: .45, start: 'cut', end: rank >= 2 && rich >= .5 ? 'cut' : 'taper' }));
         if (rank >= 2 && rich >= .5) out.push(hair(hook([b, y], s > 0 ? 0 : Math.PI, u * .35, s), 'b', { end: 'ball' })); }
       return out; } },
-};
+});
 
 // ==== contemporary styles =======================================================================================================
 // Not pastiche of a book: each a movement or a hand with its own point of view, drawn with the same pen. A style may

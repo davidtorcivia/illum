@@ -13,12 +13,22 @@ import { createMedium, Pen } from './medium.js';
 
 const arclen = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
 
+// The ink engine wants a real GPU: WebGL2 with float targets, not a software rasteriser (SwiftShader, llvmpipe, WARP: there a
+// page of ink takes tens of seconds, nearly all of it in copying each window back). Without one the stamped pen draws the
+// lines and the letters are laid flat (kit/inkletter.js), as with ink: 'pen'. Asked once a page.
+let ok = null;
 export function supported() {
-  try { return !!document.createElement('canvas').getContext('webgl2')?.getExtension('EXT_color_buffer_float'); } catch { return false; }
+  if (ok !== null) return ok;
+  try { const gl = document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true });
+    if (!gl?.getExtension('EXT_color_buffer_float')) return ok = false;
+    const info = gl.getExtension('WEBGL_debug_renderer_info'), name = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return ok = !/swiftshader|llvmpipe|softpipe|lavapipe|software|basic render|warp/i.test(name); }
+  catch { return ok = false; }
 }
 
 export function createWriter(host, bake, { dpr = Math.min(2, devicePixelRatio || 1), dark = false, size = [1100, 800] } = {}) {
-  let cv = null, M = null, pen = null, win = null, ink = null, dirty = false, baseAngle = .62;
+  let shown = false, cv = null, M = null, pen = null, win = null, ink = null, dirty = false, baseAngle = .62;
   // a window at least `size`, larger if one mark needs it, and never wider than the page
   const page = () => [host.scrollWidth || host.clientWidth, host.scrollHeight || host.clientHeight];
   function open(bb) {
@@ -27,7 +37,7 @@ export function createWriter(host, bake, { dpr = Math.min(2, devicePixelRatio ||
     if (!cv || cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
       kill(); cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true');
       cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-      Object.assign(cv.style, { position: 'absolute', width: w + 'px', height: h + 'px', pointerEvents: 'none' });
+      Object.assign(cv.style, { position: 'absolute', width: w + 'px', height: h + 'px', pointerEvents: 'none', visibility: shown ? '' : 'hidden' });
       host.appendChild(cv);
       M = createMedium(cv, { dpr, paper: [255, 255, 255] }); M.wetness(0); M.settings.over = true;
       pen = new Pen(M, { exact: true, flex: .15, use: .6 }); baseAngle = pen.angle;
@@ -41,7 +51,7 @@ export function createWriter(host, bake, { dpr = Math.min(2, devicePixelRatio ||
     M.finish(); M.render();
     bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = 'source-over';
     bake.drawImage(cv, win[0] * dpr, win[1] * dpr); bake.restore();
-    M.clear(); M.render(); dirty = false;
+    M.clear(); if (shown) M.render(); dirty = false;
   }
   function kill() { if (cv) { cv.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext(); cv.remove(); } cv = M = pen = null; }
   function ensure(bb, rgb) {
@@ -77,7 +87,7 @@ export function createWriter(host, bake, { dpr = Math.min(2, devicePixelRatio ||
           if (h.dip) { if (pen.charge < .45) pen.dip(); pen.width = h.w; pen.hairline = h.hair; pen.angle = h.angle ?? baseAngle; }
           else if (h.lift) { pen.update(ht); pen.lift(); if (live) M.step(16); }
           else pen.hand(h.x - ox, h.y - oy, h.p, ht, h.wm); }
-        pen.update(t); M.step(Math.min(50, Math.max(1, t - last))); last = t; M.render(); dirty = true;
+        pen.update(t); M.step(Math.min(50, Math.max(1, t - last))); last = t; if (live) { M.render(); if (!shown) { shown = true; cv.style.visibility = ''; } } dirty = true;
       },
       done() { self.at(1 + 1e-6, false); } };
     return self;

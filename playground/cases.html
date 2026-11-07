@@ -146,7 +146,7 @@ for (const el of boxes(document))
   <span role="group" aria-label="Ink">in <button data-k="ink" data-v="medium">ink</button> or <button data-k="ink" data-v="pen">the stamped pen</button></span> · seed <span id="seed"></span> · <span id="timing"></span>
 </p>
 <script type="module">
-import { rubricate, STYLES } from './kit/illum.js';
+import { rubricate, STYLES } from './kit/all.js';
 import { audit } from './kit/audit.js';
 
 const q = new URLSearchParams(location.search), art = document.querySelector('.text'), sd = location.hash.match(/seed=(\d+)/)?.[1];

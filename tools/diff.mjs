@@ -6,6 +6,7 @@
 // env: W=1440,390 (viewport widths)  THEMES=light,dark (prefers-color-scheme)  DPR=1  OUT=dir (writes a.png, b.png and
 // diff.png per case: differing pixels red over a faded b)  SETTLE=ms (wait after the page says it has drawn)
 // CLIP=selector (compare that element only, e.g. '.sheet' when the colophons differ)  PRIME=1|ms, BAKED=url (see below)
+// QA=query: appended to A's address only (QA=nocache: A drawn live, B as a reader would get it)
 import { launch, open, load } from './chrome.mjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 const [A, B, ...paths] = process.argv.slice(2);
@@ -19,7 +20,7 @@ for (const path of paths) for (const width of widths) for (const theme of themes
   for (const base of [A, B]) { const p = await open(b, { width, height: 1000, dpr, dark: theme === 'dark' });
     // BAKED=url: B's text (.text) given data-baked, so B is drawn from a shipped bake (tools/bake.mjs)
     if (process.env.BAKED && base === B) await p.evaluateOnNewDocument(u => addEventListener('DOMContentLoaded', () => { const t = document.querySelector('.text'); if (t) t.dataset.baked = u; }), process.env.BAKED);
-    const t = await load(p, `${base}/${path}`); await new Promise(r => setTimeout(r, +(process.env.SETTLE ?? 300)));
+    const q = base === A && process.env.QA ? (path.includes('?') ? '&' : '?') + process.env.QA : '', t = await load(p, `${base}/${path}${q}`, { timeout: 120000 }); await new Promise(r => setTimeout(r, +(process.env.SETTLE ?? 300)));
     shots.push({ png: await (process.env.CLIP ? await p.$(process.env.CLIP) : p).screenshot({ fullPage: !process.env.CLIP, encoding: 'base64' }), t }); await p.close(); }
   const p = await open(b), r = await p.evaluate(async (a, c) => {
     const img = async s => { const bm = await createImageBitmap(await (await fetch('data:image/png;base64,' + s)).blob()), cv = new OffscreenCanvas(bm.width, bm.height), g = cv.getContext('2d'); g.drawImage(bm, 0, 0); return g.getImageData(0, 0, bm.width, bm.height); };

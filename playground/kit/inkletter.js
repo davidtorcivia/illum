@@ -9,6 +9,7 @@
 //   dist(feat, w, h, nearest?)                          the distance transform the letter is read with
 // (Moved from kit/styles/blackletter.js unchanged, so the approved letter is the same to the pixel.)
 import { createMedium } from './medium.js';
+import { supported } from './writer.js';
 import { noise2, fnv } from './marks.js';
 
 // Distance (cells) from every cell to the nearest cell where feat is set: two sweeps carrying the offset to the nearest
@@ -46,15 +47,18 @@ let shared = null;
 function mediumFor(w, h, dpr) {
   if (shared && shared.cv.width >= w && shared.cv.height >= h && shared.dpr === dpr && !shared.gl.isContextLost()) return shared;
   shared?.gl.getExtension('WEBGL_lose_context')?.loseContext();
+  // (made again, as large as needed, when a larger letter comes: sized any other way, the sheet's arithmetic moves a few of
+  // its pixels by a level or two, so the approved letters keep exactly this sequence of sizes)
   const cv = document.createElement('canvas'); cv.width = Math.max(w, 640); cv.height = Math.max(h, 640);
   const Md = createMedium(cv, { dpr, paper: [255, 255, 255] }), gl = Md.gl; Md.settings.over = true;
   return shared = { cv, Md, gl, dpr };
 }
 // make the shared medium now (loadFace does, while the font is on its way)
-export function warmInk(dpr = Math.min(2, globalThis.devicePixelRatio || 1)) { try { mediumFor(1, 1, dpr); } catch {} }
+export function warmInk(dpr = Math.min(2, globalThis.devicePixelRatio || 1)) { if (!supported()) return; try { mediumFor(1, 1, dpr); } catch {} }
 // If the ink engine is unavailable or fails (no WebGL2, a lost context), the letter is still laid, flat in its colour:
 // a drop cap must never come out blank.
 export function inkLetter(bake, L, rgb, opts = {}) {
+  if (!supported()) return flatLetter(bake, L, rgb);
   try { inkLetterMedium(bake, L, rgb, opts); }
   catch (e) { console.warn('illum: ink engine unavailable, the letter is laid flat', e); flatLetter(bake, L, rgb); }
 }
@@ -77,10 +81,10 @@ const windowOf = (L, dpr, pad = 5) => { const ox = Math.floor(L.x0 * dpr) / dpr 
 function inkLetterMedium(bake, L, rgb, { dpr = 2, wet = L.wet ?? .1, dry = L.dry ?? .22 } = {}) {
   active?.done();   // a letter being written is finished first: they share the medium
   const { ox, oy, cw, ch, rect } = windowOf(L, dpr), { cv, Md } = mediumFor(cw, ch, dpr);
-  Md.clear(); Md.wetness(wet); Md.settings.ink = rgb; Md.makePaper([ox * dpr, oy * dpr]);
+  Md.clear(); Md.wetness(wet); Md.settings.ink = rgb; Md.makePaper([ox * dpr, oy * dpr], [0, 0, cw, ch]);   // (paper and render: only the window)
   Md.pour(deposit(L, dry), L.w, L.h, rect);
   for (let k = 0; k < 24; k++) Md.step(16);
-  Md.finish(); Md.render();
+  Md.finish(); Md.render([0, 0, cw, ch]);
   bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = 'source-over'; bake.drawImage(cv, 0, 0, cw, ch, Math.round(ox * dpr), Math.round(oy * dpr), cw, ch); bake.restore();
 }
 
@@ -153,6 +157,8 @@ function letterOrder(L) {
 // of the whole; done() finishes at once.
 let active = null;
 export function letterWriter(bake, L, { k, r }, { dpr = 2, host, below, wet = L.wet ?? .1, dry = L.dry ?? .22, split = .72 } = {}) {
+  if (!supported()) { let fin = false; const lay = () => { if (fin) return; fin = true; if (L.red) flatLetter(bake, { ...L, M: L.red }, r); flatLetter(bake, L, k); };   // (laid flat, at once)
+    return { at() {}, done: lay }; }
   const { order } = letterOrder(L), n = order.length, phases = [{ M: L.M, rgb: k, f0: 0, f1: L.red ? split : 1, op: 'source-over' }];
   if (L.red) { const T = letterOrder(L).T, red = []; for (let q = 0; q < L.w * L.h; q++) if (L.red[q] > .01) red.push(q); red.sort((a, b) => T[a] - T[b]);
     phases.push({ M: L.red, rgb: r, f0: split, f1: 1, op: 'destination-over', order: Int32Array.from(red) }); }

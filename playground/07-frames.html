@@ -147,7 +147,7 @@ for (const el of boxes(document))
   <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the frames are"> richer</label></p>
 
 <script type="module">
-import { rubricate } from './kit/illum.js';
+import { rubricate } from './kit/all.js';
 
 const q = new URLSearchParams(location.search), art = document.querySelector('.text'), sd = location.hash.match(/seed=(\d+)/)?.[1];
 if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');

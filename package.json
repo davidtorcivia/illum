@@ -3,6 +3,18 @@
   "private": true,
   "type": "module",
   "description": "Tools for illuminating websites. The library itself has no dependencies; these are for looking at it.",
+  "exports": {
+    ".": "./playground/kit/illum.js",
+    "./rubricate": "./playground/kit/illum.js",
+    "./rubricate/all": "./playground/kit/all.js",
+    "./core/cache": "./playground/kit/cache.js",
+    "./core/medium": "./playground/kit/medium.js",
+    "./core/writer": "./playground/kit/writer.js",
+    "./core/inkletter": "./playground/kit/inkletter.js",
+    "./core/marks": "./playground/kit/marks.js",
+    "./core/registry": "./playground/kit/registry.js",
+    "./styles/*": "./playground/kit/styles/*.js"
+  },
   "license": "MIT",
   "devDependencies": {
     "puppeteer-core": "23.11.1"
