@@ -53,6 +53,7 @@
   <label>flat <input type="range" id="angle" min="0" max="1.3" step=".01" value=".62"> steep</label>
   <label>stiff <input type="range" id="flex" min="0" max="2" step=".01" value=".8"> flexible</label>
   <label>generous <input type="range" id="use" min=".2" max="4" step=".01" value="1"> sparing</label>
+  <label>dry <input type="range" id="wet" min="0" max="1" step=".01" value=".25"> wet</label>
   <label>smooth <input type="range" id="rough" min="0" max="1" step=".01" value=".6"> toothy</label>
   <button id="replay">write the D</button> <button id="clear">a fresh sheet</button>
 </div>
@@ -94,12 +95,13 @@ document.getElementById('replay').onclick = () => {
 };
 document.getElementById('clear').onclick = () => { pen.lift(); M.clear(); pen.dip(); pen.width = val('width'); };
 for (const id of ['width', 'angle', 'flex', 'use']) document.getElementById(id).addEventListener('input', () => pen[id] = val(id));
+document.getElementById('wet').addEventListener('input', () => M.wetness(val('wet')));
 document.getElementById('rough').addEventListener('input', () => { M.settings.rough = val('rough'); M.makePaper(); });
 
 function frame(now) {
   while (replay.length && replay[0].at <= now) { const r = replay.shift();
     if (r.dip) { pen.dip(); pen.width = r.width; } else if (r.lift) { pen.update(r.at); pen.lift(); pen.width = val('width'); } else pen.hand(r.x, r.y, r.p, r.at); }
-  pen.update(now); M.dry(Math.min(50, now - (frame.t ?? now))); frame.t = now; M.render();
+  pen.update(now); M.step(Math.min(50, now - (frame.t ?? now))); frame.t = now; M.render();
   const f = pen.pos ? [pen.pos[0] * dpr, pen.pos[1] * dpr] : (frame.f ?? [cv.width / 2, cv.height / 2]); frame.f = f;
   lg.imageSmoothingEnabled = true; lg.imageSmoothingQuality = 'high'; lg.drawImage(cv, f[0] - 75, f[1] - 75, 150, 150, 0, 0, 600, 600);
   document.body.dataset.timing = 'live';
