@@ -46,6 +46,40 @@
                 outlining of the Lindisfarne Gospels and the Book of Kells; not studied from a scan in this session).
     hypertext   our own, of the web: ink and one link blue; an open hairline pilcrow, a dotted leader ending in the drawn
                 newline (↵), the asterism between parts.
+  Contemporary (named sources; mostly in copyright, studied from the works, not open scans):
+    doodle      a sketchbook margin in one blue ballpoint: stars, spirals, arrows, hatching, loops, all wobbling.
+    cyber       the HUD and terminal type of Akira (1988) and Ghost in the Shell (1995), on a dark ground: chevrons,
+                circuit traces, ruled scales, glitch doubles, bracketed diamonds.
+    swiss       Müller-Brockmann (Grid Systems, 1981) and Ruder (Typographie, 1967): a red bullet, rules, flush left.
+    memphis     Sottsass and Memphis, 1981: squiggles, confetti, triangles, pink, teal, yellow and black.
+    riso        a two-drum risograph zine: fluorescent pink and blue overprinted (multiply), out of register.
+    deco        Cassandre (Nord Express 1927, Normandie 1935): chevrons, speed lines, stepped ziggurat, sunburst.
+  Other systems of wayfinding:
+    carto       map conventions: a pin for "you are here", dashed routes with waypoint and flag, rail, river,
+                hachures; a scale bar between chapters, a compass rose between books.
+    score       musical notation: an eighth note with a breath mark, a staff with a tune closing the line, a slur, a
+                trill; a fermata between chapters, coda and repeat bars between books.
+    blueprint   the technical drawing on a cyanotype ground: a section marker, dimension lines, centre lines,
+                section hatching; section A–A between chapters, a title block between books.
+  Considered and left for now: Kelmscott vine fillers, Art Nouveau whiplash, Spencerian offhand flourishes,
+  Constructivist bars, botanical field notes (depth of variation was preferred to count).
+
+  The grammar (kit/wayfinding.js grammar()): no two marks alike. Per instance, seeded by position: the pattern's
+  period and band, a lead, a terminal at each end (a point, a tick, a hook, a curl) that joins the pattern's line, the
+  effort (each mark a little richer or plainer than the page's budget), a paraph's size and lean, a break's span. Per
+  copy, the hand's habits: which terminals it favours, its lead, the height of its fillers. ?specimen shows a style
+  as a pattern book (twenty fillers, twelve paraphs, its breaks); ?sweep shows every style's paraph over thirty seeds.
+
+  Scale: ?scale=0.5..2 (or data-scale, or the colophon's second slider) sizes the ornament independently of the
+  text: every mark is made at unit size and scaled about its anchor, fillers over the gap / scale so they still end
+  exactly at the measure; strokes thicken in proportion, thin by the square root; the paragraph indent widens to
+  hold a larger paraph. Curves are subdivided to under a pixel at their drawn size; a free hairline end lifts.
+  The guard: nothing is drawn touching a word; a paraph that would is drawn smaller about its foot.
+  ?audit reports collisions with text and overlaps (tools: scratchpad audit6.mjs runs every style at 1, 1.5, 2).
+
+  ?draw=read (data-draw="read", or "as you read" in the colophon): illuminated as you read. Each ornament is written
+  when its line comes 15% into the viewport, one at a time in reading order; scrolled-past ones are hurried or laid
+  down at once; nothing runs when idle; relayout keeps what is written.
   Within each style the seed varies which filler kinds a copy uses, their rhythm and small motifs.
   A Qur'anic or Hebrew set was left out: verse markers and their place in the line deserve study from real folios first.
   Seed: a hash of the text; #seed=N overrides. ?draw plays it as the rubricator went through the book, down the page
@@ -74,7 +108,7 @@
   .chapter + .chapter { padding-top: 2.6em; }
   h3 { font-weight: 400; font-size: 1em; color: var(--rubric); margin: 0 0 .35em; text-align: left; hyphens: manual; }
   h3 .num { font-variant: small-caps; letter-spacing: .04em; }
-  p { margin: 0; } .chapter p + p { text-indent: 1.6em; }
+  p { margin: 0; } .chapter p + p { text-indent: max(1.6em, calc(.65em + var(--orn, 1) * .72em)); }
   .colophon a { color: inherit; }
   .colophon { max-width: 900px; margin: 0 auto; padding: 0 100px 60px 200px; box-sizing: border-box; font-size: 14px; font-style: italic; opacity: .6; }
   .rich { display: inline-flex; align-items: center; gap: .45em; white-space: nowrap; }
@@ -136,13 +170,14 @@
     </section>
   </article>
 </main>
-<p class="colophon">Rubricated by illum, wayfinding, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch it rubricated</a>.
-  <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the pen marks are"> richer</label><br>
+<p class="colophon">Rubricated by illum, wayfinding, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch it rubricated</a>, or <a href="#" id="asread">as you read</a>.
+  <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the pen marks are"> richer</label>
+  <label class="rich">smaller <input type="range" id="scale" min="0.5" max="2" step="0.25" aria-label="How large the pen marks are"> larger</label><br>
   <span class="styles" role="group" aria-label="Tradition of rubrication">In the manner of </span></p>
 
 <script type="module">
 import { pen, dot, fnv, stream } from './kit/marks.js';
-import { STYLES } from './kit/wayfinding.js';
+import { STYLES, grammar } from './kit/wayfinding.js';
 
 const q = new URLSearchParams(location.search), art = document.querySelector('.text');
 const text = art.textContent.replace(/\s+/g, ' ').trim();
@@ -152,7 +187,20 @@ let RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? art.dataset.rich 
 // the two colours: red (vermilion) and blue (azurite); a paraph is solid, a hairline paler as thin ink is
 // the style: a tradition of rubrication (kit/wayfinding.js STYLES), ?style= or data-style; each has its own colours
 let STYLE = STYLES[q.get('style') ?? art.dataset.style] ? (q.get('style') ?? art.dataset.style) : 'gothic';
-const st = () => STYLES[STYLE], pairAt = k => st().alternate ? st().pair[k % 2] : st().pair[0];
+// the ornament's size, independent of the text's: ?scale=0.5..2, or data-scale on the article
+let SCALE = Math.max(.5, Math.min(2, parseFloat(q.get('scale') ?? art.dataset.scale ?? '1') || 1));
+let PAPER_NOW = [244, 238, 226];
+// a style may set the page's rubric colour, and (cyber) a dark ground and light text, through CSS variables; the
+// paragraph indent widens if the paraphs are drawn large
+function applyTheme() {
+  const t = STYLES[STYLE].theme ?? {}, root = document.documentElement.style;
+  if (t.rubric) root.setProperty('--rubric', t.rubric); else root.removeProperty('--rubric');
+  if (t.dark) { root.setProperty('--paper', `rgb(${t.ground.join(' ')})`); root.setProperty('--ink', t.text); root.colorScheme = 'dark'; PAPER_NOW = t.ground; }
+  else { root.removeProperty('--paper'); root.removeProperty('--ink'); root.colorScheme = ''; PAPER_NOW = [244, 238, 226]; }
+  art.style.setProperty('--orn', SCALE);
+}
+applyTheme();
+const GRAM = {}, st = () => GRAM[STYLE] ??= grammar(STYLES[STYLE]), pairAt = k => st().alternate ? st().pair[k % 2] : st().pair[0];
 const other = c => { const [a, b] = st().pair; return c === a ? b : a; };
 
 // font metrics, for baselines and the x-height band
@@ -161,6 +209,18 @@ const metric = font => { const c = document.createElement('canvas').getContext('
 const lines = (el, origin) => { const rg = document.createRange(); rg.selectNodeContents(el);
   return [...rg.getClientRects()].filter(r => r.width > .5).map(r => ({ l: r.left - origin.left, t: r.top - origin.top, r: r.right - origin.left, b: r.bottom - origin.top })); };
 
+// ?specimen: the current style as a pattern book: twenty fillers of different lengths and twelve paraphs, all from one
+// copy's grammar, so the variation within the style can be seen at once (the text is hidden, not changed)
+function specimen(g, sr) {
+  const S = st(), V = S.setup(SEED), u = 8 * SCALE, out = [], r = stream(SEED, 'spec'), x0 = 40, y0 = 60, kinds = S.kinds(V, RICH);
+  for (let k = 0; k < 20; k++) { const w = 60 + r() * 200, col = k % 2, y = y0 + k * 30, x = x0 + (k % 2 ? 300 : 0) * 0;
+    out.push({ y, a: S.pair[col % 2] ?? S.pair[0], type: 'filler', list: scaled(S.filler(x, x + w / SCALE, y - 8, y, kinds[k % kinds.length], SEED + 977 * k, RICH, V), x, y - 4) }); }
+  for (let k = 0; k < 12; k++) { const x = 380 + (k % 4) * 70, y = y0 + 40 + Math.floor(k / 4) * 70;
+    out.push({ y, a: S.alternate ? S.pair[k % 2] : S.pair[0], type: 'paraph', list: scaled(S.paraph(x, y, 8, SEED + 131 * k, RICH, V), x, y) }); }
+  out.push({ y: 0, a: S.pair[0], type: 'chapter', list: brk(560, y0 + 300, 360, 1, SEED + 5, 8) }, { y: 0, a: S.pair[1] ?? S.pair[0], type: 'book', list: brk(560, y0 + 380, 420, 2, SEED + 9, 8) });
+  return out;
+  function brk(cx, y, m, rank, seed, uu) { return scaled(S.breakMark(cx, y, m / SCALE, rank, seed, RICH, uu, V), cx, y); }
+}
 function compose() {
   const sheet = document.querySelector('.sheet'), sr = sheet.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
   const ctx = c => { c.width = Math.round(sr.width * dpr); c.height = Math.round(sr.height * dpr); c.style.width = sr.width + 'px'; c.style.height = sr.height + 'px';
@@ -168,6 +228,7 @@ function compose() {
   const g = ctx(document.getElementById('orn')), live = ctx(document.getElementById('live'));
   const marks = [];   // { y, list, a: colour name }  in reading order
   const S = st(), V = S.setup(SEED);   // the variation within the style for this copy
+  if (q.has('specimen')) { art.style.visibility = 'hidden'; marks.push(...specimen(g, sr)); }
   let nFill = 0;
   const fillAfter = (el, col, seed) => {
     const cs = getComputedStyle(el), fs = parseFloat(cs.fontSize), mt = metric(`${cs.fontStyle} ${cs.fontWeight} ${fs}px "EB Garamond"`), L = lines(el, sr);
@@ -176,56 +237,162 @@ function compose() {
     const x0 = right + fs * .35, x1 = measure, base = last[0].t + mt.asc;
     if (x1 - x0 < fs * S.minGap) return;
     const kinds = S.kinds(V, RICH), r = stream(seed, 'kind');
-    marks.push({ y: base, a: col, list: S.filler(x0, x1, base - mt.x, base, kinds[(r() * kinds.length) | 0], seed, RICH, V) }); nFill++;
+    const h = mt.x, mid = base - h / 2, k = kinds[(r() * kinds.length) | 0];
+    marks.push({ y: base, a: col, type: 'filler', list: scaled(S.filler(x0, x0 + (x1 - x0) / SCALE, mid - h / 2, mid + h / 2, k, seed, RICH, V), x0, mid) }); nFill++;
   };
   const u0 = metric('400 20px "EB Garamond"');
+  if (q.has('specimen')) return score(marks);
+  // a break at unit size about its centre, then scaled; a flush-left style keeps its left edge on the measure
+  const brk = (cx, y, measure, rank, seed, u) => { const L = S.breakMark(cx, y, measure / SCALE, rank, seed, RICH, u, V); return scaled(L, S.flush ? cx - measure / 2 : cx, y, S.flush ? cx - measure / (2 * SCALE) : cx); };
   document.querySelectorAll('.book').forEach((book, bi) => {
     const h2 = book.querySelector('h2'), hr = h2.getBoundingClientRect(), br = book.getBoundingClientRect(), fs = parseFloat(getComputedStyle(h2).fontSize);
     // the break above the book's head, in the room its padding leaves; the first book is opened by the title, so it
     // takes the device too: the same rank
     const u = parseFloat(getComputedStyle(art).fontSize) * u0.x / 20;
-    marks.push({ y: br.top - sr.top, a: pairAt(bi + 1), list: S.breakMark((hr.left + hr.right) / 2 - sr.left, (br.top + hr.top) / 2 - sr.top, hr.width, 2, SEED + 101 * bi, RICH, u, V) });
+    marks.push({ y: br.top - sr.top, a: pairAt(bi + 1), type: 'book', list: brk((hr.left + hr.right) / 2 - sr.left, (br.top + hr.top) / 2 - sr.top, hr.width, 2, SEED + 101 * bi, u) });
     book.querySelectorAll('.chapter').forEach((ch, ci) => {
       const h3 = ch.querySelector('h3'), cr = ch.getBoundingClientRect(), h3r = h3.getBoundingClientRect();
-      if (ci > 0) marks.push({ y: cr.top - sr.top, a: pairAt(ci + 1), list: S.breakMark((h3r.left + h3r.right) / 2 - sr.left, (cr.top + h3r.top) / 2 - sr.top + 2, h3r.width, 1, SEED + 101 * bi + 7 * ci, RICH, u, V) });
+      if (ci > 0) marks.push({ y: cr.top - sr.top, a: pairAt(ci + 1), type: 'chapter', list: brk((h3r.left + h3r.right) / 2 - sr.left, (cr.top + h3r.top) / 2 - sr.top + 2, h3r.width, 1, SEED + 101 * bi + 7 * ci, u) });
       fillAfter(h3, pairAt(1), SEED + 31 * bi + 3 * ci);
       ch.querySelectorAll('p').forEach((p, pi) => {
         const cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), mt = metric(`400 ${fs}px "EB Garamond"`), L = lines(p, sr);
         if (pi > 0 && L.length) {   // the paraph, in the indent; red and blue in turn, starting again each chapter
           const pr = p.getBoundingClientRect(), x = pr.left - sr.left + fs * .32, base = L[0].t + mt.asc;
-          marks.push({ y: base, a: pairAt(pi), list: S.paraph(x, base, mt.x, SEED + 997 * bi + 89 * ci + pi, RICH, V) });
+          marks.push({ y: base, a: pairAt(pi), type: 'paraph', ax: x, ay: base, list: scaled(S.paraph(x, base, mt.x, SEED + 997 * bi + 89 * ci + pi, RICH, V), x, base) });
         }
         fillAfter(p, pairAt(nFill), SEED + 1009 * bi + 113 * ci + 17 * pi);
       });
     });
   });
+  return score(marks);
+  function score(marks) {
   // the score: down the page as the rubricator went, each mark at a hand's pace, then compressed to ~14 s
-  const parts = []; let clock = .3;
-  marks.sort((m, n) => m.y - n.y).forEach((m, mi) => m.list.forEach((s, i) => {
-    const col = s.col === 'g' ? 'gold' : s.col === 'a' ? m.a : other(m.a), INK = S.ink[col] ?? S.ink[S.pair[0]];
-    if (s.dot) { parts.push(dotted(clock, s.p, s.r, INK.solid)); clock += .03; return; }
-    const ink = s.broad ? INK.solid : INK.hair;
-    const o = { w: s.w * (s.broad ? 1 : 1.1), ink, seed: (SEED + mi * 131 + i * 7) >>> 0, start: s.start, end: s.end, load: s.load ?? .85, dry: s.dry ?? .3, broad: s.broad ?? .3, swell: s.swell ?? .25, nib: s.nib ?? .55 };
-    const d = Math.max(.05, arclen(s.pts) / (s.broad ? 70 : 260)); parts.push(stem(clock, clock + d, s.pts, { ...o, live: 'cut' })); clock += d * .8;
-  }));
+  const parts = [], drawn = []; let clock = .3;
+  // the guard: after scaling, a stroke or point that would touch a word's box is not drawn (a flourish gives way)
+  const words = []; document.querySelectorAll('.text h1, .text .sub, .text h2, .text h3, .text p').forEach(el => words.push(...lines(el, sr)));
+  const touches = (x, y, R) => !q.has('specimen') && words.some(b => x + R > b.l - 1.5 && x - R < b.r + 1.5 && y + R > b.t + .5 && y - R < b.b - .5);
+  const hits = s => s.dot ? touches(s.p[0], s.p[1], s.r) : resampleLine(s.pts, .5).some(([x, y]) => touches(x, y, s.w / 2));
+  for (const m of marks) {
+    // a paraph is never broken: if it would touch a word it is drawn smaller about its foot until it does not
+    if (m.type === 'paraph') for (let f = .92; m.list.some(hits) && f > .55; f -= .08) m.list = m.list.map(s => { const g2 = ([x, y]) => [m.ax + (x - m.ax) * .92, m.ay + (y - m.ay) * .92];
+      return s.dot ? { ...s, p: g2(s.p), r: s.r * .92 } : { ...s, pts: s.pts.map(g2), w: Math.max(.32, s.w * .92) }; });
+    m.list = m.list.filter(s => !hits(s)); }
+  const groups = [];
+  marks.sort((m, n) => m.y - n.y).forEach((m, mi) => { const g0 = clock, from = parts.length; m.list.forEach((s, i) => {
+    const col = s.col === 'g' ? 'gold' : s.col === 'k' ? 'black' : s.col === 'a' ? m.a : other(m.a), INK = S.ink[col] ?? S.ink[S.pair[0]];
+    if (s.dot) { drawn.push({ mi, type: m.type, dot: s.p, r: s.r }); parts.push(dotted(clock, s.p, s.r, INK.solid, S.blend)); clock += .03; return; }
+    const ink = s.broad ? INK.solid : INK.hair, pts = refine(s.pts), ends = freeEnds(s, m.list);
+    const o = { w: s.w * (s.broad ? 1 : 1.1), ink, paper: PAPER_NOW, blend: S.blend, seed: (SEED + mi * 131 + i * 7) >>> 0, start: ends.start, end: ends.end, load: s.load ?? .85, dry: s.dry ?? .3, broad: s.broad ?? .3, swell: s.swell ?? .25, nib: s.nib ?? .55 };
+    drawn.push({ mi, type: m.type, pts, w: o.w, ends: [pts[0], pts.at(-1)] }); const d = Math.max(.05, arclen(pts) / (s.broad ? 70 : 260)); parts.push(stem(clock, clock + d, pts, { ...o, live: 'cut' })); clock += d * .8;
+  }); groups.push({ y: m.y, type: m.type, parts: parts.slice(from).map(p => ({ ...p, t0: p.t0 - g0, t1: p.t1 - g0 })) }); });
   let end = Math.max(.1, ...parts.map(p => p.t1)); const k = Math.min(1, 14 / end);
   if (k < 1) { parts.forEach(p => { p.t0 *= k; p.t1 *= k; }); end *= k; }
-  return { layers: [[g, live]], parts, end };
+  if (q.has('audit')) document.body.dataset.audit = JSON.stringify(audit(drawn, sr));
+  return { layers: [[g, live]], parts, end, groups };
+  }
 }
+// The audit (?audit): from the strokes as they will be drawn, count (1) points of ornament inside a word's box,
+// (2) pixels where marks of two different ornaments overlap, (3) pixels where two strokes of one ornament overlap away
+// from their ends (a doubling, not a join). Rerun by tools: see the report for 06.
+function audit(drawn, sr) {
+  const rects = []; document.querySelectorAll('.text h1, .text .sub, .text h2, .text h3, .text p').forEach(el => rects.push(...lines(el, sr)));
+  const W = Math.ceil(sr.width), H = Math.ceil(sr.height), own = new Int32Array(W * H), st = new Int32Array(W * H), hit = new Uint8Array(W * H);
+  const res = { text: 0, cross: 0, self: 0, byType: {} }, bump = (t, k) => { res.byType[t] ??= { text: 0, cross: 0, self: 0 }; res.byType[t][k]++; res[k]++; };
+  drawn.forEach((d, si) => {
+    const R = d.dot ? d.r : d.w / 2, samples = d.dot ? [d.dot] : resampleLine(d.pts, .5);
+    for (const [x, y] of samples) {
+      { const hitR = rects.find(b => x + R > b.l && x - R < b.r && y + R > b.t + 2 && y - R < b.b - 2); if (hitR) { bump(d.type, 'text'); if ((res.where ??= []).length < 6) res.where.push([d.type, Math.round(x), Math.round(y), Math.round(hitR.l), Math.round(hitR.t), Math.round(hitR.r), Math.round(hitR.b)]); } }
+      for (let j = Math.floor(y - R); j <= Math.ceil(y + R); j++) for (let i = Math.floor(x - R); i <= Math.ceil(x + R); i++) {
+        if (i < 0 || j < 0 || i >= W || j >= H || Math.hypot(i + .5 - x, j + .5 - y) > R + .25) continue; const c = j * W + i;
+        if (!own[c]) { own[c] = d.mi + 1; st[c] = si + 1; continue; }
+        if (own[c] !== d.mi + 1) { if (!(hit[c] & 1)) { hit[c] |= 1; bump(d.type, 'cross'); } continue; }
+        if (st[c] !== si + 1 && !(hit[c] & 2)) { const o = drawn[st[c] - 1], near = e => e && Math.hypot(e[0] - i, e[1] - j) < Math.max(3, (o.w ?? 1) * 3 + 2);
+          if (!d.dot && !o.dot && !near(d.ends[0]) && !near(d.ends[1]) && !near(o.ends?.[0]) && !near(o.ends?.[1])) { hit[c] |= 2; bump(d.type, 'self'); } } } }
+  });
+  return res;
+}
+const resampleLine = (p, ds) => { const out = [p[0]]; for (let i = 1; i < p.length; i++) { const a = p[i - 1], b = p[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(L / ds);
+  for (let k = 1; k <= n; k++) out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]); } return out; };
 const arclen = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
 // the parts of the score (after 01 and 03): a pen line lengthens behind its tip; a point is set down
 function stem(t0, t1, pts, o, layer = 0) {
   const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   const upTo = f => { const L = f * S[S.length - 1]; let i = 1; while (i < S.length - 1 && S[i] < L) i++;
     const u = (L - S[i - 1]) / ((S[i] - S[i - 1]) || 1), a = pts[i - 1], b = pts[i]; return [...pts.slice(0, i), [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]]; };
-  const { live = 'taper', ...po } = o;
-  return { t0, t1, layer, at: (g, f) => { const p = upTo(f); if (p.length > 1 && S[S.length - 1] * f > .6) pen(g, p, { ...po, end: live }); }, done: g => pen(g, pts, po) };
+  const { live = 'taper', blend, ...po } = o;
+  return { t0, t1, layer, at: (g, f) => { const p = upTo(f); if (p.length > 1 && S[S.length - 1] * f > .6) blended(g, blend, () => pen(g, p, { ...po, end: live })); }, done: g => blended(g, blend, () => pen(g, pts, po)) };
 }
-const dotted = (t, p, r, ink) => ({ t0: t, t1: t + .03, layer: 0, at: () => {}, done: g => dot(g, p, r, ink, undefined, .95) });
+// Curves are subdivided to under a pixel at their drawn size (Hermite through the points), so no corner shows on a
+// curve at any scale; a vertex that turns sharply (a zigzag, a chevron, a star) stays a corner, as the pen made it.
+function refine(pts) {
+  if (pts.length < 3) return pts; const n = pts.length, out = [pts[0]], sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
+  const turn = i => { if (i <= 0 || i >= n - 1) return 9; const a = sub(pts[i], pts[i - 1]), b = sub(pts[i + 1], pts[i]), la = Math.hypot(...a), lb = Math.hypot(...b);
+    return la < 1e-6 || lb < 1e-6 ? 0 : Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1]) / (la * lb)))); };
+  for (let i = 0; i < n - 1; i++) { const p1 = pts[i], p2 = pts[i + 1], L = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+    if (L < 1.2) { out.push(p2); continue; }
+    const d = sub(p2, p1), m1 = turn(i) < .75 ? sub(pts[i + 1], pts[i - 1]).map(c => c / 2) : d, m2 = turn(i + 1) < .75 ? sub(pts[i + 2], pts[i]).map(c => c / 2) : d, k = Math.ceil(L / .8);
+    for (let j = 1; j <= k; j++) { const t = j / k, t2 = t * t, t3 = t2 * t, h1 = 2 * t3 - 3 * t2 + 1, h2 = t3 - 2 * t2 + t, h3 = -2 * t3 + 3 * t2, h4 = t3 - t2;
+      out.push([0, 1].map(c => h1 * p1[c] + h2 * m1[c] + h3 * p2[c] + h4 * m2[c])); } }
+  return out;
+}
+// A hairline's square-cut end is right only where it meets another stroke (a join, hidden in it) or closes on itself;
+// anywhere else the pen lifts, so a free 'cut' end becomes a taper.
+function freeEnds(s, list) {
+  if (s.broad >= .5) return { start: s.start, end: s.end };
+  const near = (p, self) => list.some(o => o !== self && !o.dot && o.pts.some(q => Math.hypot(q[0] - p[0], q[1] - p[1]) < (o.w ?? .5) + (s.w ?? .5) + .6));
+  const closed = Math.hypot(s.pts[0][0] - s.pts.at(-1)[0], s.pts[0][1] - s.pts.at(-1)[1]) < 1;
+  const fix = (e, p) => e === 'cut' && !closed && !near(p, s) ? 'taper' : e;
+  return { start: fix(s.start, s.pts[0]), end: fix(s.end, s.pts.at(-1)) };
+}
+const blended = (g, mode, f) => { if (!mode) return f(); g.save(); g.globalCompositeOperation = mode; f(); g.restore(); };
+const dotted = (t, p, r, ink, mode) => ({ t0: t, t1: t + .03, layer: 0, at: () => {}, done: g => blended(g, mode, () => dot(g, p, r, ink, PAPER_NOW, .95)) });
+// a style's mark list at unit size, scaled about an anchor (ax, ay) by the ornament scale (fx: where the anchor was
+// generated, for a flush-left break). Strokes thicken in proportion when larger; when smaller they thin only by the
+// square root, so a hairline stays a line a pen could draw
+function scaled(list, ax, ay, fx = ax) {
+  if (SCALE === 1 && fx === ax) return list; const S2 = SCALE, f = ([x, y]) => [ax + (x - fx) * S2, ay + (y - ay) * S2];
+  return list.map(m => m.dot ? { ...m, p: f(m.p), r: Math.max(.45, m.r * S2) } : { ...m, pts: m.pts.map(f), w: Math.max(.32, m.w * Math.sqrt(S2) * (S2 > 1 ? Math.sqrt(S2) : 1)) });
+}
 let raf = 0;
+// ?draw=read (or data-draw="read"): illuminated as you read. Each ornament (a paraph, a filler, a break) is its own
+// small score, unwritten until its line comes up into the reading window (an IntersectionObserver on a sentinel at
+// that line, firing 15% into the viewport from the bottom). One hand writes them in reading order, a short stagger
+// between; an ornament scrolled past before its turn is written fast, or at once if it is far above; nothing runs
+// when nothing is being written. On relayout the finished ones are laid down at once and the rest wait again.
+let io = null, sentinels = [], readDone = new Set();
+function renderRead(score) {
+  const [base, live] = score.layers[0], sheet = document.querySelector('.sheet'), groups = score.groups, queue = [], active = [];
+  io?.disconnect(); sentinels.forEach(n => n.remove()); sentinels = [];
+  groups.forEach((gr, i) => { if (readDone.has(i)) { gr.parts.forEach(p => p.done(base)); gr.state = 'done'; return; }
+    const n = document.createElement('i'); n.setAttribute('aria-hidden', 'true'); n.dataset.g = i;
+    Object.assign(n.style, { position: 'absolute', left: '0', top: Math.max(0, gr.y - 4) + 'px', width: '1px', height: '8px', pointerEvents: 'none' });
+    sheet.append(n); sentinels.push(n); gr.state = 'waiting'; });
+  let running = false, handFree = 0, firstBatch = true;
+  const kick = () => { if (!running) { running = true; raf = requestAnimationFrame(tick); } };
+  const begin = (gr, now) => {   // its turn: start after the hand finishes the last one, a little overlapped
+    const r = sheet.getBoundingClientRect(), y = r.top + gr.y, far = y < -innerHeight, past = y < innerHeight * .1;
+    const len = Math.max(...gr.parts.map(p => p.t1)), behind = (handFree - now) / 1000;
+    const speed = far || (!gr.initial && behind > 3) ? 0 : past || (!gr.initial && behind > 1.2) ? Math.min(1, .25 / len) : 1;   // what was in view on load is written at its pace   // no long backlog: behind the reader, the hand hurries
+    gr.start = Math.max(now, handFree); gr.speed = speed; handFree = gr.start + (speed ? len * speed * 1000 * .7 + 120 : 0); gr.state = 'writing'; active.push(gr); };
+  const tick = () => { const now = performance.now();
+    while (queue.length) begin(queue.shift(), now);
+    live.save(); live.setTransform(1, 0, 0, 1, 0, 0); live.clearRect(0, 0, live.canvas.width, live.canvas.height); live.restore();
+    for (let k = active.length - 1; k >= 0; k--) { const gr = active[k], t = gr.speed ? (now - gr.start) / 1000 / gr.speed : 1e9; if (t < 0) continue;
+      gr.fin ??= new Uint8Array(gr.parts.length);
+      gr.parts.forEach((p, i) => { if (gr.fin[i]) return; if (t >= p.t1) { p.done(base); gr.fin[i] = 1; } else if (t > p.t0) p.at(live, (t - p.t0) / (p.t1 - p.t0)); });
+      if (gr.fin.every(Boolean)) { gr.state = 'done'; readDone.add(groups.indexOf(gr)); active.splice(k, 1); } }
+    if (active.length || queue.length) raf = requestAnimationFrame(tick); else { running = false; if (groups.every(g => g.state === 'done')) document.body.dataset.timing = 'drawn'; }
+  };
+  io = new IntersectionObserver(es => { es.filter(e => e.isIntersecting).map(e => groups[+e.target.dataset.g]).sort((a, b) => a.y - b.y)
+      .forEach(gr => { if (gr.state === 'waiting') { gr.state = 'queued'; gr.initial = firstBatch; queue.push(gr); } }); firstBatch = false; es.forEach(e => e.isIntersecting && io.unobserve(e.target)); if (queue.length) kick(); },
+    { rootMargin: '100000px 0px -15% 0px' });   // anything above the reading line counts as reached, so a fast scroll leaves no hole
+  sentinels.forEach(n => io.observe(n));
+  document.body.dataset.timing = 'reading';
+}
 function render(animate) {
   cancelAnimationFrame(raf);
   const t0 = performance.now(), score = compose(), t1 = performance.now();
+  if (animate === 'read') return renderRead(score);
   if (!animate) { score.parts.forEach(p => p.done(score.layers[p.layer][0])); document.body.dataset.timing = `grow ${(t1 - t0) | 0} ms, draw ${(performance.now() - t1) | 0} ms`; return; }
   const start = performance.now(), { layers, parts } = score, finished = new Uint8Array(parts.length);
   const tick = () => {
@@ -238,20 +405,36 @@ function render(animate) {
   raf = requestAnimationFrame(tick);
 }
 
+// ?sweep: every style's paraph across thirty seeds, one row a style, to look for unfortunate shapes
+function sweep() {
+  art.style.visibility = 'hidden'; const sheet = document.querySelector('.sheet'), o = sheet.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1), c = document.getElementById('orn');
+  c.width = Math.round(o.width * dpr); c.height = Math.round(o.height * dpr); c.style.width = o.width + 'px'; c.style.height = o.height + 'px';
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  Object.keys(STYLES).forEach((key, row) => { const GS = grammar(STYLES[key]), t = STYLES[key].theme ?? {}, paper = t.dark ? t.ground : [244, 238, 226];
+    if (t.dark) { g.fillStyle = `rgb(${t.ground.join(',')})`; g.fillRect(20, 30 + row * 40, 30 * 28 + 10, 40); }
+    for (let i = 0; i < 30; i++) { const seed = 1000 + i * 7919, V = GS.setup(seed), x = 28 + i * 28, base = 30 + row * 40 + 28, a = GS.alternate ? GS.pair[i % 2] : GS.pair[0];
+      for (const m of GS.paraph(x, base, 8, seed + 89, RICH, V)) { const col = m.col === 'g' ? 'gold' : m.col === 'k' ? 'black' : m.col === 'a' ? a : (GS.pair[0] === a ? GS.pair[1] : GS.pair[0]), INK = GS.ink[col] ?? GS.ink[GS.pair[0]];
+        blended(g, GS.blend, () => m.dot ? dot(g, m.p, m.r, INK.solid, paper, .95) : pen(g, refine(m.pts), { w: m.w * (m.broad ? 1 : 1.1), ink: m.broad ? INK.solid : INK.hair, paper, seed: seed + 3, start: m.start, end: m.end, load: m.load ?? .85, dry: m.dry ?? .3, broad: m.broad ?? .3, swell: m.swell ?? .25, nib: m.nib ?? .55 })); } } });
+  document.body.dataset.timing = 'sweep';
+}
 await document.fonts.ready;
 const still_ = matchMedia('(prefers-reduced-motion: reduce)').matches;
-render(!still_ && q.has('draw'));
-document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); render(!still_); });
+const DRAW = q.get('draw') ?? art.dataset.draw ?? null;
+if (q.has('sweep')) sweep(); else render(still_ ? false : DRAW === 'read' ? 'read' : q.has('draw'));
+document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); readDone.clear(); render(!still_); });
+document.getElementById('asread').addEventListener('click', e => { e.preventDefault(); readDone.clear(); scrollTo(0, 0); render(still_ ? false : 'read'); });
 const richIn = document.getElementById('rich'); richIn.value = RICH;
+const scaleIn = document.getElementById('scale'); scaleIn.value = SCALE;
+scaleIn.addEventListener('input', () => { SCALE = +scaleIn.value; applyTheme(); render(false); const u = new URL(location.href); u.searchParams.set('scale', SCALE); history.replaceState(null, '', u); });
 // the traditions, named in the colophon's line; choosing one redraws at once and is kept in the address
 const group = document.querySelector('.styles');
 Object.entries(STYLES).forEach(([key, sty], i, all) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = sty.label; b.dataset.style = key;
   b.setAttribute('aria-pressed', key === STYLE); group.append(b, i < all.length - 1 ? ', ' : '.');
-  b.addEventListener('click', () => { STYLE = key; group.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x.dataset.style === STYLE)); render(false);
+  b.addEventListener('click', () => { STYLE = key; applyTheme(); group.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x.dataset.style === STYLE)); render(false);
     const u = new URL(location.href); u.searchParams.set('style', STYLE); history.replaceState(null, '', u); }); });
 richIn.addEventListener('input', () => { RICH = +richIn.value; render(false); const u = new URL(location.href); u.searchParams.set('rich', RICH); history.replaceState(null, '', u); });
 let lastW = innerWidth, timer;
-new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; render(false); } }, 150); }).observe(document.querySelector('.sheet'));
+new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; render(io && !still_ ? 'read' : false); } }, 150); }).observe(document.querySelector('.sheet'));
 addEventListener('hashchange', () => location.reload());
 </script>
 </body>

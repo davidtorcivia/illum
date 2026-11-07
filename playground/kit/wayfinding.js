@@ -71,9 +71,14 @@ export function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
     out.push(hair(line(mid), 'a', { end: 'cut' }));
     for (let k = 0; k <= n; k++) { const two = rich >= .25 && k % 2; out.push(bead([x0 + k * p + (r() - .5) * .3, mid + (r() - .5) * .3], (two ? .95 : 1.15) + r() * .2, two ? 'b' : 'a')); }
   } else if (kind === 'zigzag') {
-    const { n, p } = fit(h * 1.15), zig = (phase, col) => { const pts = [];
+    const { n, p } = fit(h * 1.15), two = rich >= .5, zig = (phase, col) => { const pts = [];
       for (let k = 0; k <= n * 2; k++) pts.push([x0 + k * p / 2 + (r() - .5) * .25, ((k + phase) % 2 ? yTop + h * .12 : yBase - h * .12) + (r() - .5) * .25]);
-      out.push(hair(pts, col, { w: .55, end: 'cut' })); };
+      if (!two) { out.push(hair(pts, col, { w: .55, end: 'cut' })); return; }
+      // a cable: where the strands cross (mid-segment), the one passing under is broken, alternately
+      const fine = resample(pts, .5), gap = p * .09; let run = [];
+      for (const q of fine) { const j = Math.round((q[0] - x0 - p / 4) / (p / 2)), xc = x0 + p / 4 + j * p / 2, under = Math.abs(q[0] - xc) < gap && j >= 0 && j < n * 2 && (j + phase) % 2 === 0;
+        if (under) { if (run.length > 1) out.push(hair(run, col, { w: .55, start: 'taper', end: 'taper' })); run = []; } else run.push(q); }
+      if (run.length > 1) out.push(hair(run, col, { w: .55, start: 'taper', end: 'cut' })); };
     zig(0, 'a'); if (rich >= .5) zig(1, 'b');
     if (rich >= .9) for (let k = 0; k < n; k++) out.push(bead([x0 + (k + .5) * p, mid], .75, k % 2 ? 'a' : 'b'));
   } else if (kind === 'scallops') {
@@ -119,8 +124,10 @@ export function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8) {
       if (rich >= .25) out.push(hair(arc([px, y - g / 2 - sr * .4], sr, Math.PI + .3, 2 * Math.PI - .3, 10), k % 2 && rich >= .75 ? 'b' : 'a', { w: .45, end: 'cut' }));
       if (rich >= .5) out.push(hair(arc([px + s * step / 2, y + g / 2 + sr * .4], sr, .3, Math.PI - .3, 10), 'a', { w: .45, end: 'cut' })); }
     // weight for the rank: solid spindles, the pen pressed and lifted, where each arm leaves the eye and before its end
-    const loz = (px, L) => ({ col: 'a', broad: .05, nib: .78, w: u * .62, load: 1.15, dry: .08, swell: .1, start: 'taper', end: 'taper', pts: [[px, y], [px + s * L * .5, y + (r() - .5) * .3], [px + s * L, y]] });
-    out.push(loz(xa - s * u * .15, u * 1.1), loz(xb - s * u * 1.5, u * .9));
+    const loz = (px, L) => { const m = [px + s * L * .5, y + (r() - .5) * .3], o = { col: 'a', broad: .05, nib: .78, w: u * .62, load: 1.15, dry: .08, swell: .1, start: 'cut', end: 'taper' };
+      const a = [px + s * L * .62, y], b = [px + s * L * .38, y];   // each half starts past the middle so the two merge without a seam
+      return [{ ...o, pts: [a, m, [px + s * L * .25, y], [px, y]] }, { ...o, pts: [b, m, [px + s * L * .75, y], [px + s * L, y]] }]; };   // pressed in the middle, lifted to a point each way
+    out.push(...loz(xa - s * u * .15, u * 1.1), ...loz(xb - s * u * 1.5, u * .9));
     // the arm's end: both hairlines turn over, one up and one down, each with a bead
     out.push(hair(hook([xb, y - g / 2], s > 0 ? 0 : Math.PI, u * .42, -s), 'a', { end: 'ball' }));
     out.push(hair(hook([xb, y + g / 2], s > 0 ? 0 : Math.PI, u * .42, s), 'a', { end: 'ball' }));
@@ -352,3 +359,360 @@ export const STYLES = {
         if (rank >= 2 && rich >= .5) out.push(hair(hook([b, y], s > 0 ? 0 : Math.PI, u * .35, s), 'b', { end: 'ball' })); }
       return out; } },
 };
+
+// ==== contemporary styles =======================================================================================================
+// Not pastiche of a book: each a movement or a hand with its own point of view, drawn with the same pen. A style may
+// carry a `theme` for the page (rubric colour; a dark ground for cyber) and a `blend` ('multiply' for the riso drums).
+// Their sources are named; most are in copyright, so they were studied from memory of the works, not from open scans.
+const line = (pts, col, w = .6, o = {}) => hair(pts, col, { w, start: 'cut', end: 'cut', ...o });
+const wob = (pts, amp, seed) => wander(pts, amp, seed, 9);
+const poly = (c, R, n, a0) => Array.from({ length: n + 1 }, (_, k) => { const a = a0 + k / n * 2 * Math.PI; return [c[0] + Math.cos(a) * R, c[1] + Math.sin(a) * R]; });
+const pentagram = (c, R, a0, r) => Array.from({ length: 6 }, (_, k) => { const a = a0 + k * 4 * Math.PI / 5, rr = R * (.9 + r() * .2); return [c[0] + Math.cos(a) * rr, c[1] + Math.sin(a) * rr]; });
+const spiralOut = (c, R, turns, a0 = 0) => Array.from({ length: Math.round(turns * 28) + 1 }, (_, k) => { const t = k / 28 * 2 * Math.PI, rr = R * k / (turns * 28); return [c[0] + Math.cos(a0 + t) * rr, c[1] + Math.sin(a0 + t) * rr]; });
+const arrowHead = (p, a, s, col, w) => line([[p[0] - Math.cos(a - .5) * s, p[1] - Math.sin(a - .5) * s], p, [p[0] - Math.cos(a + .5) * s, p[1] - Math.sin(a + .5) * s]], col, w);
+
+Object.assign(STYLES, {
+  // ---- Doodle: the margin of a sketchbook, one blue ballpoint; loose, wobbling, quick
+  doodle: { label: 'Doodle', pair: ['bic', 'bic'], alternate: false, minGap: 1.3, theme: { rubric: 'rgb(34 54 140)' },
+    ink: { bic: { solid: [30, 50, 140], hair: [40, 62, 152] } },
+    setup: seed => { const r = stream(seed, 'doodle'); return { kinds: pickKinds(r, ['loops', 'arrow', 'hatch', 'spirals'], 2), par: ['star', 'spiral', 'arrow'][(r() * 3) | 0], p: .85 + r() * .35 }; },
+    kinds: (v, rich) => rich < .25 ? ['arrow'] : v.kinds,
+    paraph(x, base, u, seed, rich, v) { const r = stream(seed, 'dp'), c = [x + u * .75, base - u * .55], out = [], o = { w: .62, load: .72, start: 'pool', end: 'taper' };
+      if (v.par === 'star') out.push(hair(wob(pentagram(c, u * .72, -Math.PI / 2 + (r() - .5) * .4, r), .25, seed), 'a', o));
+      else if (v.par === 'spiral') out.push(hair(wob(spiralOut(c, u * .7, 2.3, r() * 6), .15, seed), 'a', o));
+      else { const a = [x, c[1] + u * .2], b = [x + u * 1.5, c[1] - u * .1]; out.push(hair(wob([a, b], .3, seed), 'a', o), arrowHead(b, -.2, u * .5, 'a', .6)); }
+      if (rich >= .5) out.push(hair(wob([[x - u * .1, base + u * .3], [x + u * 1.5, base + u * .22]], .35, seed + 1), 'a', { w: .5, load: .6 }));
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const r = stream(seed, 'df'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [], o = { w: .58, load: .72, start: 'pool', end: 'taper' };
+      if (kind === 'loops') { const { n, p } = fitN(x1 - x0, h * 1.1 * v.p), pts = [];
+        for (let k = 0; k <= n * 20; k++) { const t = k / 20 * 2 * Math.PI; pts.push([x0 + k / 20 * p - h * .42 * Math.sin(t), mid - h * .42 * Math.cos(t) + h * .2]); }
+        out.push(hair(wob(pts.filter(q => q[0] >= x0 - .5 && q[0] <= x1 + .5), .3, seed), 'a', o)); }
+      else if (kind === 'arrow') { const pts = wob([[x0, mid + (r() - .5) * h * .2], [x1 - .5, mid]], .45, seed); out.push(hair(pts, 'a', { ...o, end: 'cut' }), arrowHead([x1, mid], 0, h * .6, 'a', .6));
+        if (rich >= .5) for (const d of [0, h * .35]) out.push(line([[x0 + d, mid], [x0 + d - h * .3, mid - h * .35]], 'a', .5), line([[x0 + d, mid], [x0 + d - h * .3, mid + h * .35]], 'a', .5)); }
+      else if (kind === 'hatch') { const { n, p } = fitN(x1 - x0, h * .42 * v.p);
+        for (let k = 0; k <= n; k++) { const x = x0 + k * p; out.push(hair(wob([[Math.max(x0, x - h * .35), yBase], [Math.min(x1, x + h * .1), yTop]], .12, seed + k), 'a', { w: .5, load: .68 })); }
+        if (rich >= .75) for (let k = 0; k <= n; k += 2) { const x = x0 + k * p; out.push(hair([[x, yBase], [Math.min(x1, x + h * .5), yTop + h * .3]], 'a', { w: .4, load: .55 })); } }
+      else { const { n, p } = fitN(x1 - x0, h * 1.25 * v.p);
+        for (let k = 0; k < n; k++) out.push(hair(wob(spiralOut([x0 + (k + .5) * p, mid], Math.min(p * .45, h * .5), 2, r() * 6), .12, seed + k), 'a', o)); }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u) {
+      const r = stream(seed, 'db'), out = [], o = { w: .62, load: .72, start: 'pool', end: 'taper' }, W = rank < 2 ? u * 9 : Math.min(measure * .5, u * 24);
+      out.push(hair(wob(pentagram([cx, y], u * (rank < 2 ? .9 : 1.3), -Math.PI / 2 + (r() - .5) * .5, r), .3, seed), 'a', o));
+      for (const s of [-1, 1]) { const pts = []; for (let d = u * (rank < 2 ? 1.5 : 2); d <= W / 2; d += .8) pts.push([cx + s * d, y + Math.sin(d / u * 1.6) * u * .3]);
+        out.push(hair(wob(pts, .4, seed + s), 'a', o));
+        if (rank >= 2) out.push(hair(wob(spiralOut([cx + s * (W / 2 + u * .8), y], u * .7, 2, r() * 6), .15, seed + 3 * s), 'a', o)); }
+      if (rich >= .5) for (const s of [-1, 1]) out.push(line([[cx + s * u * 1.2, y - u * 1.3], [cx + s * u * 1.8, y - u * 1.9]], 'a', .5), line([[cx + s * u * 1.5, y - u * .8], [cx + s * u * 2.3, y - u * 1.1]], 'a', .5));
+      if (rich >= .75 && rank >= 2) out.push(hair(wob([[cx - W * .35, y + u * 1.2], [cx + W * .35, y + u * 1.1]], .5, seed + 9), 'a', { w: .5, load: .6 }));
+      return out; } },
+
+  // ---- Cyber: the terminal and the heads-up display (the interface type of Akira, 1988, and Ghost in the Shell,
+  // 1995): brackets, chevrons, ruled scales with ticks, circuit traces, a glitch's doubled stroke; cyan and magenta on a
+  // dark ground
+  cyber: { label: 'Cyber', pair: ['cyan', 'magenta'], alternate: true, minGap: 1.2,
+    theme: { dark: true, ground: [13, 15, 21], text: 'rgb(198 208 218)', rubric: 'rgb(255 64 150)' },
+    ink: { cyan: { solid: [0, 214, 240], hair: [0, 200, 228] }, magenta: { solid: [255, 54, 142], hair: [255, 70, 150] } },
+    setup: seed => { const r = stream(seed, 'cyber'); return { kinds: pickKinds(r, ['trace', 'ticks', 'glitch'], 2), p: .85 + r() * .35, off: [1 + r(), -(.6 + r() * .6)] }; },
+    kinds: (v, rich) => rich < .25 ? ['ticks'] : v.kinds,
+    paraph(x, base, u, seed, rich, v) { const out = [], m = base - u * .55, s = u * .5;
+      for (const dx of [0, u * .55]) out.push(line([[x + dx, m - s], [x + dx + s, m], [x + dx, m + s]], 'a', .9));
+      if (rich >= .5) out.push(line([[x + u * 1.35, base + u * .1], [x + u * 1.95, base + u * .1]], 'b', .9));
+      if (rich >= .75) out.push(line([[x + v.off[0], m - s + v.off[1]], [x + s + v.off[0], m + v.off[1]], [x + v.off[0], m + s + v.off[1]]], 'b', .5));
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const r = stream(seed, 'cf'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
+      if (kind === 'trace') {   // a circuit trace: runs at three levels joined by 45° jogs, ending in a via
+        const lv = [mid, yTop + h * .15, yBase - h * .15], pts = [[x0, mid]]; let x = x0, cur = 0;
+        while (x < x1 - h * 1.6) { const run = h * (1 + r() * 2.2) * v.p, nx = Math.min(x + run, x1 - h * 1.6); pts.push([nx, lv[cur]]); x = nx;
+          if (x >= x1 - h * 1.6) break; const nxt = (cur + 1 + ((r() * 2) | 0)) % 3, dy = Math.abs(lv[nxt] - lv[cur]); pts.push([x + dy, lv[nxt]]); x += dy; cur = nxt; }
+        pts.push([x1 - h * .5, pts.at(-1)[1]]); out.push(line(pts, 'a', .7), line(arc([x1 - h * .3, pts.at(-1)[1]], h * .22, 0, 2 * Math.PI, 14), 'a', .6));
+        if (rich >= .5) out.push(bead([x0 + h * .3, mid], .9, 'b')); }
+      else if (kind === 'ticks') {   // a scale: a rule with ticks, every fifth long
+        const y = yBase - h * .05, { n, p } = fitN(x1 - x0, h * .45 * v.p); out.push(line([[x0, y], [x1, y]], 'a', .55));
+        for (let k = 0; k <= n; k++) out.push(line([[x0 + k * p, y], [x0 + k * p, y - h * (k % 5 === 0 ? .7 : .32)]], k % 5 === 0 && rich >= .5 ? 'b' : 'a', .5)); }
+      else {   // a data stream, glitched: dashes of uneven length, and their doubled ghost a pixel off
+        let x = x0; while (x < x1 - 1) { const L = Math.min(x1 - x, h * (.4 + r() * 1.6)); out.push(line([[x, mid], [x + L, mid]], 'a', .9));
+          if (rich >= .25 && r() < .6) out.push(line([[x + v.off[0], mid + v.off[1] * 2], [x + L + v.off[0] * .5, mid + v.off[1] * 2]], 'b', .5)); x += L + h * (.2 + r() * .4); } }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u, v) {
+      const r = stream(seed, 'cb'), out = [], W = rank < 2 ? u * 12 : Math.min(measure * .66, u * 32), H = rank < 2 ? u * .8 : u * 1.5;
+      const D = u * (rank < 2 ? .45 : .7); out.push(line([[cx, y - D], [cx + D, y], [cx, y + D], [cx - D, y], [cx, y - D]], 'b', .7));
+      for (const s of [-1, 1]) { const xb = cx + s * W / 2;
+        out.push(line([[cx + s * D * 1.8, y], [xb - s * u * .6, y]], 'a', .6));
+        if (rank < 2) out.push(line([[xb - s * u * .3, y - H], [xb, y - H], [xb, y + H], [xb - s * u * .3, y + H]], 'a', .7));
+        else { for (const sy of [-1, 1]) out.push(line([[xb - s * u * 1.6, y + sy * H], [xb, y + sy * H], [xb, y + sy * (H - u * .9)]], 'a', .7));
+          const n = Math.floor((W / 2 - D * 2 - u) / (u * .6)); for (let k = 1; k <= n; k++) out.push(line([[cx + s * (D * 1.8 + k * u * .6), y], [cx + s * (D * 1.8 + k * u * .6), y + (k % 4 === 0 ? u * .5 : u * .22)]], 'a', .45));
+          if (rich >= .5) for (let k = 0; k < 3; k++) out.push(bead([xb - s * u * (1 + k * .6), y - H + u * .5], .8, k === 0 ? 'b' : 'a')); } }
+      if (rich >= .75) out.push(line([[cx - W * .3 + v.off[0], y + v.off[1] * 2], [cx - W * .12 + v.off[0], y + v.off[1] * 2]], 'b', .5), line([[cx + W * .18, y - v.off[1] * 2], [cx + W * .28, y - v.off[1] * 2]], 'b', .5));
+      return out; } },
+
+  // ---- Swiss: the International Typographic Style (Müller-Brockmann, Grid Systems in Graphic Design, 1981; Emil
+  // Ruder, Typographie, 1967): one red and black, rules and bullets, everything flush left on the grid, nothing extra
+  swiss: { label: 'Swiss', pair: ['red', 'black'], alternate: false, minGap: 1.2, flush: true, theme: { rubric: 'rgb(226 30 22)' },
+    ink: { red: { solid: [226, 30, 22], hair: [226, 30, 22] }, black: { solid: [22, 22, 22], hair: [26, 26, 26] } },
+    setup: seed => { const r = stream(seed, 'swiss'); return { kinds: pickKinds(r, ['rule', 'points'], 1), bar: 2.6 + r() * 1.4 }; },
+    kinds: (v, rich) => rich < .5 ? ['rule'] : v.kinds,
+    paraph: (x, base, u) => [bead([x + u * .5, base - u * .48], u * .4, 'a')],
+    filler(x0, x1, yTop, yBase, kind, seed, rich) {
+      const h = yBase - yTop, y = yBase - h * .02, out = [];
+      if (kind === 'rule') out.push(line([[x0, y], [x1, y]], 'b', .6));
+      else { const { n, p } = fitN(x1 - x0, h * .7); for (let k = 0; k <= n; k++) out.push(bead([x0 + k * p, y - h * .15], .75, 'b')); }
+      if (rich >= .5) out.push({ col: 'a', broad: 1, nib: Math.PI / 2, w: h * .55, load: 1.1, dry: 0, swell: 0, start: 'cut', end: 'cut', pts: [[x1 - h * .55, y - h * .28], [x1, y - h * .28]] });
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u, v) {   // flush left: a heavy bar where the column starts; for a book, the measure ruled
+      const left = cx - measure / 2, out = [], bw = u * (rank < 2 ? .5 : .75);
+      out.push({ col: 'a', broad: 1, nib: Math.PI / 2, w: bw, load: 1.1, dry: 0, swell: 0, start: 'cut', end: 'cut', pts: [[left, y], [left + u * v.bar * (rank < 2 ? 1 : 1.6), y]] });
+      if (rank >= 2) out.push(line([[left, y + u * 1.1], [left + measure, y + u * 1.1]], 'b', .7));
+      if (rank >= 2 && rich >= .5) out.push(bead([left + measure - u * .4, y], u * .3, 'a'));
+      return out; } },
+
+  // ---- Memphis: Ettore Sottsass and the Memphis group, Milan 1981 (the Carlton bookcase, the Bacterio laminate):
+  // squiggles, confetti, triangles and circles in pink, teal and yellow with black, cheerfully off the grid
+  memphis: { label: 'Memphis', pair: ['pink', 'teal'], alternate: true, minGap: 1.3, theme: { rubric: 'rgb(222 64 138)' },
+    ink: { pink: { solid: [238, 86, 152], hair: [238, 86, 152] }, teal: { solid: [0, 164, 164], hair: [0, 164, 164] }, gold: { solid: [248, 196, 30], hair: [240, 186, 20] }, black: { solid: [28, 28, 28], hair: [30, 30, 30] } },
+    setup: seed => { const r = stream(seed, 'memphis'); return { kinds: pickKinds(r, ['squiggle', 'confetti', 'zigzag'], 2), par: r() < .5 ? 'tri' : 'sq', p: .85 + r() * .35 }; },
+    kinds: (v, rich) => rich < .25 ? ['squiggle'] : v.kinds,
+    paraph(x, base, u, seed, rich, v) { const r = stream(seed, 'mp'), c = [x + u * .75, base - u * .5], out = [];
+      if (v.par === 'tri') out.push(line(poly(c, u * .7, 3, -Math.PI / 2 + (r() - .5) * .5), 'k', .9), bead([c[0] + u * .55, c[1] + u * .45], u * .22, 'a'));
+      else { const pts = []; for (let k = 0; k <= 30; k++) pts.push([x + k / 30 * u * 1.6, c[1] + Math.sin(k / 30 * 3 * Math.PI) * u * .35]); out.push(line(pts, 'k', .9), bead([x + u * .8, c[1] - u * .75], u * .2, 'g')); }
+      if (rich >= .5) out.push(line(arc([x + u * .45, base + u * .62], u * .3, Math.PI, 2 * Math.PI, 10), 'b', .8, { start: 'taper', end: 'taper' }));
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const r = stream(seed, 'mf'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
+      if (kind === 'squiggle') { const { n, p } = fitN(x1 - x0, h * .9 * v.p), pts = []; for (let x = x0; x <= x1 + .01; x += .5) pts.push([x, mid + Math.sin((x - x0) / p * 2 * Math.PI) * h * .3]); out.push(line(pts, 'k', .85)); }
+      else if (kind === 'zigzag') { const { n, p } = fitN(x1 - x0, h * .7 * v.p), z = []; for (let k = 0; k <= n; k++) z.push([x0 + k * p, k % 2 ? yTop + h * .1 : yBase - h * .1]); out.push(line(z, 'b', .9));
+        if (rich >= .5) for (let k = 1; k < n; k += 2) out.push(bead([x0 + k * p, yBase + h * .05], .9, 'g')); }
+      else { const { n, p } = fitN(x1 - x0, h * .8 * v.p);   // confetti: a scatter of small shapes, no two alike in a row
+        for (let k = 0; k < n; k++) { const c = [x0 + (k + .5) * p + (r() - .5) * p * .3, mid + (r() - .5) * h * .5], kind2 = k % 4, col = ['a', 'b', 'g', 'k'][(k + ((r() * 2) | 0)) % 4], a = r() * Math.PI;
+          if (kind2 === 0) out.push(line([[c[0] - Math.cos(a) * h * .3, c[1] - Math.sin(a) * h * .3], [c[0] + Math.cos(a) * h * .3, c[1] + Math.sin(a) * h * .3]], col, 1.1));
+          else if (kind2 === 1) out.push(line(arc(c, h * .2, 0, 2 * Math.PI, 12), col, .7));
+          else if (kind2 === 2) out.push(line(poly(c, h * .26, 3, a), col, .7));
+          else out.push(bead(c, h * .14, col)); } }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u, v) {
+      const r = stream(seed, 'mb'), out = [], W = rank < 2 ? u * 10 : Math.min(measure * .55, u * 26), pts = [];
+      for (let x = cx - W / 2; x <= cx + W / 2; x += .5) pts.push([x, y + Math.sin((x - cx) / u * 1.3) * u * .45]); out.push(line(pts, 'k', .9));
+      out.push(bead([cx - W * .18, y - u * 1], u * .38, 'g'), line(poly([cx + W * .18, y - u * .9], u * .6, 3, -Math.PI / 2 + .3), 'a', .9));
+      if (rank >= 2) { out.push(line(arc([cx, y + u * 2.2], u * 1, Math.PI, 2 * Math.PI, 16), 'b', 1, { start: 'taper', end: 'taper' }));
+        for (let k = 0; k < 3; k++) out.push(line([[cx + W * .32 + k * u * .5, y + u * .5], [cx + W * .32 + k * u * .5 + u * .6, y - u * .6]], 'a', .8)); }
+      if (rich >= .5) for (let k = 0; k < (rank < 2 ? 4 : 9); k++) { const c = [cx + (r() - .5) * W, y + (r() < .5 ? -1 : 1) * u * (1.4 + r() * .6)]; out.push(k % 2 ? bead(c, u * .14, ['a', 'b', 'g'][k % 3]) : line([[c[0] - u * .25, c[1]], [c[0] + u * .25, c[1] + u * .1]], ['b', 'k', 'a'][k % 3], 1)); }
+      return out; } },
+
+  // ---- Riso: a two-drum zine: fluorescent pink and blue overprinted, a little out of register, bold and blunt
+  riso: { label: 'Riso', pair: ['pink', 'blue'], alternate: false, minGap: 1.3, blend: 'multiply', theme: { rubric: 'rgb(240 64 160)' },
+    ink: { pink: { solid: [255, 72, 176], hair: [255, 72, 176] }, blue: { solid: [0, 120, 191], hair: [0, 120, 191] } },
+    setup: seed => { const r = stream(seed, 'riso'); return { kinds: pickKinds(r, ['halftone', 'stripes', 'bold'], 2), off: [1.8 + r() * 1.4, (r() < .5 ? -1 : 1) * (1.2 + r() * .9)] }; },   // the drums out of register by about half a millimetre
+    kinds: (v, rich) => rich < .25 ? ['bold'] : v.kinds,
+    paraph(x, base, u, seed, rich, v) {   // the broad paraph printed on both drums, the blue drum a little off
+      const a = paraph(x, base, u, seed, 0), out = a.map(m => ({ ...m, col: 'a' }));
+      if (rich >= .25) out.push(...a.map(m => ({ ...m, col: 'b', pts: m.pts.map(([px, py]) => [px + v.off[0], py + v.off[1]]) })));
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const h = yBase - yTop, mid = (yTop + yBase) / 2, out = [], twice = (m) => rich >= .25 ? [m, { ...m, col: 'b', pts: m.pts?.map(([px, py]) => [px + v.off[0] * .6, py + v.off[1] * .6]), p: m.p && [m.p[0] + v.off[0] * .6, m.p[1] + v.off[1] * .6] }] : [m];
+      if (kind === 'halftone') { const { n, p } = fitN(x1 - x0, h * .55); for (let k = 0; k <= n; k++) { const t = k / n; out.push(bead([x0 + k * p, mid], h * (.32 - .24 * t), 'a'), ...(rich >= .25 ? [bead([x0 + k * p + v.off[0] * .6, mid + v.off[1] * .6], h * (.08 + .24 * t), 'b')] : [])); } }
+      else if (kind === 'stripes') { const { n, p } = fitN(x1 - x0, h * .55); for (let k = 0; k < n; k++) out.push(...twice(line([[x0 + k * p, yBase], [x0 + k * p + h * .45, yTop]], 'a', 1.3))); }
+      else { const { n, p } = fitN(x1 - x0, h * .9), z = []; for (let k = 0; k <= n; k++) z.push([x0 + k * p, k % 2 ? yTop + h * .1 : yBase - h * .1]); out.push(...twice(line(z, 'a', 1.5))); }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u, v) {
+      const r = stream(seed, 'rb'), out = [], off = ([px, py]) => [px + v.off[0], py + v.off[1]];
+      if (rank < 2) { for (let k = 0; k < 4; k++) { const a = k * Math.PI / 4 + (r() - .5) * .1, R = u * .9; const m = line([[cx - Math.cos(a) * R, y - Math.sin(a) * R], [cx + Math.cos(a) * R, y + Math.sin(a) * R]], 'a', 1.8);
+          out.push(m); if (rich >= .25) out.push({ ...m, col: 'b', pts: m.pts.map(off) }); } return out; }
+      const R = u * 2.2, st = u * .6;   // a halftone disc: dots on a grid, larger toward the centre, on both drums
+      for (let gx = -R; gx <= R; gx += st) for (let gy = -R; gy <= R; gy += st) { const d = Math.hypot(gx, gy) / R; if (d > 1) continue;
+        out.push(bead([cx + gx, y + gy], st * .48 * (1 - d * .85), 'a')); if (rich >= .5) out.push(bead(off([cx + gx + st / 2, y + gy + st / 2]), st * .4 * (1 - d) * (d > .3 ? 1 : .3), 'b')); }
+      for (const s of [-1, 1]) { const m = line([[cx + s * (R + u * .8), y], [cx + s * Math.min(measure * .3, u * 14), y]], 'b', 1.6); out.push(m, { ...m, col: 'a', pts: m.pts.map(off) }); }
+      return out; } },
+
+  // ---- Deco: Art Deco, the posters of A. M. Cassandre (Nord Express, 1927; Normandie, 1935): speed lines,
+  // stepped chevrons, sunbursts, black and gold
+  deco: { label: 'Deco', pair: ['gold', 'black'], alternate: false, minGap: 1.3, theme: { rubric: 'rgb(146 106 34)' },
+    ink: { gold: { solid: [176, 134, 50], hair: [170, 128, 46] }, black: { solid: [24, 22, 20], hair: [28, 26, 24] } },
+    setup: seed => { const r = stream(seed, 'deco'); return { kinds: pickKinds(r, ['speed', 'steps', 'fans'], 2), rays: 7 + 2 * ((r() * 3) | 0) }; },
+    kinds: (v, rich) => rich < .25 ? ['speed'] : v.kinds,
+    paraph(x, base, u, seed, rich) { const out = [], m = base - u * .55;   // three nested chevrons, the outer in gold
+      for (let k = 0; k < (rich >= .25 ? 3 : 2); k++) { const s = u * .62, dx = k * u * .46; out.push(line([[x + dx, m - s], [x + dx + s * .9, m], [x + dx, m + s]], k ? 'b' : 'a', k ? .7 : 1, { start: 'taper', end: 'taper' })); }
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
+      if (kind === 'speed') { [yTop + h * .2, mid, yBase - h * .2].forEach((y, k) => out.push(line([[x0 + (x1 - x0) * k * .12, y], [x1 - h * .7, y]], k === 1 ? 'a' : 'b', .6)));
+        out.push(line([[x1 - h * .7, yTop + h * .05], [x1, mid], [x1 - h * .7, yBase - h * .05]], 'a', .9)); }
+      else if (kind === 'steps') { const { n, p } = fitN(x1 - x0, h * 2.4), pts = [];
+        for (let k = 0; k < n; k++) { const a = x0 + k * p, s = p / 6; pts.push([a, yBase], [a + s, yBase], [a + s, yBase - h * .3], [a + 2 * s, yBase - h * .3], [a + 2 * s, yTop + h * .1], [a + 4 * s, yTop + h * .1], [a + 4 * s, yBase - h * .3], [a + 5 * s, yBase - h * .3], [a + 5 * s, yBase], [a + p, yBase]); }
+        out.push(line(pts, 'a', .65)); }
+      else { const { n, p } = fitN(x1 - x0, h * 1.5); for (let k = 0; k < n; k++) { const c = [x0 + (k + .5) * p, yBase];
+          for (let j = 0; j < 5; j++) { const a = Math.PI + (j + .5) / 5 * Math.PI; out.push(line([c, [c[0] + Math.cos(a) * h * .85, c[1] + Math.sin(a) * h * .85]], j === 2 ? 'a' : 'b', .5)); } } }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u, v) {
+      const out = [], W = rank < 2 ? u * 12 : Math.min(measure * .62, u * 30), R = u * (rank < 2 ? 1.3 : 2);
+      const base = y + u * .5;
+      if (rank >= 2) { const st = [[cx - R, base], [cx - R, base - u * .5], [cx - R * .66, base - u * .5], [cx - R * .66, base - u], [cx - R * .33, base - u], [cx - R * .33, base - u * 1.5], [cx + R * .33, base - u * 1.5], [cx + R * .33, base - u], [cx + R * .66, base - u], [cx + R * .66, base - u * .5], [cx + R, base - u * .5], [cx + R, base]];
+        out.push(line(st, 'b', .8)); }
+      const top = rank >= 2 ? base - u * 1.5 : base;
+      for (let j = 0; j < v.rays; j++) { const a = Math.PI + (j + .5) / v.rays * Math.PI, R0 = rank >= 2 ? u * .8 : u * .45; out.push(line([[cx + Math.cos(a) * R0, top + Math.sin(a) * R0], [cx + Math.cos(a) * R * (j % 2 ? .75 : 1), top + Math.sin(a) * R * (j % 2 ? .75 : 1)]], j === (v.rays >> 1) ? 'a' : 'b', .55)); }
+      for (const s of [-1, 1]) [0, 1, 2].slice(0, rich >= .25 ? 3 : 1).forEach(k => { const yy = base - k * u * .35, a = cx + s * (R + u * .6), b = cx + s * (W / 2 - k * u * 1.2);
+        out.push(line([[a, yy], [b, yy]], k === 1 ? 'a' : 'b', .6)); if (rich >= .5 && k === 0) out.push(line([[b - s * u * .5, yy - u * .45], [b, yy], [b - s * u * .5, yy + u * .45]], 'a', .7)); });
+      return out; } },
+});
+
+// ==== other systems of wayfinding ===============================================================================================
+// Ornament borrowed from the notations people already find their way by: the map, the score, the drawing.
+const dashed = (a, b, dash, gap, col, w = .6) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), t = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], out = []; let s = 0;
+  while (s < L - .5) { const e = Math.min(L, s + dash); out.push(line([[a[0] + t[0] * s, a[1] + t[1] * s], [a[0] + t[0] * e, a[1] + t[1] * e]], col, w, { start: 'taper', end: 'taper' })); s = e + gap; } return out; };
+Object.assign(STYLES, {
+  // ---- Cartographic: map conventions (the Ordnance Survey and the USGS sheets): a pin for "you are here", routes
+  // dashed with a waypoint and a flag, railways tied, rivers doubled, hachures; a scale bar, and the compass rose
+  carto: { label: 'Map', pair: ['route', 'water'], alternate: false, minGap: 1.4, theme: { rubric: 'rgb(186 52 40)' },
+    ink: { route: { solid: [196, 52, 40], hair: [196, 52, 40] }, water: { solid: [44, 112, 182], hair: [52, 120, 188] }, black: { solid: [60, 48, 38], hair: [70, 56, 44] } },
+    setup: seed => { const r = stream(seed, 'carto'); return { kinds: pickKinds(r, ['route', 'rail', 'river', 'hachure'], 2), p: .85 + r() * .35, flag: r() < .5 }; },
+    kinds: (v, rich) => rich < .25 ? ['route'] : v.kinds,
+    paraph(x, base, u, seed, rich) {   // a map pin: a drop with a ring in its head, its point on the line
+      const c = [x + u * .7, base - u * 1.05], R = u * .5, tip = [c[0], base + u * .2], out = [];
+      const drop = [tip, ...arc(c, R, Math.PI * .72, Math.PI * 2.28, 24), tip];
+      out.push(hair(drop, 'a', { w: .75, start: 'cut', end: 'cut' }), bead(c, R * .38, 'a'));
+      if (rich >= .5) out.push(line([[tip[0] - u * .6, tip[1] + u * .12], [tip[0] + u * .6, tip[1] + u * .12]], 'k', .5, { start: 'taper', end: 'taper' }));   // the ground it stands on
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const r = stream(seed, 'mapf'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
+      if (kind === 'route') { const a = x0 + h * .5, b = x1 - h * (v.flag ? 1 : .6);
+        out.push(hair(arc([x0 + h * .25, mid], h * .22, 0, 2 * Math.PI, 16), 'a', { w: .55, end: 'cut' }), ...dashed([a, mid], [b, mid], h * .55 * v.p, h * .32, 'a', .7));
+        if (v.flag) out.push(line([[x1 - h * .2, yBase], [x1 - h * .2, yTop - h * .15]], 'k', .55), hair([[x1 - h * .2, yTop - h * .15], [x1 + h * .05, yTop + h * .05], [x1 - h * .2, yTop + h * .25]], 'a', { w: .55, start: 'cut', end: 'cut' }));
+        else out.push(arrowHead([x1, mid], 0, h * .45, 'a', .6)); }
+      else if (kind === 'rail') { const { n, p } = fitN(x1 - x0, h * .5 * v.p); out.push(line([[x0, mid], [x1, mid]], 'k', .7)); for (let k = 0; k <= n; k++) out.push(line([[x0 + k * p, mid - h * .22], [x0 + k * p, mid + h * .22]], 'k', .45)); }
+      else if (kind === 'river') { const pts = [], ph = r() * 6, { p } = fitN(x1 - x0, h * 2.2 * v.p);
+        for (let x = x0; x <= x1 + .01; x += .6) pts.push([x, mid + Math.sin((x - x0) / p * 2 * Math.PI + ph) * h * .16 * Math.min(1, (x - x0) / (h * 2))]);
+        out.push(hair(pts, 'b', { w: .55, start: 'taper', end: 'cut' }), hair(pts.map(([px, py]) => [px, py + h * .2 * Math.min(1, (px - x0) / (h * 3))]), 'b', { w: .45, start: 'taper', end: 'cut' })); }
+      else { const { n, p } = fitN(x1 - x0, h * .32 * v.p); out.push(hair(wander([[x0, yTop + h * .2], [x1, yTop + h * .2]], .2, seed, 30), 'k', { w: .5, end: 'cut' }));
+        for (let k = 0; k <= n; k++) { const L = h * (.35 + .45 * Math.abs(Math.sin(k * .5 + r()))); out.push(line([[x0 + k * p, yTop + h * .3], [x0 + k * p + L * .15, yTop + h * .3 + L]], 'k', .42, { start: 'cut', end: 'taper' })); } }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u) {
+      const out = [];
+      if (rank < 2) { const W = u * 10, n = 4;   // a scale bar: alternate segments filled, ticks, the half split again
+        out.push(line([[cx - W / 2, y - u * .22], [cx + W / 2, y - u * .22]], 'k', .5), line([[cx - W / 2, y + u * .22], [cx + W / 2, y + u * .22]], 'k', .5));
+        for (let k = 0; k <= n; k++) out.push(line([[cx - W / 2 + k * W / n, y - u * .22], [cx - W / 2 + k * W / n, y + u * .22 + (k % 2 ? 0 : u * .3)]], 'k', .5));
+        for (let k = 0; k < n; k += 2) out.push({ col: 'k', broad: 1, nib: Math.PI / 2, w: u * .3, load: 1, dry: 0, swell: 0, start: 'cut', end: 'cut', pts: [[cx - W / 2 + k * W / n, y], [cx - W / 2 + (k + 1) * W / n, y]] });
+        return out; }
+      // the compass rose: eight points, the cardinal longer, north marked; a ring; graticule lines out to each side
+      const R = u * 2.1; out.push(hair(arc([cx, y], R * .62, 0, 2 * Math.PI, 40), 'k', { w: .5, start: 'cut', end: 'cut' }));
+      for (let k = 0; k < 8; k++) { const a = -Math.PI / 2 + k * Math.PI / 4, L = R * (k % 2 ? .62 : 1), sw = R * .14, tip = [cx + Math.cos(a) * L, y + Math.sin(a) * L];
+        const l = [cx + Math.cos(a + Math.PI / 2) * sw, y + Math.sin(a + Math.PI / 2) * sw], rr = [cx + Math.cos(a - Math.PI / 2) * sw, y + Math.sin(a - Math.PI / 2) * sw];
+        out.push(line([l, tip, rr], k === 0 ? 'a' : 'k', .55)); }
+      out.push(bead([cx, y - R - u * .55], u * .16, 'a'));
+      if (rich >= .25) for (const s of [-1, 1]) { const a = cx + s * (R + u * .8), b = cx + s * Math.min(measure * .32, u * 15);
+        out.push(...dashed([a, y], [b, y], u * .9, u * .45, 'b', .5)); if (rich >= .5) out.push(line([[b, y - u * .4], [b, y + u * .4]], 'b', .5)); }
+      return out; } },
+
+  // ---- Score: musical notation as wayfinding (the segno and coda that send a player back and on): a staff with a
+  // tune on it closing the line, a slur, a trill; the fermata between chapters, double bars with repeats between books
+  score: { label: 'Score', pair: ['black', 'red'], alternate: false, minGap: 1.6, theme: { rubric: 'rgb(150 30 30)' },
+    ink: { black: { solid: [32, 28, 26], hair: [40, 34, 30] }, red: { solid: [168, 36, 30], hair: [176, 48, 40] } },
+    setup: seed => { const r = stream(seed, 'score'); return { kinds: pickKinds(r, ['staff', 'slur', 'trill'], 2), p: .85 + r() * .3, key: r() }; },
+    kinds: (v, rich) => rich < .25 ? ['slur'] : v.kinds,
+    paraph(x, base, u, seed, rich) {   // an eighth note: a head, its stem, one flag; a single axis, read at once as music
+      const r = stream(seed, 'sp'), hc = [x + u * .55, base - u * .32], out = [];
+      out.push({ col: 'a', broad: .9, nib: -.5, w: u * .5, load: 1.1, dry: .05, swell: .1, start: 'taper', end: 'taper', pts: [[hc[0] - u * .34, hc[1] + u * .1], [hc[0], hc[1] - u * .02], [hc[0] + u * .34, hc[1] - u * .14]] });
+      const top = [hc[0] + u * .32, base - u * 1.62]; out.push(line([[hc[0] + u * .32, hc[1] - u * .1], top], 'a', .7, { start: 'cut', end: 'cut' }));
+      out.push(hair([top, [top[0] + u * .2, top[1] + u * .35], [top[0] + u * .55, top[1] + u * .62 + (r() - .5) * u * .1], [top[0] + u * .42, top[1] + u * 1]], 'a', { w: .65, start: 'cut', end: 'taper' }));
+      if (rich >= .5) out.push(hair([[x + u * 1.55, base - u * 1.3], [x + u * 1.62, base - u * 1.05], [x + u * 1.5, base - u * .82]], 'b', { w: .7, start: 'ball', end: 'taper' }));   // a breath mark after it
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const r = stream(seed, 'sf'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
+      if (kind === 'staff') {   // three lines of a staff and a short tune on it, a barline at the measure
+        const g = h * .38, ys = [mid - g, mid, mid + g];
+        ys.forEach(y => out.push(line([[x0, y], [x1, y]], 'a', .38, { start: 'taper' })));
+        out.push(line([[x1, mid - g], [x1, mid + g]], 'a', .7));
+        const { n, p } = fitN(x1 - x0 - h, h * 1.15 * v.p); let pitch = Math.round(v.key * 4) - 2;
+        for (let k = 0; k < n; k++) { pitch = Math.max(-2, Math.min(2, pitch + ((r() * 3) | 0) - 1)); const nx = x0 + (k + .6) * p, ny = mid - pitch * g / 2;
+          out.push(bead([nx, ny], g * .42, k === n - 1 && rich >= .5 ? 'b' : 'a'), line([[nx + g * .38, ny], [nx + g * .38, ny - h * .85]], 'a', .45, { start: 'cut', end: 'taper' })); } }
+      else if (kind === 'slur') { const a = [x0 + h * .45, yBase - h * .3], b = [x1 - h * .45, yBase - h * .3], c = [(x0 + x1) / 2, yTop - h * .4], sl = [];
+        for (let k = 0; k <= 40; k++) { const t = k / 40; sl.push([0, 1].map(j => (1 - t) ** 2 * a[j] + 2 * t * (1 - t) * c[j] + t * t * b[j])); }   // a slur that stays in its band
+        out.push(hair(sl, 'a', { w: .7, start: 'taper', end: 'taper' }), bead([x0 + h * .25, yBase - h * .1], h * .16, 'a'), bead([x1 - h * .25, yBase - h * .1], h * .16, 'a')); }
+      else { out.push({ col: 'b', broad: .2, w: .9, start: 'cut', end: 'cut', pts: [[x0, yTop + h * .1], [x0, yBase - h * .1]] }, line([[x0 - h * .15, mid - h * .2], [x0 + h * .3, mid - h * .2]], 'b', .6));
+        const pts = [], { p } = fitN(x1 - x0 - h * .8, h * .5 * v.p); for (let x = x0 + h * .8; x <= x1; x += .4) pts.push([x, mid + Math.sin((x - x0) / p * 2 * Math.PI) * h * .18 * (x > x1 - h ? (x1 - x) / h : 1)]);
+        out.push(hair(pts, 'a', { w: .6, start: 'cut', end: 'taper' })); }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u) {
+      const out = [];
+      if (rank < 2) { const R = u * .85; out.push(hair(arc([cx, y + u * .2], R, Math.PI, 2 * Math.PI, 28), 'a', { w: 1, start: 'taper', end: 'taper' }), bead([cx, y], u * .16, 'a')); return out; }
+      const W = Math.min(measure * .5, u * 22), g = u * .4;   // the coda sign, then double bars with repeat dots and a staff out to each side
+      out.push(hair(arc([cx, y], u * .7, 0, 2 * Math.PI, 36), 'b', { w: .9, start: 'cut', end: 'cut' }), line([[cx, y - u * 1.2], [cx, y + u * 1.2]], 'b', .6), line([[cx - u * 1.2, y], [cx + u * 1.2, y]], 'b', .6));
+      for (const s of [-1, 1]) { const a = cx + s * u * 2, b = cx + s * W / 2;
+        [-g, 0, g].forEach(dy => out.push(line([[a, y + dy * 1.6], [b, y + dy * 1.6]], 'a', .38)));
+        out.push(line([[a, y - g * 1.6], [a, y + g * 1.6]], 'a', .5), { col: 'a', broad: 1, nib: 0, w: u * .32, load: 1, dry: 0, swell: 0, start: 'cut', end: 'cut', pts: [[a + s * u * .35, y - g * 1.6], [a + s * u * .35, y + g * 1.6]] });
+        if (rich >= .25) out.push(bead([a - s * u * .4, y - g * .8], u * .12, 'a'), bead([a - s * u * .4, y + g * .8], u * .12, 'a')); }
+      return out; } },
+
+  // ---- Blueprint: the technical drawing (cyanotype ground, white line): dimension lines with arrows, centre lines,
+  // section hatching; section markers between chapters and a title block between books
+  blueprint: { label: 'Blueprint', pair: ['white', 'cyan'], alternate: false, minGap: 1.4,
+    theme: { dark: true, ground: [22, 62, 128], text: 'rgb(226 236 248)', rubric: 'rgb(255 255 255)' },
+    ink: { white: { solid: [236, 244, 255], hair: [228, 238, 252] }, cyan: { solid: [150, 210, 255], hair: [150, 210, 255] } },
+    setup: seed => { const r = stream(seed, 'bp'); return { kinds: pickKinds(r, ['dim', 'centre', 'hatch'], 2), p: .85 + r() * .3 }; },
+    kinds: (v, rich) => rich < .25 ? ['centre'] : v.kinds,
+    paraph(x, base, u, seed, rich) {   // a section marker: a circle halved, an arrow off it
+      const c = [x + u * .55, base - u * .6], R = u * .5, out = [];
+      out.push(hair(arc(c, R, 0, 2 * Math.PI, 32), 'a', { w: .6, start: 'cut', end: 'cut' }), line([[c[0] - R, c[1]], [c[0] + R, c[1]]], 'a', .5));
+      out.push({ col: 'a', broad: 0, w: u * .32, load: 1, start: 'taper', end: 'cut', pts: [[c[0] + R * 1.05, c[1] + R * .55], [c[0] + R * 1.7, c[1] + R * .55]] });
+      if (rich >= .5) out.push(line([[c[0] - R * 1.6, c[1] - R * 1.2], [c[0] - R * 1.6, c[1] + R * 1.2]], 'b', .4));
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
+      if (kind === 'dim') {   // a dimension: extension lines, the line with an arrow at each end, a break for the figure
+        out.push(line([[x0 + h * .1, yTop], [x0 + h * .1, yBase]], 'b', .4), line([[x1 - .3, yTop], [x1 - .3, yBase]], 'b', .4));
+        const m = (x0 + x1) / 2, gap = Math.min((x1 - x0) * .2, h * 1.6);
+        out.push(line([[x0 + h * .1, mid], [m - gap / 2, mid]], 'a', .5), line([[m + gap / 2, mid], [x1 - .3, mid]], 'a', .5), arrowHead([x0 + h * .1, mid], Math.PI, h * .4, 'a', .5), arrowHead([x1 - .3, mid], 0, h * .4, 'a', .5));
+        if (rich >= .25) for (let k = 0; k < 3; k++) out.push(line([[m - gap * .3 + k * gap * .3 - h * .1, mid + h * .25], [m - gap * .3 + k * gap * .3 + h * .1, mid - h * .25]], 'a', .45)); }
+      else if (kind === 'centre') { let x = x0; const L = h * 2.4 * v.p; while (x < x1 - .5) { const e = Math.min(x1, x + L); out.push(line([[x, mid], [e, mid]], 'a', .45)); x = e + h * .3; if (x < x1 - h * .5) out.push(line([[x, mid], [x + h * .2, mid]], 'a', .45)); x += h * .5; } }
+      else { const { n, p } = fitN(x1 - x0, h * .45 * v.p); out.push(line([[x0, yTop + h * .05], [x1, yTop + h * .05]], 'a', .5), line([[x0, yBase - h * .05], [x1, yBase - h * .05]], 'a', .5));
+        for (let k = 0; k < n; k++) out.push(line([[x0 + k * p, yBase - h * .05], [x0 + k * p + p * .9, yTop + h * .05]], 'b', .4)); }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u) {
+      const out = [];
+      if (rank < 2) { const W = Math.min(measure * .4, u * 16);   // section A–A: a long-dash-dot line between two markers
+        for (const s of [-1, 1]) { const c = [cx + s * W / 2, y], R = u * .5; out.push(hair(arc(c, R, 0, 2 * Math.PI, 28), 'a', { w: .55, start: 'cut', end: 'cut' }), line([[c[0] - R, c[1]], [c[0] + R, c[1]]], 'a', .45), { col: 'a', broad: 0, w: u * .3, load: 1, start: 'taper', end: 'cut', pts: [[c[0], c[1] + R * 1.1], [c[0], c[1] + R * 1.9]] }); }
+        let x = cx - W / 2 + u * .8; while (x < cx + W / 2 - u * .8) { const e = Math.min(cx + W / 2 - u * .8, x + u * 1.6); out.push(line([[x, y], [e, y]], 'b', .4)); x = e + u * .35; if (x < cx + W / 2 - u) out.push(line([[x, y], [x + u * .2, y]], 'b', .4)); x += u * .55; }
+        return out; }
+      const W = Math.min(measure * .46, u * 20), H = u * 2.6, x0 = cx - W / 2, y0 = y - H / 2;   // a title block
+      out.push(line([[x0, y0], [x0 + W, y0], [x0 + W, y0 + H], [x0, y0 + H], [x0, y0]], 'a', .7));
+      out.push(line([[x0, y0 + H * .55], [x0 + W, y0 + H * .55]], 'a', .45), line([[x0 + W * .62, y0], [x0 + W * .62, y0 + H]], 'a', .45), line([[x0 + W * .62, y0 + H * .28], [x0 + W, y0 + H * .28]], 'a', .4));
+      if (rich >= .25) for (let k = 0; k < 4; k++) out.push(line([[x0 + u * .6, y0 + H * .75 + (k % 2) * u * .4], [x0 + W * (.25 + k * .09), y0 + H * .75 + (k % 2) * u * .4]], 'b', .4));
+      if (rich >= .5) out.push(hair(arc([x0 + W * .81, y0 + H * .68], u * .5, 0, 2 * Math.PI, 24), 'b', { w: .45, start: 'cut', end: 'cut' }), line([[x0 + W * .81 - u * .7, y0 + H * .68], [x0 + W * .81 + u * .7, y0 + H * .68]], 'b', .4));
+      return out; } },
+});
+
+// ==== the grammar: every instance its own ======================================================================================
+// A rubricator never made two fillers alike. This wraps a style so that each mark is composed per instance from
+// parameters drawn by its position (the seed it is given): the pattern's period and the band it fills, a lead before
+// it, the terminal at each end (none, a point, a hook, a curl, a tick) and its colour; a paraph's size and lean; a
+// break's span. And per copy, the hand's habits: which terminals this scribe favours, how much lead it leaves, how
+// tall it draws its fillers. The style itself decides what the marks are; the grammar how this hand varies them.
+const TERMS = ['none', 'bead', 'hook', 'curl', 'tick'];
+const pickW = (r, w) => { let s = r() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < w.length; i++) if ((s -= w[i]) <= 0) return i; return w.length - 1; };
+const terminal = (kind, p, dir, h, col) => {   // dir: +1 a terminal at the right end facing right, -1 at the left end
+  if (kind === 'bead') return [bead([p[0] + dir * h * .25, p[1]], Math.max(.7, h * .13), col)];
+  if (kind === 'hook') return [hair(hook([p[0], p[1]], dir > 0 ? 0 : Math.PI, h * .32, -dir), col, { w: .5, end: 'ball' })];
+  if (kind === 'curl') return [hair(tendril([p[0], p[1]], dir > 0 ? 0 : Math.PI, h * 1.6, .2 / h, 3 / h, 1.4, .25).map(([x, y]) => [x, y]), col, { w: .5, end: 'ball' })];
+  if (kind === 'tick') return [line([[p[0] + dir * h * .2, p[1] - h * .3], [p[0] + dir * h * .2, p[1] + h * .3]], col, .55, { start: 'taper', end: 'taper' })];
+  return [];
+};
+export function grammar(style) {
+  return { ...style,
+    setup(seed) { const v = style.setup(seed), r = stream(seed, 'habit');
+      v.terms = TERMS.map((_, i) => i === 0 ? 2 + r() * 3 : r() * r() * 3 * (style.terms?.[i] ?? 1));   // this hand's taste in terminals
+      v.lead = r() * .35; v.band = .9 + r() * .2; v.lean = (r() - .5) * .08; return v; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const r = stream(seed, 'gram'), h = yBase - yTop, mid = (yTop + yBase) / 2, k = .82 + r() * .4, band = Math.min(1.15, v.band * (.9 + r() * .2));
+      const lead = r() * v.lead * h, t0s = TERMS[pickW(r, v.terms)], t0 = rich >= .25 && (t0s === 'bead' || t0s === 'tick') ? t0s : 'none', t1 = rich >= .5 ? TERMS[pickW(r, v.terms)] : 'none';
+      const room = x1 - x0 - lead, s0 = t0 === 'none' ? 0 : h * (t0 === 'curl' ? 1.1 : .6), s1 = t1 === 'none' ? 0 : h * (t1 === 'curl' ? 1.1 : .6);
+      if (room - s0 - s1 < h * 1.4) return style.filler(x0, x1, yTop, yBase, kind, seed, rich, { ...v, p: (v.p ?? 1) * k });
+      const a = x0 + lead + s0, b = x1 - s1, bh = h * band / 2, colT = r() < .5 ? 'a' : 'b';
+      const body = style.filler(a, b, mid - bh, mid + bh, kind, seed, Math.max(0, Math.min(1, rich + (r() - .5) * .3)), { ...v, p: (v.p ?? 1) * k });
+      // the terminals sit on the pattern's own line: they join it, they do not float
+      return [...terminal(t0, [a, mid], -1, h, colT), ...body, ...terminal(t1, [b, mid], 1, h, colT)];
+    },
+    // and the effort varies: each instance is made a little richer or plainer than the page's budget
+    paraph(x, base, u, seed, rich, v) { const r = stream(seed, 'gp'), s = .9 + r() * .2, lean = v.lean + (r() - .5) * .06, ri = Math.max(0, Math.min(1, rich + (r() - .5) * .5));
+      return style.paraph(x, base, u * s, seed, ri, v).map(m => { const f = ([px, py]) => { const dx = px - x, dy = py - base; return [x + dx + dy * -lean, base + dy]; };
+        return m.dot ? { ...m, p: f(m.p) } : { ...m, pts: m.pts.map(f) }; }); },
+    breakMark(cx, y, measure, rank, seed, rich, u, v) { const r = stream(seed, 'gb'); return style.breakMark(cx, y, measure * (style.flush ? 1 : .86 + r() * .26), rank, seed, rich, u * (.94 + r() * .12), v); },   // a flush-left style keeps the measure exactly
+  };
+}
