@@ -17,7 +17,8 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")/.." && pwd)
 src=$here/playground site=$here/site
 
-rm -rf "$site/kit" "$site/fonts"
+# (the last bake, kit/bake.json, kit/bake-stamps.json and kit/bake/, stays: tools/bake.mjs redoes only what changed)
+rm -rf "$site/kit/styles" "$site/fonts"; rm -f "$site"/kit/*.js "$site/kit/hash.json"
 mkdir -p "$site/kit/styles" "$site/fonts"
 for m in illum registry all marks wayfinding initials frames penwork writer medium inkletter cache; do cp "$src/kit/$m.js" "$site/kit/"; done
 cp "$src"/kit/styles/*.js "$site/kit/styles/"
@@ -33,7 +34,10 @@ if [ -z "${NOBAKE:-}" ]; then
   port=${BAKE_PORT:-8790}
   python3 -m http.server "$port" --bind 127.0.0.1 --directory "$site" >/dev/null 2>&1 & srv=$!
   trap 'kill $srv 2>/dev/null' EXIT; sleep 1
-  pages=$(cd "$site" && find . -name '*.html' | sed "s#^\./#http://127.0.0.1:$port/#" | sort)
+  # what every page's ornament depends on besides its own HTML: the library and the site's shared css, js and faces
+  export STAMP=$(cat "$site/kit/hash.json" "$site"/css/* "$site"/js/* "$site"/faces/* 2>/dev/null | sha256sum | cut -c1-16)
+  # (not swatch.html, nav-options.html or type.html: a tool and drafts nobody is sent to)
+  pages=$(cd "$site" && find . -name '*.html' ! -name swatch.html ! -name nav-options.html ! -name type.html | sed "s#^\./#http://127.0.0.1:$port/#" | sort)
   node "$here/tools/bake.mjs" "$site/kit/bake.json" $pages
   kill $srv; trap - EXIT
 fi
