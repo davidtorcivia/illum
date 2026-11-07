@@ -89,11 +89,13 @@ precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uWet, uDry, uP
 uniform float uAge, uTooth; uniform vec2 uRes; uniform float uPx;
 ${NOISE}
 void main(){
-  vec4 w = texture(uWet, vUV), pap = texture(uPaper, vUV); float dry = texture(uDry, vUV).r;
+  // the simulation runs with y down, as the pointer does; the screen's framebuffer runs y up
+  vec2 uv = vec2(vUV.x, 1. - vUV.y);
+  vec4 w = texture(uWet, uv), pap = texture(uPaper, uv); float dry = texture(uDry, uv).r;
   vec3 K = mix(uK, uKAged, uAge);
   // age: dry ink is rubbed from the high points of the surface first, then flakes in small irregular grains,
   // so the ground shows through it as it does on a six-hundred-year-old page
-  vec2 p = vUV * uRes * uPx;
+  vec2 p = uv * uRes * uPx;
   float grain = .5 * vn(p / 1.1) + .3 * vn(p / 2.6 + 13.) + .2 * vn(p / .5 + 29.);
   float worn = clamp(uAge * 1.35 * smoothstep(.42, .7, grain), 0., .96);   // granules, not scratches
   float d = dry * (1. - worn) + w.g * 1.15;
