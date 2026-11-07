@@ -50,7 +50,7 @@ By pixel runs on the full-resolution scans (a page ~4100–4500 px across, ~600 
   lower edge through y 0.21 at the middle (an arc of radius 0.24), its upper edge through y 0.12; the circle centred at
   y 0.31, radius 0.228 (double, the inner 0.213); the point at its centre; the stem from the circle to y 0.995, its two
   lines 0.03 apart; the bar at y 0.645–0.675, x ±0.225; the arcs of Aries rising from the stem's foot to peaks at
-  x ±0.125, y 0.855 and falling to x ±0.25, y 0.985.
+  x ±0.135, y 0.862 and falling to x ±0.27, y 1.0 (as wide as the bar and a little more).
 
 ## What makes it read as a grimoire (the checklist the style is judged by)
 
@@ -78,16 +78,26 @@ the circle in order (its cells timed by their angle from the start), a line of t
 skeleton. Small lettering is thinned 0.09 px each side before it is laid at dpr 2 (the engine's creep gives that back);
 at dpr 1 it is thickened 0.06 px instead, its hairlines being at a pixel's edge already.
 
-- Drop initial: MS 4666's red double rule round a square, its rules running on past the corners; inside it the compass's
-  circles (an outer pair, the band, an inner circle); the band lettered in red capitals with points between the words:
-  EGO · SVM · ALPHA · ET · OMEGA · PRINCIPIVM · ET · FINIS (Rev. 22:13; MS 4670's seal has ALPHA ET OMEGA), upright to the
-  centre, on round the bottom upside down; four red crosslets within (MS 4670 f. 54); the IM FELL capital in red at the
-  centre. ?set=ring: the band solid black with the letters reserved (the Grand Pentacle, MS 4666 f. 56). ?title= the
-  band's words. ?draw: the circles struck, the square ruled, the crosslets, the band written round, the capital written.
+- Drop initial (second pass, after the user's verdict: the solid ring, and less clean): MS 4666's red double rule round a
+  square, its rules running on past the corners; a thin compass circle; the band after the Grand Pentacle (MS 4666 f. 56),
+  laid solid in the ink with its capitals cut out of it, a true knockout (the ring's coverage minus the lettering, poured
+  as one deposit), so light mode has a dark ring with the letters in the paper and dark mode a pale ring with the letters
+  in the dark ground; the capitals varied letter by letter in size, slant, spacing and seat (a scribe's, not type):
+  ALPHA · ET · OMEGA · PRINCIPIVM · ET · FINIS (Rev. 22:13); within it, struck in verdigris after MS 4670 f. 54, a circle
+  and the cross of its diameters stopped short of the capital; a pair of red crosslets at each arm's end (f. 54's + +);
+  the IM FELL capital in red at the centre. ?set=band: the old capitals written in red between black circles. ?title=
+  the band's words. ?draw: the circles, the cross, the square, the crosslets, the ring swept round with its letters
+  appearing in it, the capital written (about 3.6 s).
 - Line initial: the IM FELL capital in red.
 - Paraph: the chapter's planet in the week's order (Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn), red, ~1.9
-  x-heights; the contents carry the same sign at each entry, so the paraphs are wayfinding. Traced from MS 4670 image 66
-  (tools/tracesign.py, the ink's outline); the Sun is the pen's ring and point.
+  x-heights; the contents carry the same sign at each entry, so the paraphs are wayfinding. ♄ and ♃ are the scribe's own
+  ink, traced from MS 4670 image 66 (tools/tracesign.py, the ink's outline); ♂, ♀, ☿ and ☾ are written with the pen in the
+  proportions measured off the same table (traced, the barbed head of ♂ came out a horn and the flared ends and horns of
+  ♀ ☿ blots at a contents line's size): ♂ a ring, a shaft at 45° and a solid barbed head; ♀ ☿ a ring on a cross whose
+  arms end in short bars, ☿'s horns a small crescent on the ring; ☾ a heavy C, its back swelling, its tips blunt; ☉ a
+  ring, its point and short rays (eight under 24 px, twelve above), the manuscript's face in rays unwritable at that size.
+  The table's numerals are EB Garamond's italic figures (the Fell italic's 4 reads as a + in a cell).
+  playground/tests/occult-signs.html shows the seven at 15, 18 and 36 px.
 - Fillers: signs (the planetary hours from the chapter's day, in the Chaldean order, red, standing on a black rule, as a
   row of MS 4670's tables); band (two black rules, the planets' Latin names written between them in red capitals, points
   between); sigil (sigils drawn on the kamea of Saturn from words of the art: a small circle at the start, a bar at the

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Occult signs</title>
+<!-- The seven planetary signs of kit/styles/occult.js at a contents line's size, a paraph's and twice that, laid by the
+     ink engine, for the 4x gate against MS 4670 (tools/crops.mjs on .row). ?theme=dark -->
+<style>
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; color-scheme: light; }
+  :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); color-scheme: dark; }
+  html { background: var(--paper); } body { margin: 0; color: var(--ink); font: 14px/1.4 serif; }
+  .sheet { position: relative; padding: 20px; } .sheet > canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .row { height: 64px; position: relative; }
+</style>
+</head>
+<body>
+<main class="sheet"><canvas id="bake" aria-hidden="true"></canvas><div class="row"></div><div class="row"></div><div class="row"></div></main>
+<script type="module">
+import { createWriter } from '../kit/writer.js';
+import { inkLetter } from '../kit/inkletter.js';
+import S, { loadFace, printOf, PLANETS } from '../kit/styles/occult.js';
+const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark'; if (dark) document.documentElement.dataset.theme = 'dark';
+await loadFace(); const DPR = Math.min(2, devicePixelRatio || 1), sheet = document.querySelector('.sheet'), bk = document.getElementById('bake'), r0 = sheet.getBoundingClientRect();
+bk.width = r0.width * DPR; bk.height = r0.height * DPR; bk.style.width = r0.width + 'px'; bk.style.height = r0.height + 'px'; const g = bk.getContext('2d'); g.setTransform(DPR, 0, 0, DPR, 0, 0);
+const P = S.palette[dark ? 'dark' : 'light'], W = createWriter(sheet, g, { dpr: DPR, dark });
+[15, 18, 36].forEach((h, row) => PLANETS.forEach((name, k) => { const el = S.paraph(20 + k * h * 2.2, 20 + row * 64 + 40, h / 1.9, 1 + k, .5, k), pr = printOf(el, { res: DPR >= 1.5 ? 2 : 1 });
+  for (const r of pr.runs) { const p = W.part(0, 1, r.strokes, P[r.col], { width: r.w, hair: r.hair }); p.done(); }
+  W.flush(); for (const L of pr.letters) inkLetter(g, L, P[L.col], { dpr: DPR }); }));
+document.body.dataset.timing = 'drawn';
+</script>
+<script type="module" src="../kit/theme-toggle.js"></script>
+</body>
+</html>

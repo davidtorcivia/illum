@@ -101,18 +101,45 @@ const LATIN = { sun: 'SOL', moon: 'LVNA', mars: 'MARS', mercury: 'MERCVRIVS', ju
 const CHALDEAN = ['saturn', 'jupiter', 'mars', 'sun', 'venus', 'mercury', 'moon'];   // the order of the planetary hours
 // (a fleck of the scan's ink lying apart from the sign, under 0.2 % of its square, is dropped)
 for (const S of Object.values(SIGNS)) S.polys = S.polys.filter(P => Math.abs(P.reduce((a, p, i) => { const q = P[(i + 1) % P.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2 > .002);
-const signWidth = name => name === 'sun' ? 1 : SIGNS[name].a;
-// a sign standing on `base`, its left edge at x, h high: a letter request (the traced ink), or the Sun with the pen
+const signWidth = name => name === 'sun' || name === 'mars' ? 1 : name === 'venus' || name === 'mercury' ? .78 : name === 'moon' ? .9 : SIGNS[name].a;
+// a sign standing on `base`, its left edge at x, h high: a letter request (the traced ink), or written with the pen:
+// Mars, its ring, its shaft to the upper right and a solid barbed head (MS 4670's ♂: the traced head came out a horn at a
+// paraph's size, so it is drawn, in the proportions measured off the table: ring ~0.46 of the height, the shaft at 45°, the
+// head ~0.3 long and as broad, its back cut in a shallow notch); the Sun, a ring, its point, and twelve short rays (the
+// manuscript's Sun is a face in a ring of rays; at a paraph's size the face cannot be written, the rays can)
 function sign(name, x, base, h, col = 'r', seed = 0) {
-  if (name === 'sun') { const r = h * .42, c = [x + h * .5, base - h * .5], W = Math.max(1.3, h * .09);
-    return { marks: [circle(c, r, W, { col, seed })], letters: [{ dot: c, r: Math.max(1.1, h * .085), col }] }; }
+  const W = Math.max(1.3, h * .085), P = (u, v) => [x + u * h, base - h + v * h];
+  if (name === 'sun') { const c = P(.5, .5), r = h * .24, n = h < 24 ? 8 : 12;
+    const rays = Array.from({ length: n }, (_, k) => { const a = k * TAU / n + .2; return pen([polar(c, r + W * 1.3, a), polar(c, h * .52, a)], Math.max(1.2, W * .75), { col, seed: seed + k, wob: 0 }); });
+    return { marks: [circle(c, r, W, { col, seed }), ...rays], letters: [{ dot: c, r: Math.max(1.1, h * .07), col }] }; }
+  if (name === 'mars') { const c = P(.29, .71), r = h * .225, d = [Math.SQRT1_2, -Math.SQRT1_2], nn = [Math.SQRT1_2, Math.SQRT1_2];
+    const tip = P(.98, .02), L = h * .34, B = h * .16, base0 = add(tip, d, -L), notch = add(base0, d, L * .22);
+    return { marks: [circle(c, r, W, { col, seed }), pen([polar(c, r, -Math.PI / 4), add(base0, d, L * .3)], W, { col, seed: seed + 1, wob: 0 })],
+      letters: [{ polys: [[tip, add(base0, nn, B), notch, add(base0, nn, -B)]], col }] }; }
+  // Venus and Mercury: the ring on a cross whose arms end in short flared bars (MS 4670's ♀ ☿), Mercury's horns a small
+  // crescent standing on the ring; the Moon a crescent like a heavy C. Written with the pen: traced, their flared ends and
+  // horns filled in to blots at a contents line's size
+  if (name === 'venus' || name === 'mercury') { const cx = x + h * .39, top = name === 'mercury' ? .2 : 0, rr = h * (name === 'mercury' ? .13 : .15), rc = P(.39, top + .02 + rr / h + .02);
+    const sy = rc[1] + rr, arm = h * .3, by = base - h * .36, bar = h * .085, o = { col, wob: 0 };
+    const marks = [circle(rc, rr, W, { col, seed }), rule([cx, sy], [cx, base - W * .4], W, { ...o, seed: seed + 1 }), rule([cx - arm, by], [cx + arm, by], W, { ...o, seed: seed + 2 }),
+      rule([cx - arm, by - bar], [cx - arm, by + bar], W, { ...o, seed: seed + 3 }), rule([cx + arm, by - bar], [cx + arm, by + bar], W, { ...o, seed: seed + 4 }), rule([cx - bar * 1.1, base - W * .4], [cx + bar * 1.1, base - W * .4], W, { ...o, seed: seed + 5 })];
+    if (name === 'mercury') marks.push(pen(arc([cx, rc[1] - rr - h * .12], h * .15, Math.PI * .95, Math.PI * .05), W, { col, seed: seed + 6, wob: 0, taper: [h * .05, h * .05] }));
+    return { marks, letters: [] }; }
+  if (name === 'moon') { const oc = P(.42, .5), ic = P(.6, .47), ro = h * .48, ri = h * .38;
+    // the outer edge from the upper tip round the left to the lower; back up the inner edge (a smaller circle set to the
+    // right), so the back swells and the tips are blunt, as the scribe's C
+    const outer = arc(oc, ro, -Math.PI * .28, -Math.PI * 1.72, 40), inner = arc(ic, ri, Math.PI * .62, Math.PI * 1.38, 40);
+    return { marks: [], letters: [{ polys: [[...outer, ...inner]], col }] }; }
   return { marks: [], letters: [{ shape: name, x, y: base - h, h, col }] };
 }
 
 // ---- lettering -------------------------------------------------------------------------------------------------------------
 export const roman = n => { let s = ''; for (const [v, r] of [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]) while (n >= v) { s += r; n -= v; } return s; };
 const ORD = ['', 'PRIMVM', 'SECVNDVM', 'TERTIVM', 'QVARTVM', 'QVINTVM', 'SEXTVM', 'SEPTIMVM', 'OCTAVVM', 'NONVM', 'DECIMVM'];
-export const FACES = { roman: { family: 'IM FELL Double Pica', file: 'IMFellDoublePica.woff2' }, italic: { family: 'IM FELL Double Pica Italic', file: 'IMFellDoublePica-Italic.woff2' } };
+export const FACES = { roman: { family: 'IM FELL Double Pica', file: 'IMFellDoublePica.woff2' }, italic: { family: 'IM FELL Double Pica Italic', file: 'IMFellDoublePica-Italic.woff2' },
+  // the table's numerals: the Fell italic's 4 is an old-style cross that reads as + in a cell; EB Garamond's italic
+  // figures (OFL, playground/fonts) are the same family of hand with a 4 that reads as 4
+  figures: { family: 'illum occult figures', file: 'EBGaramond-italic.woff2' } };
 const fontDir = new URL('../../fonts/', import.meta.url);
 let loaded = false;
 export async function loadFace() {
@@ -143,19 +170,32 @@ const thicken = (size, res = 2) => size < 7 ? .15 : size < 16 ? (res >= 2 ? -.09
 // by letterWriter's own walk.
 export function glyph(t, res = 2) {
   let box, draw, orderBy = null;
-  if (t.dot) { box = [t.dot[0] - t.r - 2, t.dot[1] - t.r - 2, t.dot[0] + t.r + 2, t.dot[1] + t.r + 2];
+  if (t.polys) { const xs = t.polys.flat().map(p => p[0]), ys = t.polys.flat().map(p => p[1]); box = [Math.min(...xs) - 2, Math.min(...ys) - 2, Math.max(...xs) + 2, Math.max(...ys) + 2];
+    draw = c => { c.beginPath(); for (const P of t.polys) P.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill(); c.lineWidth = .5; c.lineJoin = 'round'; c.stroke(); }; }
+  else if (t.dot) { box = [t.dot[0] - t.r - 2, t.dot[1] - t.r - 2, t.dot[0] + t.r + 2, t.dot[1] + t.r + 2];
     draw = c => { c.beginPath(); c.arc(t.dot[0], t.dot[1], t.r, 0, TAU); c.fill(); }; }
   else if (t.shape) { const S = SIGNS[t.shape], k = t.h, grow = Math.max(0, 1.25 - k * .1) / 2;
     box = [t.x - 3, t.y - 3, t.x + S.a * k + 3, t.y + k + 3];
     draw = c => { c.beginPath(); for (const P of S.polys) P.forEach(([x, y], i) => i ? c.lineTo(t.x + x * k, t.y + y * k) : c.moveTo(t.x + x * k, t.y + y * k)); c.closePath(); c.fill('evenodd');
       if (grow > 0) { c.lineWidth = grow * 2; c.lineJoin = 'round'; c.stroke(); } }; }
   else { const face = t.face ?? 'roman', F = FACES[face], m0 = metricOf('H', face), fs = t.size / m0.cap * 100, g = thicken(t.size, res);
-    if (t.arc) { const { c: C, r, a0, a1 } = t.arc, chars = [...t.text], adv = chars.map(ch => metricOf(ch, face).adv * fs / 100), tot = adv.reduce((a, b) => a + b, 0);
-      const L = r * (a1 - a0), gap = Math.max(0, (L - tot) / chars.length); let s = gap / 2; const place = [];
-      chars.forEach((ch, i) => { const th = a0 + (s + adv[i] / 2) / r; place.push({ ch, th, w: adv[i] }); s += adv[i] + gap; });
-      const R = r + t.size * 1.2; box = [C[0] - R, C[1] - R, C[0] + R, C[1] + R];
-      draw = c => { c.font = `400 ${fs}px "${F.family}"`; c.textAlign = 'center'; c.lineJoin = 'round'; c.lineWidth = Math.abs(g) * 2;
-        for (const p of place) { if (p.ch === ' ') continue; c.save(); c.translate(...polar(C, r, p.th)); c.rotate(p.th + Math.PI / 2); c.fillText(p.ch, 0, t.size / 2); if (g) { c.globalCompositeOperation = g < 0 ? 'destination-out' : 'source-over'; c.strokeText(p.ch, 0, t.size / 2); c.globalCompositeOperation = 'source-over'; } c.restore(); } };
+    if (t.arc) { const { c: C, r, a0, a1 } = t.arc, chars = [...t.text], hr = rng(t.seed ?? 1, 'hand');
+      // a scribe's letters, not type: each a little larger or smaller, leaning a little, off the line a little, the spacing
+      // uneven (hand: how much; MS 4670's band varies its capitals by ~±8 % and its slant by a few degrees)
+      const hand = t.hand ?? .6, vary = chars.map(() => ({ k: 1 + hand * .14 * (hr() - .5), rot: hand * .1 * (hr() - .5), dr: hand * .12 * (hr() - .5) * t.size, sp: 1 + hand * .5 * (hr() - .5) }));
+      const L = r * (a1 - a0), adv0 = chars.map((ch, i) => metricOf(ch, face).adv * fs / 100 * vary[i].k), fit = Math.min(1, L * .93 / adv0.reduce((a, b) => a + b, 0));
+      // (words that do not go round at this size are written smaller, as a scribe crowds the end of a band)
+      vary.forEach(v => { v.k *= fit; v.dr *= fit; }); const adv = adv0.map(a => a * fit), tot = adv.reduce((a, b) => a + b, 0);
+      const gaps = vary.map(v => v.sp), gsum = gaps.reduce((a, b) => a + b, 0), gap = Math.max(0, L - tot) / gsum; let s = gap * gaps[0] / 2; const place = [];
+      chars.forEach((ch, i) => { const th = a0 + (s + adv[i] / 2) / r; place.push({ ch, th, w: adv[i], ...vary[i] }); s += adv[i] + gap * gaps[i]; });
+      const R = r + t.size * 1.2 + (t.ring?.w ?? 0) / 2; box = [C[0] - R, C[1] - R, C[0] + R, C[1] + R];
+      const letters = c => { c.textAlign = 'center'; c.lineJoin = 'round'; c.lineWidth = Math.abs(g) * 2;
+        for (const p of place) { if (p.ch === ' ') continue; c.save(); c.font = `400 ${fs * p.k}px "${F.family}"`; c.translate(...polar(C, r + p.dr, p.th)); c.rotate(p.th + Math.PI / 2 + p.rot);
+          c.fillText(p.ch, 0, t.size * p.k / 2 * .98); if (t.ring && res < 2) { c.lineWidth = .45; c.strokeText(p.ch, 0, t.size * p.k / 2 * .98); }   // (a hole at one cell a px closes up in the ink's creep: cut it a little wider)
+          if (g && !t.ring) { c.globalCompositeOperation = g < 0 ? 'destination-out' : 'source-over'; c.strokeText(p.ch, 0, t.size * p.k / 2); c.globalCompositeOperation = 'source-over'; } c.restore(); } };
+      // ring: the band laid solid (the Grand Pentacle's, MS 4666 f. 56) and the letters cut out of it: holes in the ink, so
+      // the page's own ground shows through them, whatever it is
+      draw = t.ring ? c => { c.beginPath(); c.arc(C[0], C[1], r, 0, TAU); c.lineWidth = t.ring.w; c.stroke(); c.globalCompositeOperation = 'destination-out'; letters(c); c.globalCompositeOperation = 'source-over'; } : letters;
       orderBy = (x, y) => (((Math.atan2(y - C[1], x - C[0]) - a0) % TAU + TAU) % TAU) / Math.max(1e-6, a1 - a0); }
     else { const m = metricOf(t.text, face), k = fs / 100, w0 = (m.l + m.r) * k, left = t.align === 'left' ? t.x : t.x - w0 / 2;
       box = [left - 3, t.base - m.a * k - 3, left + w0 + 3, t.base + m.d * k + 3];
@@ -292,7 +332,7 @@ function monas(cx, top, h, W, seed = 0) {
   // Aries: from the stem's foot up to a peak at ±.107, .87 and down to ±.215, .96: the arc through those three points, doubled
   const circ = (a, b, c) => { const d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1])), s = q => q[0] * q[0] + q[1] * q[1];
     const ux = (s(a) * (b[1] - c[1]) + s(b) * (c[1] - a[1]) + s(c) * (a[1] - b[1])) / d, uy = (s(a) * (c[0] - b[0]) + s(b) * (a[0] - c[0]) + s(c) * (b[0] - a[0])) / d; return [[ux, uy], Math.hypot(a[0] - ux, a[1] - uy)]; };
-  for (const s of [-1, 1]) { const [o, R] = circ([0, .995], [s * .125, .855], [s * .25, .985]), a0 = Math.atan2(.995 - o[1], 0 - o[0]), a1 = Math.atan2(.985 - o[1], s * .25 - o[0]);
+  for (const s of [-1, 1]) { const [o, R] = circ([0, .995], [s * .135, .862], [s * .27, 1.0]), a0 = Math.atan2(.995 - o[1], 0 - o[0]), a1 = Math.atan2(1.0 - o[1], s * .27 - o[0]);
     let da = a1 - a0; if (s > 0 && da < 0) da += TAU; if (s < 0 && da > 0) da -= TAU;
     for (const [k, dr] of [[0, 0], [1, -g * 1.6]]) marks.push(pen(arc(P(o[0], o[1]), (R + dr) * h, a0 + (k ? s * .06 : 0), a0 + da, 0), W, { seed: seed + 13 + k + s })); }
   return { marks, letters: [{ dot: P(0, .31), r: Math.max(1.3, h * .014), col: 'r' }] };
@@ -316,29 +356,38 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, k = null
 }
 
 // ---- the drop initial ---------------------------------------------------------------------------------------------------------
-// A pentacle as the Clavicules draw one (MS 4666 f. 55–56, MS 4670 f. 54, MS 4659 f. 2): a red double rule round a square
-// (its rules running on past the corners), the compass's circles inside it (a close pair outside, the band, a single
-// circle within), the band lettered round in red capitals (Rev. 22:13, as on MS 4670's seal: ALPHA ET OMEGA), points
-// between the words, crosslets at the four quarters within; at its centre the capital of IM FELL Double Pica in red.
-// set 'band' (default): the band lettered red between black circles; 'ring': the Grand Pentacle's band (MS 4666 f. 56),
-// solid black, its letters reserved in the paper. title: the band's words.
+// A pentacle as the Clavicules draw one: a red double rule round a square, its rules running on past the corners (MS 4666
+// f. 55–56); a thin compass circle; the band, after the Grand Pentacle (MS 4666 f. 56), laid solid in the ink with its
+// capitals cut out of it, so the page shows through them (light: a dark ring, the letters paper; dark: a pale ring, the
+// letters the dark ground); within it, struck in verdigris as MS 4670's seal (f. 54), a circle and the cross of its
+// diameters, broken round the capital; at the end of each arm a pair of red crosslets (f. 54's + +); at the centre the
+// capital of IM FELL Double Pica in red. The band reads ALPHA · ET · OMEGA · PRINCIPIVM · ET · FINIS (Rev. 22:13;
+// f. 54 has ALPHA ET OMEGA), each capital a little different, as a scribe's are. set 'ring' (default) | 'band' (the
+// capitals written in red between black circles, after f. 54). title: the band's words.
 // G.box: [x0, capTop, x1, baseline] of the space the host floated; initial.width() gives that width in cap heights.
-function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'band', title = 'EGO SVM ALPHA ET OMEGA PRINCIPIVM ET FINIS', u = 8 }) {
+function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'ring', title = 'ALPHA ET OMEGA PRINCIPIVM ET FINIS', u = 8 }) {
   ch = String(ch).normalize('NFD')[0].toUpperCase(); const [x0, y0, x1, y1] = G.box, H = y1 - y0;
   if (!/[A-Z]/.test(ch)) return { letter: ch, marks: [], letters: [], width: x1 - x0 };
   if (!big) { const m = textWidth(ch, H); return { marks: [], letters: [{ text: ch, x: x0 + m / 2, base: y1, size: H, col: 'r' }], width: m }; }
   const S = Math.min(x1 - x0, H), c = [x0 + S / 2, y0 + S / 2], W = Math.max(1.3, S * .011), gap = S * .028, run = S * .045, els = [];
   els.push({ marks: doubleRule([x0, y0, x0 + S, y0 + S], gap, W, run, { col: 'r', seed }) });
-  const R = S / 2 - gap * 2.2, R2 = R - Math.max(W * 1.9, S * .018), band = R * .2, Ri = R2 - band, rm = (R2 + Ri) / 2, size = band * .62;
-  const text = String(title).toUpperCase().trim().split(/\s+/).join(' · ') + ' ·';
-  if (set === 'ring') {   // the band solid black, the letters reserved in it: a broad compass line of the band's width
-    els.push({ marks: [pen(arc(c, rm, -Math.PI / 2 - .04, -Math.PI / 2 + TAU + .05), band, { col: 'k', seed: seed + 1 }), circle(c, R, W, { seed: seed + 2 })],
-      letters: [{ text, arc: { c, r: rm, a0: -Math.PI / 2 + .02, a1: -Math.PI / 2 + TAU - .02 }, size, col: 'paper' }] });
-  } else els.push({ marks: [circle(c, R, W, { seed: seed + 1 }), circle(c, R2, W, { seed: seed + 2 }), circle(c, Ri, W, { seed: seed + 3 })],
-    letters: [{ text, arc: { c, r: rm, a0: -Math.PI / 2 + .02, a1: -Math.PI / 2 + TAU - .02 }, size, col: 'r' }] });
-  if (rich >= .5) for (let q = 0; q < 4; q++) { const a = -Math.PI / 4 + q * Math.PI / 2; els.push({ marks: crosslet(polar(c, Ri * .8, a), Ri * .16, Math.max(1.2, W * .9), 'r', seed + 10 + q) }); }
-  // the capital at the centre, as large as the inner circle allows
-  const cap = Math.min(Ri * 1.05, Ri * 1.45 / Math.max(.5, textWidth(ch, 1)));
+  const R = S / 2 - gap * 2, band = R * .23, rm = R - W * 1.5 - band / 2, Ri = rm - band / 2, size = band * .64;
+  const text = String(title).toUpperCase().trim().split(/\s+/).join(' · ') + ' ·', a0 = -Math.PI / 2 + .02, a1 = -Math.PI / 2 + TAU - .02;
+  if (set === 'band') els.push({ marks: [circle(c, R, W, { seed: seed + 1 }), circle(c, rm + band / 2, W, { seed: seed + 2 }), circle(c, Ri, W, { seed: seed + 3 })],
+    letters: [{ text, arc: { c, r: rm, a0, a1 }, size, col: 'r', seed }] });
+  else els.push({ marks: [circle(c, R, W, { seed: seed + 1 })], letters: [{ text, arc: { c, r: rm, a0, a1 }, ring: { w: band }, size: size * 1.04, col: 'k', seed }] });
+  // the capital at the centre, as large as the field allows with the cross still showing round it
+  const Rg = Ri - Math.max(W * 1.6, S * .02), cap = Math.min(Rg * .98, Rg * 1.3 / Math.max(.5, textWidth(ch, 1))), cw = textWidth(ch, cap);
+  const capBox = { box: [c[0] - cw / 2 - W * 1.6, c[1] - cap / 2 - W * 1.6, c[0] + cw / 2 + W * 1.6, c[1] + cap / 2 + W * 1.6] }, Wg = Math.max(1.2, W * .85);
+  // the field, in verdigris: its circle and the cross of its diameters, the cross stopped short of the capital
+  const field = [circle(c, Rg, Wg, { col: 'g', seed: seed + 4 })];
+  if (rich >= .25) for (const [a, b] of [[[c[0], c[1] - Rg], [c[0], c[1] + Rg]], [[c[0] - Rg, c[1]], [c[0] + Rg, c[1]]]]) clip(a, b, [capBox]).forEach(([p, q], k) => field.push(rule(p, q, Wg, { col: 'g', seed: seed + 5 + k })));
+  els.push({ marks: field });
+  // the crosslets: a pair at the end of each arm, either side of it (f. 54); one between the arms on a plainer page
+  const cs = Rg * .17;
+  for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2 - Math.PI / 2, n = [-Math.sin(a), Math.cos(a)];
+    if (rich >= .5) for (const sd of [-1, 1]) els.push({ marks: crosslet(add(polar(c, Rg * .72, a), n, sd * cs * .95), cs, Math.max(1.2, W * .85), 'r', seed + 10 + q * 2 + sd) });
+    else els.push({ marks: crosslet(polar(c, Rg * .72, a + Math.PI / 4), cs, Math.max(1.2, W * .85), 'r', seed + 10 + q) }); }
   els.push({ marks: [], letters: [{ text: ch, x: c[0], base: c[1] + cap / 2, size: cap, col: 'r' }] });
   return { ...join(...els), width: S };
 }
@@ -372,7 +421,7 @@ const frames = {
       els.push({ marks: g });
       const cw2 = cw, sh = rh * .66;
       for (let i = 0; i < cols; i++) { const cx = B[0] + u * .6 + (i + .5) * cw2, name = CHALDEAN[(day + i) % 7], w = signWidth(name) * sh;
-        els.push({ marks: [], letters: [{ text: String(i + 1), x: cx, base: top + rh * .5 + rh * .22, size: rh * .44, face: 'italic', col: 'r' }] }, sign(name, cx - w / 2, top + rh * 1.83, sh, 'r', seed + i)); }
+        els.push({ marks: [], letters: [{ text: String(i + 1), x: cx, base: top + rh * .5 + rh * .22, size: rh * .44, face: 'figures', col: 'r' }] }, sign(name, cx - w / 2, top + rh * 1.83, sh, 'r', seed + i)); }
       void cw; }
     return join(...els); },
   // a pull quote: lettering bands above and below, each broken at the middle by a seal
@@ -404,10 +453,10 @@ const frames = {
 // Light: the manuscripts' inks (research/13: red [199 124 94] / [211 123 119], black-brown [79 69 65], verdigris
 // [127 180 156], each on aged paper) brought back toward what they were before the paper yellowed: a vermilion, an iron
 // gall black-brown, a verdigris. Dark: the page by lamplight: the black a warm pale ink, the red and green lifted so they
-// hold beside it; 'paper' (the letters reserved in the Grand Pentacle's ring) is the page's ground.
+// hold beside it.
 export const palette = {
-  light: { k: [52, 42, 36], r: [184, 58, 38], g: [70, 138, 112], paper: [244, 238, 226] },
-  dark: { k: [226, 214, 196], r: [232, 112, 84], g: [116, 182, 152], paper: [28, 25, 22] },
+  light: { k: [52, 42, 36], r: [184, 58, 38], g: [70, 138, 112] },
+  dark: { k: [226, 214, 196], r: [232, 112, 84], g: [116, 182, 152] },
 };
 
 export const occult = { label: 'Occult', minGap: 2,

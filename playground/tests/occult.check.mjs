@@ -26,7 +26,7 @@ console.log(`safety sweep: ${n} seeds, ${words.size} words, ${shapes.size} disti
 // every element
 const ok = (el, what) => { const marks = el.marks.flat(3); assert.ok(marks.length + (el.letters?.length ?? 0) > 0, `${what}: nothing`);
   for (const m of marks) assert.ok(m.pts.length > 1 && m.pts.every(p => Number.isFinite(p[0]) && Number.isFinite(p[1])) && m.w >= 1.2 && ['k', 'r', 'g'].includes(m.col), `${what}: a bad mark`);
-  for (const t of el.letters ?? []) assert.ok(t.text != null || t.shape || t.dot, `${what}: a bad letter`); };
+  for (const t of el.letters ?? []) assert.ok(t.text != null || t.shape || t.dot || t.polys, `${what}: a bad letter`); };
 for (const u of [6, 8.4, 12]) for (const rich of [0, .5, 1]) for (const seed of [1, 99]) {
   for (let k = 0; k < 7; k++) ok(S.paraph(100, 200, u, seed, rich, k), `paraph ${PLANETS[k]} u${u}`);
   for (const kind of [...S.FILLERS, 'rule']) ok(S.filler(100, 100 + u * 40, 200 - u, 200, kind, seed, rich, seed % 7), `filler ${kind} u${u}`);

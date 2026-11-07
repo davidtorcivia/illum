@@ -12,7 +12,8 @@
   Double Pica, the planetary signs in the scribe's own forms (traced from Wellcome MS 4670), laid by the engine
   (kit/inkletter.js). ?draw writes it as you read (each case when its line comes 15% into view: the compass and ruler
   first, then the red, then the lettering, round the band as a hand goes); ?theme=dark; ?rich=0..1; #seed=n;
-  ?set=band|ring (the drop initial's band: lettered red between black circles, or solid black with the letters reserved).
+  ?set=ring|band (the drop initial's band: laid solid in the ink with its capitals cut out of it, the default; or the
+  capitals written in red between black circles).
 -->
 <style>
   @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
@@ -137,7 +138,7 @@ if (q.has('ghost')) document.body.classList.add('ghost');
 const art = document.querySelector('.text'), sheet = document.querySelector('.sheet'), bk = document.getElementById('bake');
 const fnv = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
 const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(art.textContent.replace(/\s+/g, ' ').trim()) % 1e7);
-const RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0)), SET = q.get('set') ?? 'band';
+const RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0)), SET = q.get('set') ?? 'ring';
 const DPR = Math.min(2, devicePixelRatio || 1), RES = DPR >= 1.5 ? 2 : 1;
 document.getElementById('seed').textContent = SEED;
 
@@ -216,7 +217,7 @@ function score(items, animate) {
     for (const r of it.runs) { const L = r.strokes.reduce((a, s) => a + s.L, 0), d = Math.max(.05, L / 320 + r.strokes.length * .03); own.push({ t0: u, t1: u + d, run: r }); u += d; }
     // the lettering and the signs: a big letter or a band at a hand's pace, a sign or a word quickly
     for (const L of it.letters) { const sz = Math.max(L.w, L.h) / L.res, d = sz > 60 ? (L.order ? 2.2 : 2.4) : sz > 30 ? .9 : .45; own.push({ t0: u, t1: u + d, letter: L }); u += d + .06; }
-    const small = it.el.matches?.('p, h2, .ini.line'), cap = it.el.classList?.contains('drop') ? 6 : small ? 1.2 : 2.2, k = Math.min(1, cap / Math.max(u, .01));
+    const small = it.el.matches?.('p, h2, .ini.line'), cap = it.el.classList?.contains('drop') ? 3.6 : it.el.matches?.('nav') ? .9 : small ? 1.2 : 2.2, k = Math.min(1, cap / Math.max(u, .01));
     for (const p of own) parts.push({ ...p, t0: t + p.t0 * k, t1: t + p.t1 * k, item: it });
     t += u * k + .12; }
   return parts;
@@ -293,5 +294,6 @@ await new Promise(r => requestAnimationFrame(() => setTimeout(r)));
 try { await render(q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches); }
 catch (e) { if (!supported()) document.body.dataset.timing = 'no webgl2'; else { document.body.dataset.timing = 'error ' + e.message; throw e; } }
 </script>
+<script type="module" src="../kit/theme-toggle.js"></script>
 </body>
 </html>
