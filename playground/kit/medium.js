@@ -226,7 +226,8 @@ export class Pen {
       const e = (c, s) => [[c.p[0] - c.n[0] * c.halfW, c.p[1] - c.n[1] * c.halfW], [c.p[0] + c.n[0] * c.halfW, c.p[1] + c.n[1] * c.halfW]][s];
       this.m.sweep([e(a, 0), e(a, 1), e(b, 1), e(b, 0)].map(D), D(a.p), D(b.p), inkA, b.ink, dry);
       // the nib's own thickness: what remains when the stroke runs along the edge
-      const t = [b.p[0] - a.p[0], b.p[1] - a.p[1]], tl = Math.hypot(...t), hn = [-t[1] / tl * this.hairline / 2, t[0] / tl * this.hairline / 2];
+      // the nib's thickness swells and thins with a designed press too (a pointed pen spreads and closes)
+      const t = [b.p[0] - a.p[0], b.p[1] - a.p[1]], tl = Math.hypot(...t), hw = this.hairline * this.wm / 2, hn = [-t[1] / tl * hw, t[0] / tl * hw];
       this.m.sweep([[a.p[0] - hn[0], a.p[1] - hn[1]], [a.p[0] + hn[0], a.p[1] + hn[1]], [b.p[0] + hn[0], b.p[1] + hn[1]], [b.p[0] - hn[0], b.p[1] - hn[1]]].map(D), D(a.p), D(b.p), inkA, b.ink, dry);
       this.charge = Math.max(0, this.charge - tl * Math.sqrt(halfW) * .00035 * this.use);
     }
