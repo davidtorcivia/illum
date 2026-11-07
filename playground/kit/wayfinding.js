@@ -1260,3 +1260,6 @@ Object.assign(STYLES, {
       if (rich >= .5) for (const s of [-1, 1]) out.push(...pip(['coin', 'cup', 'sword', 'baton'][(v.index ?? 1) % 4], [cx + s * W * .3, y], u * .7));
       return out; } },
 });
+
+// the vocabulary, for the initials and frames that grow from the same hands (kit/initials.js, kit/frames.js)
+export { line, poly, glyph, restOn, SIGNS, sigil, pip, fill, numeral, ROMAN, cpStroke, cpOval, beauty, slantOval, cubic, fitN, spindle, leaf, lash, lashStroke, bud, pressed };
