@@ -11,15 +11,31 @@
 //   hairline cadel the crossings alternate over and under.
 // - lozenge: the nib set down and pushed a nib's width square to its edge: the textura point, black or red.
 //
+// - bundle (the cadels): a member of a capital written n times beside itself, each stroke offset square to the way
+//   (not along the nib's edge, as a strap is), so the hair of paper between them holds round a curve; see "the cadel".
+//
 // Marks: strokes { pts (page px), w (nib width, px), col 'k' | 'r', hair (the nib's own thickness, px), angle? (the nib's,
-// radians above the line, where it is not the writer's) }, in the order
-// the pen writes them. The page writes runs of marks with one colour and one nib as one writer part
-// (createWriter(...).part(t0, t1, [{ pts, angle }], ink, { width: w, hair })).
+// radians above the line, where it is not the writer's), press? (f in 0..1 along the stroke -> width multiplier: the
+// cadels' pointed and flame ends) }, in the order the pen writes them. The page writes runs of marks with one colour
+// and one nib as one writer part (createWriter(...).part(t0, t1, [{ pts, angle, press }], ink, { width: w, hair })).
 //
 // The style object follows the registry's signatures (kit/wayfinding.js STYLES, kit/initials.js, kit/frames.js):
 // paraph(x, base, u, seed, rich), filler(x0, x1, yTop, yBase, kind, seed, rich), breakMark(cx, y, measure, rank, seed,
-// rich, u), initial(o), frames.{quote, figure, code, pull, aside, nav}(args), palette.{light, dark}. initial(o) also
-// takes o.ch (the letter) and returns { letter: null, marks, width } — the letter itself is written as marks.
+// rich, u), initial(o), frames.{quote, figure, code, pull, aside, nav}(args), palette.{light, dark}, touch(x, top,
+// base, u, seed).
+//
+// The initial's contract (it differs from the registry's other styles, which set the host's glyph):
+//   initial({ ch, G: { box: [x0, capTop, x1, baseline] }, keep, big, level, seed, room, bottom })
+//     -> { letter: null, marks, width }
+//   ch: the letter (required; A–Z, accents stripped; any other character returns { letter: ch, marks: [], width }
+//   so the host shows its own glyph). The letter itself is written as marks: the host sets its glyph transparent.
+//   box: the cap height of the drop, from its left edge; width: what to float (initial.width(ch) * cap height, the same
+//   before layout; initial.wider[level] px more for the richer levels). keep: rects of the host's words, which no mark
+//   may touch; room: px of margin to the left of the box the cloud may use; bottom: the page's foot. big: the drop
+//   (false: the small capital in the line, one stroke, touched with red). level 0..4: how rich. loops: (a test hook)
+//   the number of great loops, overriding the level's.
+// touch(): the rubricator's red stroke through a capital of the host's text. The host's text is never marked unasked:
+// the page calls it only when the reader asks for it (the specimen's ?capitals).
 
 const fnv = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
 const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -100,7 +116,8 @@ export function interlace(strands, gap) {
     } }));
   // the alternating strands first, in order; a crossing already decided sets the rhythm from there
   strands.forEach((S, s) => { if (!S.alt) return;
-    const visits = []; X.forEach(x => x.pass.forEach((v, k) => v.s === s && visits.push({ x, k, i: v.i })));
+    // (alt 'own': it alternates only where it crosses another alternating strand; elsewhere z decides)
+    const visits = []; X.forEach(x => x.pass.forEach((v, k) => v.s === s && (S.alt !== 'own' || strands[x.pass[1 - k].s].alt) && visits.push({ x, k, i: v.i })));
     visits.sort((m, n) => m.i - n.i); let over = true;
     for (const v of visits) { if (v.x.over < 0) v.x.over = over ? v.k : 1 - v.k; else over = v.x.over === v.k; over = !over; } });
   for (const x of X) if (x.over < 0) x.over = strands[x.pass[0].s].z >= strands[x.pass[1].s].z ? 0 : 1;
@@ -109,60 +126,19 @@ export function interlace(strands, gap) {
   for (const x of X) {
     const O = x.pass[x.over], U = x.pass[1 - x.over], So = strands[O.s], Su = strands[U.s];
     const to = tangent(So.c, O.i), tu = tangent(Su.c, U.i), sin = Math.max(.5, Math.abs(to[0] * tu[1] - to[1] * tu[0]));
-    const hO = across(So.B, to, So.hair) / 2 + gap, reach = hO / sin + across(Su.B, tu, Su.hair) + 4, win = Math.ceil(reach * 3);
+    const hO = (So.hw ? So.hw[O.i] : across(So.B, to, So.hair) / 2) + gap, reach = hO / sin + (Su.hw ? 2 * Su.hw[U.i] : across(Su.B, tu, Su.hair)) + 4, win = Math.ceil(reach * 3);
     const segs = []; for (let j = Math.max(0, O.i - win); j < Math.min(So.c.length - 1, O.i + win); j++) segs.push([So.c[j], So.c[j + 1]]);
     Su.parts.forEach((p, k) => p.pts.forEach((q, n) => {   // a strand's strokes share its centreline's indexing
       if (Math.abs(n + (p.i0 ?? 0) - U.i) > win || Math.abs(q[0] - x.p[0]) > reach || Math.abs(q[1] - x.p[1]) > reach) return;
       for (const [a, b] of segs) if (segDist(q, a, b) < hO) { kill[U.s][k][n] = 1; break; } }));
   }
   // and rebuild each stroke as its unbroken runs
-  return strands.flatMap((S, s) => S.parts.flatMap((p, k) => { const runs = []; let run = [];
-    p.pts.forEach((q, n) => { if (kill[s][k][n]) { if (run.length > 1) runs.push(run); run = []; } else run.push(q); });
-    if (run.length > 1) runs.push(run);
-    return runs.filter(r => len(r) > Math.max(.8, p.w * .25)).map(r => { const { i0, ...q } = p; return { ...q, pts: r }; }); }));
+  // (a stroke's per-point width multipliers, wm, are cut with it)
+  return strands.flatMap((S, s) => S.parts.flatMap((p, k) => { const runs = []; let a = 0;
+    const cut = b => { if (b - a > 1) runs.push(p.wm ? { pts: p.pts.slice(a, b), wm: p.wm.slice(a, b) } : { pts: p.pts.slice(a, b) }); };
+    p.pts.forEach((q, n) => { if (kill[s][k][n]) { cut(n); a = n + 1; } }); cut(p.pts.length);
+    return runs.filter(r => len(r.pts) > Math.max(.8, p.w * .25)).map(r => { const { i0, ...q } = p; return { ...q, ...r }; }); }));
 }
-
-// ---- the capitals ------------------------------------------------------------------------------------------------------------
-// Each in a unit box: y 0 at the cap line, 1 on the baseline, x from the letter's left; w its advance. straps: the
-// letter's body, each a control polygon (cut twice: Gothic curves) and its z; spur: hairlines of the letter itself;
-// loops: the cadel hairlines thrown into the margin, the first the most needed (the budget takes them in order);
-// dots: where the red points go (inside the counters); girdle: where a band crosses the stem.
-// points on an oval (unit box): centre, radii, tilt (rad, its top leaning right), from a0 to a1 degrees, clockwise on the page
-const O = (c, rx, ry, tilt, a0, a1, n = 7) => Array.from({ length: n + 1 }, (_, k) => { const a = (a0 + (a1 - a0) * k / n) * Math.PI / 180, x = Math.cos(a) * rx, y = Math.sin(a) * ry;
-  return [c[0] + x * Math.cos(tilt) - y * Math.sin(tilt), c[1] + x * Math.sin(tilt) + y * Math.cos(tilt)]; });
-const CAPS = {
-  // B: the stem enters from the left on a hook, as a Fraktur capital's does, and its foot sweeps out left to a point; the
-  // bowls are broken curves, the upper small, the lower full, each run back behind the stem
-  B: { w: .86,   // (the loops end in the margin or come in along a stroke: a hairline across the letter reads as a strike-through)
-    straps: [
-      { cp: [[.13, .17], [.19, .07], [.30, .03], [.31, .14], [.29, .42], [.29, .72], [.27, .88], [.18, .98], [.03, .98]], z: 2, taper: [.12, .2] },
-      { cp: [[.24, .11], [.46, .02], [.63, .06], [.70, .17], [.66, .31], [.52, .42], [.33, .47]], z: 1, taper: [.2, .2] },
-      { cp: [[.27, .47], [.57, .46], [.76, .55], [.84, .70], [.81, .86], [.67, .97], [.45, 1.0], [.26, .96]], z: 1, taper: [.15, .2] },
-    ],
-    spur: [[[.30, .03], [.36, -.03], [.43, -.05]]],
-    loops: [
-      [[.03, .98], [-.20, .97], [-.42, .90], [-.58, .74], [-.62, .55], [-.52, .38], [-.36, .32], [-.20, .36], [-.12, .46]],   // out of the foot, round the margin, curling in under itself
-      [[.13, .17], [.02, .08], [-.06, -.04], [-.04, -.17], [.08, -.25], [.25, -.26], [.40, -.18], [.48, -.04], [.49, .10], [.46, .24]],           // off the hook, up over the head, down into the upper bowl
-      [[.43, -.05], [.55, -.10], [.68, -.10], [.76, -.04], [.74, .03], [.66, .04], [.62, -.02]],                                                  // a curl off the spur
-    ],
-    dots: [[.48, .24], [.58, .75]], girdle: [{ s: 0, at: .74 }] },
-  L: { w: .74,
-    straps: [
-      { cp: [[.13, .17], [.19, .07], [.30, .03], [.31, .14], [.29, .50], [.28, .86], [.24, .97]], z: 2, taper: [.05, .06] },
-      { cp: [[.10, .96], [.30, .92], [.50, .98], [.66, .96], [.75, .86]], z: 1, taper: [.1, .15] },
-    ],
-    spur: [[[.30, .03], [.36, -.03], [.43, -.05]]],
-    loops: [
-      [[.10, .96], [-.08, .90], [-.18, .74], [-.12, .58], [.04, .52], [.22, .56], [.40, .66], [.52, .78]],
-      [[.13, .17], [.03, .08], [-.02, -.05], [.10, -.13], [.30, -.12], [.45, -.04], [.50, .10], [.46, .25]],
-    ],
-    dots: [[.55, .62]], girdle: [{ s: 0, at: .6 }] },
-};
-export const LETTERS = Object.keys(CAPS);
-
-// per level (0..4): how many copies make a strap, how many cadel loops, red points, the girdle, red doubling
-const BUDGET = [{ n: 2, loops: 0, sprigs: 0, dots: 0, girdle: false }, { n: 2, loops: 1, sprigs: 1, dots: 1, girdle: false }, { n: 2, loops: 3, sprigs: 2, dots: 2, girdle: true },
-  { n: 2, loops: 3, sprigs: 2, dots: 2, girdle: true, double: true }, { n: 3, loops: 4, sprigs: 3, dots: 2, girdle: true, double: true }];
 
 // a hairline that curls up as it goes: heading h, length L, its turning growing to k1 (1/px) toward the end
 export function tendril(p, h, L, k1, ds = .5) {
@@ -170,69 +146,411 @@ export function tendril(p, h, L, k1, ds = .5) {
   for (let d = ds; d <= L; d += ds) { const f = d / L; h += k1 * f * f * ds * 2; x += Math.cos(h) * ds; y += Math.sin(h) * ds; out.push([x, y]); }
   return out;
 }
-// the small hairlines a cadel throws off its loops: where a loop runs outside the letter, now and then a tendril springs
-// from it on the outside of its bend and curls up, ending in a point
-function sprigs(loop, box, H, hw, count, r, keep, edge, bottom) {
-  const c = loop.c, out = [];
-  for (let k = 0; k < count; k++) {
-    const i = Math.floor(c.length * (.22 + .56 * (k + .5) / count + (r() - .5) * .1)), q = c[i]; if (!q) continue;
-    if (q[0] > box[0] && q[0] < box[2] && q[1] > box[1] && q[1] < box[3]) continue;
-    const t = tangent(c, i), side = r() < .5 ? -1 : 1, h = Math.atan2(t[1], t[0]) + side * (.5 + r() * .3);
-    const tw = tendril(q, h, H * (.16 + r() * .1), side * (9 + r() * 5) / H);
-    if (!hits(tw, keep, edge, bottom)) out.push({ c: tw, sense: side });
+
+// ---- the cadel ---------------------------------------------------------------------------------------------------------------
+// A cadel is built, not drawn: a letter's skeleton (the members of a Fraktur/textura capital, each an ordered path the
+// pen travels) is written as bundles, and the hairline cloud is grown from it.
+// - bundle: a member written n times beside itself, each stroke set down a hair of paper from the last (Rossi 1598:
+//   bundles of 3-5, components ~1/12 of the letter, gaps ~1/3 of a component). The nib keeps its angle, so every stroke
+//   swells and thins with the direction it runs and the bundle swells with it; the gap stays a hair everywhere.
+//   Where the member curls up at an end, the strokes on the inside of the curl stop where they could not follow it
+//   (a pen cannot run tighter than its own width) and end in a point: the staggered, flame-like ends of Rossi's cadels.
+// - red, as the rubricator added it: in the channel down the middle of a stem, filled (Neudörffer's colour between his
+//   doubled strokes) or strung with lozenges (Rossi's chain, in red); three black bars bound across it; small crosses
+//   of points hung from the base ribbon.
+// - flames, fringes: short strokes pulled from a bundle's edge to a point (Rossi's feathering), and combs of hairs.
+// - the hairline cloud (Neudörffer's title cadel): long loops of the nib's thin edge sprung from the members' ends,
+//   a loop as large as the margin allows, coming back through itself and the letter, over and under, ending in a small
+//   curl of the other sense and a point.
+
+const wAt = (W, t, hair) => W * Math.abs(E[0] * t[1] - E[1] * t[0]) + hair;
+const unit = v => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+const arc = c => { const S = [0]; for (let i = 1; i < c.length; i++) S.push(S[i - 1] + Math.hypot(c[i][0] - c[i - 1][0], c[i][1] - c[i - 1][1])); return S; };
+// per-point width multipliers as the writer's press(f), f the fraction of the stroke's length
+export function pressOf(pts, wm) {
+  if (!wm) return undefined; const S = arc(pts), L = S.at(-1) || 1;
+  return f => { const s = f * L; let lo = 0, hi = S.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (S[m] <= s) lo = m; else hi = m; }
+    const u = (s - S[lo]) / ((S[hi] - S[lo]) || 1); return wm[lo] + (wm[hi] - wm[lo]) * Math.max(0, Math.min(1, u)); };
+}
+// a path whose turning is given piece by piece: [length px, curvature at its start, at its end] (1/px, + clockwise on the page)
+export function flourish(p, h, pieces, ds = .6) {
+  let [x, y] = p; const out = [[x, y]];
+  for (const [L, k0, k1] of pieces) for (let d = ds; d <= L + 1e-9; d += ds) { h += (k0 + (k1 - k0) * d / L) * ds; x += Math.cos(h) * ds; y += Math.sin(h) * ds; out.push([x, y]); }
+  return out;
+}
+// tangents over a window, and the signed curvature (+: the centre of the turn on the +N side, N = t turned clockwise)
+function frameOf(c, win) {
+  const m = c.length, T = c.map((_, i) => unit([c[Math.min(m - 1, i + win)][0] - c[Math.max(0, i - win)][0], c[Math.min(m - 1, i + win)][1] - c[Math.max(0, i - win)][1]]));
+  const S = arc(c), K = T.map((_, i) => { const a = Math.max(0, i - win), b = Math.min(m - 1, i + win), ds = S[b] - S[a] || 1;
+    return (T[a][0] * T[b][1] - T[a][1] * T[b][0]) / ds; });
+  return { T, N: T.map(t => [-t[1], t[0]]), K, S };
+}
+
+// A member as a bundle: n strokes of a nib W, a gap g; chan: a wider channel down the middle (n even), as a fraction
+// of a stroke's width, for the red; taper [a, b]: the strokes close to one over the first a and last b of the length
+// (Neudörffer's crescent); point [a, b]: the ends pulled to a point; flame [a, b]: the ends staggered, the outer stroke
+// longest, each hooked over the way the member turns (Rossi); shear: the strokes start and end on the nib's diagonal,
+// as a textura stem's head and foot do; the outer strokes of a curve a little heavier than the inner.
+export function bundle(c, { n = 3, W, g, hair = .6, chan = 0, red = 'fill', z = 0, taper = [0, 0], point = [true, true], flame = [false, false], shear = false, col = 'k' }) {
+  const m = c.length, { T, N, K, S } = frameOf(c, 3), L = S.at(-1), w = T.map(t => wAt(W, t, hair));
+  const k = S.map(s => { const a = taper[0] ? s / (taper[0] * L) : 1, b = taper[1] ? (L - s) / (taper[1] * L) : 1, f = Math.min(1, a, b); return f * f * (3 - 2 * f); });
+  const ch = chan && n % 2 === 0 ? chan : 0, Km = K.reduce((a, v) => a + v, 0) / m;
+  // weights: the stroke on the outside of the member's turn the heaviest (+N side is inside when Km > 0)
+  const f = Array.from({ length: n }, (_, j) => n < 2 ? 1 : shear ? (j === 0 || j === n - 1 ? .85 : 1.2) : 1 + .22 * (Km > 0 ? -1 : 1) * ((j - (n - 1) / 2) / ((n - 1) / 2)));
+  const before = j => { let a = 0; for (let l = 0; l < j; l++) a += f[l]; return a; }, F = before(n);
+  const tot = i => F * w[i] + (n - 1) * g + ch * w[i];
+  const centre = (j, i) => k[i] * (-tot(i) / 2 + before(j) * w[i] + f[j] * w[i] / 2 + j * g + (ch && j >= n / 2 ? ch * w[i] : 0));
+  const parts = [], hw = S.map((_, i) => k[i] * tot(i) / 2 + hair * .5);
+  const R = W * 2.2, tip = d => Math.max(.05, Math.min(1, d / R)) ** .8;
+  // rank of each stroke from the outside of the turn at each end (0 the outermost)
+  const Ke = [K.slice(0, Math.ceil(m * .2)), K.slice(-Math.ceil(m * .2))].map(a => a.reduce((x, v) => x + v, 0) / a.length);
+  const rank = (j, e) => Ke[e] > 0 ? j : n - 1 - j;
+  for (let j = 0; j < n; j++) {
+    const o = c.map((_, i) => centre(j, i)), bad = o.map((v, i) => v * K[i] > .5 || (i > 0 && i < m - 1 && Math.abs(o[i + 1] - o[i - 1]) > 2.5 * (S[i + 1] - S[i - 1])));
+    // shear: how far along the way this stroke's head and foot sit on the nib's diagonal
+    if (shear) { const sh = (i, l) => { const d = E[0] * N[i][0] + E[1] * N[i][1], e = E[0] * T[i][0] + E[1] * T[i][1]; return Math.abs(d) > .2 ? centre(l, i) * e / d : 0; };
+      const ends = [0, m - 1].map(i => { const all = Array.from({ length: n }, (_, l) => sh(i, l)); return [sh(i, j), Math.min(...all), Math.max(...all)]; });
+      const s0 = flame[0] ? 0 : W * (.3 + 1.6 * Math.abs(j - (n - 1) / 2)), s1 = ends[1][2] - ends[1][0];   // the head in points (or flames), the foot cut on the diagonal
+      S.forEach((v, i) => { if (v < s0 || v > L - s1) bad[i] = true; }); }
+    // flames: the inner strokes stop short of the outer
+    flame.forEach((fl, e) => { if (!fl) return; const cut = W * (.4 + 1.5 * rank(j, e)); S.forEach((v, i) => { if (e ? v > L - cut : v < cut) bad[i] = true; }); });
+    let best = [0, 0], a = 0;   // the longest run the stroke can follow
+    for (let i = 0; i <= m; i++) if (i === m || bad[i]) { if (i - a > best[1] - best[0]) best = [a, i]; a = i + 1; }
+    if (best[1] - best[0] < 3) continue;
+    const [i0, i1] = best; let pts = [];
+    for (let i = i0; i < i1; i++) pts.push(add(c[i], N[i], o[i]));
+    // a flame's tip: the stroke hooks over, the way the member turns, and comes to a point
+    const hook = (P, e) => { const q = P.at(-1), d = unit([q[0] - P.at(-4)[0], q[1] - P.at(-4)[1]]), Lh = W * (2 + .4 * (n - rank(j, e))), sg = (Ke[e] >= 0 ? 1 : -1) * (e ? 1 : -1);
+      return tendril(q, Math.atan2(d[1], d[0]), Lh, sg * 2.6 / Lh, .6).slice(1); };
+    let h0 = 0;
+    if (flame[1] && i1 < m) pts = [...pts, ...hook(pts, 1)];
+    if (flame[0] && i0 > 0) { const t = hook([...pts].reverse(), 0).reverse(); h0 = t.length; pts = [...t, ...pts]; }
+    const Sx = arc(pts), Lx = Sx.at(-1), p0 = point[0] || flame[0] || i0 > 0, p1 = point[1] || flame[1] || (i1 < m && !shear);
+    parts.push({ pts, wm: Sx.map(v => Math.min(p0 ? tip(v) : 1, p1 ? tip(Lx - v) : 1)), w: W * f[j], col, hair, i0: i0 - h0 });
+  }
+  if (ch) {   // the red in the channel: filled with a nib a little narrower than it, so a hair of paper shows each side,
+    // or strung with lozenges on a red hair (Rossi's chain, in the rubricator's colour)
+    const i0 = k.findIndex(f => f > .7) + (shear ? Math.ceil(m * .1) : 0), i1 = m - [...k].reverse().findIndex(f => f > .7) - (shear ? Math.ceil(m * .05) : 0);
+    const pts = [], mid = i => (centre(n / 2 - 1, i) + centre(n / 2, i)) / 2;
+    for (let i = i0; i < i1; i++) pts.push(add(c[i], N[i], mid(i)));
+    const S2 = arc(pts), L2 = S2.at(-1);
+    if (pts.length > 2 && red === 'fill') parts.push({ pts, wm: S2.map(s => Math.min(1, s / (W * 2), (L2 - s) / (W * 2)) ** .6), w: W * ch * .8, col: 'r', hair: hair * .6, i0, red: true });
+    if (pts.length > 2 && red === 'chain') {
+      parts.push({ pts, w: Math.max(.6, W * .12), col: 'r', hair: .4, i0, red: true });
+      const sz = ch * w[i0] * .78, step = sz * 1.55, cnt = Math.floor((L2 - sz) / step), s0 = (L2 - cnt * step) / 2;
+      for (let q = 0; q <= cnt; q++) { const i = S2.findIndex(v => v >= s0 + q * step); if (i < 0) continue; const lz = lozenge(pts[i], sz, 'r'); parts.push({ ...lz, i0: i0 + i, red: true }); }
+    }
+  }
+  return { c, hw, parts, z, alt: false, T, N, S, w, W, g, n, centre };
+}
+
+// a member's end, carried on: c a curl (+ clockwise / - / auto), h a short hook, with a length (in letter heights)
+function extend(c, spec, H, atStart) {
+  const m = /^([ch])([+-]?)([\d.]*)$/.exec(spec ?? ''); if (!m) return c;
+  const P = atStart ? [...c].reverse() : c, { T, K } = frameOf(P, 3), q = P.at(-1), t = T.at(-1);
+  const sense = m[2] ? (m[2] === '+' ? 1 : -1) : (K.at(-4) >= 0 ? 1 : -1), L = (+m[3] || (m[1] === 'c' ? .3 : .12)) * H;
+  const turn = m[1] === 'c' ? 1.45 * Math.PI : .7 * Math.PI, k1 = sense * turn * 1.5 / L;
+  const tail = tendril(q, Math.atan2(t[1], t[0]), L, k1, .6).slice(1), out = [...P, ...tail];
+  return atStart ? out.reverse() : out;
+}
+
+// Neudörffer's hairline (Met 354468, title): the pen runs on from a stroke's point on its thin edge, sweeps out in a
+// wide arc (sense s, radius ~R) that may come round far enough to cross itself, turns the other way, and ends in a
+// small hook; a point of the pen is set in the hook's eye. v: three variations (sweep, turn, hook)
+function loopOf(p, h, R, s, v = [1, 1, 1], r = Math.random) {
+  // the sweep through points on a spiral that draws in as it goes, each a little off it (a hand's arc, not a compass's)
+  const turn = Math.PI * (.9 + .9 * v[1]) * v[0], c = add(p, [Math.cos(h + s * Math.PI / 2), Math.sin(h + s * Math.PI / 2)], R), a0 = Math.atan2(p[1] - c[1], p[0] - c[0]);
+  const n = Math.max(3, Math.round(turn / 1.05)), cp = [p];
+  for (let k = 1; k <= n; k++) { const f = k / n, a = a0 + s * turn * f, rho = R * (1 - .45 * f) * (1 + (r() - .5) * .3); cp.push([c[0] + Math.cos(a) * rho, c[1] + Math.sin(a) * rho]); }
+  const sweep = through(cp, .6), q = sweep.at(-1), d = unit([q[0] - sweep.at(-4)[0], q[1] - sweep.at(-4)[1]]), rh = R * (.18 + .1 * v[2]);
+  const hook = flourish(q, Math.atan2(d[1], d[0]), [[R * .3, s * .5 / R, -s / (rh * 1.4)], [rh * Math.PI * 1.1, -s / rh, -s / (rh * .6)]], .6);
+  const pts = [...sweep, ...hook.slice(1)], e = pts.at(-1), d2 = unit([e[0] - pts.at(-4)[0], e[1] - pts.at(-4)[1]]);
+  pts.eye = add(add(e, [-d2[1] * -s, d2[0] * -s], rh * .7), d2, -rh * .2);
+  return pts;
+}
+const curlOf = (p, h, r, s) => flourish(p, h, [[r * .7, 0, s / r], [r * Math.PI * 1.6, s / r, s / (r * .45)]], .5);
+// ---- the capitals ------------------------------------------------------------------------------------------------------------
+// Each in a unit box: y 0 at the cap line, 1 on the baseline, x from the letter's left; w the advance. m: the members in
+// the order written, each { p: points the pen passes through, z (over and under: higher goes over), n (strokes; default
+// by role), r: 'stem' (the channel and its red) | 'band' (a ribbon, red down its middle) | 'hair' (a single hairline),
+// a, b: what the start and end do ('c±len' curl, 'h±len' hook; otherwise a point), girdle: where the bars bind a stem
+// (0..1 of its length), fl: [from, to, side] flames, fr: [from, to, side] a fringe of hairs, x: [from, to, side] red
+// crosses, sp: ±1 a spur beside a stem (- left), o: an ornament, left out of the small capital in the line } (side:
+// +1 the right of the pen's way, -1 the left).
+const CAPS = {
+  A: { w: .96, m: [
+    { p: [[.04, .98], [.14, .72], [.3, .34], [.54, .06]], z: 1 },
+    { r: 'stem', p: [[.66, .03], [.67, .5], [.68, .98]], z: 3, red: 'chain', girdle: .75 },
+    { p: [[.2, .6], [.44, .56], [.84, .55]], n: 2, z: 4 },
+    { p: [[.54, .05], [.36, -.08], [.16, -.06]], n: 2, b: 'c-.14', z: 5 },
+  ] },
+  B: { w: 1.08, m: [
+    { r: 'stem', p: [[.40, .04], [.40, .45], [.39, .75], [.38, .98]], z: 3, red: 'chain', girdle: .7, sp: -1 },
+    { p: [[.52, -.02], [.64, .02], [.78, .14], [.79, .31], [.69, .43], [.57, .50]], z: 2 },
+    { p: [[.57, .54], [.82, .52], [.98, .66], [.99, .85], [.85, .98], [.6, 1.0]], z: 2, fr: [.15, .45, -1], fb: 0 },
+    { r: 'band', p: [[.06, .95], [.3, 1.0], [.6, 1.05], [.92, 1.02], [1.06, .92]], b: 'c-.12', z: 4, x: [.18, .55, 1] },
+    { p: [[.50, .03], [.42, -.08], [.48, -.18], [.66, -.21], [.84, -.15], [.9, -.06]], n: 3, z: 5, o: 1 },
+  ] },
+  C: { w: .92, m: [
+    { p: [[.74, .1], [.5, .0], [.24, .1], [.1, .45], [.16, .8], [.38, .99], [.7, .95]], z: 2, fr: [.08, .3, -1] },
+    { r: 'stem', p: [[.52, .16], [.52, .5], [.52, .82]], z: 1, red: 'chain' },
+    { p: [[.52, .1], [.7, .0], [.88, .1]], n: 2, b: 'c+.12', z: 4 },
+  ] },
+  D: { w: 1.02, m: [
+    { r: 'stem', p: [[.24, .06], [.24, .5], [.24, .96]], z: 3, red: 'chain', sp: -1, girdle: .6 },
+    { p: [[.34, .03], [.62, .02], [.86, .2], [.92, .55], [.8, .86], [.52, 1.0], [.26, .99]], z: 2, fr: [.3, .55, -1] },
+    { p: [[.24, .06], [.12, -.06], [-.02, -.02]], n: 2, b: 'c-.12', z: 5 },
+  ] },
+  E: { w: .9, m: [
+    { p: [[.7, .1], [.44, .02], [.2, .14], [.1, .5], [.16, .82], [.38, .99], [.7, .94]], z: 2 },
+    { r: 'stem', p: [[.48, .2], [.48, .52], [.48, .82]], z: 1, red: 'fill' },
+    { p: [[.48, .48], [.66, .44], [.84, .5]], n: 2, z: 4, b: 'h+.1' },
+    { p: [[.48, .08], [.68, .0], [.86, .08]], n: 2, b: 'c+.12', z: 4 },
+  ] },
+  F: { w: .9, m: [
+    { r: 'stem', p: [[.34, .06], [.34, .5], [.34, .98]], z: 3, red: 'chain', sp: -1, girdle: .75 },
+    { p: [[.16, .06], [.42, -.02], [.66, .02], [.86, -.06]], n: 3, b: 'c-.12', z: 4 },
+    { p: [[.18, .5], [.46, .46], [.72, .5]], n: 2, z: 4 },
+  ] },
+  G: { w: .96, m: [
+    { p: [[.72, .1], [.48, .0], [.22, .12], [.1, .5], [.18, .84], [.42, .99], [.66, .96]], z: 2, fr: [.08, .3, -1] },
+    { r: 'stem', p: [[.72, .46], [.72, .72], [.72, .98]], z: 3, red: 'fill' },
+    { p: [[.44, .48], [.64, .42], [.9, .46]], n: 2, z: 4 },
+    { p: [[.72, .1], [.84, .02], [.94, .1]], n: 2, b: 'c+.1', z: 4 },
+  ] },
+  H: { w: 1.02, m: [
+    { r: 'stem', p: [[.30, .04], [.30, .5], [.30, .98]], z: 3, red: 'chain', sp: -1, girdle: .72 },
+    { p: [[.46, .36], [.7, .28], [.88, .45], [.86, .78], [.74, 1.0], [.6, 1.12]], z: 2, fr: [.1, .4, -1] },
+    { r: 'band', p: [[.06, .02], [.3, -.05], [.58, .0], [.8, -.06]], b: 'c-.1', z: 4 },
+  ] },
+  I: { w: .74, m: [
+    { r: 'stem', p: [[.40, .06], [.40, .5], [.40, .96]], z: 3, red: 'chain', sp: -1, girdle: .7 },
+    { r: 'band', p: [[.1, .05], [.4, -.03], [.7, .04]], a: 'c-.1', b: 'c+.1', z: 4 },
+    { p: [[.12, .9], [.4, 1.02], [.68, .94]], n: 2, z: 4 },
+  ] },
+  J: { w: .8, m: [
+    { p: [[.5, .04], [.52, .5], [.48, .86], [.32, 1.06], [.1, 1.04]], z: 2 },
+    { r: 'band', p: [[.18, .05], [.48, -.03], [.76, .04]], a: 'c-.1', b: 'c+.1', z: 4 },
+    { p: [[.3, .3], [.2, .4], [.22, .55], [.3, .6]], n: 2, z: 1, o: 1 },
+  ] },
+  K: { w: 1.0, m: [
+    { r: 'stem', p: [[.28, .04], [.28, .5], [.28, .98]], z: 3, red: 'chain', sp: -1, girdle: .75 },
+    { p: [[.86, .04], [.66, .28], [.46, .5]], z: 2 },
+    { p: [[.46, .5], [.64, .68], [.78, .9], [.96, 1.0]], z: 2 },
+    { r: 'band', p: [[.04, .03], [.28, -.04], [.5, .02]], b: 'c+.1', z: 4 },
+  ] },
+  L: { w: .92, m: [
+    { r: 'stem', p: [[.32, .04], [.32, .5], [.32, .92]], z: 3, red: 'chain', sp: -1, girdle: .65 },
+    { r: 'band', p: [[.06, .93], [.36, 1.0], [.66, .98], [.88, .88]], b: 'c-.1', z: 4, x: [.2, .6, 1] },
+    { p: [[.44, .05], [.3, -.08], [.12, -.05]], n: 2, b: 'c-.12', z: 5 },
+    { p: [[.5, .2], [.62, .12], [.74, .22], [.7, .36]], n: 2, z: 1, o: 1 },
+  ] },
+  M: { w: 1.12, m: [
+    { p: [[.04, .98], [.1, .6], [.14, .2], [.3, .04]], n: 3, z: 1 },
+    { r: 'stem', p: [[.48, .06], [.48, .5], [.48, .98]], z: 3, red: 'chain', girdle: .75 },
+    { p: [[.52, .1], [.7, .0], [.86, .14]], n: 2, z: 2 },
+    { p: [[.86, .12], [.88, .55], [.86, .98]], n: 3, z: 2 },
+  ] },
+  N: { w: .94, m: [
+    { p: [[.04, .98], [.1, .56], [.16, .16], [.32, .04]], n: 3, z: 1 },
+    { r: 'stem', p: [[.70, .04], [.70, .5], [.70, .98]], z: 3, red: 'chain', sp: 1, girdle: .75 },
+    { p: [[.32, .08], [.46, .36], [.56, .62]], n: 2, z: 2 },
+  ] },
+  O: { w: 1.02, m: [
+    { p: [[.48, .02], [.2, .12], [.08, .5], [.2, .88], [.48, .99]], z: 2 },
+    { p: [[.52, .02], [.8, .12], [.92, .5], [.8, .88], [.52, .99]], z: 1, fr: [.15, .4, 1] },
+    { r: 'stem', p: [[.50, .18], [.50, .5], [.50, .82]], z: 3, red: 'chain' },
+  ] },
+  P: { w: .98, m: [
+    { r: 'stem', p: [[.30, .04], [.30, .5], [.30, .98]], z: 3, red: 'chain', sp: -1, girdle: .8 },
+    { p: [[.44, .03], [.7, .04], [.88, .22], [.86, .46], [.66, .58], [.44, .58]], z: 2, fr: [.2, .5, -1] },
+    { p: [[.3, .04], [.16, -.07], [.02, -.01]], n: 2, b: 'c-.1', z: 5 },
+    { p: [[.08, .96], [.3, 1.02], [.52, .96]], n: 2, z: 4 },
+  ] },
+  Q: { w: 1.04, m: [
+    { p: [[.48, .02], [.2, .12], [.08, .5], [.2, .86], [.48, .97]], z: 2 },
+    { p: [[.52, .02], [.8, .12], [.92, .5], [.8, .86], [.52, .97]], z: 1 },
+    { r: 'stem', p: [[.50, .18], [.50, .5], [.50, .8]], z: 3, red: 'chain' },
+    { r: 'band', p: [[.3, .86], [.6, 1.0], [.84, 1.04], [1.04, .98]], b: 'c-.1', z: 4 },
+  ] },
+  R: { w: 1.0, m: [
+    { r: 'stem', p: [[.30, .04], [.30, .5], [.30, .98]], z: 3, red: 'chain', sp: -1, girdle: .8 },
+    { p: [[.44, .03], [.7, .04], [.86, .2], [.82, .42], [.62, .52], [.44, .52]], z: 2 },
+    { p: [[.5, .55], [.66, .7], [.78, .92], [.96, 1.0]], z: 2 },
+    { p: [[.3, .04], [.16, -.07], [.02, -.01]], n: 2, b: 'c-.1', z: 5 },
+  ] },
+  S: { w: .92, m: [
+    { p: [[.8, .1], [.56, .0], [.28, .06], [.18, .26], [.34, .44], [.6, .56], [.78, .76], [.7, .94], [.42, 1.0], [.12, .92]], z: 2 },
+    { r: 'stem', p: [[.30, .52], [.30, .72], [.30, .9]], n: 2, z: 1, red: 'fill' },
+    { p: [[.62, .1], [.66, .22], [.6, .34]], n: 2, z: 1, o: 1 },
+  ] },
+  T: { w: .98, m: [
+    { r: 'band', p: [[.02, .06], [.3, -.02], [.62, .03], [.94, -.04]], a: 'c-.1', b: 'c+.1', z: 4 },
+    { r: 'stem', p: [[.48, .1], [.48, .5], [.48, .96]], z: 3, red: 'chain', girdle: .75 },
+    { p: [[.32, .3], [.22, .4], [.24, .55], [.32, .6]], n: 2, z: 1, o: 1 },
+    { p: [[.64, .3], [.74, .4], [.72, .55], [.64, .6]], n: 2, z: 1, o: 1 },
+  ] },
+  U: { w: .96, m: [
+    { p: [[.2, .04], [.14, .5], [.2, .86], [.42, 1.0], [.62, .94]], z: 2 },
+    { r: 'stem', p: [[.72, .04], [.72, .5], [.72, .98]], z: 3, red: 'chain', sp: 1, girdle: .7 },
+    { p: [[.2, .05], [.08, -.05], [-.04, .02]], n: 2, b: 'c-.1', z: 5 },
+  ] },
+  V: { w: .92, m: [
+    { r: 'stem', p: [[.06, .04], [.22, .5], [.42, .98]], z: 2, red: 'chain' },
+    { p: [[.42, .98], [.66, .62], [.84, .26], [.84, .04]], z: 1, fr: [.4, .8, 1] },
+    { p: [[.06, .05], [-.04, -.06], [-.14, .0]], n: 2, b: 'c-.1', z: 5 },
+  ] },
+  W: { w: 1.24, m: [
+    { r: 'stem', p: [[.04, .04], [.18, .5], [.34, .98]], z: 2, red: 'chain' },
+    { p: [[.34, .98], [.5, .6], [.6, .1]], n: 3, z: 1 },
+    { r: 'stem', p: [[.6, .1], [.72, .55], [.82, .98]], z: 2, red: 'fill' },
+    { p: [[.82, .98], [1.02, .62], [1.14, .26], [1.12, .04]], z: 1 },
+  ] },
+  X: { w: .98, m: [
+    { r: 'stem', p: [[.1, .04], [.34, .3], [.62, .7], [.9, .98]], z: 1, red: 'chain' },
+    { p: [[.88, .04], [.62, .3], [.36, .7], [.1, .98]], z: 2 },
+    { r: 'band', p: [[.0, .02], [.3, -.04], [.6, .0]], b: 'c+.1', z: 4 },
+  ] },
+  Y: { w: .92, m: [
+    { r: 'stem', p: [[.06, .04], [.24, .48], [.46, .9]], z: 2, red: 'chain' },
+    { p: [[.86, .04], [.72, .48], [.52, .92], [.32, 1.12], [.08, 1.08]], z: 1 },
+    { p: [[.06, .05], [-.04, -.06], [-.14, .0]], n: 2, b: 'c-.1', z: 5 },
+  ] },
+  Z: { w: .96, m: [
+    { r: 'band', p: [[.08, .08], [.46, .0], [.88, .06]], a: 'c-.1', z: 4 },
+    { p: [[.84, .1], [.56, .46], [.18, .9]], z: 2 },
+    { r: 'band', p: [[.1, .94], [.5, 1.02], [.92, .94]], b: 'c-.1', z: 4, x: [.2, .7, 1] },
+    { p: [[.3, .5], [.5, .46], [.74, .5]], n: 2, z: 5 },
+  ] },
+};
+export const LETTERS = Object.keys(CAPS);
+
+// per level (0..4): strokes in a member and in a stem, red, cloud loops, flames/fringes/crosses, the girdle
+const BUDGET = [{ n: 2, ns: 2, loops: 0, curls: 0, orn: false, girdle: false }, { n: 2, ns: 2, loops: 2, curls: 1, orn: false, girdle: false }, { n: 3, ns: 2, loops: 3, curls: 3, orn: true, girdle: true },
+  { n: 3, ns: 4, loops: 6, curls: 6, orn: true, girdle: true }, { n: 4, ns: 4, loops: 9, curls: 10, orn: true, girdle: true }];
+
+// the letter's members placed and written as bundles; X maps the unit box onto the page
+function capital(ch, X, H, level, big) {
+  const D = CAPS[ch] ?? CAPS.B, b = BUDGET[level], W = big ? H * .052 : H * .14, g = big ? Math.max(1, W * .25) : 0, hair = Math.max(.5, W * .12);
+  // a stem's spur: a hook of a bundle beside it, open at its head and curled in at its foot toward the stem (Rossi's B),
+  // on the side sp says
+  const spurs = big && b.orn ? D.m.filter(mb => mb.sp).map(mb => { const x = mb.p[0][0], d = mb.sp;
+    return { n: 2, z: 1, p: [[x + d * .3, .22], [x + d * .33, .4], [x + d * .3, .58], [x + d * .2, .7]], b: 'h' + (d < 0 ? '-' : '+') + '.1' }; }) : [];
+  const members = [...D.m.filter(mb => big || !mb.o), ...spurs].map(mb => {
+    const c0 = through(mb.p.map(X), .6), c = big ? extend(extend(c0, mb.a, H, true), mb.b, H, false) : c0;
+    if (mb.r === 'hair') return { mb, ...hairline(c, Math.max(1, W * .5)), alt: true, z: mb.z ?? 0 };
+    const n = !big ? 1 : mb.n ?? (mb.r === 'stem' ? b.ns : mb.r === 'band' ? 2 : b.n);
+    const chan = big && n % 2 === 0 && (mb.r === 'stem' || mb.r === 'band') ? (mb.r === 'stem' ? 1 : .7) : 0;
+    const free = e => !/^[ch]/.test(e ?? '');
+    return { mb, ...bundle(c, { n, W: mb.r === 'band' ? W * .8 : W, g, hair, chan, red: mb.red ?? 'fill', z: mb.z ?? 0, shear: mb.r === 'stem',
+      point: mb.r === 'stem' ? [false, false] : [free(mb.a), free(mb.b)], flame: big && !mb.r && n > 1 ? [free(mb.a) && mb.fa !== 0, free(mb.b) && mb.fb !== 0] : big && mb.r === 'stem' && n > 1 ? [true, false] : [false, false] }) };
+  });
+  return { D, b, W, g, hair, members };
+}
+
+// flames: short strokes pulled from a member's edge, curving back along it, to a point
+function flames(M, [t0, t1, side], H, r) {
+  const out = [], { c, S, T, N, hw, W } = M, L = S.at(-1), n = Math.max(2, Math.round((t1 - t0) * L / (W * 1.9)));
+  for (let k = 0; k < n; k++) {
+    const s = L * (t0 + (t1 - t0) * (k + .5) / n), i = S.findIndex(v => v >= s); if (i < 0) continue;
+    const base = add(c[i], N[i], side * (hw[i] - W * .4)), h0 = Math.atan2(N[i][1] * side, N[i][0] * side) - side * .5;
+    const len = H * (.075 + .03 * Math.sin(Math.PI * (k + .5) / n)) * (.9 + r() * .2), pts = tendril(base, h0, len, -side * 3.2 / len, .5);
+    const Sx = arc(pts); out.push({ pts, wm: Sx.map(v => Math.max(.05, 1 - v / Sx.at(-1)) ** .9), w: W * .85, col: 'k', hair: M.parts[0]?.hair ?? .6 });
   }
   return out;
 }
-
-// the letter's strokes, placed: X maps the unit box onto the page
-function capital(ch, X, H, level, big, seed) {
-  const D = CAPS[ch] ?? CAPS.B, b = BUDGET[level], r = rng(seed, 'cap');
-  const W = big ? H * .085 : H * .16, g = big ? W * .5 : 0, n = big ? b.n : 1, hw = big ? Math.max(1.2, H * .02) : Math.max(.9, H * .05);
-  const strands = D.straps.map(s => strap(curve(s.cp.map(X), 1, Math.max(.5, W * .1)), { n, W, g, z: s.z, hair: .6, taper: big ? s.taper : [0, 0] }));
-  const spurs = level >= 3 ? D.spur.map(s => hairline(curve(s.map(X), 2, .5), hw)) : [];
-  // the loops: one long stroke of a fine nib each, swelling where it runs square to the edge, ending in a curl
-  const loops = (big ? D.loops.slice(0, b.loops) : []).map(l => { const c = through(l.map(X), .5), t = tangent(c, c.length - 3);
-    return hairline([...c, ...tendril(c.at(-1), Math.atan2(t[1], t[0]), H * .2, 16 / H).slice(1)], hw * 1.7); });
-  return { D, b, W, g, hw, strands, spurs, loops, r };
+// a fringe: a comb of hairs off a member's edge, longest in the middle
+function fringe(M, [t0, t1, side], H, hw) {
+  const out = [], { c, S, N } = M, L = S.at(-1), step = Math.max(2.2, H * .016), n = Math.floor((t1 - t0) * L / step);
+  for (let k = 0; k < n; k++) { const s = L * t0 + k * step, i = S.findIndex(v => v >= s); if (i < 0) continue;
+    const a = add(c[i], N[i], side * (M.hw[i] + M.g * .6)), len = H * .05 * (.35 + .65 * Math.sin(Math.PI * (k + .5) / n));
+    out.push(stroke([a, add(a, N[i], side * len)], hw, 'k', .4)); }
+  return out;
+}
+// small crosses of four points hung off a member's edge, red
+function crosses(M, [t0, t1, side], H) {
+  const out = [], { c, S, N } = M, L = S.at(-1), step = H * .11, n = Math.max(1, Math.floor((t1 - t0) * L / step)), s0 = Math.max(1.1, H * .011);
+  for (let k = 0; k < n; k++) { const s = L * (t0 + (t1 - t0) * (k + .5) / n), i = S.findIndex(v => v >= s); if (i < 0) continue;
+    const p = add(c[i], N[i], side * (M.hw[i] + H * .045)), d = s0 * 1.25;
+    out.push(lozenge(add(p, N[i], -side * d), s0, 'r'), lozenge(add(p, N[i], side * d), s0, 'r'), lozenge(add(p, M.T[i], -d), s0, 'r'), lozenge(add(p, M.T[i], d), s0, 'r')); }
+  return out;
 }
 
 // ---- keeping clear of the words -------------------------------------------------------------------------------------------
 const hits = (pts, keep, edge, bottom, pad = 2) => pts.some(([x, y]) => x < edge || y > bottom || keep.some(k => x > k[0] - pad && x < k[2] + pad && y > k[1] - pad && y < k[3] + pad));
-// a loop that would touch a word is drawn in toward where it leaves the letter, a little at a time, or left out
-function fit(loop, keep, edge, bottom) {
-  const a = loop.c[0];
-  for (let k = 0; k < 6; k++) { const s = .86 ** k, c = loop.c.map(([x, y]) => [a[0] + (x - a[0]) * s, a[1] + (y - a[1]) * s]);
-    if (!hits(c, keep, edge, bottom)) return { ...loop, c, parts: loop.parts.map(p => ({ ...p, pts: p.pts.map(([x, y]) => [a[0] + (x - a[0]) * s, a[1] + (y - a[1]) * s]) })) }; }
-  return null;
-}
 
 // ---- the initial ---------------------------------------------------------------------------------------------------------------
-// The capital written in black straps, the red laid between their copies; the cadel hairlines thrown out of it into the
-// margin and back through it, over and under; red points in the counters; at a richer price a band across the stem and
-// a red hairline doubling the bowls outside. In the line: one copy, a red stroke beside the stem, one loop.
-function initial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, room = 100, bottom = 1e9 }) {
-  const [x0, y0, , y1] = G.box, H = y1 - y0, X = ([x, y]) => [x0 + x * H, y0 + y * H], edge = x0 - room;
-  const { D, b, W, g, hw, strands, spurs, loops } = capital(ch in CAPS ? ch : 'B', X, H, level, big, seed);
-  const ok = loops.map(l => fit(l, keep, edge, bottom)).filter(Boolean), r = rng(seed, 'sprig');
-  const box = [x0, y0, x0 + D.w * H, y1], tw = big ? ok.flatMap(l => sprigs(l, box, H, hw, b.sprigs, r, keep, edge, bottom)) : [];
-  const all = [...strands, ...spurs, ...ok, ...tw.map(t => hairline(t.c, hw * .85))], marks = interlace(all, big ? Math.max(1.3, W * .32) : 1);
-  // write the black first, then the red, as the scribe and then the rubricator did
-  const black = marks.filter(m => m.col === 'k'), red = marks.filter(m => m.col === 'r'), over = [];
-  if (big && b.girdle) for (const gd of D.girdle) {   // a band of three short bars bound across a strap over its red (Neudörffer's title cadel); the
-    // bars run square to the strap, so the nib is turned for them to come out heavy (the one place the pen leaves 35°)
-    const s = strands[gd.s], i = Math.floor(s.c.length * gd.at), t = tangent(s.c, i), nrm = [-t[1], t[0]], half = across(s.B, t, 0) * .5 + .4, ang = Math.atan2(t[1], -t[0]) % Math.PI;
-    for (let k = -1; k <= 1; k++) { const m = add(s.c[i], t, k * W * .6); over.push({ ...stroke([add(m, nrm, -half), add(m, nrm, half)], W * .42, 'k', .45), angle: ang }); } }
-  if (big && b.double) { const s = strands[2] ?? strands[1], off = s.B / 2 + g * 2.2;   // a red hairline outside the last bowl
-    red.push(stroke(shiftE(s.c, off).slice(Math.floor(s.c.length * .2), Math.floor(s.c.length * .85)), hw * .9, 'r', .45)); }
-  if (big) D.dots.slice(0, b.dots).map(X).filter(d => ok.every(l => Math.hypot(l.c.at(-1)[0] - d[0], l.c.at(-1)[1] - d[1]) > H * .2)).forEach(d => red.push(lozenge(d, W * .95, 'r')));   // red points in the counters, where no loop ends
-  else red.push(stroke([X([.40, .30]), X([.38, .78])], W * .7, 'r', .4));   // in the line: the capital touched with red
-  // the loops' free ends take a lozenge
-  if (big) ok.forEach((l, k) => { if (k < 2) red.push(lozenge(l.c.at(-1), hw * 2.2, k % 2 ? 'k' : 'r')); });
-  if (big) tw.forEach((t, k) => { if (k % 2 === 0) over.push(lozenge(add(t.c.at(-1), [Math.cos(k), Math.sin(k)], hw * 2.4), hw * 1.6, 'k')); });   // a point beside a curl
+// initial({ ch, G: { box: [x0, top, x1, base] }, keep: word rects to stay clear of, big, level 0..4, seed, room: margin
+// px to the left of the box, bottom }) -> { letter: null, marks, width }: the letter written as marks (black, then red,
+// then what binds over the red), and the width to float.
+function initial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, room = 100, bottom = 1e9, loops: nLoops }) {
+  ch = String(ch).normalize('NFD')[0].toUpperCase(); const [x0, y0, , y1] = G.box, H = y1 - y0, near = H * 3; keep = keep.filter(k => k[2] > x0 - room - near && k[0] < x0 + near && k[3] > y0 - near && k[1] < y1 + near);
+  const X = ([x, y]) => [x0 + x * H, y0 + y * H], edge = x0 - room;
+  if (!(ch in CAPS)) return { letter: ch, marks: [], width: .8 * H };   // not a Latin letter: the host's own glyph stands
+  const { D, b, W, g, members } = capital(ch, X, H, level, big), r = rng(seed, 'cadel');
+  const hw = Math.max(.8, H * .0065), over = [], extra = [];
+  // the cloud: the pen runs on from the points of the strokes on its thin edge. From the points farthest out, a few
+  // great loops bulging away from the letter, as large as there is room for; from others, small curls
+  const loops = [], centre = X([D.w / 2, .5]);
+  if (big) {
+    const tips = members.flatMap(M => M.parts.filter(p => p.col === 'k' && p.wm && p.pts.length > 6).flatMap(p => {
+      const P = p.pts, a = unit([P[0][0] - P[4][0], P[0][1] - P[4][1]]), z = unit([P.at(-1)[0] - P.at(-5)[0], P.at(-1)[1] - P.at(-5)[1]]);
+      return [p.wm[0] < .3 && { p: P[0], t: a }, p.wm.at(-1) < .3 && { p: P.at(-1), t: z }].filter(Boolean); }))
+      .map(e => ({ ...e, d: Math.hypot(e.p[0] - centre[0], e.p[1] - centre[1]) })).sort((a, b) => b.d - a.d);
+    const used = [], free = (p, d) => used.every(u => Math.hypot(u[0] - p[0], u[1] - p[1]) > d);
+    const nBig = nLoops ?? b.loops, nCurl = nLoops === 0 ? 0 : b.curls;
+    // each loop the largest that fits, turned a little either way to find room, bulging out (into the margin first)
+    // where the margin is wide, the first sweeps from the left of the letter go out into it, as large as it allows
+    // (Neudörffer's run to two or three times the letter); the rest stay close and come back toward it
+    const wide = x0 - edge > H * .7; let k0 = 0, nWide = 0;
+    for (const e of tips) { if (loops.length >= nBig) break; if (!free(e.p, H * .16)) continue; k0++;
+      const out = wide && nWide < 2 && e.p[0] < x0 + H * .35, v = [.8 + r() * .4, out ? r() * .3 : r(), r()];
+      const R0 = out ? Math.min((x0 - edge) * .32, H * .4) * (.85 + r() * .15) : H * (.15 + r() * .12) * (loops.length < 2 ? 1.5 : 1);
+      let best = null;
+      const heads = out ? [Math.PI, Math.PI * .8, -Math.PI * .8, Math.PI * .6, -Math.PI * .6].map(a => a - Math.atan2(e.t[1], e.t[0])) : [0, .45, -.45, .9, -.9];
+      for (const dh of heads) for (const s of [1, -1]) {
+        const h = Math.atan2(e.t[1], e.t[0]) + dh;
+        for (let f = 1; f > .45; f *= .85) { const c = loopOf(e.p, h, R0 * f, s, v, rng(seed + k0, 'sweep')); if (hits(c, keep, edge, bottom)) continue;
+          const m = c[Math.floor(c.length * .3)], inside = c.filter(([x, y]) => x > x0 + H * .05 && x < x0 + D.w * H - H * .05 && y > y0 + H * .05 && y < y1 - H * .05).length / c.length;
+          const z = c.at(-1), score = out ? f * 2 + (x0 - Math.min(...c.map(q => q[0]))) / H - inside * 4
+            : f * 2 + Math.min(.8, Math.hypot(m[0] - centre[0], m[1] - centre[1]) / H) - Math.abs(Math.hypot(z[0] - centre[0], z[1] - centre[1]) / H - .6) - Math.abs(dh) * .4 - inside * 4;
+          if (!best || score > best.score) best = { c, score }; break; } }
+      if (best) { if (loops.length >= 4) delete best.c.eye; loops.push(best.c); used.push(e.p); if (out) nWide++; }
+    }
+    // a hairline written along the outside of the longest curves, a little off them, which leaves at the end and sweeps out
+    const nSh = level >= 3 ? 2 : level >= 2 ? 1 : 0;
+    members.filter(M => !M.mb.r && M.n > 1).sort((a, b) => b.S.at(-1) - a.S.at(-1)).slice(0, nSh).forEach(M => {
+      const { K } = frameOf(M.c, 3), side = K.reduce((a, v) => a + v, 0) > 0 ? -1 : 1, i0 = Math.floor(M.c.length * .25), i1 = Math.floor(M.c.length * .97), sh = [];
+      for (let i = i0; i < i1; i++) sh.push(add(M.c[i], M.N[i], side * (M.hw[i] + M.g * 2.2 + hw)));
+      const q = sh.at(-1), d = unit([q[0] - sh.at(-4)[0], q[1] - sh.at(-4)[1]]), tail = loopOf(q, Math.atan2(d[1], d[0]), H * .18, -side, [1, r() * .5, r()], r);
+      const c = [...sh, ...tail.slice(1)]; c.eye = tail.eye;
+      if (!hits(c, keep, edge, bottom)) loops.push(c); });
+    let nc = 0;
+    for (const e of tips) { if (nc >= nCurl) break; if (!free(e.p, H * .12)) continue;
+      const h = Math.atan2(e.t[1], e.t[0]), rr = H * (.04 + r() * .02), s = r() < .5 ? 1 : -1, c = curlOf(e.p, h, rr, s);
+      if (!hits(c, keep, edge, bottom)) { loops.push(c); used.push(e.p); nc++; } }
+  }
+  const strands = [...members, ...loops.map(c => ({ ...hairline(c, hw * 1.6), alt: 'own', z: -1 }))];
+  if (big && b.orn) for (const M of members) {
+    if (M.mb.fl) extra.push(...flames(M, M.mb.fl, H, r));
+    if (M.mb.fr && level >= 3) extra.push(...fringe(M, M.mb.fr, H, hw * .9));
+    if (M.mb.x) { const cr = crosses(M, M.mb.x, H); for (let k = 0; k < cr.length; k += 4) if (!cr.slice(k, k + 4).some(m => hits(m.pts, keep, edge, bottom))) over.push(...cr.slice(k, k + 4)); }
+  }
+  const marks = interlace(strands, big ? Math.max(1.2, g * 1.1) : 1).map(m => m.wm ? { ...m, press: pressOf(m.pts, m.wm) } : m);
+  const black = [...extra.map(m => ({ ...m, press: pressOf(m.pts, m.wm) })), ...marks.filter(m => m.col === 'k')], red = marks.filter(m => m.col === 'r');
+  if (big && b.girdle) for (const M of members) if (M.mb.girdle) {   // three bars bound across the stem over its red; the nib turned for them (the one place it leaves 35°)
+    const i = M.S.findIndex(s => s >= M.S.at(-1) * M.mb.girdle), t = M.T[i], nrm = M.N[i], half = M.hw[i] - W * .1, ang = Math.atan2(t[1], -t[0]) % Math.PI;
+    // each bar a little bowed, as a band wound round a rod is, and drawn thin at its ends
+    for (let k = -1; k <= 1; k++) { const p = add(M.c[i], t, k * W * .8), pts = [], wm = [];
+      for (let u = -1; u <= 1.001; u += .1) { pts.push(add(add(p, nrm, u * half), t, W * .35 * (1 - u * u))); wm.push(Math.max(.15, 1 - u ** 6)); }
+      over.push({ ...stroke(pts, W * .42, 'k', .45), angle: ang, press: pressOf(pts, wm) }); } }
+  if (big) loops.forEach((c, k) => { if (c.eye) over.push(lozenge(c.eye, hw * 2.8, k % 3 === 1 ? 'r' : 'k')); });   // a point in each hook's eye
+  if (!big) red.push(stroke([X([.40, .30]), X([.38, .78])], W * .7, 'r', .4));   // in the line: the capital touched with red
   return { letter: null, marks: [...black, ...red, ...over], width: D.w * H };
 }
 initial.wider = [0, 0, 0, 2, 4];
-initial.width = ch => (CAPS[ch] ?? CAPS.B).w;
+initial.width = ch => CAPS[String(ch).normalize('NFD')[0].toUpperCase()]?.w ?? .8;
+
 
 // ---- the rubricator's small marks ----------------------------------------------------------------------------------------------
 // A stem as textura writes it: in on the nib's diagonal, straight down, out on the diagonal (the lozenge head and foot)
