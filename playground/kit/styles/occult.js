@@ -78,11 +78,22 @@ function sketch(pts, W, { col = 'k', seed = 0, amp = 0, swell = .22, enter = .8,
 // a circle drawn by hand in one stroke: from its top round and a little over its start, a shade off round (the hand's
 // circle is a little egged and flattened somewhere); turns: 2 runs on round again inside itself to rG, as a pen doubles
 // a ring without lifting (Dee's double circle)
-function handCircle(c, r, W, { col = 'k', seed = 0, turns = 1, r2 = r, amp = .012 } = {}) {
-  const rr = rng(seed, 'circle'), ph = rr() * TAU, ph2 = rr() * TAU, a0 = -Math.PI / 2 - .25 + rr() * .3, end = TAU * turns + .12, N = Math.ceil(end * Math.max(r, 4) / 1.1);
-  const pts = Array.from({ length: N + 1 }, (_, i) => { const t = i / N * end, a = a0 + t, f = Math.max(0, Math.min(1, (t - (TAU - .5)) / 1.1)), R0 = r + (r2 - r) * (turns > 1 ? f * f * (3 - 2 * f) : 0);
+// a path less the parts hidden under something drawn over it (hidden(p) -> true): the pieces left, in order, each a stroke
+// of its own (the pen lifts at the crossing and sets down beyond it), pieces shorter than minL dropped
+export function occlude(pts, hidden, minL = 1.5) {
+  const P = resample(pts, .5), out = []; let run = [];
+  for (const p of P) { if (hidden(p)) { if (run.length > 1) out.push(run); run = []; } else run.push(p); }
+  if (run.length > 1) out.push(run);
+  return out.filter(q => arclen(q) >= minL);
+}
+// hide: a path drawn whole, or (with hide) in the pieces left showing where something passes over it
+function handCircle(c, r, W, { col = 'k', seed = 0, turns = 1, r2 = r, amp = .012, hide = null } = {}) {
+  const rr = rng(seed, 'circle'), ph = rr() * TAU, ph2 = rr() * TAU, a0 = -Math.PI / 2 - .25 + rr() * .3, end = TAU * turns + (turns > 1 ? .5 : .12), N = Math.ceil(end * Math.max(r, 4) / 1.1);
+  const pts = Array.from({ length: N + 1 }, (_, i) => { const t = i / N * end, a = a0 + t, f = Math.max(0, Math.min(1, (t - (TAU + .08)) / 1.0)),   // (the outer turn closes over its start before the pen moves in)
+      R0 = r + (r2 - r) * (turns > 1 ? f * f * (3 - 2 * f) : 0);
     const R = R0 * (1 + amp * Math.sin(2 * a + ph) + amp * .6 * Math.sin(3 * a + ph2)); return polar(c, R, a); });
-  return sketch(pts, W, { col, seed, swell: .1, enter: .85, leave: .75 });
+  if (!hide) return sketch(pts, W, { col, seed, swell: .1, enter: .85, leave: .75 });
+  return occlude(pts, hide).map((q, k) => sketch(q, W, { col, seed: seed + k * 7, swell: .1, enter: .85, leave: .75 }));
 }
 // a rule pulled freehand: a shade of bow, running a little past its ends, heavier where it starts
 const handRule = (a, b, W, o = {}) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), t = unit([b[0] - a[0], b[1] - a[1]]), nr = [-t[1], t[0]], bow = (o.bow ?? .004) * L * (rng(o.seed ?? 0, 'bow')() - .5) * 2;
@@ -362,12 +373,20 @@ function seal(c, R, name, W, seed = 0, { band = false } = {}) {
 // foot; the bar drawn across the stem, heavier; the point last, in red. The ink merges where the strokes cross and join.
 function monas(cx, top, h, W, seed = 0) {
   const P = (x, y) => [cx + x * h, top + y * h], Wm = W * 1.1, amp = h * .004, marks = [];
-  // the horns: the lower edge (radius .2343 about y -.0243) from the left tip to the right, then back along the upper
-  // (radius .286 about y -.166), over the left tip a little
-  const lo = Math.atan2(.0243, .233), up = Math.atan2(.166, .233);
-  const horns = [...arc(P(0, -.0243), .2343 * h, Math.PI - lo, lo, 0), ...arc(P(0, -.166), .286 * h, up, Math.PI - up + .03, 0)];
-  marks.push(sketch(horns, Wm, { seed, amp, swell: .35 }));
-  marks.push(handCircle(P(0, .31), .228 * h, Wm, { seed: seed + 1, turns: 2, r2: .211 * h, amp: .01 }));
+  // the horns: the lower edge from the left tip to the right, then back along the upper, over the left tip a little
+  // (remeasured at full size: the crescent is a narrow band, its two edges meeting at the tips: the lower edge through
+  // .22 at the middle, radius .2334 about y -.0134; the upper through .19, radius .2379 about y -.0479)
+  const lo = Math.atan2(.0134, .233), up = Math.atan2(.0479, .233), cLo = P(0, -.0134), cUp = P(0, -.0479), rLo = .2334 * h, rUp = .2379 * h;
+  const horns = [...arc(cLo, rLo, Math.PI - lo, lo, 0), ...arc(cUp, rUp, up, Math.PI - up + .03, 0)];
+  // the weave (p. 25 at full size): the horns pass UNDER the double ring on the left and OVER it on the right. Each is a
+  // solid band, the crescent between its two edges, the ring between its two circles: what passes under is hidden
+  // across the whole of the band over it, and a hair of paper either side of the band's edges (g: half the line and the
+  // hair of paper; the two cross at a shallow angle, so a little more would open a long gap, as the woodcut does not)
+  const C = P(0, .31), rO = .228 * h, rI = .211 * h, g = Wm * .5 + 1.5 + amp * .5, d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  const underRing = p => p[0] < cx && d(p, C) > rI - g && d(p, C) < rO + g;                       // the left: the horn under the ring
+  const underHorn = p => p[0] > cx && d(p, cLo) < rLo + g && d(p, cUp) > rUp - g;                 // the right: the ring under the horn
+  occlude(horns, underRing).forEach((q, k) => marks.push(sketch(q, Wm, { seed: seed + k * 5, amp, swell: .35 })));
+  marks.push(...handCircle(C, rO, Wm, { seed: seed + 1, turns: 2, r2: rI, amp: .01, hide: underHorn }));
   // Aries: each arc a half-ellipse rising straight up out of the stem's foot (1.0) to a peak at ±.115, .81 and falling to
   // ±.224, .946 (measured again on p. 25: the woodcut's arcs are taller than they are wide, not circles)
   const aries = sd => Array.from({ length: 41 }, (_, i) => { const t = Math.PI + (Math.PI - .25) * i / 40; return P(sd * (.115 + .113 * Math.cos(t)), .99 + .18 * Math.sin(t)); });

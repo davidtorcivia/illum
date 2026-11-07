@@ -46,8 +46,9 @@ By pixel runs on the full-resolution scans (a page ~4100–4500 px across, ~600 
   (MS 4666) to **[129 103 80]** (MS 4659, iron gall browned); green **[127 180 156]** (MS 4670's verdigris rules).
 - **The ruling**: MS 4666 rules a red double frame round the page (two rules ~1/80 of the page apart) whose rules run on
   past each other at the corners; the drawings sit inside it, the text above.
-- **The Monas** (Dee 1564, in units of its height, 0 at the horns' tips): horns' tips at y 0, x ±0.233; the crescent's
-  lower edge through y 0.21 at the middle (an arc of radius 0.24), its upper edge through y 0.12; the circle centred at
+- **The Monas** (Dee 1564, in units of its height, 0 at the horns' tips): horns' tips at y 0, x ±0.233; the crescent a
+  narrow band, its lower edge through y 0.22 at the middle, its upper through y 0.19 (remeasured at full size), the two
+  meeting at the tips; it passes under the double ring on the left and over it on the right; the circle centred at
   y 0.31, radius 0.228 (double, the inner 0.213); the point at its centre; the stem from the circle to y 0.995, its two
   lines 0.03 apart; the bar at y 0.645–0.675, x ±0.225; the arcs of Aries half-ellipses rising straight out of the stem's
   foot (y 0.99) to peaks at x ±0.115, y 0.81 and falling to x ±0.224, y 0.946 (measured again for the drawn Monas).
@@ -109,6 +110,14 @@ at dpr 1 it is thickened 0.06 px instead, its hairlines being at a pixel's edge 
   the point in red), each path bent a little off true by a slow wander, the nib swelling where the pen turns and as it
   sets down, lifting off at the end; strokes overrun where a pen joins, and the medium merges the ink there. The
   pentacle's own compass circles stay true (the manuscripts strike them with a compass).
+- The weave (fourth pass, after the user: "the horn is under on the left and over on the right"): on p. 25 the crescent,
+  a narrow band, passes UNDER the double ring on the left and OVER it on the right. Both are treated as solid bands: the
+  under-strand's path is clipped against the over-band (between its two edges) and a hair of paper either side
+  (occlude() in occult.js: half the line plus 1.5 px, so the gap stays open at dpr 1 after the ink's creep), and drawn in
+  the pieces left, the pen lifting at each crossing; ?draw writes the pieces in order. The double ring, drawn as one
+  stroke round twice, closes its outer turn over its start before it moves in. No other crossing in the style is an
+  interlace: the bar over the stem, the crosses of ♀ ☿, the rules crossing at the corners are a pen's strokes crossing,
+  and merge as ink does.
 - Breaks: chapter, the seal (a double circle, the chapter's planet in red) on a lettered band, CAPVT to its left and the
   ordinal (PRIMVM …) to its right; book, Dee's Monas struck with compass and ruler from the measurements above, its point
   red, and his motto QVI NON INTELLIGIT AVT TACEAT AVT DISCAT lettered in red between two rules.
