@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tarot</title>
+<!--
+  Tarot: a specimen of kit/styles/tarot.js (research/12-tarot.md), the same text and structure as tests/blackletter.html
+  so the two compare. Every case is a small print of the Tarot de Marseille: its woodcut line written by the ink engine
+  (kit/writer.js), its stencil colours poured into the same medium (kit/inkletter.js) a little off the line, its
+  lettering IM FELL laid by the engine. ?draw writes it as you read (each case when its line comes 15% into view: the
+  line written first, then each colour laid in beneath it by a brush sweeping across the stencil); ?theme=dark;
+  ?rich=0..1; #seed=n; ?set=solid|contour (the drop initial: the letter printed black, or cut as a contour with its body
+  stencilled red).
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(160 64 40); color-scheme: light; }
+  :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); --rubric: rgb(222 120 92); color-scheme: dark; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
+  .sheet { position: relative; max-width: 900px; margin: 0 auto; padding: 120px 100px 140px 200px; box-sizing: border-box; }
+  .sheet > canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .15em; }
+  .sub { font-style: italic; margin: 0 0 2.4em; }
+  h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
+  p { margin: 0; }
+  p.par { text-indent: 1.8em; }
+  hr { border: 0; height: 3.4em; margin: .4em 0; }
+  hr.book { height: 9em; margin: 1em 0 0; }
+  a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
+  nav.toc { margin: 0 0 2.4em; font-style: italic; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; }
+  blockquote { margin: 3em 0 1.6em; padding: 0 1.3em 0 1.4em; }
+  blockquote p { margin: 0 0 .3em; }
+  blockquote footer { font-style: italic; font-size: .9em; text-align: right; margin-top: .9em; }
+  figure { margin: 4.4em auto 2em; max-width: 24em; }
+  figure svg { display: block; width: 100%; height: auto; }
+  figure svg g { stroke: var(--ink); }
+  figure svg rect[fill] { fill: var(--ink); }
+  figcaption { font-style: italic; font-size: .9em; margin-top: 1.6em; text-align: left; hyphens: manual; }
+  pre { margin: 1.8em 0; padding: 1.3em 2.6em; font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; hyphens: none; }
+  .pull { margin: 3em 1.5em; font-size: 1.35em; line-height: 1.4; font-style: italic; text-align: center; hyphens: manual; }
+  aside.note { margin: 4em 0 2em 2.5em; padding: 0 0 .2em 1.2em; font-size: .9em; }
+  aside.note p { margin: 0 0 .6em; }
+  .ini { color: transparent; }
+  .ini.drop { float: left; line-height: 1; }
+  .ini.line { display: inline-block; font-size: 1.8em; line-height: 0; margin-right: .12em; }
+  .ghost .ini { color: rgb(255 0 160 / .45); }
+  .colophon { max-width: 900px; margin: 0 auto; padding: 0 100px 60px 200px; box-sizing: border-box; font-size: 14px; font-style: italic; opacity: .6; }
+  .colophon a { color: inherit; }
+  @media (max-width: 640px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .sheet { padding: 64px 20px 80px 48px; }
+    .text { text-align: left; }
+    blockquote { padding: 0 .9em 0 1em; }
+    pre { padding: 1.2em 2.2em; font-size: 13.5px; }
+    .pull { margin: 2.8em .4em; }
+    aside.note { margin-left: .8em; }
+    .colophon { padding: 0 20px 40px 48px; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <canvas id="bake" aria-hidden="true"></canvas>
+  <article class="text">
+    <h1>Changefulness</h1>
+    <p class="sub">John Ruskin, The Stones of Venice, 1853</p>
+    <nav class="toc" aria-label="Contents">
+      <ol>
+        <li><a href="#map">The page as a map</a></li>
+        <li><a href="#measure">The measure of the page</a></li>
+        <li><a href="#rank">Rank, not decoration</a></li>
+        <li><a href="#grown">Grown from the page</a></li>
+      </ol>
+    </nav>
+    <p><span class="ini drop" data-lines="4">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture. And this we suppose to be all the pleasure that architecture was ever intended to give us. The idea of reading a building as we would read Milton or Dante, and getting the same kind of delight out of the stones as out of the stanzas, never enters our minds for a moment.</p>
+    <p class="par">Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art, for the production of which either rules or models can be given. Exactly so far as architecture works on known rules, and from given models, it is not an art, but a manufacture.</p>
+    <p><span class="ini line" data-lines="1">L</span>et us then understand at once, that change or variety is as much a necessity to the human heart and brain in buildings as in books; that there is no merit, though there is some occasional use, in monotony; and that we must no more expect to derive either pleasure or profit from an architecture whose ornaments are of one pattern, and whose pillars are of one proportion, than we should out of a universe in which the clouds were all of one shape, and the trees all of one size.</p>
+    <hr class="chapter">
+
+    <h2 id="map">The page as a map</h2>
+    <p>A medieval book had no page numbers, no index and no search. Its readers found their way by its ornament: the large initial that opened a book, the smaller one at a chapter, the paraph at a paragraph, the filler that closed a short line. Every mark said where you were and how much it mattered.</p>
+    <p class="par">The same marks can be grown on a web page from the page’s own structure, so that the ornament is the information architecture, not a costume over it. That asks something of the maker that Ruskin asked of the builders of his day.</p>
+    <blockquote>
+      <p>You must either make a tool of the creature, or a man of him. You cannot make both. Men were not intended to work with the accuracy of tools, to be precise and perfect in all their actions. If you will have that precision out of them, and make their fingers measure degrees like cog-wheels, and their arms strike curves like compasses, you must unhumanize them.</p>
+      <footer>John Ruskin, <cite>The Stones of Venice</cite>, 1853</footer>
+    </blockquote>
+    <p>A program cannot be a man, but it can refuse to be a cog-wheel: it can let every line it draws keep a little of the hand’s irregularity.</p>
+
+    <h2 id="measure">The measure of the page</h2>
+    <p>The scribe’s page was ruled before a word was written. In the books that look most at rest, the text block sits in the page as the page sits in the spread, and the margins grow from the gutter outward.</p>
+    <figure>
+      <svg viewBox="0 0 420 320" role="img" aria-label="Two facing pages of proportion two to three, with the diagonals of each page and of the spread; on each page a text block whose corners lie on those diagonals.">
+        <g fill="none" stroke-linecap="round">
+          <path d="M10 10 L410 310 M410 10 L10 310 M210 10 L10 310 M210 10 L410 310" stroke-opacity=".4" stroke-width=".5"/>
+          <rect x="10" y="10" width="200" height="300" stroke-width=".7"/><rect x="210" y="10" width="200" height="300" stroke-width=".7"/>
+          <rect x="54.4" y="43.3" width="133.3" height="200" stroke-width=".9" fill="currentColor" fill-opacity=".08"/>
+          <rect x="232.2" y="43.3" width="133.3" height="200" stroke-width=".9" fill="currentColor" fill-opacity=".08"/>
+        </g>
+      </svg>
+      <figcaption>The spread, after Van de Graaf: each page two by three, the text block in the same proportion with its corners on the diagonals.</figcaption>
+    </figure>
+    <p class="par">A web page has no fixed page, but it has a measure, and the measure can be honoured in the same way: the ornament sits in the margins the text leaves.</p>
+    <aside class="note">
+      <p><b>The pilcrow.</b> The scribe left a gap at the head of a paragraph for the rubricator to paint a ¶ in red. When the rubricator ran out of time the gap stayed empty, and the empty gap became the paragraph indent.</p>
+    </aside>
+
+    <h2 id="rank">Rank, not decoration</h2>
+    <p>Ornament that marks everything marks nothing. In the book the ladder was strict: a painted initial opened a book, a penwork initial a chapter, a paraph a paragraph.</p>
+    <p class="pull">Our most invisible typographic convention is an ornament that was never painted.</p>
+    <p class="par">On the web the ranks are already in the markup: headings, sections, quotations, figures, code, asides, navigation.</p>
+
+    <h2 id="grown">Grown from the page</h2>
+    <p>Each frame on this page is measured from its box when the page is laid out, and written again when it changes.</p>
+<pre><code>// a frame for every box, grown from its own box
+for (const el of boxes(document))
+  draw(frameFor(el, measure(el), { rich, seed }));</code></pre>
+    <p class="par">Nothing here covers or crowds a word. Take the frames away and the page is complete; put them back and it is a place.</p>
+    <hr class="book">
+  </article>
+</main>
+<p class="colophon">Printed and stencilled by illum, tarot, seed <span id="seed"></span>. <a href="?draw" id="redraw">Watch it made</a>.</p>
+
+<script type="module">
+import { createWriter, supported } from '../kit/writer.js';
+import { inkLetter, letterWriter, warmInk } from '../kit/inkletter.js';
+import S, { loadFace, printOf } from '../kit/styles/tarot.js';
+
+const T0 = performance.now(), q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark' || (!q.get('theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+if (dark) document.documentElement.dataset.theme = 'dark';
+if (q.has('ghost')) document.body.classList.add('ghost');
+const art = document.querySelector('.text'), sheet = document.querySelector('.sheet'), bk = document.getElementById('bake');
+const fnv = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
+const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(art.textContent.replace(/\s+/g, ' ').trim()) % 1e7);
+const RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0)), SET = q.get('set') ?? 'solid';
+const DPR = Math.min(2, devicePixelRatio || 1), RES = DPR >= 1.5 ? 2 : 1;
+document.getElementById('seed').textContent = SEED;
+
+// ---- measuring ---------------------------------------------------------------------------------------------------------
+const FONT = (w, px) => `${w} ${px}px "EB Garamond"`;
+const M = () => { const c = document.createElement('canvas').getContext('2d'); c.font = FONT(600, 100); const H = c.measureText('H'); c.font = FONT(400, 100); const x = c.measureText('x');
+  return { asc: H.fontBoundingBoxAscent / 100, desc: H.fontBoundingBoxDescent / 100, cap: H.actualBoundingBoxAscent / 100, x: x.actualBoundingBoxAscent / 100 }; };
+let MET;
+// a drop initial: its top on the first line's cap height, its foot on the last line's baseline, as wide as its card
+function setInitials() {
+  for (const s of art.querySelectorAll('.ini.drop')) {
+    const cs = getComputedStyle(s.parentElement), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = +s.dataset.lines || 3;
+    const base = (lh - (MET.asc + MET.desc) * fs) / 2 + MET.asc * fs, F = ((n - 1) * lh + fs * MET.cap) / MET.cap, top = (n - 1) * lh + base - F * ((1 - MET.asc - MET.desc) / 2 + MET.asc);
+    Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', display: 'block', width: (S.initial.width(s.textContent) * F * MET.cap) + 'px', marginRight: Math.round(lh * .42) + 'px' });
+  }
+  for (const s of art.querySelectorAll('.ini.line')) s.style.width = (S.initial.line(s.textContent) * parseFloat(getComputedStyle(s).fontSize) * MET.cap) + 'px';
+}
+function boxOf(span, o) {
+  const F = parseFloat(getComputedStyle(span).fontSize), rg = document.createRange(); rg.selectNodeContents(span); const rc = rg.getClientRects()[0];
+  const base = rc.top - o.top + MET.asc * F + (rc.height - (MET.asc + MET.desc) * F) / 2;
+  return [rc.left - o.left, base - MET.cap * F, rc.left - o.left + parseFloat(span.style.width), base];
+}
+const linesOf = (el, o) => { const rg = document.createRange(); rg.selectNodeContents(el); const fs = parseFloat(getComputedStyle(el).fontSize), out = [];
+  for (const r of rg.getClientRects()) { if (r.width < 1) continue; const t = r.top - o.top, last = out.at(-1);
+    if (last && Math.abs(last.top - t) < 3) { last.right = Math.max(last.right, r.right - o.left); last.left = Math.min(last.left, r.left - o.left); continue; }
+    out.push({ top: t, base: t + (r.height - (MET.asc + MET.desc) * fs) / 2 + MET.asc * fs, left: r.left - o.left, right: r.right - o.left }); }
+  return out; };
+const rel = (el, o) => { const r = el.getBoundingClientRect(); return [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top]; };
+
+// ---- the cases, in reading order ---------------------------------------------------------------------------------------------
+// the chapter an element lies in (0 before the first heading): its suit, and the number on its card
+const chapterOf = el => { let n = 0; for (const h of art.querySelectorAll('h2')) if (h.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) n++; return n; };
+function compose() {
+  const r0 = sheet.getBoundingClientRect(), o = { left: r0.left, top: r0.top, width: r0.width, height: r0.height }, fs = parseFloat(getComputedStyle(art).fontSize), u = fs * MET.x, items = [];
+  const s = k => (SEED + k * 7919) >>> 0, at = el => el.getBoundingClientRect().top, sl = (k = 1) => Math.max(.7, Math.min(2.2, u * .14 * k));
+  art.querySelectorAll('.ini').forEach((span, k) => { const big = span.classList.contains('drop'), box = boxOf(span, o);
+    items.push({ el: span, y: at(span), slip: big ? sl(1.5) : sl(.8), make: () => S.initial({ ch: span.textContent, G: { box }, big, rich: RICH, seed: s(k), set: SET, u, n: 1 }) }); });
+  const m = rel(art, o), measure = m[2] - m[0];
+  art.querySelectorAll('p.par').forEach((p, k) => { const L = linesOf(p, o)[0], ind = parseFloat(getComputedStyle(p).textIndent), w = u * 1.65, ch = chapterOf(p);
+    items.push({ el: p, y: at(p), slip: sl(.8), make: () => S.paraph(L.left - ind + (ind - w) / 2, L.base, u, s(100 + k), RICH, ch ? (ch - 1) % 4 : 3) }); });
+  let nf = 0; const kinds = S.kinds(null, RICH);
+  art.querySelectorAll('h2, .text > p:not(.sub):not(.pull)').forEach((el, k) => { const L = linesOf(el, o).at(-1); if (!L) return;
+    const x0 = L.right + u * .9, x1 = m[2], h2 = el.tagName === 'H2'; if (x1 - x0 < (h2 ? u * 4 : measure * .3)) return;
+    const kind = h2 ? 'rule' : kinds[nf++ % kinds.length]; items.push({ el, y: at(el) + 1, slip: sl(.8), make: () => S.filler(x0, x1, L.base - u * 1.05, L.base, kind, s(200 + k), RICH) }); });
+  let nc = 0, nb = 0;
+  art.querySelectorAll('hr').forEach((hr, k) => { const b = rel(hr, o), book = hr.classList.contains('book'), n = book ? ++nb : ++nc;
+    items.push({ el: hr, y: at(hr), slip: sl(), make: () => S.breakMark((m[0] + m[2]) / 2, (b[1] + b[3]) / 2, measure, book ? 2 : 1, s(300 + k), RICH, u, n) }); });
+  const F = S.frames, push = (el, make) => items.push({ el, y: at(el), slip: sl(), make });
+  art.querySelectorAll('nav').forEach((nav, k) => { const list = nav.querySelector('ol'), nbx = rel(list, o), side = nbx[0] > 60;
+    push(nav, () => F.nav({ box: nbx, entries: [...nav.querySelectorAll('li')].map(li => linesOf(li, o)[0]), x: nbx[0] - u * 4.2, u, seed: s(1 + k), rich: RICH, side })); });
+  art.querySelectorAll('blockquote').forEach((bq, k) => { const ft = bq.querySelector('footer'); push(bq, () => F.quote({ box: rel(bq, o), foot: ft && rel(ft, o)[1], u, seed: s(10 + k), rich: RICH })); });
+  art.querySelectorAll('figure').forEach((f, k) => push(f, () => { const c = f.querySelector('figcaption'); return F.figure({ box: rel(f.querySelector('svg'), o), cap: c && rel(c, o)[3], u, seed: s(20 + k), rich: RICH, n: chapterOf(f) || 1 }); }));
+  art.querySelectorAll('aside').forEach((a, k) => push(a, () => F.aside({ box: rel(a, o), u, seed: s(30 + k), rich: RICH })));
+  art.querySelectorAll('.pull').forEach((p, k) => { const L = linesOf(p, o); push(p, () => F.pull({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 2.2, yBot: L.at(-1).base + u * 2.6, measure, u, seed: s(40 + k), rich: RICH })); });
+  art.querySelectorAll('pre').forEach((p, k) => push(p, () => F.code({ box: rel(p, o), u, seed: s(50 + k), rich: RICH, n: chapterOf(p) || 1 })));
+  return { o, u, items: items.sort((a, b) => a.y - b.y) };
+}
+
+// ---- making a case: its stencils, its lettering, its line -----------------------------------------------------------------------
+// pours: the colours (each one mask), then the lettering; strokes: the line, in runs of one nib for the writer
+function prepare(it) {
+  const seed = (it.seed ??= fnv(it.y + ':' + SEED)); return Object.assign(it, printOf(it.make(), { res: RES, seed, slip: it.slip }));
+}
+
+// ---- the colours laid, in a still or under the eye ----------------------------------------------------------------------------
+// still: poured straight onto the page's ink layer. Written: poured once into a scratch layer of the same size, then laid
+// in beneath the line (destination-over) as a stencil brush sweeps across, a dab at a time, each cell once.
+const P = S.palette[dark ? 'dark' : 'light'];
+const pourOpts = p => ({ ...p, wet: .03, dry: p.col === 'k' ? .2 : .45 });
+function revealer(p) {
+  let sc = null, T = null, order = null, at = 0, tmp = null, X0 = 0, Y0 = 0;
+  const open = () => { const pad = 8; X0 = Math.floor((p.x0 - pad) * DPR); Y0 = Math.floor((p.y0 - pad) * DPR); const w = Math.ceil((p.w / p.res + 2 * pad) * DPR), h = Math.ceil((p.h / p.res + 2 * pad) * DPR);
+    const cv = new OffscreenCanvas(w, h), g = cv.getContext('2d', { willReadFrequently: true });
+    const proxy = { save() {}, restore() {}, setTransform() {}, set globalCompositeOperation(v) {},
+      drawImage(c, ...a) { if (a.length === 8) g.drawImage(c, a[0], a[1], a[2], a[3], a[4] - X0, a[5] - Y0, a[6], a[7]); else g.drawImage(c, a[0] * DPR - X0, a[1] * DPR - Y0, a[2] * DPR, a[3] * DPR); } };
+    inkLetter(proxy, pourOpts(p), P[p.col], { dpr: DPR });
+    sc = g.getImageData(0, 0, w, h); tmp = new OffscreenCanvas(w, h);
+    // the brush's way: across the stencil's longer side, in dabs (a cell's time: how far along, and a dab's jitter)
+    const ang = (fnv(p.x0 + ':' + p.y0) % 628) / 100, dx = Math.cos(ang), dy = Math.sin(ang), cells = [], t = [];
+    let lo = Infinity, hi = -Infinity; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const a = sc.data[(j * w + i) * 4 + 3]; if (!a) continue; const v = i * dx + j * dy; lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    const span = Math.max(1, hi - lo), dab = 3.2 * DPR;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { if (!sc.data[(j * w + i) * 4 + 3]) continue; const v = (i * dx + j * dy - lo) / span, jit = ((Math.sin(Math.floor(i / dab) * 12.9898 + Math.floor(j / dab) * 78.233) * 43758.5453) % 1 + 1) % 1;
+      cells.push(j * w + i); t.push(v * .82 + jit * .18); }
+    order = Int32Array.from(cells.map((c, k) => k).sort((a, b) => t[a] - t[b]).map(k => cells[k])); T = { w, h }; };
+  const self = { at(f) { if (!sc) open(); const upto = Math.min(order.length, Math.ceil(Math.min(1, f) * order.length)); if (upto <= at) return;
+      const { w, h } = T, im = new ImageData(w, h);
+      for (let x = at; x < upto; x++) { const q = order[x] * 4; im.data[q] = sc.data[q]; im.data[q + 1] = sc.data[q + 1]; im.data[q + 2] = sc.data[q + 2]; im.data[q + 3] = sc.data[q + 3]; }
+      tmp.getContext('2d').putImageData(im, 0, 0);
+      const g = bk.getContext('2d'); g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = p.col === 'k' ? 'source-over' : 'destination-over'; g.drawImage(tmp, X0, Y0); g.restore(); at = upto; },
+    done() { self.at(1); } };
+  return self;
+}
+
+// ---- the score: per case its letters, its line, its colours; a hand's pace -------------------------------------------------
+function score(items, animate) {
+  const parts = []; let t = .1;
+  for (const it of items) { let u = 0; const own = [];
+    // the print first: its solids, then its line; then the stencils, beneath it
+    if (animate) for (const p of it.pours.filter(p => p.col === 'k')) { const d = .3; own.push({ t0: u, t1: u + d, pour: p }); u += d; }
+    for (const r of it.runs) { const L = r.strokes.reduce((a, s) => a + s.L, 0), d = Math.max(.05, L / 300 + r.strokes.length * .03); own.push({ t0: u, t1: u + d, run: r }); u += d; }
+    // the lettering, part of the print: a big letter at a hand's pace, a numeral quickly
+    for (const L of it.letters) { const big = L.h / L.res > 40, d = big ? 2.6 : .5; own.push({ t0: u, t1: u + d, letter: L }); u += d + .08; }
+    if (animate) for (const p of it.pours.filter(p => p.col !== 'k')) { const d = Math.min(.9, .25 + p.w * p.h / (p.res * p.res) / 9000); own.push({ t0: u, t1: u + d, pour: p }); u += d + .05; }
+    const cap = it.el.classList?.contains('drop') ? 7 : 2.4, k = Math.min(1, cap / Math.max(u, .01));
+    for (const p of own) parts.push({ ...p, t0: t + p.t0 * k, t1: t + p.t1 * k, item: it });
+    t += u * k + .12; }
+  return parts;
+}
+const partOf = (p, animate) => {
+  if (p.letter) { const L = p.letter, pal = { k: P.k, r: P[L.redCol ?? 'r'] };
+    if (animate) return letterWriter(bk.getContext('2d'), L, pal, { dpr: DPR, host: sheet, below: bk, wet: L.wet, dry: L.dry });
+    return { at() {}, done() { if (L.red) inkLetter(bk.getContext('2d'), { ...L, M: L.red, wet: .03, dry: .45 }, pal.r, { dpr: DPR }); inkLetter(bk.getContext('2d'), L, P.k, { dpr: DPR }); } }; }
+  if (p.pour) return animate ? revealer(p.pour) : { at() {}, done() { inkLetter(bk.getContext('2d'), pourOpts(p.pour), P[p.pour.col], { dpr: DPR }); } };
+  return writer.part(p.t0, p.t1, p.run.strokes.map(s => ({ pts: s.pts, press: s.press, rho: s.rho })), P.k, { width: p.run.w, hair: p.run.hair });
+};
+
+let ORIGIN = null;
+async function render(animate) {
+  const t0 = performance.now(); setInitials(); const { o, items } = compose();
+  bk.width = Math.round(o.width * DPR); bk.height = Math.round(o.height * DPR); bk.style.width = o.width + 'px'; bk.style.height = o.height + 'px';
+  bk.getContext('2d').setTransform(DPR, 0, 0, DPR, 0, 0);
+  if (!animate) {
+    // still: what is in view first, the rest in the next idle moment; per case the colours, then its lettering, then its line
+    const T = { prep: 0, pour: 0, write: 0, pours: 0 };
+    const write = list => { let a = performance.now(); list.forEach(prepare); T.prep += performance.now() - a;
+      a = performance.now(); for (const it of list) { for (const p of it.pours) { inkLetter(bk.getContext('2d'), pourOpts(p), P[p.col], { dpr: DPR }); T.pours++; } for (const L of it.letters) partOf({ letter: L }, false).done(); }
+      T.pour += performance.now() - a; a = performance.now();
+      score(list, false).filter(p => p.run).forEach(p => partOf(p, false).done()); writer.flush(); T.write += performance.now() - a; };
+    const fold = innerHeight + scrollY + 80, now = items.filter(it => it.y < fold), later = items.filter(it => it.y >= fold);
+    write(now); const first = performance.now() - t0;
+    await new Promise(r => (self.requestIdleCallback ?? setTimeout)(r, { timeout: 200 }));
+    write(later); (self.requestIdleCallback ?? setTimeout)(() => writer.destroy?.());
+    document.body.dataset.timing = `text ${TEXT | 0} ms, first ornament ${(t0 + first - T0) | 0} ms after the script began, in view ${first | 0} ms, all ${(performance.now() - t0) | 0} ms (prepare ${T.prep | 0}, pour ${T.pour | 0} [${T.pours} pours], write ${T.write | 0})`; return; }
+  return read(items);
+}
+
+// As you read (?draw), as tests/blackletter.html: each case when its line comes 15% up into the window, in reading order,
+// by one hand; never scrolling the page; a case left behind is hurried or laid at once.
+function read(items) {
+  const groups = items.map(it => ({ it, state: 'waiting' })), queue = [], active = [];
+  let running = false, first = true;
+  const handFree = now => active.reduce((a, g) => g.speed ? Math.max(a, g.start + g.len * g.speed * 1000 + 150) : a, now);
+  const begin = (gr, now) => {
+    prepare(gr.it); gr.parts = score([gr.it], true).map(p => ({ ...p, t0: p.t0 - .1, t1: p.t1 - .1 })).map(p => ({ ...p, part: partOf(p, true) }));
+    const r = sheet.getBoundingClientRect(), y = r.top + gr.it.y0, far = y < -innerHeight, past = y < -40;
+    const len = Math.max(...gr.parts.map(p => p.t1), .01), free = handFree(now), behind = (free - now) / 1000; gr.len = len;
+    gr.speed = far || past ? 0 : !gr.initial && behind > 3 ? Math.min(1, .3 / len) : !gr.initial && behind > 1.2 ? Math.min(1, .6 / len) : 1;
+    gr.start = gr.speed ? free : now; gr.fin = new Uint8Array(gr.parts.length); gr.state = 'writing'; active.push(gr); };
+  const tick = () => { const now = performance.now(), top = sheet.getBoundingClientRect().top; let moved = false;
+    for (const gr of active) { if (!gr.speed) continue; const y = top + gr.it.y0;
+      if (gr.start <= now) { if (y < -innerHeight * .5) { const t = (now - gr.start) / 1000 / gr.speed, sp = Math.min(gr.speed, .3 / Math.max(.05, gr.len - t)); if (sp < gr.speed) { gr.start = now - t * 1000 * sp; gr.speed = sp; moved = true; } } continue; }
+      if (y < -innerHeight * .5) { gr.speed = 0; moved = true; } else if (y < 0 && gr.speed === 1) { gr.speed = Math.min(1, .3 / gr.len); moved = true; } }
+    if (moved) { let at = handFree(now) && now; for (const gr of active) if (gr.speed) { if (gr.start > at) gr.start = at; at = Math.max(at, gr.start + gr.len * gr.speed * 1000 + 150); } }
+    while (queue.length) begin(queue.shift(), now);
+    for (let k = 0; k < active.length; k++) { const gr = active[k], t = gr.speed ? (now - gr.start) / 1000 / gr.speed : 1e9; if (t < 0) continue;
+      gr.parts.forEach((p, i) => { if (gr.fin[i]) return; if (t >= p.t1) { p.part.done(); gr.fin[i] = 1; } else if (t > p.t0) p.part.at((t - p.t0) / (p.t1 - p.t0)); });
+      if (gr.fin.every(Boolean)) { gr.state = 'done'; active.splice(k--, 1); } }
+    if (active.length || queue.length) requestAnimationFrame(tick);
+    else { running = false; writer.flush(); if (groups.every(g => g.state === 'done')) document.body.dataset.timing = 'drawn'; } };
+  const kick = () => { if (!running) { running = true; requestAnimationFrame(tick); } };
+  const mk = groups.map((gr, i) => { const n = document.createElement('i'); n.setAttribute('aria-hidden', 'true'); n.dataset.g = i;
+    Object.assign(n.style, { position: 'absolute', left: '0', top: Math.max(0, gr.it.y - sheet.getBoundingClientRect().top - 4) + 'px', width: '1px', height: '8px', pointerEvents: 'none' }); sheet.append(n); return n; });
+  const io = new IntersectionObserver(es => { es.filter(e => e.isIntersecting).map(e => groups[+e.target.dataset.g]).sort((a, b) => a.it.y - b.it.y)
+      .forEach(gr => { if (gr.state === 'waiting') { gr.state = 'queued'; gr.initial = first; queue.push(gr); } }); first = false;
+    es.forEach(e => e.isIntersecting && io.unobserve(e.target)); if (queue.length) kick(); }, { rootMargin: '100000px 0px -15% 0px' });
+  mk.forEach(n => io.observe(n)); document.body.dataset.timing = 'reading';
+}
+
+// the writer and the letter medium made (their shaders compiled) while the fonts load; the text painted before any ornament
+let writer = null; try { writer = createWriter(sheet, bk.getContext('2d'), { dpr: DPR, dark }); writer.warm(); warmInk(DPR); } catch {}
+await document.fonts.ready; const TEXT = performance.now() - T0; MET = M(); await loadFace();
+await new Promise(r => requestAnimationFrame(() => setTimeout(r)));
+try { await render(q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches); }
+catch (e) { if (!supported()) document.body.dataset.timing = 'no webgl2'; else { document.body.dataset.timing = 'error ' + e.message; throw e; } }
+</script>
+</body>
+</html>

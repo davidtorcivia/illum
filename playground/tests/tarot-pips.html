@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tarot pips</title>
+<!--
+  The tarot style's vocabulary one piece at a time (kit/styles/tarot.js), each at the size the specimen uses it and three
+  times that, laid by the same engine as tests/tarot.html: the four suits, the flower, the woven lozenge, the fillers,
+  the breaks, the drop initial in both settings. For the quality gate's side-by-side sheets. ?theme=dark; #seed=n.
+-->
+<style>
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; color-scheme: light; }
+  :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); color-scheme: dark; }
+  html { background: var(--paper); } body { margin: 0; color: var(--ink); font: 13px/1.3 sans-serif; }
+  .sheet { position: relative; width: 1400px; height: 1500px; }
+  .sheet > canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .lab { position: absolute; opacity: .55; }
+</style>
+</head>
+<body>
+<main class="sheet"><canvas id="bake" aria-hidden="true"></canvas></main>
+<script type="module">
+import { createWriter } from '../kit/writer.js';
+import { inkLetter, warmInk } from '../kit/inkletter.js';
+import S, { loadFace, printOf } from '../kit/styles/tarot.js';
+const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark';
+if (dark) document.documentElement.dataset.theme = 'dark';
+const sheet = document.querySelector('.sheet'), bk = document.getElementById('bake'), DPR = Math.min(2, devicePixelRatio || 1), RES = DPR >= 1.5 ? 2 : 1;
+const P = S.palette[dark ? 'dark' : 'light'], X = S.pips, seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+const writer = createWriter(sheet, bk.getContext('2d'), { dpr: DPR, dark }); warmInk(DPR);
+await loadFace();
+bk.width = 1400 * DPR; bk.height = 1500 * DPR; bk.style.width = '1400px'; bk.style.height = '1500px'; bk.getContext('2d').setTransform(DPR, 0, 0, DPR, 0, 0);
+const cells = [], lab = (x, y, t) => { const d = document.createElement('div'); d.className = 'lab'; Object.assign(d.style, { left: x + 'px', top: y + 'px' }); d.textContent = t; sheet.append(d); };
+const add = (x, y, t, make, slip = 1) => { lab(x, y, t); cells.push({ make, slip }); };
+for (const [k, u] of [[0, 8.4], [1, 25]]) {   // the specimen's size, and three times it
+  const y = k ? 230 : 40, o = k ? 0 : 0, W = S.pips, Lw = Math.max(1.35, Math.min(2.3, u * .17));
+  add(40, y, 'coin', () => X.coin([80, y + 30 + u * 2], u * 1.08, Lw, seed), u * .14);
+  add(40 + (k ? 160 : 90), y, 'cup', () => S.paraph(40 + (k ? 160 : 90), y + 30 + u * 3, u, seed, .5, 0), u * .14);
+  add(40 + (k ? 320 : 180), y, 'baton', () => S.paraph(40 + (k ? 320 : 180), y + 30 + u * 3, u, seed, .5, 1), u * .14);
+  add(40 + (k ? 480 : 270), y, 'sword', () => S.paraph(40 + (k ? 480 : 270), y + 30 + u * 3, u, seed, .5, 2), u * .14);
+  add(40 + (k ? 640 : 360), y, 'flower', () => X.flower([40 + (k ? 640 : 360) + u * 2, y + 30 + u * 4.6], -Math.PI / 2, u * 4.6, Lw, seed), u * .14);
+  add(40 + (k ? 820 : 450), y, 'weave', () => X.weave([40 + (k ? 820 : 450) + u * 3.6, y + 30 + u * 2.4], u * 3.4, u * 2.2, Lw, seed), u * .14);
+}
+// fillers and breaks at the specimen's size
+const u = 8.4; let y = 520;
+for (const kind of S.FILLERS) { const yy = y; add(40, yy, kind, () => S.filler(40, 640, yy + 18, yy + 18 + u * 1.05, kind, seed, .5), u * .14); y += 50; }
+{ const yy = y; add(40, yy, 'chapter', () => S.breakMark(340, yy + 60, 600, 1, seed, .5, u, 1), u * .14); y += 130; }
+{ const yy = y; add(40, yy, 'book', () => S.breakMark(340, yy + 70, 600, 2, seed, .5, u, 1), u * .14); }
+// the drop initial, both settings, at the specimen's size and twice it
+for (const [k, H] of [[0, 109], [1, 218]]) for (const [j, set] of [[0, 'solid'], [1, 'contour']]) { const x = 760 + k * 0 + j * (k ? 170 : 90) + (k ? 200 : 0), yy = 520;
+  add(x, yy, set, () => S.initial({ ch: 'B', G: { box: [x, yy + 24, x + H * S.initial.width('B'), yy + 24 + H] }, big: true, rich: .5, seed, set, u, n: 1 }), Math.max(.7, H * .012)); }
+// lay them: the stencils, the lettering, the line
+for (const c of cells) { const pr = printOf(c.make(), { res: RES, seed, slip: c.slip });
+  for (const p of pr.pours) inkLetter(bk.getContext('2d'), { ...p, wet: .03, dry: p.col === 'k' ? .2 : .45 }, P[p.col], { dpr: DPR });
+  for (const L of pr.letters) { if (L.red) inkLetter(bk.getContext('2d'), { ...L, M: L.red, wet: .03, dry: .45 }, P[L.redCol], { dpr: DPR }); inkLetter(bk.getContext('2d'), L, P.k, { dpr: DPR }); }
+  for (const r of pr.runs) writer.part(0, 1, r.strokes.map(s => ({ pts: s.pts, press: s.press, rho: s.rho })), P.k, { width: r.w, hair: r.hair }).done(); }
+writer.flush(); document.body.dataset.timing = 'drawn';
+</script>
+</body>
+</html>
