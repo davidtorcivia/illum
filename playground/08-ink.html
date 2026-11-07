@@ -7,8 +7,8 @@
 <!--
   08 · Ink: the medium engine, first tool.
 
-  Instruction: let the paper be a surface that remembers; let a quill, moved by a hand, lay water and iron-gall ink on it;
-  let the wet spread along the fibres and dry, so that what you see is a moment of that process and not a drawn result.
+  Instruction: a pen with mass, following a hand through time; a broad edge sweeping ink onto a sheet with a tooth; ink
+  that flows per unit of time, pools where the pen rests, and breaks dry as the dip runs out.
 
   Function: the visible hand (06-purpose §8), at its root: everything else in illum is to be painted through this.
   Calibration: beside the magnifier, a real broad-nib iron-gall line from Met 466773 (public domain) at a like scale.
@@ -40,7 +40,7 @@
 </head>
 <body>
 <h1>Ink</h1>
-<p class="intro">Write on the sheet. The quill is cut broad and held at an angle; pressure spreads its tines (or, with a mouse, slowness does); it carries a charge of iron-gall ink that runs down as you write. The paper keeps what you do: the wet spreads along its fibres and dries, darker at its edges. Beside it, what you just wrote at four times, and a real pen line from a fifteenth-century psalter.</p>
+<p class="intro">Write on the sheet. The pen is cut broad and held at an angle, and it has weight: it follows your hand in curves. Ink lands heavier where you slow and pool where you rest; the dip runs down as you write until the line breaks dry on the paper's tooth, and the pen is dipped again. Beside it, what you just wrote at four times, and a real pen line from a fifteenth-century psalter.</p>
 <div class="work">
   <canvas id="sheet" aria-label="A sheet to write on with a simulated quill and iron-gall ink"></canvas>
   <div class="side">
@@ -49,69 +49,64 @@
   </div>
 </div>
 <div class="controls">
-  <label>sized <input type="range" id="sizing" min="0" max="1" step=".01" value=".6"> soft</label>
-  <label>dry <input type="range" id="spread" min="0" max="2" step=".01" value=".9"> wet</label>
-  <label>stiff <input type="range" id="flex" min="0" max="2" step=".01" value="1"> flexible</label>
-  <label>fine <input type="range" id="width" min="1" max="6" step=".1" value="2.6"> broad</label>
-  <label>fresh <input type="range" id="age" min="0" max="1" step=".01" value=".35"> aged</label>
+  <label>fine <input type="range" id="width" min="1" max="12" step=".1" value="3.2"> broad</label>
+  <label>flat <input type="range" id="angle" min="0" max="1.3" step=".01" value=".62"> steep</label>
+  <label>stiff <input type="range" id="flex" min="0" max="2" step=".01" value=".8"> flexible</label>
+  <label>generous <input type="range" id="use" min=".2" max="4" step=".01" value="1"> sparing</label>
+  <label>smooth <input type="range" id="rough" min="0" max="1" step=".01" value=".6"> toothy</label>
   <button id="replay">write the D</button> <button id="clear">a fresh sheet</button>
 </div>
 <script type="module">
-import { createMedium, Quill } from './kit/medium.js';
+import { createMedium, Pen } from './kit/medium.js';
 import { DUCTUS } from './kit/ductus.js';
 import { spline } from './kit/marks.js';
 
 const cv = document.getElementById('sheet'), dpr = Math.min(2, devicePixelRatio || 1);
-const fit = () => { const r = cv.getBoundingClientRect(); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); };
-fit();
-let M = createMedium(cv, { dpr, seed: 7 }), quill = new Quill(M);
+const r0 = cv.getBoundingClientRect(); cv.width = Math.round(r0.width * dpr); cv.height = Math.round(r0.height * dpr);
+const M = createMedium(cv, { dpr, seed: 7 }), pen = new Pen(M);
 const loupe = document.getElementById('loupe'), lg = loupe.getContext('2d'); loupe.width = loupe.height = 600;
-let focus = [cv.width / 2, cv.height / 2];
+const val = id => +document.getElementById(id).value;
 
-// the hand: pointer samples (coalesced, so a quick stroke is not a polygon), pressure from the device or from speed
-let down = false, last = null, pSmooth = .5, queue = [];
-const sample = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: e.timeStamp, p: e.pointerType === 'mouse' || !e.pressure ? null : e.pressure }; };
-cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); down = true; last = null; quill.dip(); quill.lift(); queue.push(sample(e)); });
-cv.addEventListener('pointermove', e => { if (!down) return; for (const ev of (e.getCoalescedEvents?.() ?? [e])) queue.push(sample(ev)); });
-const up = () => { down = false; queue.push('lift'); };
-cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-function feed(s) {
-  if (s === 'lift') { quill.lift(); last = null; return; }
+// the hand: every pointer sample (coalesced), its own pressure from a stylus, or from slowness with a mouse
+let last = null, pS = .5;
+const sample = e => { const r = cv.getBoundingClientRect(), s = { x: e.clientX - r.left, y: e.clientY - r.top, t: e.timeStamp };
   const sp = last ? Math.hypot(s.x - last.x, s.y - last.y) / Math.max(1, s.t - last.t) : 0;
-  const want = s.p ?? Math.max(.12, Math.min(.95, .9 - sp * .55));
-  pSmooth += (want - pSmooth) * .25; quill.to([s.x, s.y], pSmooth, sp); focus = [s.x * dpr, s.y * dpr]; last = s;
-}
+  const want = e.pointerType !== 'mouse' && e.pressure ? e.pressure : Math.max(.15, Math.min(.9, .85 - sp * .4));
+  pS += (want - pS) * .2; last = s; pen.hand(s.x, s.y, pS, s.t); };
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); last = null; pen.lift(); if (pen.charge < .12) pen.dip(); sample(e); });
+cv.addEventListener('pointermove', e => { if (e.buttons || e.pointerType !== 'mouse') for (const ev of (e.getCoalescedEvents?.() ?? [e])) if (ev.buttons || ev.pressure) sample(ev); });
+const up = e => { pen.update(e.timeStamp); pen.lift(); last = null; };
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 
-// write the Lombardic D's ductus through the engine: each stroke a hand moving, slow at its ends, quick through the middle
+// write the D's ductus with the same pen: a hand moving, slow into each stroke and out of it
 let replay = [];
 document.getElementById('replay').onclick = () => {
   const size = Math.min(cv.width, cv.height) / dpr * .62, ox = cv.width / dpr * .5 - size * .5, oy = cv.height / dpr * .5 - size * .48;
   let t = performance.now() + 200;
   for (const s of DUCTUS.D) {
-    const P = spline(s.pts.map(([x, y]) => [ox + x * size, oy + y * size]), 22);
-    let L = 0; for (let i = 1; i < P.length; i++) L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]);
-    replay.push({ at: t, dip: true, width: Math.max(1.2, size * (s.w > .05 ? .13 : .025)) });
-    P.forEach((q, i) => { const u = i / (P.length - 1), v = .12 + .5 * Math.sin(Math.PI * u) ** .7; t += (L / P.length) / v;
-      replay.push({ at: t, x: q[0], y: q[1], p: Math.min(.95, .25 + .7 * (s.press ? s.press(u) : 1) * (s.w > .05 ? 1 : .4)), sp: v }); });
-    replay.push({ at: t += 1, lift: true }); t += 260;
+    const P = spline(s.pts.map(([x, y]) => [ox + x * size, oy + y * size]), 10);
+    replay.push({ at: t, dip: true, width: Math.max(1.2, size * (s.w > .05 ? .11 : .02)) });
+    P.forEach((q, i) => { const u = i / (P.length - 1), v = .15 + .55 * Math.sin(Math.PI * u) ** .6;
+      if (i) t += Math.hypot(q[0] - P[i - 1][0], q[1] - P[i - 1][1]) / v;
+      replay.push({ at: t, x: q[0], y: q[1], p: .6 }); });
+    replay.push({ at: t + 1, lift: true }); t += 300;
   }
 };
-document.getElementById('clear').onclick = () => { M.clear(); quill.width = +document.getElementById('width').value; };
-for (const id of ['sizing', 'spread', 'flex', 'width', 'age']) document.getElementById(id).addEventListener('input', e => {
-  const v = +e.target.value; if (id === 'flex') quill.flex = v; else if (id === 'width') quill.width = v; else M.settings[id] = v; if (id === 'sizing') M.makePaper(); });
+document.getElementById('clear').onclick = () => { pen.lift(); M.clear(); pen.dip(); pen.width = val('width'); };
+for (const id of ['width', 'angle', 'flex', 'use']) document.getElementById(id).addEventListener('input', () => pen[id] = val(id));
+document.getElementById('rough').addEventListener('input', () => { M.settings.rough = val('rough'); M.makePaper(); });
 
 function frame(now) {
-  for (const s of queue.splice(0)) feed(s);
-  while (replay.length && replay[0].at <= now) { const r = replay.shift(); if (r.dip) { quill.dip(); quill.lift(); quill.width = r.width; } else if (r.lift) quill.lift(); else { quill.to([r.x, r.y], r.p, r.sp); focus = [r.x * dpr, r.y * dpr]; } }
-  M.step(3, 1); M.render();
-  // the loupe: four times, centred on where the pen last was
-  const z = 4, s = 600 / z; lg.imageSmoothingEnabled = true; lg.imageSmoothingQuality = 'high';
-  lg.drawImage(cv, focus[0] - s / 2, focus[1] - s / 2, s, s, 0, 0, 600, 600);
+  while (replay.length && replay[0].at <= now) { const r = replay.shift();
+    if (r.dip) { pen.dip(); pen.width = r.width; } else if (r.lift) { pen.update(r.at); pen.lift(); pen.width = val('width'); } else pen.hand(r.x, r.y, r.p, r.at); }
+  pen.update(now); M.dry(Math.min(50, now - (frame.t ?? now))); frame.t = now; M.render();
+  const f = pen.pos ? [pen.pos[0] * dpr, pen.pos[1] * dpr] : (frame.f ?? [cv.width / 2, cv.height / 2]); frame.f = f;
+  lg.imageSmoothingEnabled = true; lg.imageSmoothingQuality = 'high'; lg.drawImage(cv, f[0] - 75, f[1] - 75, 150, 150, 0, 0, 600, 600);
   document.body.dataset.timing = 'live';
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-const Q = new URLSearchParams(location.search); if (Q.has("age")) { M.settings.age = +Q.get("age"); document.getElementById("age").value = Q.get("age"); } if (Q.has("demo")) document.getElementById("replay").click();
+if (new URLSearchParams(location.search).has('demo')) document.getElementById('replay').click();
 </script>
 </body>
 </html>
