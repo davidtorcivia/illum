@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>illum</title>
-<meta name="description" content="Ornament for web pages, written by a simulated pen: drop initials, paraphs, line-fillers, breaks and frames in styles taken from real manuscripts, cards, grimoires, astrological books and engineering drawings.">
+<meta name="description" content="Ornament for web pages, written by a simulated pen, in styles taken from manuscripts, cards, grimoires, astrological books and engineering drawings.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script>try { var t = localStorage.getItem('illum-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preload" href="fonts/EBGaramond-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -13,30 +13,20 @@
 <link rel="stylesheet" href="css/specimen.css">
 </head>
 <body>
-<a class="skip" href="#main">Skip to the text</a>
 <header class="mast">
   <a class="name" href="./" aria-current="page">illum</a>
-  <nav aria-label="Site"><ul>
-    <li><a href="styles/blackletter.html">Blackletter</a></li><li><a href="styles/tarot.html">Tarot</a></li><li><a href="styles/occult.html">Occult</a></li><li><a href="styles/astrology.html">Astrology</a></li><li><a href="styles/draft.html">Draft</a></li>
-    <li class="gap"><a href="use.html">Use</a></li><li><a href="principles.html">Principles</a></li><li><a href="engine.html">Engine</a></li>
-  </ul></nav>
+  <form class="switch" aria-label="Style of this page" data-home="blackletter">
+    <fieldset><legend class="vh">Style</legend>
+      <label><input type="radio" name="style" value="blackletter"><span>Blackletter</span></label>
+      <label><input type="radio" name="style" value="tarot"><span>Tarot</span></label>
+      <label><input type="radio" name="style" value="occult"><span>Occult</span></label>
+      <label><input type="radio" name="style" value="astrology"><span>Astrology</span></label>
+      <label><input type="radio" name="style" value="draft"><span>Draft</span></label>
+    </fieldset>
+  </form>
   <button class="theme" type="button">Dark</button>
 </header>
-<div class="stage home">
-  <aside class="margin" aria-label="Controls for this page">
-    <p class="gloss">This page is written by illum. Choose the style it is written in.</p>
-    <form class="controls" aria-label="Controls" data-home="blackletter">
-      <fieldset class="styles"><legend>Style</legend>
-        <label><input type="radio" name="style" value="blackletter"> Blackletter</label>
-        <label><input type="radio" name="style" value="tarot"> Tarot</label>
-        <label><input type="radio" name="style" value="occult"> Occult</label>
-        <label><input type="radio" name="style" value="astrology"> Astrology</label>
-        <label><input type="radio" name="style" value="draft"> Draft</label>
-      </fieldset>
-      <fieldset><legend>Show</legend><label><input type="radio" name="draw" value="still"> Still</label><label><input type="radio" name="draw" value="read"> Written as you read</label>
-        <p class="still-note" hidden>Your system asks for reduced motion, so the ornament is shown still.</p></fieldset>
-    </form>
-  </aside>
+<div class="stage solo">
   <main class="sheet" data-style="blackletter" id="main">
     <article class="text">
       <h1>illum</h1>
@@ -47,36 +37,26 @@
           <li><a href="styles/tarot.html">Tarot, from the Tarot de Marseille of Nicolas Conver, 1760</a></li>
           <li><a href="styles/occult.html">Occult, from French copies of the Key of Solomon</a></li>
           <li><a href="styles/astrology.html">Astrology, from William Lilly’s Christian Astrology, 1647</a></li>
-          <li><a href="styles/draft.html">Draft, from the Apollo guidance drawings of the MIT Instrumentation Lab</a></li>
+          <li><a href="styles/draft.html">Draft, from the Apollo drawings of the MIT Instrumentation Lab</a></li>
         </ol>
       </nav>
-      <p><span class="ini drop" data-lines="4">O</span>nce a scribe had finished a book, a rubricator went over it with red ink and a finer pen. illum does the same for a web page. It puts a large initial where the text opens, a paraph where a paragraph turns to a new point, a filler in the empty end of a short line, a mark between chapters, and a frame round a quotation, a figure or a block of code. It finds these places in the page’s own markup, and a simulated pen writes each mark in ink.</p>
-      <p class="par">Each style is taken from objects studied at full size in museum and library scans. The line in Tarot is traced from Conver’s cards in the Bibliothèque nationale de France. The planetary signs in Occult are the ones a scribe wrote in Wellcome MS 4670, about 1725. The sources are listed on each style’s page.</p>
-      <p class="par">The words are left alone. The text is laid out and shown first, and the ornament is drawn a moment later on a layer behind it. Screen readers read the text and nothing else. The same text gets the same ornament on every visit.</p>
+      <p><span class="ini drop" data-lines="4">O</span>nce a scribe had finished a book, a rubricator went over it with red ink and a finer pen. illum does the same for a web page. It finds the openings, paragraphs, breaks and quotations in the page’s markup, and a simulated pen writes a mark for each in ink.</p>
+      <p class="par">The text is shown first and left as it is. The ornament is drawn behind it a moment later, and the same text always gets the same ornament.</p>
       <hr>
-      <h2 id="using">Using it</h2>
-      <p class="bare">One call, on the element that holds the text:</p>
-<pre><code>import { rubricate } from './kit/illum.js';
-
-rubricate(article, { style: 'tarot' });</code></pre>
-      <p class="par">The options, the markup it looks for and the colours it reads are on the <a href="use.html">Use</a> page.</p>
-      <h2 id="why">Why</h2>
       <blockquote>
         <p>You must either make a tool of the creature, or a man of him. You cannot make both.</p>
         <footer>John Ruskin, <cite>The Stones of Venice</cite>, 1853</footer>
       </blockquote>
-      <p>illum is a program, and so a tool in Ruskin’s sense. Its lines keep the irregularities a hand makes, and each one has a cause: the pen slowing at a turn, the ink running low, a stencil laid a little off the line. The <a href="principles.html">Principles</a> page says what else we hold to.</p>
       <hr data-rank="2">
     </article>
   </main>
 </div>
-<footer class="colophon">Set in Junicode, Peter S. Baker’s type for medievalists, with headings in IM Fell Great Primer, one of the types Bishop John Fell bought for the Oxford press in the 1670s, digitised by Igino Marini. The rubricated text is in EB Garamond. Ornament by illum, seed <span class="seed-shown"></span>. Made by David Torcivia, 2026. <a href="type.html">Type</a>.</footer>
+<footer class="colophon">illum, by David Torcivia, 2026. <a href="use.html">Use</a> · <a href="sources.html">Sources</a></footer>
 <script type="module" src="js/site.js"></script>
 <script type="module">
 import { mount, STYLE } from './js/specimen.js';
-const form = document.querySelector('.controls'), shown = document.querySelector('.seed-shown');
-const asked = new URLSearchParams(location.search).get('style');
-mount(document.querySelector('.sheet'), { style: STYLE[asked] ? asked : form.dataset.home, form, onSeed: s => { shown.textContent = s; } });
+const form = document.querySelector('.switch'), asked = new URLSearchParams(location.search).get('style');
+mount(document.querySelector('.sheet'), { style: STYLE[asked] ? asked : form.dataset.home, form });
 </script>
 </body>
 </html>

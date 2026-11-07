@@ -13,30 +13,28 @@
 <link rel="stylesheet" href="../css/specimen.css">
 </head>
 <body>
-<a class="skip" href="#main">Skip to the specimen</a>
 <header class="mast">
   <a class="name" href="../">illum</a>
   <nav aria-label="Site"><ul>
     <li><a href="blackletter.html" aria-current="page">Blackletter</a></li><li><a href="tarot.html">Tarot</a></li><li><a href="occult.html">Occult</a></li><li><a href="astrology.html">Astrology</a></li><li><a href="draft.html">Draft</a></li>
-    <li class="gap"><a href="../use.html">Use</a></li><li><a href="../principles.html">Principles</a></li><li><a href="../engine.html">Engine</a></li>
+    <li class="gap"><a href="../use.html">Use</a></li>
   </ul></nav>
   <button class="theme" type="button">Dark</button>
 </header>
 <div class="stage">
   <aside class="margin" aria-labelledby="title">
     <h1 id="title">Blackletter</h1>
-    <p class="caption">Black and red, as in German books printed and written in the fifteenth century. The drop initial is a Fraktur capital from the typeface UnifrakturMaguntia, written by the ink engine with its strokes split and red run in between them, as the writing master Johann Neudörffer did in his copybook of 1538.</p>
-    <p class="aside">The same passage is set in all five styles, so they can be compared: Ruskin on Gothic workmanship, with a few notes on how medieval pages were arranged.</p>
-    <details class="ctl" open><summary>Controls</summary>
     <form class="controls" aria-label="Controls for the specimen">
-      <fieldset><legend>Show</legend><label><input type="radio" name="draw" value="still"> Still</label><label><input type="radio" name="draw" value="read"> Written as you read</label>
+      <fieldset><legend class="vh">Show</legend><label><input type="radio" name="draw" value="still"> Still</label><label><input type="radio" name="draw" value="read"> Written as you read</label>
         <p class="still-note" hidden>Your system asks for reduced motion, so the ornament is shown still.</p></fieldset>
-      <div class="row"><label for="rich">Richness</label><input type="range" id="rich" name="rich" min="0" max="4" step="1"><output for="rich"></output></div>
-      <div class="row"><label for="size">Type size</label><input type="range" id="size" name="size" min="15" max="26" step="1"><output for="size"></output></div>
-      <div class="row"><label for="seed">Seed</label><input type="number" id="seed" name="seed" min="0" step="1" inputmode="numeric"><button type="button" data-reroll>Another</button></div>
-      
-    </form></details>
-    <p class="also"><a href="#marks">What each mark is</a> · <a href="#sources">Sources</a></p>
+      <p class="again"><button type="button" data-reroll>Another seed</button></p>
+      <details class="more"><summary>Options</summary>
+        <div class="row"><label for="rich">Richness</label><input type="range" id="rich" name="rich" min="0" max="4" step="1"><output for="rich"></output></div>
+        <div class="row"><label for="size">Type size</label><input type="range" id="size" name="size" min="15" max="26" step="1"><output for="size"></output></div>
+        <div class="row wide"><label for="seed">Seed</label><input type="number" id="seed" name="seed" min="0" step="1" inputmode="numeric"></div>
+        
+      </details>
+    </form>
   </aside>
   <main class="sheet" data-style="blackletter" id="main">
   <article class="text">
@@ -97,38 +95,12 @@ for (const el of boxes(document))
   </article>
   </main>
 </div>
-<section class="notes" id="marks" aria-labelledby="marks-h">
-  <h2 id="marks-h">What each mark is</h2>
-  <dl>
-        <dt>Drop initial</dt><dd>The Fraktur capital, split into straps with red laid between them, a broad-nib bar across the stem, hairline loops thrown into the margin, and a trefoil knot.</dd>
-        <dt>Line initial</dt><dd>The same capital in the line, with a red stroke beside its stem.</dd>
-        <dt>Paraph</dt><dd>A red capitulum, a C made of three broad strokes.</dd>
-        <dt>Fillers</dt><dd>A red rule ending in a lozenge; a row of lozenges in black and red; the twisted cord of the Constance breviary.</dd>
-        <dt>Chapter break</dt><dd>Solomon’s knot in strapwork, with red rules and points either side.</dd>
-        <dt>Book break</dt><dd>A braided band of two straps.</dd>
-        <dt>Frames</dt><dd>A red bar edged in black round the figure, its ruling running past the corners as in a Rouen book of hours; thick and thin red rules down the side of a quotation; a strap with a hairline wound round it beside the contents.</dd>
-  </dl>
-</section>
-<section class="notes" id="sources" aria-labelledby="sources-h">
-  <h2 id="sources-h">Sources</h2>
-  <ul class="sources">
-      <li>Johann Neudörffer the Elder, <i>Eine gute Ordnung</i>, Nuremberg, 1538–41. The Metropolitan Museum of Art, 354468. <a href="https://www.metmuseum.org/art/collection/search/354468">metmuseum.org</a></li>
-      <li>Winter Breviary, Constance, 1476–78. The Metropolitan Museum of Art, 910582. <a href="https://www.metmuseum.org/art/collection/search/910582">metmuseum.org</a></li>
-      <li>Missal, German, 1472. The Metropolitan Museum of Art, 469038. <a href="https://www.metmuseum.org/art/collection/search/469038">metmuseum.org</a></li>
-      <li>Peter Schöffer, <i>Gart der Gesundheit</i>, Mainz, 1485. The Metropolitan Museum of Art, 343820. <a href="https://www.metmuseum.org/art/collection/search/343820">metmuseum.org</a></li>
-      <li>Leaf from an antiphonary, Germany, about 1480. The Cleveland Museum of Art, 2014.25.b. <a href="https://www.clevelandart.org/art/2014.25.b">clevelandart.org</a></li>
-      <li>Leaf from a book of hours, Rouen, about 1510. The Cleveland Museum of Art, 2001.79.b. <a href="https://www.clevelandart.org/art/2001.79.b">clevelandart.org</a></li>
-      <li>Marco Antonio Rossi, cadel alphabet, 1598. Wikimedia Commons.</li>
-      <li>Gutenberg Bible, Mainz, about 1455. Library of Congress, via Wikimedia Commons.</li>
-      <li>UnifrakturMaguntia, by j. ‘mach’ wust, after Peter Wiegel. SIL Open Font License.</li>
-  </ul>
-  <p class="small">The specimen text is from John Ruskin, <i>The Stones of Venice</i>, volume II, chapter VI, “The Nature of Gothic”, 1853, Project Gutenberg 30755.</p>
-</section>
-<footer class="colophon">Set in Junicode and IM Fell Great Primer; the specimen in EB Garamond. Ornament by illum, blackletter, seed <span class="seed-shown"></span>. Made by David Torcivia, 2026. <a href="../type.html">Type</a>.</footer>
+<p class="credit">After German books of the fifteenth century, among them Johann Neudörffer’s <i>Eine gute Ordnung</i>, 1538, and the Winter Breviary of Constance, 1476–78. The Metropolitan Museum of Art. <a href="../sources.html#blackletter">Sources</a></p>
+<footer class="colophon">illum, by David Torcivia, 2026. Seed <span class="seed-shown"></span>.</footer>
 <script type="module" src="../js/site.js"></script>
 <script type="module">
 import { mount } from '../js/specimen.js';
-const form = document.querySelector('.controls'); if (innerWidth <= 1180) form.closest('details').open = false; const shown = document.querySelector('.seed-shown');
+const form = document.querySelector('.controls'), shown = document.querySelector('.seed-shown');
 mount(document.querySelector('.sheet'), { style: 'blackletter', form, onSeed: s => { form.elements.seed.value = s; shown.textContent = s; } });
 </script>
 </body>

@@ -13,30 +13,28 @@
 <link rel="stylesheet" href="../css/specimen.css">
 </head>
 <body>
-<a class="skip" href="#main">Skip to the specimen</a>
 <header class="mast">
   <a class="name" href="../">illum</a>
   <nav aria-label="Site"><ul>
     <li><a href="blackletter.html">Blackletter</a></li><li><a href="tarot.html">Tarot</a></li><li><a href="occult.html" aria-current="page">Occult</a></li><li><a href="astrology.html">Astrology</a></li><li><a href="draft.html">Draft</a></li>
-    <li class="gap"><a href="../use.html">Use</a></li><li><a href="../principles.html">Principles</a></li><li><a href="../engine.html">Engine</a></li>
+    <li class="gap"><a href="../use.html">Use</a></li>
   </ul></nav>
   <button class="theme" type="button">Dark</button>
 </header>
 <div class="stage">
   <aside class="margin" aria-labelledby="title">
     <h1 id="title">Occult</h1>
-    <p class="caption">A leaf from a grimoire as eighteenth-century copyists made them: circles struck with a compass, rules, names and signs in red, and verdigris green. Taken from French copies of the <i>Clavicules de Salomon</i> in the Wellcome Collection and from John Dee’s <i>Monas hieroglyphica</i> of 1564.</p>
-    <p class="aside">The same passage is set in all five styles, so they can be compared: Ruskin on Gothic workmanship, with a few notes on how medieval pages were arranged.</p>
-    <details class="ctl" open><summary>Controls</summary>
     <form class="controls" aria-label="Controls for the specimen">
-      <fieldset><legend>Show</legend><label><input type="radio" name="draw" value="still"> Still</label><label><input type="radio" name="draw" value="read"> Written as you read</label>
+      <fieldset><legend class="vh">Show</legend><label><input type="radio" name="draw" value="still"> Still</label><label><input type="radio" name="draw" value="read"> Written as you read</label>
         <p class="still-note" hidden>Your system asks for reduced motion, so the ornament is shown still.</p></fieldset>
-      <div class="row"><label for="rich">Richness</label><input type="range" id="rich" name="rich" min="0" max="2" step="1"><output for="rich"></output></div>
-      <div class="row"><label for="size">Type size</label><input type="range" id="size" name="size" min="15" max="26" step="1"><output for="size"></output></div>
-      <div class="row"><label for="seed">Seed</label><input type="number" id="seed" name="seed" min="0" step="1" inputmode="numeric"><button type="button" data-reroll>Another</button></div>
-      <fieldset><legend>Initial</legend><label><input type="radio" name="set" value="ring" data-default> Solid ring</label><label><input type="radio" name="set" value="band"> Lettered band</label></fieldset><div class="row wide"><label for="title">Ring</label><input type="text" id="title" name="title" value="ALPHA ET OMEGA PRINCIPIVM ET FINIS" autocomplete="off" spellcheck="false"></div>
-    </form></details>
-    <p class="also"><a href="#marks">What each mark is</a> · <a href="#sources">Sources</a></p>
+      <p class="again"><button type="button" data-reroll>Another seed</button></p>
+      <details class="more"><summary>Options</summary>
+        <div class="row"><label for="rich">Richness</label><input type="range" id="rich" name="rich" min="0" max="2" step="1"><output for="rich"></output></div>
+        <div class="row"><label for="size">Type size</label><input type="range" id="size" name="size" min="15" max="26" step="1"><output for="size"></output></div>
+        <div class="row wide"><label for="seed">Seed</label><input type="number" id="seed" name="seed" min="0" step="1" inputmode="numeric"></div>
+        <fieldset><legend>Initial</legend><label><input type="radio" name="set" value="ring" data-default> Solid ring</label><label><input type="radio" name="set" value="band"> Lettered band</label></fieldset><div class="row wide"><label for="title">Ring</label><input type="text" id="title" name="title" value="ALPHA ET OMEGA PRINCIPIVM ET FINIS" autocomplete="off" spellcheck="false"></div>
+      </details>
+    </form>
   </aside>
   <main class="sheet" data-style="occult" id="main">
   <article class="text">
@@ -97,35 +95,12 @@ for (const el of boxes(document))
   </article>
   </main>
 </div>
-<section class="notes" id="marks" aria-labelledby="marks-h">
-  <h2 id="marks-h">What each mark is</h2>
-  <dl>
-        <dt>Drop initial</dt><dd>A seal. A solid ring with its capitals cut out of the ink, after the Grand Pentacle in Wellcome MS 4666, a verdigris cross within it, and the red capital at the centre.</dd>
-        <dt>Paraph</dt><dd>The chapter’s planet, in the order of the days of the week, in the forms the scribe of MS 4670 wrote them. Saturn is an italic h, Jupiter a 2 with a crossed tail.</dd>
-        <dt>Fillers</dt><dd>The planetary hours in a ruled row; the planets’ Latin names lettered between two rules; sigils drawn on the magic square of Saturn.</dd>
-        <dt>Chapter break</dt><dd>A seal between the words CAPVT and the chapter’s ordinal.</dd>
-        <dt>Book break</dt><dd>Dee’s Monas, with his motto QVI NON INTELLIGIT AVT TACEAT AVT DISCAT.</dd>
-        <dt>Frames</dt><dd>A red double rule round a quotation; the table of planetary hours across the head of the code.</dd>
-  </dl>
-    <p class="small">Sigils are checked by a test that rejects any shape resembling a hate symbol.</p>
-</section>
-<section class="notes" id="sources" aria-labelledby="sources-h">
-  <h2 id="sources-h">Sources</h2>
-  <ul class="sources">
-      <li><i>Clavicules de Salomon</i>, French, about 1725. Wellcome Collection, MS 4670. <a href="https://wellcomecollection.org/works/kvnptb24">wellcomecollection.org</a></li>
-      <li><i>Les Clavicules de Salomon</i>, French, mid-eighteenth century. Wellcome Collection, MS 4666. <a href="https://wellcomecollection.org/works/zfwn4rng">wellcomecollection.org</a></li>
-      <li><i>La Clavicule ou la Clef de Salomon</i>, French, mid-eighteenth century. Wellcome Collection, MS 4659. <a href="https://wellcomecollection.org/works/hwqdep8w">wellcomecollection.org</a></li>
-      <li>John Dee, <i>Monas hieroglyphica</i>, Antwerp, 1564. Wellcome Collection. <a href="https://wellcomecollection.org/works/rzge7jad">wellcomecollection.org</a></li>
-      <li>Heinrich Cornelius Agrippa, <i>De occulta philosophia libri III</i>, Paris, 1567. Wellcome Collection. <a href="https://wellcomecollection.org/works/qcxukubr">wellcomecollection.org</a></li>
-      <li>IM Fell Double Pica, digitised by Igino Marini. SIL Open Font License.</li>
-  </ul>
-  <p class="small">The specimen text is from John Ruskin, <i>The Stones of Venice</i>, volume II, chapter VI, “The Nature of Gothic”, 1853, Project Gutenberg 30755.</p>
-</section>
-<footer class="colophon">Set in Junicode and IM Fell Great Primer; the specimen in EB Garamond. Ornament by illum, occult, seed <span class="seed-shown"></span>. Made by David Torcivia, 2026. <a href="../type.html">Type</a>.</footer>
+<p class="credit">After French copies of the <i>Clavicules de Salomon</i>, Wellcome MS 4670 and MS 4666, and John Dee’s <i>Monas hieroglyphica</i>, 1564. Wellcome Collection. <a href="../sources.html#occult">Sources</a></p>
+<footer class="colophon">illum, by David Torcivia, 2026. Seed <span class="seed-shown"></span>.</footer>
 <script type="module" src="../js/site.js"></script>
 <script type="module">
 import { mount } from '../js/specimen.js';
-const form = document.querySelector('.controls'); if (innerWidth <= 1180) form.closest('details').open = false; const shown = document.querySelector('.seed-shown');
+const form = document.querySelector('.controls'), shown = document.querySelector('.seed-shown');
 mount(document.querySelector('.sheet'), { style: 'occult', form, onSeed: s => { form.elements.seed.value = s; shown.textContent = s; } });
 </script>
 </body>
