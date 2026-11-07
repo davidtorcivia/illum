@@ -31,7 +31,7 @@
 <body>
 <main class="sheet"><canvas id="bake" aria-hidden="true"></canvas></main>
 <script type="module">
-import { createWriter, supported } from '../kit/writer.js';
+import { createWriter } from '../kit/writer.js';
 import S, { FACES, loadFace, inkLetter } from '../kit/styles/blackletter.js';
 const T0 = performance.now(), q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark';
 if (dark) document.documentElement.dataset.theme = 'dark';
@@ -39,7 +39,9 @@ const names = (q.get('faces') ?? Object.keys(FACES).join(',')).split(','), RICH 
 const TEXT = 'ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture.';
 const sheet = document.querySelector('.sheet'), bk = document.getElementById('bake');
 for (const n of names) sheet.insertAdjacentHTML('beforeend', `<section class="row" data-face="${n}"><h2>${FACES[n].name}</h2><div class="text"><p><span class="ini drop" data-lines="4">B</span>${TEXT}</p></div><div class="alone"></div></section>`);
+let writer = null; try { writer = createWriter(sheet, bk.getContext('2d'), { dpr: Math.min(2, devicePixelRatio || 1), dark }); writer.warm(); } catch {}   // its shaders compiled while the fonts load
 await document.fonts.ready; await Promise.all(names.map(loadFace)); const TF = performance.now() - T0;
+await new Promise(r => requestAnimationFrame(() => setTimeout(r)));   // the text painted first, then the letters
 const c = document.createElement('canvas').getContext('2d'); c.font = '600 100px "EB Garamond"'; const Hm = c.measureText('H');
 const MET = { asc: Hm.fontBoundingBoxAscent / 100, desc: Hm.fontBoundingBoxDescent / 100, cap: Hm.actualBoundingBoxAscent / 100 };
 const o = sheet.getBoundingClientRect(), items = [], Tc0 = performance.now();
@@ -55,17 +57,16 @@ for (const row of sheet.querySelectorAll('.row')) {
   const base = rc.top - O.top + MET.asc * F + (rc.height - (MET.asc + MET.desc) * F) / 2, H = MET.cap * F, x0 = rc.left - O.left;
   const keep = []; const tw = document.createTreeWalker(row.querySelector('p'), NodeFilter.SHOW_TEXT);
   for (let t; (t = tw.nextNode());) { if (t.parentElement.closest('.ini')) continue; const r2 = document.createRange(); r2.selectNodeContents(t); for (const r of r2.getClientRects()) keep.push([r.left - O.left - 3, r.top - O.top + 1, r.right - O.left + 3, r.bottom - O.top - 1]); }
-  items.push(S.initial({ ch: 'B', G: { box: [x0, base - H, x0 + S.initial.width('B', face) * H, base] }, keep, big: true, level: LEVEL, seed: SEED, room: x0 - 10, bottom: O.height, face }));
+  items.push(S.initial({ ch: 'B', G: { box: [x0, base - H, x0 + S.initial.width('B', face) * H, base] }, keep, big: true, level: LEVEL, seed: SEED, room: x0 - 10, bottom: O.height, face, res: Math.min(2, devicePixelRatio || 1) }));
   const al = row.querySelector('.alone').getBoundingClientRect(); let x = al.left - O.left;
   for (const ch of 'ADMST') { const w = S.initial.width(ch, face) * H;
-    items.push(S.initial({ ch, G: { box: [x, base - H, x + w, base] }, keep: [], big: true, level: LEVEL, seed: SEED + ch.charCodeAt(0), room: H * .35, bottom: 1e9, face })); x += w + H * .55; }
+    items.push(S.initial({ ch, G: { box: [x, base - H, x + w, base] }, keep: [], big: true, level: LEVEL, seed: SEED + ch.charCodeAt(0), room: H * .35, bottom: 1e9, face, res: Math.min(2, devicePixelRatio || 1) })); x += w + H * .55; }
 }
 const TC = performance.now() - Tc0; let TL = 0;
-if (!supported()) document.body.dataset.timing = 'no webgl2';
-else {
+{
   const dpr = Math.min(2, devicePixelRatio || 1); bk.width = O.width * dpr; bk.height = O.height * dpr; bk.style.width = O.width + 'px'; bk.style.height = O.height + 'px';
   const g = bk.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const P = S.palette[dark ? 'dark' : 'light'], W = createWriter(sheet, g, { dpr, dark }); let t = 0;
+  const P = S.palette[dark ? 'dark' : 'light'], W = writer; let t = 0;
   const Tl0 = performance.now();
   for (const { letter } of items) if (letter?.M) { if (letter.red) inkLetter(g, { ...letter, M: letter.red }, P.r, { dpr }); inkLetter(g, letter, P.k, { dpr }); }   // the red first, the black over it
   TL = performance.now() - Tl0;
@@ -73,7 +74,7 @@ else {
     for (const m of marks) { if (!run || run.col !== m.col || Math.abs(run.w - m.w) > .01 || Math.abs(run.hair - m.hair) > .01) { flush(); run = { col: m.col, w: m.w, hair: m.hair, strokes: [] }; }
       run.strokes.push({ pts: m.pts, angle: m.angle, press: m.press }); }
     flush(); }
-  W.flush(); W.destroy?.(); document.body.dataset.timing = `drawn in ${Math.round(performance.now() - T0)} ms (fonts ${Math.round(TF)} ms, compose ${Math.round(TC)} ms, letters ${Math.round(TL)} ms)`;
+  W.flush(); (self.requestIdleCallback ?? setTimeout)(() => W.destroy?.()); document.body.dataset.timing = `drawn in ${Math.round(performance.now() - T0)} ms (fonts ${Math.round(TF)} ms, compose ${Math.round(TC)} ms, letters ${Math.round(TL)} ms)`;
 }
 </script>
 </body>

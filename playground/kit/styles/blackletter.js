@@ -45,7 +45,6 @@
 // touch(): the rubricator's red stroke through a capital of the host's text. The host's text is never marked unasked:
 // the page calls it only when the reader asks for it (the specimen's ?capitals).
 
-import { drawn, edt } from '../penwork.js';
 import { createMedium } from '../medium.js';
 import { noise2 } from '../marks.js';
 
@@ -118,14 +117,18 @@ const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx 
 // crossings alternate, starting over; between two plain strands the higher z goes over. The strand going under has
 // every stroke broken where it comes within the other's half-width and a gap of the other's centreline.
 export function interlace(strands, gap) {
-  const X = [], bb = strands.map(s => bbox(s.c));
-  strands.forEach((A, a) => strands.forEach((B, b) => {
-    if (b < a || !near(bb[a], bb[b], 1)) return;
-    for (let i = 0; i < A.c.length - 1; i++) for (let j = a === b ? i + 4 : 0; j < B.c.length - 1; j++) {
-      const r = segX(A.c[i], A.c[i + 1], B.c[j], B.c[j + 1]); if (!r) continue;
-      const p = add(A.c[i], [A.c[i + 1][0] - A.c[i][0], A.c[i + 1][1] - A.c[i][1]], r[0]);
-      X.push({ pass: [{ s: a, i }, { s: b, i: j }], p, over: -1 });
-    } }));
+  // every segment in a grid of 6 px cells, so only segments that share a cell are tested against each other
+  const X = [], C = 6, grid = new Map(), seen = new Set();
+  strands.forEach((S, a) => { for (let i = 0; i < S.c.length - 1; i++) { const p = S.c[i], q = S.c[i + 1];
+    for (let gx = Math.floor(Math.min(p[0], q[0]) / C); gx <= Math.floor(Math.max(p[0], q[0]) / C); gx++) for (let gy = Math.floor(Math.min(p[1], q[1]) / C); gy <= Math.floor(Math.max(p[1], q[1]) / C); gy++) {
+      const k = gx * 73856093 ^ gy * 19349663; let l = grid.get(k); if (!l) grid.set(k, l = []); l.push(a, i); } } });
+  for (const l of grid.values()) for (let m = 0; m < l.length; m += 2) for (let n = m + 2; n < l.length; n += 2) {
+    let a = l[m], i = l[m + 1], b = l[n], j = l[n + 1]; if (b < a || (a === b && j < i)) [a, i, b, j] = [b, j, a, i];
+    if (a === b && j < i + 4) continue; const key = ((a * 65536 + i) * 64 + b) * 65536 + j; if (seen.has(key)) continue; seen.add(key);
+    const A = strands[a], B = strands[b], r = segX(A.c[i], A.c[i + 1], B.c[j], B.c[j + 1]); if (!r) continue;
+    X.push({ pass: [{ s: a, i }, { s: b, i: j }], p: add(A.c[i], [A.c[i + 1][0] - A.c[i][0], A.c[i + 1][1] - A.c[i][1]], r[0]), over: -1 }); }
+  // in the order the old scan found them (strand, then index along it): the alternation reads them in that order
+  X.sort((x, y) => x.pass[0].s - y.pass[0].s || x.pass[1].s - y.pass[1].s || x.pass[0].i - y.pass[0].i || x.pass[1].i - y.pass[1].i);
   // the alternating strands first, in order; a crossing already decided sets the rhythm from there
   strands.forEach((S, s) => { if (!S.alt) return;
     // (alt 'own': it alternates only where it crosses another alternating strand; elsewhere z decides)
@@ -588,8 +591,9 @@ const fontDir = new URL('../../fonts/', import.meta.url);
 // the face must be loaded before an initial is measured or made (nothing in the host's DOM need use it)
 export async function loadFace(name = FACE) {
   const F = FACES[name] ?? FACES[FACE]; if (F.ready) return F;
-  const ff = new FontFace(F.family, `url(${new URL(F.file, fontDir)})`, { weight: String(F.weight) });
-  await ff.load(); document.fonts.add(ff); F.ready = true; return F;
+  const ff = new FontFace(F.family, `url(${new URL(F.file, fontDir)})`, { weight: String(F.weight) }), loading = ff.load();
+  warmInk();   // the letter's ink medium is made (its shaders compiled) while the font is on its way
+  await loading; document.fonts.add(ff); F.ready = true; return F;
 }
 const faceOf = name => FACES[name] ?? FACES[FACE];
 // the glyph's ink box at 100 px: left and right of the pen position, above and below the baseline
@@ -614,12 +618,52 @@ const sm = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e
 // The letter read from its coverage: Di, how deep each cell lies inside the ink (px), Do, how far each cell of paper lies
 // from it (px), and hw, the half-width of its heaviest strokes (the 97th percentile of the depth, so a junction's
 // swelling does not count)
-function anatomy(L) {
-  const { M, w, h, res } = L, ink = new Uint8Array(w * h), paper = new Uint8Array(w * h);
-  for (let i = 0; i < w * h; i++) { ink[i] = M[i] > .5; paper[i] = !ink[i]; }
-  const Di = edt(paper, w, h), Do = edt(ink, w, h); for (let i = 0; i < w * h; i++) { Di[i] /= res; Do[i] /= res; }
-  const deep = []; for (let i = 0; i < w * h; i += 3) if (Di[i] > 1) deep.push(Di[i]); deep.sort((a, b) => a - b);
-  return { Di, Do, hw: deep[Math.floor(deep.length * .97)] ?? 1 };
+// Distance (cells) from every cell to the nearest cell where feat is set: two sweeps carrying the offset to the nearest
+// set cell (8SSEDT, Danielsson 1980; exact but for rare configurations, a fraction of a cell off)
+function dist(feat, w, h) {
+  const n = w * h, X = new Int16Array(n), Y = new Int16Array(n), D = new Int32Array(n);
+  for (let q = 0; q < n; q++) if (!feat[q]) { X[q] = 4000; D[q] = 16e6; }
+  let x = 0, y = 0, d = 0, o = 0;
+  // (the neighbour checks written out: this runs before the engine has optimised anything, on the page's first letter)
+  for (let j = 0; j < h; j++) { const r = j * w;
+    for (let i = 0; i < w; i++) { const q = r + i; if (!D[q]) continue;
+      if (i > 0) { o = q - 1; x = X[o] + 1; y = Y[o]; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } }
+      if (j > 0) { o = q - w; x = X[o]; y = Y[o] + 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; }
+        if (i > 0) { o = q - w - 1; x = X[o] + 1; y = Y[o] + 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } }
+        if (i < w - 1) { o = q - w + 1; x = X[o] - 1; y = Y[o] + 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } } } }
+    for (let i = w - 2; i >= 0; i--) { const q = r + i; if (!D[q]) continue; o = q + 1; x = X[o] - 1; y = Y[o]; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } } }
+  for (let j = h - 1; j >= 0; j--) { const r = j * w;
+    for (let i = w - 1; i >= 0; i--) { const q = r + i; if (!D[q]) continue;
+      if (i < w - 1) { o = q + 1; x = X[o] - 1; y = Y[o]; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } }
+      if (j < h - 1) { o = q + w; x = X[o]; y = Y[o] - 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; }
+        if (i < w - 1) { o = q + w + 1; x = X[o] - 1; y = Y[o] - 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } }
+        if (i > 0) { o = q + w - 1; x = X[o] + 1; y = Y[o] - 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } } } }
+    for (let i = 1; i < w; i++) { const q = r + i; if (!D[q]) continue; o = q - 1; x = X[o] + 1; y = Y[o]; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } } }
+  const out = new Float32Array(n); for (let q = 0; q < n; q++) out[q] = Math.sqrt(D[q]); return out;
+}
+// The glyph made to read as written, and read, in one pass (kit/penwork.js drawn() and its reading, fused). Its edge is
+// moved in and out slowly (amp px at a 25 px wavelength, .18 px at 5 px), so the strokes swell and thin as a pen's
+// would; only the cells within reach of the moved edge are recomputed, the rest are ink or paper as they were. Read off
+// the same distances: Di, how deep each cell lies inside the ink (px), Do, how far each cell of paper lies from it (px),
+// both measured to the moved edge; hw, the half-width of the heaviest strokes (the 97th percentile of the depth, so a
+// junction's swelling does not count).
+function written(raw, seed, amp) {
+  const { M, w, h, x0, y0, res } = raw, n = w * h, ink = new Uint8Array(n), paper = new Uint8Array(n);
+  for (let i = 0; i < n; i++) { const k = M[i] > .5; ink[i] = k; paper[i] = !k; }
+  const Do = dist(ink, w, h), Di = dist(paper, w, h), slow = noise2(seed ^ 0x5d), fine = noise2(seed ^ 0x19), out = new Float32Array(n);
+  // the slow swell on a coarse lattice (it changes over 25 px), read between its points
+  const G = 4, gw = Math.ceil(w / G) + 2, gh = Math.ceil(h / G) + 2, S = new Float32Array(gw * gh);
+  for (let b = 0; b < gh; b++) for (let a = 0; a < gw; a++) S[b * gw + a] = amp * (2 * slow((x0 + a * G / res) / 25, (y0 + b * G / res) / 25) - 1);
+  const band = amp + .18 + 1.5 / res, hist = new Uint32Array(1024); let nh = 0;
+  for (let j = 0; j < h; j++) { const b = j / G | 0, fb = j / G - b;
+    for (let i = 0; i < w; i++) { const q = j * w + i, sd = (Do[q] - Di[q]) / res, a = i / G | 0, fa = i / G - a, g = b * gw + a;
+      let e = (S[g] * (1 - fa) + S[g + 1] * fa) * (1 - fb) + (S[g + gw] * (1 - fa) + S[g + gw + 1] * fa) * fb;
+      if (sd > -band && sd < band) { e += .18 * (2 * fine((x0 + i / res) / 5, (y0 + j / res) / 5) - 1); out[q] = Math.max(0, Math.min(1, .5 + (e - sd) * res * .5)); }
+      else out[q] = sd < 0 ? 1 : 0;
+      const s2 = sd - e; Di[q] = s2 < 0 ? -s2 : 0; Do[q] = s2 > 0 ? s2 : 0;
+      if (s2 < -1 && q % 3 === 0) { hist[Math.min(1023, -s2 * 20 | 0)]++; nh++; } } }
+  let hw = 1; for (let k = 0, c = 0; k < 1024; k++) { c += hist[k]; if (c >= nh * .97) { hw = (k + .5) / 20; break; } }
+  return { L: { M: out, w, h, x0, y0, res, ink: raw.ink }, A: { Di, Do, hw } };
 }
 // The heaviest straight stroke (where the bars bind): of the cells near the deepest, the one whose neighbourhood of deep
 // cells is most nearly a line (its principal axis), a little below the middle of the letter preferred. { p, t, d }
@@ -642,11 +686,16 @@ function each(L, box, f) { const { w, h, res } = L, [i0, j0, i1, j1] = [(box[0] 
 
 // the counters: paper the letter closes round on all four sides, the widest first, each its centre and its room (px)
 function countersOf(L, A, ink, H, n) {
-  const { M, w, res } = L, out = [], st = Math.max(1, Math.round(res * H * .012)), on = (i, j) => M[j * w + i] > .4;
+  const { M, w, h, res } = L, out = [], st = Math.max(1, Math.round(res * H * .012));
   const [ix0, iy0, ix1, iy1] = [(ink[0] - L.x0) * res, (ink[1] - L.y0) * res, (ink[2] - L.x0) * res, (ink[3] - L.y0) * res].map(Math.round);
-  const shut = (i, j) => [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => { for (let k = 1; ; k++) { const x = i + dx * k, y = j + dy * k; if (x < ix0 || x >= ix1 || y < iy0 || y >= iy1) return false; if (on(x, y)) return true; } });
-  for (let j = iy0 + st; j < iy1 - st; j += st) for (let i = ix0 + st; i < ix1 - st; i += st) { const d = A.Do[j * w + i];
-    if (d >= H * .045 && shut(i, j)) out.push({ p: [L.x0 + (i + .5) / res, L.y0 + (j + .5) / res], d }); }
+  // ink seen on each side of a cell, along its row and its column (bits: left, right, above, below)
+  const seen = new Uint8Array(w * h);
+  for (let j = 0; j < h; j++) { let a = 0, b = 0; for (let i = 0, e = w - 1; i < w; i++, e--) { const q = j * w + i, p = j * w + e;
+    seen[q] |= a; seen[p] |= b; if (M[q] > .4) a = 1; if (M[p] > .4) b = 2; } }
+  for (let i = 0; i < w; i++) { let a = 0, b = 0; for (let j = 0, e = h - 1; j < h; j++, e--) { const q = j * w + i, p = e * w + i;
+    seen[q] |= a; seen[p] |= b; if (M[q] > .4) a = 4; if (M[p] > .4) b = 8; } }
+  for (let j = iy0 + st; j < iy1 - st; j += st) for (let i = ix0 + st; i < ix1 - st; i += st) { const q = j * w + i, d = A.Do[q];
+    if (d >= H * .045 && seen[q] === 15) out.push({ p: [L.x0 + (i + .5) / res, L.y0 + (j + .5) / res], d }); }
   out.sort((a, b) => b.d - a.d); const pick = [];
   for (const c of out) { if (pick.length >= n) break; if (pick.every(q => Math.hypot(q.p[0] - c.p[0], q.p[1] - c.p[1]) > H * .25)) pick.push(c); }
   return pick;
@@ -668,11 +717,11 @@ function tipsOf(L, A, H) {
 // into the margin, crosses
 const FBUDGET = [{ touch: true }, { split: true }, { split: true, bars: true, pts: 1, staff: true }, { split: true, bars: true, pts: 2, staff: true }, { split: true, bars: true, pts: 3, staff: true, cloud: 3, crosses: true }];
 
-function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, room = 100, bottom = 1e9, face = FACE }) {
+function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, room = 100, bottom = 1e9, face = FACE, res = 2 }) {
   ch = String(ch).normalize('NFD')[0].toUpperCase(); const [x0, y0, , y1] = G.box, H = y1 - y0, edge = x0 - room, F = faceOf(face);
   if (!/[A-Z]/.test(ch)) return { letter: ch, marks: [], width: .8 * H };
-  const raw = glyphMask(ch, F, H, x0, y1); const L = { ...drawn(raw, seed, big ? .45 : .2), ink: raw.ink }, width = raw.ink[2] - raw.ink[0];
-  const b = big ? FBUDGET[level] : { touch: true }, r = rng(seed, 'face'), A = anatomy(L); const sp = spine(L, A, H, raw.ink), over = [], strands = [];
+  const raw = glyphMask(ch, F, H, x0, y1, Math.max(1, Math.min(2, Math.round(res)))); const { L, A } = written(raw, seed, big ? .45 : .2), width = raw.ink[2] - raw.ink[0];
+  const b = big ? FBUDGET[level] : { touch: true }, r = rng(seed, 'face'); const sp = spine(L, A, H, raw.ink), over = [], strands = [];
   keep = keep.filter(k => k[2] > x0 - room - H && k[0] < x0 + width + H && k[3] > y0 - H && k[1] < y1 + H * 2);
   // the rubricator's touch: one red stroke down the heaviest stroke
   if (sp) {   // the spine's point moved onto the stroke's middle (the deepest cell across it)
@@ -690,34 +739,39 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
   // them (Neudörffer's doubled strokes with colour between, Met 354468; Rossi's channels, 1598). The red is laid first and
   // runs a little under the black (`under` px), which is written over it, so no paper shows between them; the split
   // follows the letter and closes to a point where a stroke thins, the red tapering with it.
+ 
   if (b.split) {
     // each half is a pen stroke along the letter's edge, so it is as thick as the nib lays across that edge's direction:
     // broad where the edge runs square to the nib, a hair where it runs along it
     // (the direction read from the depth's slope a little in from the edge, and smoothed, so the split runs clean)
-    const { w, h, res } = L, Di = A.Di, under = .7, R = new Float32Array(L.M.length), X = new Float32Array(L.M.length), Wt = new Float32Array(L.M.length);
+    // (on a lattice of half the resolution: the field is smooth over the stroke's width)
+    const { w, h, res } = L, Di = A.Di, under = .7, R = new Float32Array(L.M.length), hw2 = Math.ceil(w / 2), hh2 = Math.ceil(h / 2), X = new Float32Array(hw2 * hh2), Wt = new Float32Array(hw2 * hh2);
     for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) { const q = j * w + i, d = Di[q]; if (d <= .5 || d > A.hw * .6) continue;
       const gx = Di[q + 1] - Di[q - 1], gy = Di[q + w] - Di[q - w], gl = Math.hypot(gx, gy); if (gl < .1) continue;
-      X[q] = Math.abs(E[0] * gx / gl + E[1] * gy / gl); Wt[q] = 1; }
-    const rb = Math.max(1, Math.round(A.hw * .9 * res)), Xb = boxBlur(boxBlur(X, w, h, rb), w, h, rb), Wb = boxBlur(boxBlur(Wt, w, h, rb), w, h, rb);
-    for (let q = 0; q < R.length; q++) { const d = Di[q]; if (d <= A.hw * .45) continue;
-      const k = A.hw * (.5 + .34 * (Wb[q] > .01 ? Xb[q] / Wb[q] : .5));
+      const c = (j >> 1) * hw2 + (i >> 1); X[c] += Math.abs(E[0] * gx + E[1] * gy) / gl; Wt[c]++; }
+    const rb = Math.max(1, Math.round(A.hw * .45 * res)); boxBlur2(X, Wt, hw2, hh2, rb); boxBlur2(X, Wt, hw2, hh2, rb);
+    const lo = A.hw * .45;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, d = Di[q]; if (d <= lo) continue;
+      const c = (j >> 1) * hw2 + (i >> 1), k = A.hw * (.5 + .34 * (Wt[c] > .01 ? X[c] / Wt[c] : .5));
       L.M[q] *= 1 - sm(k - .4, k + .4, d); R[q] = sm(k - under - .4, k - under + .4, d); }
     L.red = R;
   }
   // three bars bound across the heaviest straight stroke, below its middle; the stroke cut through where they bind it
+ 
   if (b.bars && sp) {
-    const [t, n] = [sp.t, [-sp.t[1], sp.t[0]]], tb = Math.max(.9, A.hw * .24), p = tb * 2.3, gap = tb * .8, span = A.hw * 1.35, ov = A.hw * .45, c = sp.p;
+    const [t, n] = [sp.t, [-sp.t[1], sp.t[0]]], tb = Math.max(1.6, A.hw * .34), p = tb * 2.15, gap = Math.max(1, tb * .6), span = A.hw * 1.35, ov = A.hw * .45, c = sp.p;
     each(L, [c[0] - span * 2, c[1] - span * 2, c[0] + span * 2, c[1] + span * 2], (x, y, i) => { const u = (x - c[0]) * t[0] + (y - c[1]) * t[1], v = (x - c[0]) * n[0] + (y - c[1]) * n[1];
       if (Math.abs(v) > span * 1.4) return; const f = sm(-.4, .4, Math.abs(u) - (p + tb / 2 + gap)); L.M[i] *= f; if (L.red) L.red[i] *= f; });
     const ang = Math.atan2(-t[1], t[0]);
     for (let q = -1; q <= 1; q++) { const pts = [], wm = [];
-      for (let u = -1; u <= 1.001; u += .1) { const v = u * (A.hw + ov), bow = tb * .7 * (1 - u * u); pts.push([c[0] + n[0] * v + t[0] * (q * p + bow), c[1] + n[1] * v + t[1] * (q * p + bow)]); wm.push(Math.max(.2, 1 - u ** 8)); }
-      over.push({ ...stroke(pts, tb, 'k', .4), angle: ang, press: pressOf(pts, wm) }); }
+      for (let u = -1; u <= 1.001; u += .1) { const v = u * (A.hw + ov), bow = tb * .7 * (1 - u * u); pts.push([c[0] + n[0] * v + t[0] * (q * p + bow), c[1] + n[1] * v + t[1] * (q * p + bow)]); wm.push(Math.max(.35, 1 - u ** 10)); }
+      over.push({ ...stroke(pts, tb, 'k', Math.max(.8, tb * .3)), angle: ang, press: pressOf(pts, wm) }); }
   }
   // the staff: one stroke of the broad nib, out of the letter's side and down the margin past its foot, ending in a
   // single curl toward the words with a red point in its eye (03's staff; the scribe's run of the pen down the margin).
   // It leaves the letter on the nib's thin edge and swells as it turns to run down; a cubic, then a gentle straight
   // fall, then the curl, so it reads as one gesture. On the richest page loops thrown from the points of the strokes.
+ 
   let staff = null;
   if (b.staff) {
     const { M, w, h, res } = L, Wn = Math.max(2.2, H * .034); let lp = null;
@@ -739,6 +793,7 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
       break;
     }
   }
+ 
   if (b.cloud) { const used = [], cx = (raw.ink[0] + raw.ink[2]) / 2, cy = (raw.ink[1] + raw.ink[3]) / 2;
     for (const e of tipsOf(L, A, H)) { if (used.length >= b.cloud) break; if (e.p[0] > cx + width * .15 && e.p[1] > y0 + H * .2) continue;   // not out over the words
       if (used.some(u => Math.hypot(u[0] - e.p[0], u[1] - e.p[1]) < H * .3)) continue; let got = null;
@@ -751,7 +806,9 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
   // a cross of four red points hung between the staff and the words, below the letter
   if (b.crosses && staff) { const p = [x0 - staff.a * .42, y1 + staff.dn * .38], s = Math.max(1.3, H * .017), cr = cross4(p, s); if (!cr.some(m => hits(m.pts, keep, edge, bottom))) over.push(...cr); }
   // a red point in each counter the letter closes (a cross of four in the widest, on the richest page)
+ 
   for (const [k, c] of countersOf(L, A, raw.ink, H, b.pts ?? 0).entries()) over.push(...(b.crosses && k === 0 ? cross4(c.p, Math.min(c.d * .3, H * .016)) : [lozenge(c.p, Math.min(c.d * .7, H * .042), 'r')]));
+ 
   const marks = strands.length ? interlace(strands, Math.max(1, H * .008)).map(m => m.wm ? { ...m, press: pressOf(m.pts, m.wm) } : m) : [];
   return { letter: L, marks: [...marks, ...over], width };
 }
@@ -769,6 +826,8 @@ function mediumFor(w, h, dpr) {
   const Md = createMedium(cv, { dpr, paper: [255, 255, 255] }), gl = Md.gl; Md.settings.over = true;
   return shared = { cv, Md, gl, dpr };
 }
+// make the shared medium now (loadFace does, while the font is on its way)
+export function warmInk(dpr = Math.min(2, globalThis.devicePixelRatio || 1)) { try { mediumFor(1, 1, dpr); } catch {} }
 // If the ink engine is unavailable or fails (no WebGL2, a lost context), the letter is still laid, flat in its colour:
 // a drop cap must never come out blank.
 export function inkLetter(bake, L, rgb, opts = {}) {
@@ -793,6 +852,16 @@ function inkLetterMedium(bake, L, rgb, { dpr = 2, wet = L.wet ?? .1, dry = L.dry
   for (let k = 0; k < 24; k++) Md.step(16);
   Md.finish(); Md.render();
   bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = 'source-over'; bake.drawImage(cv, 0, 0, cw, ch, Math.round(ox * dpr), Math.round(oy * dpr), cw, ch); bake.restore();
+}
+// two fields box-blurred together, in place
+function boxBlur2(A, B, w, h, r) {
+  const k = 2 * r + 1, ta = new Float32Array(Math.max(w, h)), tb = new Float32Array(Math.max(w, h));
+  for (let y = 0; y < h; y++) { const o = y * w; let sa = 0, sb = 0; for (let x = -r; x <= r; x++) { const c = o + Math.min(w - 1, Math.max(0, x)); sa += A[c]; sb += B[c]; }
+    for (let x = 0; x < w; x++) { ta[x] = sa / k; tb[x] = sb / k; const p = o + Math.min(w - 1, x + r + 1), m = o + Math.max(0, x - r); sa += A[p] - A[m]; sb += B[p] - B[m]; }
+    for (let x = 0; x < w; x++) { A[o + x] = ta[x]; B[o + x] = tb[x]; } }
+  for (let x = 0; x < w; x++) { let sa = 0, sb = 0; for (let y = -r; y <= r; y++) { const c = Math.min(h - 1, Math.max(0, y)) * w + x; sa += A[c]; sb += B[c]; }
+    for (let y = 0; y < h; y++) { ta[y] = sa / k; tb[y] = sb / k; const p = Math.min(h - 1, y + r + 1) * w + x, m = Math.max(0, y - r) * w + x; sa += A[p] - A[m]; sb += B[p] - B[m]; }
+    for (let y = 0; y < h; y++) { A[y * w + x] = ta[y]; B[y * w + x] = tb[y]; } }
 }
 function boxBlur(A, w, h, r) {
   if (r < 1) return A; const T = new Float32Array(w * h), O = new Float32Array(w * h), k = 2 * r + 1;
@@ -859,12 +928,13 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
   return out;
 }
 
-// Solomon's knot: two oval rings of strap, red between their copies, linked so each passes over and under the other in
-// turn; small, a hairline ribbon without red
+// the knot: a strap (two copies, red between) run once round the three lobes of a trefoil, crossing itself three times,
+// over and under in turn (the Dreipass knot of Romanesque and Gothic strapwork); small, a ribbon without red. One lobe
+// stands up, two sit down, so it reads as a knot set on the line
 function knot(cx, y, R, W, red = true) {
-  const ring = t => resample(Array.from({ length: 145 }, (_, k) => { const a = k / 144 * 2 * Math.PI + .2, x = R * 1.5 * Math.cos(a), yy = R * .52 * Math.sin(a);
-    return [cx + x * Math.cos(t) - yy * Math.sin(t), y + x * Math.sin(t) + yy * Math.cos(t)]; }), .5);
-  return interlace([strap(ring(.42), { n: 2, W, g: W * (red ? .7 : 1.1), red, alt: true }), strap(ring(-.42), { n: 2, W, g: W * (red ? .7 : 1.1), red })], W * .7);
+  const c = resample(Array.from({ length: 361 }, (_, k) => { const t = k / 360 * 2 * Math.PI;
+    return [cx + (Math.sin(t) + 2 * Math.sin(2 * t)) * R / 3, y + .4 * R / 3 + (Math.cos(t) - 2 * Math.cos(2 * t)) * R / 3 * .92]; }), .5);
+  return interlace([strap(c, { n: 2, W, g: W * (red ? .75 : 1.1), red, alt: true })], W * .8);
 }
 // three lozenges in a triangle: the incunabula's point of ornament
 const triad = (p, s, col = 'r') => [lozenge([p[0], p[1] - s * .8], s, col), lozenge([p[0] - s * .85, p[1] + s * .5], s, col), lozenge([p[0] + s * .85, p[1] + s * .5], s, col)];
@@ -875,16 +945,16 @@ function plait(x0, x1, y, amp, n, W) {
 }
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8) {
   const r = rng(seed, 'break'), out = [];
-  if (rank < 2) {   // a chapter: the knot, a red point in it, red rules out to each side ending in three points
-    const R = u * 1.15, w = Math.min(measure * .14, u * 4.5);
-    out.push(...knot(cx, y, R, Math.max(.9, u * .14), rich >= .25), lozenge([cx, y], u * .4, 'k'));
-    for (const s of [-1, 1]) { const a = cx + s * R * 1.75, b = cx + s * (R * 1.75 + w); out.push(rule([a, y], [b, y + (r() - .5) * .4], .55), ...triad([b + s * u * .7, y], u * .34, 'r')); }
+  if (rank < 2) {   // a chapter: the knot, red rules out to each side ending in three points
+    const R = u * 1.55, w = Math.min(measure * .14, u * 4.5);
+    out.push(...knot(cx, y, R, Math.max(1.3, u * .2), rich >= .25));
+    for (const s of [-1, 1]) { const a = cx + s * R * 1.25, b = cx + s * (R * 1.25 + w); out.push(rule([a, y], [b, y + (r() - .5) * .4], .55), ...triad([b + s * u * .7, y], u * .34, 'r')); }
     return out;
   }
   // a book: the strapwork band across a third of the measure, a knot at each end, lozenges beyond
   const half = Math.min(measure * .26, u * 13), W = Math.max(1.6, u * .3);
   out.push(...plait(cx - half, cx + half, y, u * .7, 6, W));
-  for (const s of [-1, 1]) { const e = cx + s * (half + u * 1.9); out.push(...knot(e, y, u * .8, Math.max(.9, u * .13), true), ...triad([e + s * u * 2.2, y], u * .34, 'r')); }
+  for (const s of [-1, 1]) { const e = cx + s * (half + u * 1.9); out.push(...knot(e, y, u * 1.05, Math.max(1.2, u * .17), true), ...triad([e + s * u * 2.2, y], u * .34, 'r')); }
   return out;
 }
 
@@ -909,7 +979,7 @@ const frames = {
   quote: ({ x, lines, u, seed, rich = .5 }) => { const y0 = lines[0].top + u * .2, y1 = lines.at(-1).base + u * .5, out = [];
     out.push(rule([x, y0 - u * 1.2], [x, y1 + u * 1.2], u * .2), rule([x + u * .34, y0 - u * .7], [x + u * .34, y1 + u * .7], .55));
     for (const y of [y0, y1]) out.push(rule([x - u * .9, y], [x + u * 1.3, y], .55));
-    if (rich >= .25) out.push(...knot(x + u * .17, y0 - u * 2, u * .62, Math.max(.9, u * .12), rich >= .5), ...triad([x + u * .17, y1 + u * 2], u * .3, 'r'));
+    if (rich >= .25) out.push(...knot(x + u * .17, y0 - u * 2.1, u * .95, Math.max(1.1, u * .15), rich >= .5), ...triad([x + u * .17, y1 + u * 2], u * .3, 'r'));
     return out; },
   // a figure: ruled double on four sides, crossing at the corners; the cord along its head between the rules
   figure: ({ box, u, seed, rich = .5 }) => { const B = [box[0] - u * 1.2, box[1] - u * 2.2, box[2] + u * 1.2, box[3] + u * 1.2], out = ruled(B, u);
