@@ -1,4 +1,4 @@
-Copyright 2026 The illum Project Authors. The outlines of Choir Lombard are traced from Italian choir-book Lombards
+Copyright 2026 The illum Project Authors. The outlines of Choir Lombard are generated from a stroke model measured on, and the traced set traced from, Italian choir-book Lombards
 in the public domain (Free Library of Philadelphia, Lewis E 73, Gradual, Bologna?, c. 1425; images: Internet Archive lewis_e_073);
 see research/17-choirbook.md and research/choirbook/lombards.json.
 

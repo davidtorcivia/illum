@@ -144,6 +144,27 @@ joint; small staff-line remnants survive under some feet (O, Q, U, V); the compo
 the traced; the panel filigree is still 467763's (white reserve on blue), while Lewis E 73's own counters are paper worked in
 blue hairline (a truer pairing would be that hand's filigree, or 467763's letters, which are too few).
 
+## 4e. Generated (fifth pass: "generate first and foremost")
+
+**Letters** (tools/lombgen.py): a stroke model of the Lewis E 73 hand, measured on the 17 traced letters (half-widths along
+their skeletons, units of the height H): stem S = .085, waisted and flaring a little to its serif; bow (crescent) B = .095 at
+its fullest, a hairline at its ends; hair h = .016; ball terminals r = .038 at every free end; wedges (an L's or Q's foot, a
+T's bar) from S to h; proportions ~1.0 wide. Each of A–Z is a list of strokes on centre-lines, rasterised by stamping discs
+of the profile's half-width (the painter's outline filled), seeded with a small irregularity of line and width, and faired
+as the traces were. The traced set is now the reference (fonts/choirbook/traced, ?lombard=traced) and the blind test.
+**Colour**: red or blue body by the drop's seed, about three red to two blue as in his book; the work in the other colour.
+Not done: the split body (two pigments in one letter: illum.js lays a letter in one pigment).
+**The work in the box** (choirbook.js counterWork, his rules, not 467763's): the letter's box less the letter, each bay
+worked by its shape in fine hairline: a double line following the bay's edge all round; then a rosette (an eye at the bay's
+deepest place, 8–12 spokes radiating to the inner line, loops at alternate ends) in a round bay, a leaf (a stem down the long
+axis, angled leaflets in pairs) in a long one, sometimes a lattice of diagonals with points at the crossings in a broad one.
+Seeded: no two drops alike. The margin's staff, domes and pendants are kept; ?work=roundels brings back the 467763 panels.
+**Where it still looks generated**: the balls are perfect discs, all one size, and the serif bars meet them as dumbbells (his
+balls vary and are drawn into the hairline as a hook ends); the stroke edges are smoother and more even than his; the
+rosettes are too regular (equal spokes, equal loops) and the leaf fills read as fishbones (his leaves are drawn, with
+curvature and teardrop leaflets); his box frame of hairlines and the radiating spikes round the box are not made; C, O
+wheels show the spokes' evenness most.
+
 ## 5. The letter (first and second passes)
 
 No OFL Lombardic face is good enough. Checked: Metamorphous, MedievalSharp, Lancelot, Almendra Display, Jacquard 24,
