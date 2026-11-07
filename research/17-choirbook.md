@@ -186,9 +186,60 @@ Two generators, checked against the letters he painted (IoU of the silhouettes, 
 Next: mend the traces at their joints from the scans (his hairline joints), then use his fitted strokes as the model's
 library, so the missing letters are drawn from his strokes with real joins.
 
+## 4h. A typeface's shape, his hand (sixth pass: "still bad"; the user's call: the shape from a designed face)
+
+Seven code-drawn letterforms were rejected; the one letter ever approved was a designed glyph (EB Garamond) with generated
+ornament. So the bare SHAPE now comes from a credited open-licence typeface and the generator applies only his HAND.
+
+**The search** (faces with Lombardic or Lombardic-adjacent capitals; licences read in the fonts' own files). Scored against his
+17 traced letters: each face's capital at his height, its strokes grown or thinned (signed distance) to his mean stroke
+thickness, IoU at the best horizontal shift; his V is the U form, so for the six leading faces it is also scored against the face's U (in the means below; the rest uncorrected).
+
+| face | licence, source | mean IoU | by eye |
+|---|---|---|---|
+| **Lombardic**, George Williams (1988/98) | OFL-1.1-no-RFN or BSD-3 (Debian fonts-georgewilliams; the FontSpace zip carries the BSD-3 notice) | **.41** | the only one in the genre: flat-topped A, round E with closing spine, uncial h M W, U-form U, waisted stems, flared hairline serifs |
+| Almendra Bold, Ana Sanfelippo | OFL, Google Fonts | .38 | strong weight, roman-gothic hybrid; E round, the rest roman |
+| Berry Rotunda, Typo-Graf (2016) | Public Domain (name table) | .36 | rotunda capitals already at his weight, round and uncial; the hand's gain and hooks over-apply (untuned for it) and mangle it |
+| Eagle Lake .39, Metamorphous .37, Grenze Gotisch 900 .37, Fondamento .35, Lancelot .34, Uncial Antiqua .34, Texturina .34, UnifrakturCook .32, MedievalSharp .32, Germania One .32, Rotunda Pommerania (Peter Wiegel, OFL) .32, UnifrakturMaguntia .31, Pirata One .29 … | OFL | — | chancery, roman or textura capitals: not Lombards |
+| Yinit (Haralambous, PD), GotIn / Kinigcap (Steffmann, LPPL via CTAN) | as stated | — | boxed, foliated initials: no bare letter to take |
+| Xiparos Lombard, Versal Gothic, Ornamental Versals, Kingthings Versalis, Lombardy, EasyLombardic, Missal Unciale … | personal-use / no-modify / no licence | — | reference only, never outlines |
+
+The score gap is small (the method's resolution is ~.03); the pick is by genre and eye. The face is kept with its notice in
+`research/choirbook/face/` (Lombardic.ttf, Lombardic-LICENSE.txt).
+
+**The hand** (`tools/lombhand.py`; lombgen's measures, now applied to the face's outline, as vectors): the outline flattened
+from the font; the face measured on a raster (analysis only: medial axis and half-widths, the heavy members as what survives an
+opening by a disc of ~.032 H); then the outline displaced along its normal by smooth fields: each heavy member drawn toward his
+stem half-width S = .085 (GAIN .6 of the shortfall; hairlines stay the face's), waisted a little above the middle and flaring to
+its ends, the brush's entry (top, up-left edge) and exit (foot, down-right edge) swelling, a slow painted drift (~.25 % of H).
+Every free hairline end (the face's serif tips and spurs, outermost first, at most 5 a letter, a fifth left bare) is drawn on
+into a hook whose end swells into a ball: a pendant ball off a short turn (half), a hook (two in five), a curl run on until it
+nearly closes (one in ten); r .6–1.35 × .038, turning either way. Joined by skia-pathops' boolean union; fitted with cubic
+Beziers (Schneider, tolerance .0009 H, cut at corners); `tools/lombfont.py` draws such 'curves' directly (no potrace). A tail
+that would run into the next text line (J, Y) sets its letter a little smaller (ink at most .07 H below the baseline).
+Build: `tools/lombhand.py research/choirbook/face/Lombardic.ttf research/choirbook/hand` then `tools/lombfont.py
+playground/fonts/choirbook/hand "Choir Lombard" research/choirbook/hand/*.json` (CREDIT=… sets the copyright record).
+
+**Which set**: default `fonts/choirbook/hand/` (face + hand); `?lombard=gen` the previous generated set (`fonts/choirbook/`,
+tools/lombgen.py); `?lombard=traced` his traced letters.
+
+**Against his letters** (B O E L S at page size and 4×): the structure is his alphabet's; the face is cleaner and lighter
+than his paint (his bows and an L's foot are heavier, his ends mostly fat round drops where ours more often curl); the hand
+reads at 4× and nearly vanishes at page size, as his does. Short: a few hooks sprout from small spurs where he has none (Q's
+crown, W's top, K's arm), joins of hairline to heavy keep a small pooled lump (E's spine, F's arms), Berry-weight pigment
+blobs are not attempted. Penwork paused until the letters are judged.
+
+**Letter by letter** (face + hand, against his): good: A (his flat-topped A), D, G, H (uncial h), O, R, T, U, Z. Fair: B (his
+structure, but the stem's foot stacks gain, flare and brush exit into a trapezoid; bowls lighter than his), C, E, F, S (a
+small pooled lump where hairline meets heavy), I, P, X (the bottom-left hook dips low). Weak: L (the foot a thin wedge; his
+is the heaviest member), M (the face's thin foot-bar hairline reads odd at 4×), K and W (hooks cluster at the top), Q (a hook
+sprouts from the crown spur, where he has none). Off-genre in the skeleton: N (the face's is a roman diagonal N; his is
+uncial) and V (a true V with a bare point; his V is the U form). J and Y are set at ~80 % so their tails stop .07 H below the
+baseline; they look small beside the rest.
+
 ## 5. The letter (first and second passes)
 
-No OFL Lombardic face is good enough. Checked: Metamorphous, MedievalSharp, Lancelot, Almendra Display, Jacquard 24,
+(Superseded by §4h.) No OFL Lombardic face is good enough. Checked: Metamorphous, MedievalSharp, Lancelot, Almendra Display, Jacquard 24,
 Grenze Gotisch, Uncial Antiqua (rejected earlier). The closest (Metamorphous) has the round E and D but a modern, even
 stroke. And kit/illum.js's registry path measures the letter with EB Garamond metrics, so a face swap needs a written-style
 port. EB Garamond 600 painted stays (approved; humanist precedent).

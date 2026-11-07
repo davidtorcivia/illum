@@ -5,7 +5,9 @@
 # sized and placed by kit/illum.js (which measures the drop by Garamond's metrics) exactly as a Garamond capital would be,
 # and it floats as wide as the Lombard itself. Side bearings: SB units each side.
 # usage: uv run --with potracer --with fonttools --with brotli --with skia-pathops --with pillow --with numpy python -I
-#          tools/lombfont.py OUTDIR FAMILY JSON...      env: RES=900 ALPHA=1.0 OPT=.35 ERR=.6 SB=24 CAP=650
+#          tools/lombfont.py OUTDIR FAMILY JSON...      env: RES=900 ALPHA=1.0 OPT=.35 ERR=.6 SB=24 CAP=650 CREDIT=(copyright record)
+# A letter given as 'curves' (tools/lombhand.py: cubic contours, units of the cap height, y down from the cap line) is drawn
+# as it is; one given as 'polys' is traced by potrace as before.
 import sys, os, json, re
 import numpy as np
 from PIL import Image, ImageDraw
@@ -17,6 +19,13 @@ E = lambda k, d: float(os.environ.get(k, d))
 RES = int(E('RES', 900)); CAP = E('CAP', 650); SB = E('SB', 24)
 out, family, files = sys.argv[1], sys.argv[2], sys.argv[3:]; slug = re.sub(r'[^a-z0-9]+', '-', family.lower()).strip('-'); os.makedirs(out, exist_ok=True)
 def glyph_path(d):
+    if 'curves' in d:   # smooth vectors already (tools/lombhand.py): drawn as they are, no trace
+        P = pathops.Path(); pen = P.getPen(); T = lambda x, y: (SB + x * CAP, (1 - y) * CAP)
+        for cc in d['curves']:
+            pen.moveTo(T(*cc[0]))
+            for s in cc[1:]: pen.curveTo(T(s[0], s[1]), T(s[2], s[3]), T(s[4], s[5]))
+            pen.closePath()
+        P.simplify(fix_winding=True, keep_starting_points=False); return P, round(d['a'] * CAP + 2 * SB)
     H = RES; W = max(1, round(d['a'] * H)); acc = np.zeros((H * 2, W * 2), bool)
     for p in d['polys']:
         im = Image.new('1', (W * 2, H * 2), 0); ImageDraw.Draw(im).polygon([(x * H * 2, y * H * 2) for x, y in p], fill=1); acc ^= np.asarray(im)
@@ -39,6 +48,6 @@ for f in files:
     fb.setupGlyf({'.notdef': TTGlyphPen(None).glyph(), name: g}); fb.setupHorizontalMetrics({'.notdef': (500, 0), name: (adv, g.xMin if g.numberOfContours else 0)})
     fb.setupHorizontalHeader(ascent=1007, descent=-298, lineGap=0)
     fb.setupOS2(version=4, sTypoAscender=1007, sTypoDescender=-298, sTypoLineGap=0, usWinAscent=1047, usWinDescent=390, sCapHeight=int(CAP), fsSelection=0x40 | 0x80)
-    fb.setupNameTable({'familyName': family, 'styleName': 'Regular', 'copyright': f'Outlines traced from Italian choir-book Lombards (public domain: {d.get("src", "")[:180]}); font OFL-1.1'})
+    fb.setupNameTable({'familyName': family, 'styleName': 'Regular', 'copyright': os.environ.get('CREDIT') or f'Outlines traced from Italian choir-book Lombards (public domain: {d.get("src", "")[:180]}); font OFL-1.1'})
     fb.setupPost(); fb.setupMaxp(); fb.font.flavor = 'woff2'; path = f'{out}/{slug}-{ch}.woff2'; fb.save(path); n = os.path.getsize(path); total += n; print(path.split('/')[-1], n, 'B', 'adv', adv)
 print('total', total, 'B')

@@ -486,8 +486,10 @@ function pooled(L, seed) {
 // would stand, and floats it as wide as itself. The host sets its initials in the face (CSS: .ini { font-family: "Choir
 // Lombard", "EB Garamond" }); initial.load() fetches the letters the page uses before anything is measured.
 export const FAMILY = 'Choir Lombard';
-// (the letters generated from the hand's model, tools/lombgen.py; ?lombard=traced: the letters traced from his book, for study)
-const fontDir = new URL(new URLSearchParams(globalThis.location?.search ?? '').get('lombard') === 'traced' ? '../../fonts/choirbook/traced/' : '../../fonts/choirbook/', import.meta.url), loaded = new Set();
+// (the letters: George Williams' Lombardic, painted by his hand, tools/lombhand.py, research/17 §4h; ?lombard=gen: the letters
+// generated from the hand's stroke model alone, tools/lombgen.py; ?lombard=traced: the letters traced from his book, for study)
+const LOMB = new URLSearchParams(globalThis.location?.search ?? '').get('lombard');
+const fontDir = new URL({ traced: '../../fonts/choirbook/traced/', gen: '../../fonts/choirbook/' }[LOMB] ?? '../../fonts/choirbook/hand/', import.meta.url), loaded = new Set();
 export async function loadLetters(chars) {
   await Promise.all([...new Set(chars)].filter(c => /^[A-Z]$/.test(c) && !loaded.has(c)).map(async c => {
     const f = new FontFace(FAMILY, `url(${new URL(`choir-lombard-${c}.woff2`, fontDir)})`, { unicodeRange: 'U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'), weight: '100 900' });
