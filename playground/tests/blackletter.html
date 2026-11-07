@@ -145,5 +145,6 @@ const r = rubricate(document.querySelector('.text'), { style: 'blackletter', ric
     document.body.dataset.timing = t ? `in view ${t.view} ms, all ${t.all} ms (grow ${t.grow}, draw ${t.draw}), ${t.parts} parts` : state === 'written' ? 'drawn' : state; } });
 window.R = r;
 </script>
+<script type="module" src="../kit/theme-toggle.js"></script>
 </body>
 </html>

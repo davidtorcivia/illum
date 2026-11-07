@@ -130,5 +130,6 @@ richIn.addEventListener('input', () => { RICH = +richIn.value; showRich(); r.red
   const u = new URL(location.href); u.searchParams.set('rich', RICH); history.replaceState(null, '', u); });
 addEventListener('hashchange', () => location.reload());
 </script>
+<script type="module" src="kit/theme-toggle.js"></script>
 </body>
 </html>

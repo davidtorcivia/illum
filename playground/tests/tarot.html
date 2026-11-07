@@ -143,5 +143,6 @@ window.R = r;
 if (q.has('audit')) self.__audit = () => (r.state.groups ?? []).map(g => ({ what: (g.it.el.tagName + '.' + [...g.it.el.classList].join('.')).toLowerCase(), state: g.state, speed: g.speed ?? null,
   parts: g.parts?.length ?? 0, kinds: [...new Set((g.parts ?? []).map(p => p.as))].join(' ') }));
 </script>
+<script type="module" src="../kit/theme-toggle.js"></script>
 </body>
 </html>

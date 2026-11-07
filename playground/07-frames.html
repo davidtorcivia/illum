@@ -160,5 +160,6 @@ const richIn = document.getElementById('rich'); richIn.value = rich;
 richIn.addEventListener('input', () => { r.redraw({ rich: +richIn.value }); const u = new URL(location.href); u.searchParams.set('rich', richIn.value); history.replaceState(null, '', u); });
 addEventListener('hashchange', () => location.reload());
 </script>
+<script type="module" src="kit/theme-toggle.js"></script>
 </body>
 </html>

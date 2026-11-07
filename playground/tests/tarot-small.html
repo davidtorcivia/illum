@@ -44,5 +44,6 @@ for (const c of cells) { const pr = printOf(c.make(), { res: RES, seed, slip: c.
   for (const r of pr.runs) writer.part(0, 1, r.strokes.map(s => ({ pts: s.pts, press: s.press, rho: s.rho })), P.k, { width: r.w, hair: r.hair }).done(); }
 writer.flush(); document.body.dataset.timing = 'drawn';
 </script>
+<script type="module" src="../kit/theme-toggle.js"></script>
 </body>
 </html>

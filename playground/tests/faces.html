@@ -77,5 +77,6 @@ const TC = performance.now() - Tc0; let TL = 0;
   W.flush(); (self.requestIdleCallback ?? setTimeout)(() => W.destroy?.()); document.body.dataset.timing = `drawn in ${Math.round(performance.now() - T0)} ms (fonts ${Math.round(TF)} ms, compose ${Math.round(TC)} ms, letters ${Math.round(TL)} ms)`;
 }
 </script>
+<script type="module" src="../kit/theme-toggle.js"></script>
 </body>
 </html>

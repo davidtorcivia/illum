@@ -41,4 +41,5 @@ else { const start = performance.now(); let i = 0;
       const bb = parts[i].bbox; if (bb[1] > scrollY + innerHeight * .7) scrollTo(0, bb[1] - innerHeight * .4); }
     if (i < parts.length) requestAnimationFrame(tick); else { w.flush(); document.body.dataset.timing = 'drawn'; } };
   requestAnimationFrame(tick); }
-</script></body></html>
+</script><script type="module" src="../kit/theme-toggle.js"></script>
+</body></html>
