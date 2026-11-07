@@ -106,6 +106,7 @@
 <script type="module">
 import { pen, dot, paintField, fnv, PIGMENTS } from './kit/marks.js';
 import { flourish, drawn, arclen, levelOf, BUDGETS } from './kit/penwork.js';
+import { createMedium, Pen } from './kit/medium.js';
 
 const q = new URLSearchParams(location.search);
 if (q.has('ghost')) document.body.classList.add('ghost');
@@ -158,7 +159,44 @@ function wordRects(origin, pad) {
   return out;
 }
 
+// ?ink=medium: the penwork is written by the medium (kit/medium.js): a pen with mass, moved along each mark at a hand's
+// pace (slow into a stroke and out of it), its ink pouring, merging and drying on the sheet. One medium per initial,
+// sized to its marks, multiplied over the page.
+const MEDIUM = q.get('ink') === 'medium';
+let media = [];
+function written(t0, t1, strokes, ink, sr, dpr, sheet) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of strokes) for (const [x, y] of s.pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  x0 = Math.floor(x0 - 8); y0 = Math.floor(y0 - 8); x1 = Math.ceil(x1 + 8); y1 = Math.ceil(y1 + 8);
+  const cv = document.createElement('canvas'); cv.className = 'medium'; cv.setAttribute('aria-hidden', 'true');
+  Object.assign(cv.style, { position: 'absolute', left: x0 + 'px', top: y0 + 'px', width: (x1 - x0) + 'px', height: (y1 - y0) + 'px', mixBlendMode: 'multiply', pointerEvents: 'none' });
+  cv.width = Math.round((x1 - x0) * dpr); cv.height = Math.round((y1 - y0) * dpr); sheet.appendChild(cv);
+  const M = createMedium(cv, { dpr, paper: [255, 255, 255], ink, seed: (x0 * 31 + y0) % 97 }); media.push(cv);
+  const pen = new Pen(M, { stiffness: 70, damping: .95, flex: .3, use: .6, hairline: .55 });
+  // the hand's schedule, as fractions of the part's span: along each mark, slow at its ends
+  const total = strokes.reduce((a, s) => a + arclen(s.pts) + 15, 0), plan = []; let u = 0;
+  for (const s of strokes) {
+    const P = s.pts, L = arclen(P); let acc = 0; plan.push({ u, dip: true, w: s.w * 1.35 });
+    P.forEach((q, i) => { if (i) acc += Math.hypot(q[0] - P[i - 1][0], q[1] - P[i - 1][1]); const f = L ? acc / L : 0;
+      // time along the mark runs slower at its two ends (an ease), the pressure a little heavier there
+      const e = f - Math.sin(2 * Math.PI * f) / (2 * Math.PI) * .6;
+      plan.push({ u: u + e * L / total, x: q[0] - x0, y: q[1] - y0, p: .5 + .25 * Math.cos(Math.PI * f) ** 2 * (s.rho ?? 1) }); });
+    u += L / total; plan.push({ u, lift: true }); u += 15 / total;
+  }
+  let k = 0, last = 0;
+  const advance = t => {   // t: ms since the part began
+    const span = (part.t1 - part.t0) * 1000;
+    while (k < plan.length && plan[k].u * span <= t) { const h = plan[k++], ht = h.u * span;
+      if (h.dip) { if (pen.charge < .45) pen.dip(); pen.width = h.w; } else if (h.lift) { pen.update(ht); pen.lift(); M.step(16); } else pen.hand(h.x, h.y, h.p, ht); }
+    pen.update(t); M.step(Math.min(50, Math.max(1, t - last))); last = t; M.render();
+  };
+  const part = { t0, t1, layer: 0, at: (g, f) => advance(f * (part.t1 - part.t0) * 1000),
+    done: () => { advance((part.t1 - part.t0) * 1000 + 1); for (let i = 0; i < 40; i++) M.step(500); M.render(); } };
+  return part;
+}
+
 function compose(mode) {
+  for (const cv of media) { cv.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext(); cv.remove(); } media = [];
   const sheet = document.querySelector('.sheet'), sr = sheet.getBoundingClientRect(), tr = document.querySelector('.text').getBoundingClientRect();
   const S = { w: sr.width, h: sr.height }, Tx = tr.left - sr.left, dpr = Math.min(2, devicePixelRatio || 1);
   const ctx = c => { c.width = Math.round(S.w * dpr); c.height = Math.round(S.h * dpr); c.style.width = S.w + 'px'; c.style.height = S.h + 'px';
@@ -185,6 +223,11 @@ function compose(mode) {
     parts.push(wiped(clock, clock + 1.1, paint, box, dpr, [0, 1]));
     clock += 1.4;
     const V = 300;
+    if (MEDIUM) { const strokes = marks.filter(s => s.kind !== 'dot' && s.pts.length > 1), dots = marks.filter(s => s.kind === 'dot');
+      const d = strokes.reduce((a, s) => a + arclen(s.pts) / V, 0) * .75 + strokes.length * .05;
+      parts.push(written(clock, clock + d, strokes, ink, sr, dpr, sheet)); clock += d;
+      dots.forEach(s => { parts.push(dotted(clock, s.p, s.r, s.accent ? accent : ink)); clock += .05; });
+      clock += .4; return; }
     marks.forEach((s, i) => {
       if (s.kind === 'dot') { parts.push(dotted(clock, s.p, s.r, s.accent ? accent : ink)); clock += .05; return; }
       const o = { w: s.w * 1.15, ink, seed: seed + i * 13, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 };
