@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Writer test</title>
+<!-- A test bench for kit/writer.js: a long page of marks in three inks, written by one pooled medium.
+     ?draw writes them in order (else still); ?theme=dark lays the ink over a dark ground. -->
+<style>
+  :root { --paper: rgb(243 237 225); } :root[data-theme=dark] { --paper: rgb(30 27 24); }
+  html, body { margin: 0; background: var(--paper); }
+  #host { position: relative; width: 100%; height: 3600px; }
+  #bake { position: absolute; left: 0; top: 0; pointer-events: none; }
+</style></head>
+<body><div id="host"><canvas id="bake"></canvas></div>
+<script type="module">
+import { createWriter } from '../kit/writer.js';
+import { mulberry } from '../kit/marks.js';
+const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark';
+if (dark) document.documentElement.dataset.theme = 'dark';
+const host = document.getElementById('host'), bk = document.getElementById('bake'), dpr = Math.min(2, devicePixelRatio || 1);
+const W = host.clientWidth, H = host.clientHeight; bk.width = W * dpr; bk.height = H * dpr; bk.style.width = W + 'px'; bk.style.height = H + 'px';
+const g = bk.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+const inks = dark ? [[232, 128, 100], [140, 160, 230], [220, 200, 150]] : [[200, 70, 50], [50, 70, 150], [40, 30, 22]], r = mulberry(7);
+const w = createWriter(host, g, { dark, dpr }), parts = []; let t = .2;
+for (let y = 60, i = 0; y < H - 80; y += 120, i++) {
+  const strokes = [];
+  // a scallop run, a loop chain and a few hairlines: penwork's vocabulary
+  const x0 = 40 + r() * 40, n = 8 + (r() * 8 | 0);
+  for (let k = 0; k < n; k++) { const cx = x0 + k * 22; strokes.push({ pts: Array.from({ length: 17 }, (_, j) => [cx + 9 * Math.cos(Math.PI * j / 16 + Math.PI), y + 9 * Math.sin(Math.PI * j / 16 + Math.PI) * -1]), w: 1.1 }); }
+  strokes.push({ pts: Array.from({ length: 200 }, (_, j) => { const u = j / 199; return [x0 + u * (W - 160), y + 40 + 14 * Math.sin(u * 30) * Math.sin(Math.PI * u)]; }), w: 1.2 });
+  for (let k = 0; k < 5; k++) strokes.push({ pts: [[W - 90 + k * 8, y], [W - 92 + k * 8 + r() * 4, y + 70]], w: .9 });
+  const d = strokes.reduce((a, s) => a + s.pts.length, 0) / 600;
+  parts.push(w.part(t, t + d, strokes, inks[i % 3])); t += d;
+}
+const t0 = performance.now();
+if (!q.has('draw')) { parts.forEach(p => p.done()); w.flush(); document.body.dataset.timing = `still ${(performance.now() - t0) | 0} ms`; }
+else { const start = performance.now(); let i = 0;
+  const tick = () => { const now = (performance.now() - start) / 1000;
+    while (i < parts.length && now >= parts[i].t1) parts[i++].done();
+    if (i < parts.length && now > parts[i].t0) { parts[i].at((now - parts[i].t0) / (parts[i].t1 - parts[i].t0));
+      const bb = parts[i].bbox; if (bb[1] > scrollY + innerHeight * .7) scrollTo(0, bb[1] - innerHeight * .4); }
+    if (i < parts.length) requestAnimationFrame(tick); else { w.flush(); document.body.dataset.timing = 'drawn'; } };
+  requestAnimationFrame(tick); }
+</script></body></html>

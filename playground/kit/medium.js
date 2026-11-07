@@ -26,12 +26,12 @@ float lay(vec4 s, vec4 pap) {
 
 // paper: R tooth height, G fibre
 const PAPER_FS = `#version 300 es
-precision highp float; in vec2 vUV; out vec4 o; uniform vec2 uRes; uniform float uSeed, uPx, uRough;
+precision highp float; in vec2 vUV; out vec4 o; uniform vec2 uRes, uOff; uniform float uSeed, uPx, uRough;
 ${NOISE}
 // a cell c CSS px across, never finer than 2.5 device px (a texture sampled below its own grid is only sparkle)
 float N(vec2 q, vec2 c, float s){ return vn(q / max(c / uPx, vec2(2.5)) + s); }
 void main(){
-  vec2 q = vUV * uRes;
+  vec2 q = vUV * uRes + uOff;                                     // uOff: where this window sits on the page
   float t = .5 * N(q, vec2(1.9, 1.5), uSeed) + .3 * N(q, vec2(.8), uSeed * 2.) + .2 * N(q, vec2(4.5), uSeed * 3.);
   vec2 f = mat2(.94, .34, -.34, .94) * q;                         // the fibres lie long, a little off the horizontal
   float fib = .6 * N(f, vec2(3.4, .9), 71. + uSeed) + .4 * N(f, vec2(9., 2.4), 113. + uSeed);
@@ -90,13 +90,15 @@ void main(){
 // and a full coat saturates. The darkness is the mass until then, not a level set of it (a threshold throws away the
 // sweep's sub-pixel coverage and turns every edge back into a stair). Deeper ink is a little darker.
 const RENDER_FS = `#version 300 es
-precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uDry, uWet, uPaper; uniform vec3 uPaperRGB, uK; uniform float uBase;
+precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uDry, uWet, uPaper; uniform vec3 uPaperRGB, uK, uInk; uniform float uBase, uOver;
 void main(){
   vec2 uv = vec2(vUV.x, 1. - vUV.y);                 // the simulation runs y down, the screen's framebuffer y up
   float V = texture(uDry, uv).r + texture(uWet, uv).r, f = texture(uPaper, uv).g;
   float cov = min(1., V * (.85 + .3 * f) / .55);     // the fibre moves the edge a fraction of a pixel either way
   float d = cov * (uBase + .45 * min(V, 1.5));
-  o = vec4(uPaperRGB * exp(-uK * d), 1);
+  // multiply: the sheet as it looks, to lay over a light page by multiplying; over: the ink alone, its colour with an
+  // opacity, to lay over any ground (a dark page above all, where subtracting from the paper would show nothing)
+  o = uOver > .5 ? vec4(uInk, 1. - exp(-3. * d)) : vec4(uPaperRGB * exp(-uK * d), 1);
 }`;
 
 export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1), seed = 7, paper = [243, 237, 225], ink = [30, 21, 15], rough = .6 } = {}) {
@@ -122,9 +124,13 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   const clearT = f => { gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); };
   const S = { rough, ink, paper, rim: 0, density: 1, base: .62, drying: 500 };
 
-  function makePaper() { gl.viewport(0, 0, W, H); gl.bindFramebuffer(gl.FRAMEBUFFER, F.paper); gl.disable(gl.BLEND); gl.useProgram(P.paper.p);
+  function makePaper(off = [0, 0]) { gl.viewport(0, 0, W, H); gl.bindFramebuffer(gl.FRAMEBUFFER, F.paper); gl.disable(gl.BLEND); gl.useProgram(P.paper.p);
+    gl.uniform2f(P.paper.u('uOff'), off[0], off[1]);
     gl.uniform1f(P.paper.u('uSeed'), seed % 97); gl.uniform1f(P.paper.u('uPx'), 1 / dpr); gl.uniform1f(P.paper.u('uRough'), S.rough); run(P.paper); }
-  function clear() { for (const t of [...T.dry, ...T.wet, T.stroke]) { const f = fbo(t); clearT(f); gl.deleteFramebuffer(f); } wetting = 0; }
+  function clear() { for (const t of [...T.dry, ...T.wet, T.stroke]) { const f = fbo(t); clearT(f); gl.deleteFramebuffer(f); } wetting = 0; area = null; }
+  // where there is ink: the union of everything swept since the last clear (outside it every layer is empty in both
+  // ping-pong buffers, so the flow need only run inside it)
+  let area = null;
   makePaper(); clear();
 
   // one sweep step: quad q (four device-px points), ink at its start and end, the pen's dryness
@@ -135,24 +141,28 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
     gl.uniform1f(pr.u('uInk0'), ink0); gl.uniform1f(pr.u('uInk1'), ink1); gl.uniform1f(pr.u('uDry'), dry); gl.uniform1f(pr.u('uRim'), S.rim);
     run(pr, [Math.floor(x0 - 2), Math.floor(y0 - 2), Math.ceil(x1 - x0 + 4), Math.ceil(y1 - y0 + 4)]);
     gl.blendEquation(gl.FUNC_ADD); gl.disable(gl.BLEND); pour();
+    const m = 12; area = area ? [Math.min(area[0], x0 - m), Math.min(area[1], y0 - m), Math.max(area[2], x1 + m), Math.max(area[3], y1 + m)] : [x0 - m, y0 - m, x1 + m, y1 + m];
   }
   // the ink moves: pour the pen's fresh ink in, level it, let it dry. Three small steps a frame while anything is wet.
   function step(ms) {
-    if (wetting <= 0) return; wetting -= ms;
+    if (wetting <= 0 || !area) return; wetting -= ms;
     gl.viewport(0, 0, W, H); gl.disable(gl.BLEND); const pr = P.flow;
+    const x0 = Math.max(0, Math.floor(area[0])), y0 = Math.max(0, Math.floor(area[1])), rect = [x0, y0, Math.min(W, Math.ceil(area[2])) - x0, Math.min(H, Math.ceil(area[3])) - y0];
     for (let k = 0; k < 3; k++) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, F.flow[cur]); gl.useProgram(pr.p);
       bind(pr, 'uWet', 0, T.wet[cur]); bind(pr, 'uDry', 1, T.dry[cur]); bind(pr, 'uStroke', 2, T.stroke); bind(pr, 'uPaper', 3, T.paper);
       gl.uniform2f(pr.u('uTexel'), 1 / W, 1 / H); gl.uniform1f(pr.u('uDecay'), wetting <= 0 ? 0 : .5 ** (ms / 3 / S.drying));
-      gl.uniform1f(pr.u('uLevel'), S.level); gl.uniform1f(pr.u('uCreep'), S.creep); gl.uniform1f(pr.u('uPour'), k === 0 ? 1 : 0); run(pr); cur = 1 - cur;
+      gl.uniform1f(pr.u('uLevel'), S.level); gl.uniform1f(pr.u('uCreep'), S.creep); gl.uniform1f(pr.u('uPour'), k === 0 ? 1 : 0); run(pr, rect); cur = 1 - cur;
     }
     clearT(F.stroke);
   }
   const pour = () => { wetting = Math.max(wetting, 12000); };
+  // dry it all now: one step with the water gone settles every bit of wet ink where it lies
+  function finish() { if (wetting > 0) { wetting = 1; step(1); } }
   function render() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H); const pr = P.render; gl.useProgram(pr.p);
     bind(pr, 'uDry', 0, T.dry[cur]); bind(pr, 'uWet', 1, T.wet[cur]); bind(pr, 'uPaper', 2, T.paper);
-    gl.uniform3f(pr.u('uPaperRGB'), ...S.paper.map(c => c / 255)); gl.uniform1f(pr.u('uBase'), S.base);
+    gl.uniform3f(pr.u('uPaperRGB'), ...S.paper.map(c => c / 255)); gl.uniform1f(pr.u('uBase'), S.base); gl.uniform3f(pr.u('uInk'), ...S.ink.map(c => c / 255)); gl.uniform1f(pr.u('uOver'), S.over ? 1 : 0);
     gl.uniform3f(pr.u('uK'), ...S.ink.map((c, i) => -Math.log(Math.max(.02, c / S.paper[i])) / S.density)); run(pr);
   }
   // how wet the ink is, 0 (a dry, quick ink: barely moves) .. 1 (a wet, slow ink: merges, softens, creeps).
@@ -160,7 +170,7 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   // and reads grey, and a broad stroke grows a halo wider than its own anti-aliasing
   function wetness(w) { S.creep = .03 + .2 * w; S.level = .002 + .02 * w; S.drying = 250 + 1600 * w * w; }
   wetness(.25);
-  return { wetness, gl, W, H, dpr, settings: S, sweep, step, render, clear, makePaper, commit() {} };
+  return { wetness, gl, W, H, dpr, settings: S, sweep, step, finish, render, clear, makePaper, commit() {} };
 }
 
 // A pen in a hand. The hand gives targets (page px, pressure, time in ms); the pen follows through a damped spring
