@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kelmscott letters</title>
+<!--
+  Every initial kit/styles/kelmscott.js has traced (research/16-kelmscott.md), as a drop six lines deep, then two lines
+  deep, then in the line, with one letter it has no block for (Q: set as a red capital). The same machinery as
+  tests/kelmscott.html: rubricate(..., { style: 'kelmscott' }). ?draw, ?theme=light|dark, ?cut=positive|negative.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(184 54 40); color-scheme: light; }
+  :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); --rubric: rgb(222 120 92); color-scheme: dark; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; }
+  .sheet { position: relative; max-width: 1200px; margin: 0 auto; padding: 60px 40px; box-sizing: border-box; }
+  .sheet > canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .text { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 24px 40px; }
+  .text p { margin: 0; text-align: justify; hyphens: auto; }
+  .ini { color: transparent; }
+  .ini.drop { float: left; line-height: 1; }
+  .ini.line { display: inline-block; font-size: 1.8em; line-height: 0; margin-right: .12em; }
+</style>
+</head>
+<body>
+<main class="sheet"><div class="text"></div></main>
+<script type="module">
+import { rubricate } from '../kit/illum.js';
+import { STYLES } from '../kit/wayfinding.js';
+import kelmscott from '../kit/styles/kelmscott.js';
+STYLES.kelmscott = kelmscott;
+const q = new URLSearchParams(location.search);
+document.documentElement.dataset.theme = q.get('theme') === 'dark' || (!q.get('theme') && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+kelmscott.darkCut = q.get('cut') ?? 'positive';
+const words = 'ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.';
+const text = document.querySelector('.text');
+for (const ch of 'BTNPSLAMQ') for (const [cls, n] of [['drop', 6], ['drop', 2], ['line', 1]]) { const p = document.createElement('p');
+  p.innerHTML = `<span class="ini ${cls}" data-lines="${n}">${ch}</span>${words}`; text.append(p); }
+rubricate(text, { style: 'kelmscott', draw: q.has('draw') ? 'read' : 'still', select: { paraph: 'none', filler: 'none' },
+  on: (state, t) => { document.body.dataset.timing = t ? `in view ${t.view} ms, all ${t.all} ms` : state === 'written' ? 'drawn' : state; } });
+</script>
+<script type="module" src="../kit/theme-toggle.js"></script>
+</body>
+</html>
