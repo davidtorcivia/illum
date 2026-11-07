@@ -18,7 +18,7 @@ export function supported() {
 }
 
 export function createWriter(host, bake, { dpr = Math.min(2, devicePixelRatio || 1), dark = false, size = [1100, 800] } = {}) {
-  let cv = null, M = null, pen = null, win = null, ink = null, dirty = false;
+  let cv = null, M = null, pen = null, win = null, ink = null, dirty = false, baseAngle = .62;
   // a window at least `size`, larger if one mark needs it, and never wider than the page
   const page = () => [host.scrollWidth || host.clientWidth, host.scrollHeight || host.clientHeight];
   function open(bb) {
@@ -30,7 +30,7 @@ export function createWriter(host, bake, { dpr = Math.min(2, devicePixelRatio ||
       Object.assign(cv.style, { position: 'absolute', width: w + 'px', height: h + 'px', pointerEvents: 'none' });
       host.appendChild(cv);
       M = createMedium(cv, { dpr, paper: [255, 255, 255] }); M.wetness(0); M.settings.over = true;
-      pen = new Pen(M, { exact: true, flex: .15, use: .6 });
+      pen = new Pen(M, { exact: true, flex: .15, use: .6 }); baseAngle = pen.angle;
     } else M.clear();
     Object.assign(cv.style, { left: x + 'px', top: y + 'px' });
     M.makePaper([x * dpr, y * dpr]); win = [x, y, x + w, y + h];
@@ -52,17 +52,19 @@ export function createWriter(host, bake, { dpr = Math.min(2, devicePixelRatio ||
   }
 
   // a run of strokes in one ink, written between t0 and t1 (seconds on the score); the hand slows into and out of each
-  function part(t0, t1, strokes, rgb, { width = 1.2, hair = .85 } = {}) {
+  // per stroke: s.angle (the nib's angle, radians above the line; default the pen's), s.press (f in 0..1 along the
+  // stroke -> a width multiplier: a designed swell), s.rho (how heavily it is laid)
+  function part(t0, t1, strokes, rgb, { width = 1.2, hair = .85, angle = null } = {}) {
     strokes = strokes.filter(s => s.pts.length > 1);
     let bb = [Infinity, Infinity, -Infinity, -Infinity];
     for (const s of strokes) for (const [x, y] of s.pts) bb = [Math.min(bb[0], x), Math.min(bb[1], y), Math.max(bb[2], x), Math.max(bb[3], y)];
     bb = [bb[0] - 6, bb[1] - 6, bb[2] + 6, bb[3] + 6];
     const total = strokes.reduce((a, s) => a + arclen(s.pts) + 15, 0) || 1, plan = []; let u = 0;
     for (const s of strokes) {
-      const P = s.pts, L = arclen(P); let acc = 0; plan.push({ u, dip: true, w: (s.w ?? 1) * width, hair: (s.w ?? 1) * hair });
+      const P = s.pts, L = arclen(P); let acc = 0; plan.push({ u, dip: true, w: (s.w ?? 1) * width, hair: (s.w ?? 1) * hair, angle: s.angle ?? angle });
       P.forEach((q, i) => { if (i) acc += Math.hypot(q[0] - P[i - 1][0], q[1] - P[i - 1][1]); const f = L ? acc / L : 0;
         const e = f - Math.sin(2 * Math.PI * f) / (2 * Math.PI) * .6;
-        plan.push({ u: u + e * L / total, x: q[0], y: q[1], p: .5 + .25 * Math.cos(Math.PI * f) ** 2 * (s.rho ?? 1) }); });
+        plan.push({ u: u + e * L / total, x: q[0], y: q[1], p: .5 + .25 * Math.cos(Math.PI * f) ** 2 * (s.rho ?? 1), wm: s.press ? s.press(f) : 1 }); });
       u += L / total; plan.push({ u, lift: true }); u += 15 / total;
     }
     let k = 0, last = 0, begun = false;
@@ -71,13 +73,15 @@ export function createWriter(host, bake, { dpr = Math.min(2, devicePixelRatio ||
         if (!begun) { ensure(bb, rgb); begun = true; }
         const span = Math.max(1, (self.t1 - self.t0) * 1000), t = f * span, [ox, oy] = win;
         while (k < plan.length && plan[k].u * span <= t) { const h = plan[k++], ht = h.u * span;
-          if (h.dip) { if (pen.charge < .45) pen.dip(); pen.width = h.w; pen.hairline = h.hair; }
+          if (h.dip) { if (pen.charge < .45) pen.dip(); pen.width = h.w; pen.hairline = h.hair; pen.angle = h.angle ?? baseAngle; }
           else if (h.lift) { pen.update(ht); pen.lift(); if (live) M.step(16); }
-          else pen.hand(h.x - ox, h.y - oy, h.p, ht); }
+          else pen.hand(h.x - ox, h.y - oy, h.p, ht, h.wm); }
         pen.update(t); M.step(Math.min(50, Math.max(1, t - last))); last = t; M.render(); dirty = true;
       },
       done() { self.at(1 + 1e-6, false); } };
     return self;
   }
-  return { part, flush, destroy: () => { kill(); win = ink = null; }, get dark() { return dark; } };
+  // warm: make the medium now (its first creation costs a frame or two), so the first mark written does not stall
+  const warm = () => { if (!cv) open([0, 0, 1, 1]); };
+  return { part, flush, warm, destroy: () => { kill(); win = ink = null; }, get dark() { return dark; } };
 }

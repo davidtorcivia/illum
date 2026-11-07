@@ -98,7 +98,7 @@ void main(){
   float d = cov * (uBase + .45 * min(V, 1.5));
   // multiply: the sheet as it looks, to lay over a light page by multiplying; over: the ink alone, its colour with an
   // opacity, to lay over any ground (a dark page above all, where subtracting from the paper would show nothing)
-  o = uOver > .5 ? vec4(uInk, 1. - exp(-3. * d)) : vec4(uPaperRGB * exp(-uK * d), 1);
+  o = uOver > .5 ? vec4(uInk * exp(-uK * max(0., d - 1.)), 1. - exp(-3. * d)) : vec4(uPaperRGB * exp(-uK * d), 1);
 }`;
 
 export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1), seed = 7, paper = [243, 237, 225], ink = [30, 21, 15], rough = .6 } = {}) {
@@ -181,14 +181,15 @@ export class Pen {
     Object.assign(this, { m: medium, width, angle, flex, hairline, use, stiffness, damping, exact, charge: 1 });
     this.reset();
   }
-  reset() { this.pos = null; this.vel = [0, 0]; this.last = null; this.target = null; this.prev = null; this.tt = 0; this.pres = .5; this.sp = 0; this.queue = []; }
+  reset() { this.pos = null; this.vel = [0, 0]; this.last = null; this.target = null; this.prev = null; this.tt = 0; this.pres = .5; this.wm = 1; this.sp = 0; this.queue = []; }
   dip() { this.charge = 1; }
-  hand(x, y, p, t) { this.queue.push({ x, y, p, t }); }
+  // wm: a width multiplier at this point (a designed swell: the shade of a copperplate downstroke, a whiplash's belly)
+  hand(x, y, p, t, wm = 1) { this.queue.push({ x, y, p, t, wm }); }
   // advance to time `now`: the target holds the hand's last known place until the next sample arrives
   update(now) {
     while (this.queue.length && this.queue[0].t <= now) {
       const h = this.queue.shift();
-      if (!this.pos) { this.pos = [h.x, h.y]; this.tt = h.t; this.pres = h.p; this.target = h; this.emit(0); continue; }
+      if (!this.pos) { this.pos = [h.x, h.y]; this.tt = h.t; this.pres = h.p; this.wm = h.wm ?? 1; this.target = h; this.emit(0); continue; }
       this.prev = this.target; this.target = h; this.advance(h.t);
     }
     if (this.pos) this.advance(now);
@@ -197,7 +198,7 @@ export class Pen {
     const w = 2 * Math.PI * this.stiffness, z = this.damping, A = this.prev ?? this.target, B = this.target, span = B.t - A.t;
     while (this.tt < until) {
       const dt = Math.min(1, until - this.tt) / 1000, f = span > 0 ? Math.min(1, Math.max(0, (this.tt - A.t) / span)) : 1;
-      const h = { x: A.x + (B.x - A.x) * f, y: A.y + (B.y - A.y) * f, p: A.p + (B.p - A.p) * f };
+      const h = { x: A.x + (B.x - A.x) * f, y: A.y + (B.y - A.y) * f, p: A.p + (B.p - A.p) * f }; this.wm = (A.wm ?? 1) + ((B.wm ?? 1) - (A.wm ?? 1)) * f;
       // exact: a path already designed is traced as it is (the hand's mass is for a live hand, where it makes the curve)
       if (this.exact) { this.vel = [(h.x - this.pos[0]) / dt, (h.y - this.pos[1]) / dt]; this.pos = [h.x, h.y]; }
       else {
@@ -215,7 +216,7 @@ export class Pen {
     this.sp += (Math.hypot(this.vel[0], this.vel[1]) / 1000 - this.sp) * Math.min(1, dt * 25); const sp = this.sp;   // CSS px per ms, smoothed over ~40 ms
     if (this.last && Math.hypot(p[0] - this.last.p[0], p[1] - this.last.p[1]) * d < .35) { this.last.dwell += dt; return; }
     // the nib: a broad edge rising to the right at its angle, spread a little by pressure if it is flexible
-    const halfW = this.width * (1 + this.flex * .9 * Math.max(0, this.pres - .35)) / 2, n = [Math.cos(this.angle), -Math.sin(this.angle)];
+    const halfW = this.width * this.wm * (1 + this.flex * .9 * Math.max(0, this.pres - .35)) / 2, n = [Math.cos(this.angle), -Math.sin(this.angle)];
     // ink flows per unit time, so it lands heavier where the pen is slow; less as the charge runs down
     const flow = (.8 + .75 * Math.exp(-sp * 2.5)) * (.5 + .5 * Math.min(1, this.charge * 2.5)) * (this.last ? 1 : 1.3);
     const cur = { p: [p[0], p[1]], halfW, n, ink: flow, dwell: 0 };

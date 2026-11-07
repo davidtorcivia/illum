@@ -29,6 +29,9 @@ for (let y = 60, i = 0; y < H - 80; y += 120, i++) {
   const d = strokes.reduce((a, s) => a + s.pts.length, 0) / 600;
   parts.push(w.part(t, t + d, strokes, inks[i % 3])); t += d;
 }
+// a designed swell (press) and a steep broad nib (angle), to check the per-stroke options
+parts.push(w.part(t, t + 1, [{ pts: Array.from({ length: 60 }, (_, j) => [80 + j * 6, 30 + 8 * Math.sin(j / 9)]), w: 2, press: f => .3 + 1.7 * Math.sin(Math.PI * f) ** 2 },
+  { pts: Array.from({ length: 40 }, (_, j) => [480 + 40 * Math.cos(j / 39 * 2 * Math.PI), 30 + 18 * Math.sin(j / 39 * 2 * Math.PI)]), w: 6, angle: 1.2 }], inks[2], { width: 1.2, hair: .3 }));
 const t0 = performance.now();
 if (!q.has('draw')) { parts.forEach(p => p.done()); w.flush(); document.body.dataset.timing = `still ${(performance.now() - t0) | 0} ms`; }
 else { const start = performance.now(); let i = 0;
