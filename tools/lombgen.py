@@ -39,8 +39,13 @@ hair = lambda f: h * (1 + .25 * math.sin(math.pi * f))
 wedge = lambda w0=S, w1=h: (lambda f: w0 + (w1 - w0) * f ** 1.3)
 def ballhair(p, q, rr=r):   # a hair from p to its ball at q
     return [(line(p, q), hair), ('ball', q, rr)]
-def serif(x, y, left=.15, right=.15, down=1):   # the bar across a stem's end, its two ends turned into balls
-    a, b = (x - left, y), (x + right, y); return [(line(a, b), lambda f: h * 1.25), ('ball', (a[0], a[1] + down * r * .55), r), ('ball', (b[0], b[1] + down * r * .55), r)]
+def curl(p, out, down, rr=None):   # a hair's end drawn on round into a hook, the ball where the pen stops (no dumbbell)
+    rr = rr or r * rng.uniform(.72, 1.12); R = rr * 1.25; c = (p[0], p[1] + down * R)   # the hook turns down (or up) and back in
+    a0 = -down * math.pi / 2; t = np.linspace(0, 1, 30); a = a0 + out * down * t * math.pi * .95
+    pts = np.stack([c[0] + R * np.cos(a) * out * -1 * -1, c[1] + R * np.sin(a)], 1) if False else np.stack([c[0] + out * R * np.sin(t * math.pi * .95), c[1] - down * R * np.cos(t * math.pi * .95)], 1)
+    return [(pts, lambda f, rr=rr: h * 1.1 + (rr - h * 1.1) * (max(0, (f - .55) / .45)) ** 1.6)]   # the ball is the curl's end swelling (its round cap)
+def serif(x, y, left=.15, right=.15, down=1):   # the bar across a stem's end, each end drawn on into a hook with its ball
+    a, b = (x - left, y), (x + right, y); return [(line(a, b), lambda f: h * 1.25)] + curl(a, -1, down) + curl(b, 1, down)
 
 def letter(ch):
     L = []
@@ -141,21 +146,28 @@ def letter(ch):
     return a, L
 
 R = 900
+from PIL import Image, ImageDraw
 for ch in want:
-    a, L = letter(ch); W = int((a + .4) * R); Hh = int(1.3 * R); ox, oy = .2 * R, .15 * R; acc = np.zeros((Hh, W), bool)
-    jit = rng.normal(0, .0025, 2); wj = 1 + rng.normal(0, .025)
-    yy, xx = np.mgrid[0:Hh, 0:W]
-    def disc(px, py, rad):
-        x0, x1, y0, y1 = int(max(0, px - rad - 2)), int(min(W, px + rad + 3)), int(max(0, py - rad - 2)), int(min(Hh, py + rad + 3))
-        acc[y0:y1, x0:x1] |= (xx[y0:y1, x0:x1] - px) ** 2 + (yy[y0:y1, x0:x1] - py) ** 2 <= rad * rad
+    a, L = letter(ch); W = int((a + .4) * R); Hh = int(1.3 * R); ox, oy = .2 * R, .15 * R; ss = 3
+    im = Image.new('L', (W * ss, Hh * ss), 0); dr = ImageDraw.Draw(im)
+    def outline(P, rad):   # a stroke as its contour: the line offset by its half-width either side, closed by round caps
+        P = np.asarray(P, float); t = np.gradient(P, axis=0); t /= np.maximum(np.hypot(t[:, 0], t[:, 1])[:, None], 1e-9); n = np.stack([-t[:, 1], t[:, 0]], 1)
+        poly = np.concatenate([P + n * rad[:, None], (P - n * rad[:, None])[::-1]]); dr.polygon([((x + ox) * ss, (y + oy) * ss) for x, y in poly], fill=255)
+        for e in (0, -1): cx, cy, rr = (P[e, 0] + ox) * ss, (P[e, 1] + oy) * ss, rad[e] * ss; dr.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=255)
     for s in L:
-        if isinstance(s[0], str): (px, py), rad = s[1], s[2]; disc(ox + px * R, oy + py * R, rad * R * wj); continue
+        if isinstance(s[0], str): (px, py), rad = s[1], s[2]; outline(np.array([[px * R, py * R], [px * R + .01, py * R]]), np.array([rad * R, rad * R])); continue
         P, prof = s; P = np.asarray(P, float); seg = np.hypot(*np.diff(P, axis=0).T); cum = np.concatenate([[0], np.cumsum(seg)]); Lt = cum[-1] or 1
-        n = max(2, int(Lt * R / .7)); fs = np.linspace(0, 1, n); xs = np.interp(fs * Lt, cum, P[:, 0]); ys = np.interp(fs * Lt, cum, P[:, 1])
-        bend = rng.normal(0, .002); 
-        for f, px, py in zip(fs, xs, ys): disc(ox + (px + jit[0] * f + bend * math.sin(math.pi * f)) * R, oy + (py + jit[1] * f) * R, max(1.2, prof(f) * R * wj))
-    # faired as the traced letters are (tools/lombcompose.py FAIR .009): the joins between strokes run smooth
-    f = .009 * R; k = max(1, int(f * .8)); acc = nd.binary_opening(nd.binary_closing(np.pad(acc, k + 2), iterations=k), iterations=k)[k + 2:-k - 2, k + 2:-k - 2]
+        n = max(4, int(Lt * R / .8)); fs = np.linspace(0, 1, n); xs = np.interp(fs * Lt, cum, P[:, 0]) * R; ys = np.interp(fs * Lt, cum, P[:, 1]) * R
+        outline(np.stack([xs, ys], 1), np.array([max(1.0, prof(f) * R) for f in fs]))
+    acc = np.asarray(im.resize((W, Hh), Image.LANCZOS)) > 127
+    # the painter's edge: his outline wanders a little off the true curve (measured on the traced letters at drop scale: a
+    # slow drift of ~.3 % of the height over ~5 %, a faint quiver over ~1.5 %), applied as a displacement of the edge
+    sd = nd.distance_transform_edt(acc) - nd.distance_transform_edt(~acc)
+    def field(lam, amp):
+        g = rng.normal(0, 1, (Hh // int(lam * R) + 3, W // int(lam * R) + 3)); z = nd.zoom(g, lam * R, order=3)[:Hh, :W]; return z / (z.std() + 1e-9) * amp * R
+    acc = sd + field(.08, .0007) > 0   # (a slow drift only: no quiver, no width jitter)
+    # faired as the traced letters are (tools/lombcompose.py FAIR, lighter here so the drift survives): joins run smooth
+    f = .006 * R; k = max(1, int(f * .8)); acc = nd.binary_opening(nd.binary_closing(np.pad(acc, k + 2), iterations=k), iterations=k)[k + 2:-k - 2, k + 2:-k - 2]
     acc = nd.gaussian_filter(acc.astype(float), f) > .5
     ys_, xs_ = np.nonzero(acc); bx0, by0, bx1, by1 = xs_.min(), ys_.min(), xs_.max() + 1, ys_.max() + 1; H = by1 - by0
     sm = nd.gaussian_filter(acc.astype(float), 1.0); polys = []

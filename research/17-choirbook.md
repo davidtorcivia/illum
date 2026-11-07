@@ -165,6 +165,27 @@ rosettes are too regular (equal spokes, equal loops) and the leaf fills read as 
 curvature and teardrop leaflets); his box frame of hairlines and the radiating spikes round the box are not made; C, O
 wheels show the spokes' evenness most.
 
+## 4f. The penwork as a field (paused)
+
+Measured (tools/penmeasure.py, inside the letter's ink box, the paint taken out): his B covers .137 of the free parchment
+with hairline, the gap between neighbouring hairlines a median .044 H (quartiles .020/.073), hairline .0098 H; his D .153,
+.069; O .160, .047; P .079, .055. Our motif-placer (wheel, fishbone, lattice): coverage .168 but gap quartiles
+.015/.050/.463 H: dense rings and bare ground. The field primitive (counterWork now: lines parallel to every bay's edges at
+his spacing, rungs and fringe, rosettes and scrolls carved out of it, the frame's spikes ending in hooks): coverage .198,
+gap .013/.026/.040 H, width .0093 H — no bare ground left, but tighter and heavier than his. Paused for the letters.
+
+## 4g. The letters, measured and redrawn (letters first)
+
+Two generators, checked against the letters he painted (IoU of the silhouettes, height and width normalised):
+- the parametric stroke model (tools/lombgen.py, now drawn as smooth offset contours with round caps, the balls a hook's
+  swelling end): B .40, O .70, E .41, L .33, S .23. Clean, but not his: narrower, symmetric, his stroke shapes not learned.
+- strokes fitted to his own letters (tools/lombmat.py: medial axis cut at forks, line and width fitted with smoothing
+  splines, redrawn as offset contours): B .92, O .94, E .91, L .93, S .88; aspect matches to .01. Faithful, smoother than
+  the traces, but it inherits their faults: the traces lost some of his thinnest joints (the B's head, where his bowl meets
+  the stem in a hairline, is missing), stray stubs survive, and the composed letters (C F H N Y Z) stay weak.
+Next: mend the traces at their joints from the scans (his hairline joints), then use his fitted strokes as the model's
+library, so the missing letters are drawn from his strokes with real joins.
+
 ## 5. The letter (first and second passes)
 
 No OFL Lombardic face is good enough. Checked: Metamorphous, MedievalSharp, Lancelot, Almendra Display, Jacquard 24,

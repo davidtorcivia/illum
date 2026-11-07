@@ -170,77 +170,89 @@ export function filigree(L0, seed) {
   return { M: { ...L, M: out }, full: L, marks, reds };
 }
 
-// ---- the work in the letter's box (Lewis E 73's rubricator, research/17 §4e) --------------------------------------------------
-// He leaves the counters as bare parchment and works them, and every bay the letter leaves inside its box, in fine hairline
-// of the other colour (blue in a red letter, red in a blue). Read from his letters at full size, his vocabulary is small:
-//   the rosette   in a round bay: an eye (a ring, its point) at the bay's deepest place and hairlines radiating from it to
-//                 a little short of the paint, each ending in a small loop where there is room (his D, G, O, P, Q)
-//   the leaf      in a long bay: a stem down the bay's length, leaflets off it in pairs, angled out toward the paint (his
-//                 U, V, the A's triangles, L's bay)
-//   the lattice   in a broad bay, sometimes: two families of diagonals crossing, a point at each crossing (his B, L, E)
-// The bays are the letter's box less the letter (its ink box, the letter grown a little to find them), each worked by its
-// shape: round and large enough a rosette, long a leaf, the largest sometimes a lattice. Seeded, so no two drops are worked
-// alike. Returns hairline strokes and points in page px, in the order the pen made them.
-export function counterWork(L, seed, g = 2.6) {
+// ---- the work in the letter's box (Lewis E 73's rubricator, research/17 §4e–f) ---------------------------------------------------
+// Measured on his letters at full size (tools/penmeasure.py): inside the letter's box, about 14 % of the free parchment is
+// hairline (B .137, D .153, O .160), the paper between neighbouring hairlines a fairly even ~.044 of the letter's height
+// (median; quartiles .02–.07: the box is worked edge to edge, nothing left bare), the hairline itself ~.01 of the height.
+// His primitive is a FIELD, not motifs on bare ground: every bay is filled with hairlines run parallel to its edges, close
+// and even (the echo of the letter's own edge, and of the box's), tied across by short rungs (his ladders) and fringed
+// against the paint; then motifs are carved out of that field where a bay is deep enough: a rosette (an eye ringed by
+// teardrop petals) or a scroll. Round the box, his frame: a hairline with spikes radiating from it, each spike ending in a
+// small hook (as every free end of his ends), a curl at each corner. Seeded, so no two drops are worked alike.
+// The field's lines are the level sets of each bay's distance to its own edge (marching squares on the cell grid), chained
+// into polylines. Returns hairline strokes in page px.
+export function counterWork(L, seed, g = 2.6, keep = []) {
   const { M, w, h, x0, y0, res } = L, ink = new Uint8Array(w * h); let bx0 = w, by0 = h, bx1 = 0, by1 = 0;
   for (let k = 0; k < w * h; k++) if (M[k] > .5) { ink[k] = 1; const i = k % w, j = k / w | 0; bx0 = Math.min(bx0, i); bx1 = Math.max(bx1, i); by0 = Math.min(by0, j); by1 = Math.max(by1, j); }
-  const H = (by1 - by0) / res, r = stream(seed, 'counters'), out = [], Din = edt(ink, w, h), off = g * .7 * res;
-  // the bays: inside the ink box, off the paint by a little
-  const bay = new Uint8Array(w * h);
-  for (let j = by0; j <= by1; j++) for (let i = bx0; i <= bx1; i++) { const k = j * w + i; if (!ink[k] && Din[k] > off) bay[k] = 1; }
-  const lab = new Int32Array(w * h), comps = [];
-  for (let s = 0; s < w * h; s++) { if (!bay[s] || lab[s]) continue; const id = comps.length + 1, st = [s], cells = []; lab[s] = id;
-    while (st.length) { const k = st.pop(); cells.push(k); const i = k % w; for (const q of [i > 0 ? k - 1 : -1, i < w - 1 ? k + 1 : -1, k - w, k + w]) if (q >= 0 && q < w * h && bay[q] && !lab[q]) { lab[q] = id; st.push(q); } }
-    comps.push(cells); }
+  const H = (by1 - by0) / res, r = stream(seed, 'counters'), out = [], Din = edt(ink, w, h);
+  const sp = Math.max(1.9, H * .044), LW = .3;   // his spacing (px) and hairline (the writer makes ~.5 px of a .3 width)
+  const P = k => [x0 + (k % w + .5) / res, y0 + ((k / w | 0) + .5) / res];
+  const inWords = (x, y) => keep.some(k => x >= k[0] - 1 && x <= k[2] + 1 && y >= k[1] - 1 && y <= k[3] + 1);
+  const wob = pts => { const n = noise1((seed * 13 + out.length) | 0); return pts.map((p, i) => [p[0] + (n(i * .17) - .5) * .22, p[1] + (n(i * .17 + 40) - .5) * .22]); };
+  const hair = (pts, o = {}) => { if (pts.length > 1) out.push({ pts: wob(pts), kind: 'cw', w: LW, start: 'cut', end: 'cut', ...o }); };
+  // a free end drawn on into a small hook (his pearls and balls are the pen turning back, not a stamped point)
+  const hookEnd = (p, a, R, sg) => { const pts = []; for (let k = 0; k <= 14; k++) { const t = k / 14 * Math.PI * 1.7; pts.push([p[0] + R * (Math.cos(a + sg * Math.PI / 2) * -1 + Math.cos(a + sg * Math.PI / 2 - sg * t)) , p[1] + R * (Math.sin(a + sg * Math.PI / 2) * -1 + Math.sin(a + sg * Math.PI / 2 - sg * t))]); } return pts; };
+  const fb = [x0 + bx0 / res - sp * .9, y0 + by0 / res - sp * .9, x0 + (bx1 + 1) / res + sp * .9, y0 + (by1 + 1) / res + sp * .9];
+  // the bays: the box less the letter (kept a hair off the paint) and less the words
+  const off = sp * .45 * res, bay = new Uint8Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i, [x, y] = P(k); if (!ink[k] && Din[k] > off && x > fb[0] && x < fb[2] && y > fb[1] && y < fb[3] && !inWords(x, y)) bay[k] = 1; }
   const notBay = new Uint8Array(w * h); for (let k = 0; k < w * h; k++) notBay[k] = !bay[k];
-  const Db = edt(notBay, w, h);   // each bay cell's room: its distance to the bay's edge (cells)
-  const P = k => [x0 + (k % w + .5) / res, y0 + ((k / w | 0) + .5) / res], at = (x, y) => { const i = Math.floor((x - x0) * res), j = Math.floor((y - y0) * res); return i < 0 || j < 0 || i >= w || j >= h ? -1 : j * w + i; };
-  const roomAt = (x, y, id) => { const k = at(x, y); return k < 0 || lab[k] !== id ? 0 : Db[k] / res; };
-  const hair = (pts, o = {}) => out.push({ pts, kind: 'cw', w: .42, start: 'cut', end: 'taper', ...o });
-  const loop = (c, R, a0) => { const pts = []; for (let k = 0; k <= 18; k++) { const a = a0 + k / 18 * 2.1 * Math.PI; pts.push([c[0] + Math.cos(a) * R, c[1] + Math.sin(a) * R]); } return pts; };
-  // march from p along u while there is room (>= stop px); returns the end
-  const march = (p, u, id, stop, max = 1e9) => { let q = p, s = 0; for (; s < max; s += .5) { const n = [p[0] + u[0] * s, p[1] + u[1] * s]; if (roomAt(n[0], n[1], id) < stop) break; q = n; } return { q, s }; };
-  const minArea = (H * .07) ** 2 * res * res;
-  comps.forEach((cells, ci) => { const id = ci + 1; if (cells.length < minArea) return;
-    let best = cells[0], mx = 0, cx = 0, cy = 0; for (const k of cells) { if (Db[k] > mx) { mx = Db[k]; best = k; } const [x, y] = P(k); cx += x; cy += y; } cx /= cells.length; cy /= cells.length;
-    let sxx = 0, syy = 0, sxy = 0; for (const k of cells) { const [x, y] = P(k); sxx += (x - cx) ** 2; syy += (y - cy) ** 2; sxy += (x - cx) * (y - cy); }
-    const tr = (sxx + syy) / 2, q = Math.sqrt(((sxx - syy) / 2) ** 2 + sxy * sxy), l1 = tr + q, l2 = Math.max(1e-6, tr - q), th = .5 * Math.atan2(2 * sxy, sxx - syy), elong = Math.sqrt(l1 / l2);
-    const c = P(best), rad = mx / res, u = [Math.cos(th), Math.sin(th)], n = [-u[1], u[0]], kind = elong < 1.9 && rad > g * 1.6 ? (rad > g * 3.2 && r() < .3 ? 'lattice' : 'rosette') : 'leaf';
-    // first the bay's edge, followed all round by a hairline just inside it, and a second inside that where there is room
-    // (his double line round every worked bay): rays from the bay's deepest place, out to where the room falls to the line
-    let inset = g * .6;
-    for (const [d, need] of [[g * .5, g * 1.2], [g * 1.2, g * 2.4]]) { if (rad < need) break; inset = d + g * .55;
-      const ring = []; for (let k = 0; k <= 144; k++) { const a = k / 144 * 2 * Math.PI; ring.push(march(c, [Math.cos(a), Math.sin(a)], id, d).q); }
-      let run = [ring[0]]; for (let k = 1; k < ring.length; k++) { if (Math.hypot(ring[k][0] - ring[k - 1][0], ring[k][1] - ring[k - 1][1]) > g * 1.2) { if (run.length > 4) hair(run, { start: 'cut', end: 'cut', w: .4 }); run = []; } run.push(ring[k]); }
-      if (run.length > 4) hair(run, { start: 'cut', end: 'cut', w: .4 }); }
-    if (kind === 'rosette') {
-      const re = Math.min(g * .95, rad * .26); out.push({ pts: loop(c, re, r() * 6.28), kind: 'cw', w: .44, start: 'cut', end: 'cut' }, { kind: 'dot', p: c, r: Math.max(.6, re * .32) });
-      const ns = [8, 10, 12][(r() * 3) | 0], a0 = r() * 6.28;
-      for (let k = 0; k < ns; k++) { const a = a0 + k / ns * 2 * Math.PI, d = [Math.cos(a), Math.sin(a)], p0 = [c[0] + d[0] * (re + g * .45), c[1] + d[1] * (re + g * .45)];
-        const { q: e, s } = march(p0, d, id, inset); if (s < g * 1.0) continue;
-        hair([p0, [(p0[0] + e[0]) / 2 + (r() - .5) * .25, (p0[1] + e[1]) / 2 + (r() - .5) * .25], e]);
-        if (k % 2 === 0 && roomAt(e[0] + d[0] * g * .9, e[1] + d[1] * g * .9, id) > g * .25) { const lr = g * .38; out.push({ pts: loop([e[0] + d[0] * lr, e[1] + d[1] * lr], lr, a + Math.PI), kind: 'cw', w: .4, start: 'cut', end: 'cut' }); } }
-    } else if (kind === 'leaf') {
-      // the stem: down the bay's long axis through its deepest place, as far as there is room
-      const A = march(c, [-u[0], -u[1]], id, inset).q, Bq = march(c, u, id, inset).q, Ls = Math.hypot(Bq[0] - A[0], Bq[1] - A[1]); if (Ls < g * 2.5) { out.push({ kind: 'dot', p: c, r: .8 }); return; }
-      const bend = (r() - .5) * g * .5, stem = []; for (let t = 0; t <= 1.0001; t += .05) stem.push([A[0] + (Bq[0] - A[0]) * t + n[0] * bend * Math.sin(Math.PI * t), A[1] + (Bq[1] - A[1]) * t + n[1] * bend * Math.sin(Math.PI * t)]);
-      hair(stem, { start: 'taper' });
-      const step = g * (1.55 + r() * .3), ang = .55 + r() * .35;
-      for (let s = step * .8; s < Ls - step * .5; s += step) { const t = s / Ls, b = stem[Math.round(t * 20)];
-        for (const sg of [-1, 1]) { const d = [u[0] * Math.cos(ang) + n[0] * sg * Math.sin(ang), u[1] * Math.cos(ang) + n[1] * sg * Math.sin(ang)];
-          const { q: e, s: len } = march(b, d, id, inset, rad * 1.1); if (len < g * .8) continue; hair([b, e], { w: .4 }); } }
-    } else {   // the lattice
-      const sp = g * (2.1 + r() * .4), a = Math.PI / 4 + (r() - .5) * .2, dirs = [[Math.cos(a), Math.sin(a)], [Math.cos(-a), Math.sin(-a)]], R = Math.sqrt(l1) * 2.6 + rad;
-      for (const d of dirs) { const m = [-d[1], d[0]];
-        for (let o = -R; o <= R; o += sp) { let run = []; for (let s = -R; s <= R; s += .6) { const p = [c[0] + m[0] * o + d[0] * s, c[1] + m[1] * o + d[1] * s];
-            if (roomAt(p[0], p[1], id) >= inset) run.push(p); else { if (run.length > 4) hair(run, { w: .4 }); run = []; } }
-          if (run.length > 4) hair(run, { w: .4 }); } }
-      for (let o1 = -R; o1 <= R; o1 += sp) for (let o2 = -R; o2 <= R; o2 += sp) { const m1 = [-dirs[0][1], dirs[0][0]], m2 = [-dirs[1][1], dirs[1][0]];
-        // the crossing of line o1 of the first family and o2 of the second
-        const det = m1[0] * m2[1] - m1[1] * m2[0]; if (Math.abs(det) < 1e-6) continue; const p = [c[0] + (o1 * m2[1] - o2 * m1[1]) / det, c[1] + (o2 * m1[0] - o1 * m2[0]) / det];
-        if (roomAt(p[0], p[1], id) >= g * .9) out.push({ kind: 'dot', p, r: .62 }); }
-    }
-  });
+  const Db = edt(notBay, w, h);   // cells; each bay cell's distance to its bay's edge
+  const lab = new Int32Array(w * h), comps = [];
+  for (let s0 = 0; s0 < w * h; s0++) { if (!bay[s0] || lab[s0]) continue; const id = comps.length + 1, st = [s0]; let n = 0, best = s0; lab[s0] = id;
+    while (st.length) { const k = st.pop(); n++; if (Db[k] > Db[best]) best = k; const i = k % w; for (const q of [i > 0 ? k - 1 : -1, i < w - 1 ? k + 1 : -1, k - w, k + w]) if (q >= 0 && q < w * h && bay[q] && !lab[q]) { lab[q] = id; st.push(q); } }
+    comps.push({ id, n, best, rad: Db[best] / res }); }
+  // 1. motifs first (the field is carved round them): a rosette in a deep bay, a scroll in a long one
+  const holes = [];
+  for (const c of comps) { if (c.rad < sp * 2.6) continue; const ctr = P(c.best), Rm = Math.min(c.rad - sp * .6, sp * 3.6);
+    if (r() < .75 || c.rad > sp * 4) { holes.push({ c: ctr, R: Rm + sp * .45 });
+      const re = sp * .55, a0 = r() * 6.28; const ring = []; for (let k = 0; k <= 22; k++) { const a = a0 + k / 22 * 2.05 * Math.PI; ring.push([ctr[0] + Math.cos(a) * re, ctr[1] + Math.sin(a) * re]); } hair(ring);
+      const ring2 = []; for (let k = 0; k <= 30; k++) { const a = a0 + k / 30 * 2.05 * Math.PI; ring2.push([ctr[0] + Math.cos(a) * (re + sp * .55), ctr[1] + Math.sin(a) * (re + sp * .55)]); } hair(ring2);
+      const np = 6 + ((r() * 3) | 0);
+      for (let k = 0; k < np; k++) { const a = a0 + (k + (r() - .5) * .2) / np * 2 * Math.PI, d = [Math.cos(a), Math.sin(a)], nn = [-d[1], d[0]], base = re + sp * .7, len = (Rm - base) * (.8 + r() * .2), wd = len * (.32 + r() * .08), pts = [];
+        for (let q = 0; q <= 26; q++) { const t = q / 26 * 2 * Math.PI, s2 = (1 - Math.cos(t)) / 2, side = Math.sin(t); pts.push([ctr[0] + d[0] * (base + len * s2) + nn[0] * wd * side * Math.sin(Math.PI * s2) ** .75, ctr[1] + d[1] * (base + len * s2) + nn[1] * wd * side * Math.sin(Math.PI * s2) ** .75]); }
+        hair(pts); if (len > sp * 1.6) { const mid = []; for (let q = 0; q <= 8; q++) { const t = q / 8; mid.push([ctr[0] + d[0] * (base + len * .15 + len * .6 * t), ctr[1] + d[1] * (base + len * .15 + len * .6 * t)]); } hair(mid, { end: 'taper' }); } } }
+    else { holes.push({ c: ctr, R: Rm * .9 + sp * .4 });   // a scroll: a spiral rolled in from the hole's edge, its end hooked
+      const pts = [], turns = 2.2, a0 = r() * 6.28, sg = r() < .5 ? -1 : 1; for (let k = 0; k <= 160; k++) { const t = k / 160, a = a0 + sg * t * turns * 2 * Math.PI, rr = Rm * .9 * (1 - t * .82); pts.push([ctr[0] + Math.cos(a) * rr, ctr[1] + Math.sin(a) * rr]); } hair(pts, { end: 'taper' }); } }
+  const carved = (x, y) => holes.some(o => Math.hypot(x - o.c[0], y - o.c[1]) < o.R);
+  // 2. the field: lines parallel to every bay's edges at his spacing (level sets of Db), cut where a motif is carved
+  const F = (i, j) => (i < 0 || j < 0 || i >= w || j >= h || !bay[j * w + i]) ? -1 : Db[j * w + i] / res;
+  const levels = []; for (let v = sp * .5; v < H * .4; v += sp * (.92 + r() * .16)) levels.push(v);
+  const key = (x, y) => Math.round(x * 64) + ',' + Math.round(y * 64);
+  for (const v of levels) {
+    const segs = [];
+    for (let j = by0 - 8 * res; j < by1 + 8 * res; j++) for (let i = bx0 - 8 * res; i < bx1 + 8 * res; i++) {
+      const a = F(i, j), b = F(i + 1, j), c = F(i + 1, j + 1), d = F(i, j + 1); if (a < 0 && b < 0 && c < 0 && d < 0) continue;
+      const cs = [[i, j, a], [i + 1, j, b], [i + 1, j + 1, c], [i, j + 1, d]], pts = [];
+      for (let e = 0; e < 4; e++) { const [ix, iy, va] = cs[e], [jx, jy, vb] = cs[(e + 1) % 4]; if ((va >= v) !== (vb >= v)) { const t = (v - va) / (vb - va); pts.push([ix + (jx - ix) * t, iy + (jy - iy) * t]); } }
+      if (pts.length === 2) segs.push(pts); else if (pts.length === 4) segs.push([pts[0], pts[1]], [pts[2], pts[3]]); }
+    // chain the segments into lines
+    const ends = new Map(); segs.forEach((sg, n) => { for (const e of [0, 1]) { const k2 = key(...sg[e]); ends.has(k2) || ends.set(k2, []); ends.get(k2).push(n); } });
+    const done = new Uint8Array(segs.length);
+    for (let n = 0; n < segs.length; n++) { if (done[n]) continue; done[n] = 1; let line = [segs[n][0], segs[n][1]];
+      for (const dir of [1, 0]) { for (;;) { const tip = dir ? line.at(-1) : line[0], nx = (ends.get(key(...tip)) ?? []).find(m => !done[m]); if (nx === undefined) break; done[nx] = 1;
+          const sg = segs[nx], other = key(...sg[0]) === key(...tip) ? sg[1] : sg[0]; dir ? line.push(other) : line.unshift(other); } }
+      // to page px, cut where carved, resampled
+      let run = []; const flush = () => { if (run.length > 3 && arclen(run) > sp * 1.2) hair(resample(run, .6)); run = []; };
+      for (const [i, j] of line) { const x = x0 + (i + .5) / res, y = y0 + (j + .5) / res; if (carved(x, y)) flush(); else run.push([x, y]); } flush(); } }
+  // 3. the ladders: short rungs across between neighbouring field lines, and a fringe of ticks against the paint
+  for (const c of comps) { if (c.rad < sp * .9) continue; }
+  for (let j = by0; j < by1; j += Math.max(2, Math.round(sp * 1.25 * res))) for (let i = bx0 - 6 * res; i < bx1 + 6 * res; i += Math.max(2, Math.round(sp * 1.25 * res))) {
+    const k = j * w + i; if (i < 0 || i >= w || !bay[k]) continue; const v = Db[k] / res; if (v < sp * .55 || v > sp * 1.45) continue; const [x, y] = P(k); if (carved(x, y)) continue;
+    // the fringe: a tick from the first field line toward the paint (the gradient of Db points inward; toward the paint is
+    // toward the nearest ink, read from Din)
+    const gx = (Din[k + 1] ?? 0) - (Din[k - 1] ?? 0), gy = (Din[k + w] ?? 0) - (Din[k - w] ?? 0), gl = Math.hypot(gx, gy) || 1; if (r() < .25) continue;
+    hair([[x, y], [x - gx / gl * sp * .55, y - gy / gl * sp * .55]], { end: 'taper' }); }
+  // 4. the frame: a hairline round the box, spikes radiating from it each ending in a little hook, a curl at each corner
+  { const side = (a, b, nrm) => { const pts = []; for (let t = 0; t <= 1.0001; t += .02) { const p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; if (!inWords(p[0], p[1])) pts.push(p); else { if (pts.length > 3) hair(pts.splice(0)); else pts.length = 0; } }
+        if (pts.length > 3) hair(pts);
+        const L2 = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.round(L2 / (sp * 1.15));
+        for (let k = 1; k < n; k++) { const t = k / n, p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], ln = sp * (k % 2 ? .8 : 1.3) * (.85 + r() * .3), e = [p[0] + nrm[0] * ln, p[1] + nrm[1] * ln];
+          if (inWords(e[0], e[1]) || inWords(p[0], p[1])) continue; const an = Math.atan2(nrm[1], nrm[0]); hair([p, e, ...hookEnd(e, an, sp * .22, k % 2 ? 1 : -1).slice(1)]); } };
+    const [X0, Y0, X1, Y1] = fb; side([X0, Y0], [X1, Y0], [0, -1]); side([X0, Y1], [X1, Y1], [0, 1]); side([X1, Y0], [X1, Y1], [1, 0]);
+    for (const [cx, cy, sx, sy] of [[X0, Y0, -1, -1], [X1, Y0, 1, -1], [X0, Y1, -1, 1], [X1, Y1, 1, 1]]) { if (inWords(cx + sx * sp, cy + sy * sp)) continue;
+      const pts = []; for (let k = 0; k <= 28; k++) { const t = k / 28, R = sp * 1.1 * (1 - t * .6), a = Math.atan2(sy, sx) - sx * sy * t * Math.PI * 1.6; pts.push([cx + sx * sp * .5 * t + Math.cos(a) * R * t, cy + sy * sp * .5 * t + Math.sin(a) * R * t]); }
+      hair(pts, { end: 'taper' }); } }
   return out;
 }
 
@@ -511,9 +523,13 @@ export function initial({ G: G0, keep, lh, big, level: li, seed, room: margin, b
   const work = q.get('work') ?? 'le73', le = big && work === 'le73' && li >= 1;
   const F = big && !le && (fq ?? BUDGETS[li].filigree) ? filigree(L, seed) : { M: L, full: L, marks: [] };
   const marks = flourish({ glyph: F.full, panel, keep, staff, g: gap, seed, level: li, right, tp, own: le });
-  if (le) marks.push(...counterWork(L, seed, gap));
+  if (le) marks.push(...counterWork(L, seed, gap, keep));
+  // his parted letters: about one in four of his large letters is split (?split=1|0 to force)
+  const sq = q0.get('split'), sp = big && (sq ? sq !== '0' : stream(seed >>> 0, 'split')() < .25) ? splitBody(F.M, seed) : null;
+  if (sp) { F.M = sp.M; F.marks = [...F.marks, ...sp.marks]; }
   const chInk = PIGMENTS[big ? 'minium' : 'azurite'].rgb;
-  const channel = F.marks.map((s, i) => ({ pts: s.pts, col: 'b', ink: chInk, seed: seed + 7 * i, w: s.w, broad: .9, nib: s.nib, load: 1, dry: .12, swell: 0, start: 'taper', end: 'taper' }));
+  const otherInk = PIGMENTS[pig === 'minium' ? 'azurite' : 'minium'].rgb;
+  const channel = F.marks.map((s, i) => ({ pts: s.pts, col: 'b', ink: s.kind === 'split' ? otherInk : chInk, seed: seed + 7 * i, w: s.w, broad: .9, nib: s.nib, load: 1.1, dry: .08, swell: 0, start: s.kind === 'split' ? 'cut' : 'taper', end: s.kind === 'split' ? 'cut' : 'taper' }));
   const reds = (F.reds ?? []).map(d => ({ dot: true, p: d.p, r: d.r, col: 'b', ink: chInk }));
   // dark: the letter laid flat in the style's own designed dark paint (its inkDark: 'b' is the drop's blue, 'a' the line
   // initial's red), its opacity pooled at the rim. (kit/illum.js lays a pigment letter on a dark page as the pigment
