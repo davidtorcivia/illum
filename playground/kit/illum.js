@@ -40,6 +40,7 @@ import blackletter from './styles/blackletter.js';
 import tarot from './styles/tarot.js';
 import occult from './styles/occult.js';
 import astrology from './styles/astrology.js';
+import draft from './styles/draft.js';
 
 // The written styles (kit/styles/*.js) join the registry. A written style's marks are in the writer's own terms, at page
 // size: strokes { pts (page px), w (the nib's edge), col (a key of its palette, 'k' | 'r'), hair, angle?, press?, rho? },
@@ -65,8 +66,13 @@ import astrology from './styles/astrology.js';
 // written style's frame is given its element's data-* (a figure's data-form) and rubricate's `frame` options before its
 // measure. A print is told whether the case is written as you watch (animate): a still may lay small lettering of one ink
 // as one pour per cluster (Astrology's), written each is its own.
-// (Order matters: the registry's style list keeps Occult, Astrology and Tarot where they stood, before Blackletter.)
-Object.assign(STYLES, { occult, astrology, tarot, blackletter });
+// A written paraph is given, after the chapter's number, its own number among the paragraphs it marks (Draft's balloon
+// calls out item k); a written code frame its rows (the lines measured in the code element's own type) and the tops of
+// the code's own lines (starts: a line the box wraps runs on unruled).
+// (Order matters: the registry's style list keeps Draft, Occult, Astrology and Tarot where they stood, before Blackletter;
+// Draft stands where Cyber stood, and ?style=cyber, retired, is Draft.)
+Object.assign(STYLES, { draft, occult, astrology, tarot, blackletter });
+Object.defineProperty(STYLES, 'cyber', { value: draft, enumerable: false });
 const isWritten = S => !!S?.palette;
 // a written part's output as { marks, fills?, letters?, letter? }: given as its marks alone, or wrapped once more
 const asMade = m => Array.isArray(m) ? { marks: m } : m.marks && !Array.isArray(m.marks) ? { ...m, ...m.marks } : m;
@@ -138,6 +144,11 @@ export const linesOf = (el, o, exact = false) => { const rg = document.createRan
 // every inline box of an element as its own rect (the wayfinding's measure, 06), an initial in it left out
 const boxes = (el, o, select = SELECT) => { const rg = document.createRange(); rg.selectNodeContents(el); const ini = el.querySelector(select.initial); if (ini) rg.setStartAfter(ini);
   return [...rg.getClientRects()].filter(r => r.width > .5).map(r => ({ l: r.left - o.left, t: r.top - o.top, r: r.right - o.left, b: r.bottom - o.top })); };
+// the tops of the lines an element's text begins (after each newline: a code's own lines, not the rows a wrap runs on to)
+const lineStarts = (el, o) => { const out = [], tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let bol = true;
+  for (let n; (n = tw.nextNode());) for (let i = 0; i < n.data.length; i++) { if (n.data[i] === '\n') { bol = true; continue; } if (!bol) continue; bol = false;
+    const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, i + 1); const r = rg.getClientRects()[0]; if (r) out.push(r.top - o.top); }
+  return out; };
 export const rel = (el, o) => { const r = el.getBoundingClientRect(); return [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top]; };
 
 // ---- marks at the ornament's scale --------------------------------------------------------------------------------------------
@@ -226,17 +237,18 @@ function walk(root, sheet, c) {
     out.push({ el, kind, style: key, y: el.getBoundingClientRect().top - o.top, marks: m }); };
   root.querySelectorAll(sel.nav).forEach((nav, k) => { const list = nav.querySelector('ol, ul') ?? nav, nb = rel(list, o), side = nb[0] > 46;
     frame(nav, 'nav', (u, g, rich, w) => ({ box: nb, entries: [...nav.querySelectorAll('li')].map(li => linesOf(li, o, w)[0]), x: nb[0] - u * (w ? 3.2 : 2.2), u, g, seed: s(1 + k), rich, side })); });
-  // (and for a written style: the quotation's box and its footer's top, the figure's caption's foot, the page's edges and
-  // the room its margins leave it [top, bottom], the chapter's number (a pull quote's too), an aside's and code's lines)
+  // (and for a written style: the quotation's box, its footer's top and the page's edges, the figure's caption's foot
+  // and its box (caption), the page's edges and the room its margins leave it [top, bottom], the chapter's number (a pull
+  // quote's too), an aside's and code's lines)
   root.querySelectorAll(sel.quote).forEach((bq, k) => { const b = rel(bq, o), ft = bq.querySelector('footer');
-    frame(bq, 'quote', (u, g, rich, w) => ({ x: b[0] + u * .9, lines: linesOf(bq, o, w), u, g, seed: s(10 + k), rich, ...w && { box: b, foot: ft && rel(ft, o)[1] } })); });
+    frame(bq, 'quote', (u, g, rich, w) => ({ x: b[0] + u * .9, lines: linesOf(bq, o, w), u, g, seed: s(10 + k), rich, ...w && { box: b, foot: ft && rel(ft, o)[1], limit: [0, o.width] } })); });
   root.querySelectorAll(sel.figure).forEach((fg, k) => frame(fg, 'figure', (u, g, rich, w) => { const cap = fg.querySelector('figcaption');
     const fr = rel(fg, o), cs = getComputedStyle(fg);
-    return { box: rel(fg.querySelector('svg, img, canvas') ?? fg, o), u, g, seed: s(20 + k), rich, ...w && { cap: cap && rel(cap, o)[3], n: chapterOf(fg) || 1, limit: [0, o.width], room: [fr[1] - parseFloat(cs.marginTop), fr[3] + parseFloat(cs.marginBottom)] } }; }));
+    return { box: rel(fg.querySelector('svg, img, canvas') ?? fg, o), u, g, seed: s(20 + k), rich, ...w && { cap: cap && rel(cap, o)[3], caption: cap && rel(cap, o), n: chapterOf(fg) || 1, limit: [0, o.width], room: [fr[1] - parseFloat(cs.marginTop), fr[3] + parseFloat(cs.marginBottom)] } }; }));
   root.querySelectorAll(sel.aside).forEach((a, k) => frame(a, 'aside', (u, g, rich, w) => ({ box: rel(a, o), u, g, seed: s(30 + k), rich, ...w && { n: chapterOf(a) || 1, lines: linesOf(a, o, true) } })));
   root.querySelectorAll(sel.pull).forEach((p, k) => { const L = linesOf(p, o, W8(p)), m = [text.left - o.left, 0, text.right - o.left];
     frame(p, 'pull', (u, _, rich, w) => ({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 2.2, yBot: L.at(-1).base + u * 2.6, measure: m[2] - m[0], lines: L, u, seed: s(40 + k), rich, ...w && { n: chapterOf(p) } })); });
-  root.querySelectorAll(sel.code).forEach((p, k) => frame(p, 'code', (u, g, rich, w) => ({ box: rel(p, o), u, g, seed: s(50 + k), rich, ...w && { n: chapterOf(p) || 1, lines: linesOf(p, o, true) } })));
+  root.querySelectorAll(sel.code).forEach((p, k) => frame(p, 'code', (u, g, rich, w) => ({ box: rel(p, o), u, g, seed: s(50 + k), rich, ...w && { n: chapterOf(p) || 1, lines: linesOf(p, o, true), rows: linesOf(p.querySelector('code') ?? p, o, true), starts: lineStarts(p, o) } })));
 
   // the wayfinding (06): paraphs, fillers and breaks, each made at unit size and scaled about its anchor
   const GRAM = c.gram, G = key => GRAM[key] ??= isWritten(STYLES[key]) ? STYLES[key] : grammar(STYLES[key]), V = key => (c.setups[key] ??= G(key).setup(SEED));
@@ -275,7 +287,7 @@ function walk(root, sheet, c) {
   const paraph = (p, k, seed) => {
     // a written style's: centred in the indent the scribe left, on the first line's baseline
     if (W8(p)) { const L = linesOf(p, o, true)[0], ind = parseFloat(getComputedStyle(p).textIndent), w = u * 1.65; if (!L) return;
-      return later(p, 'paraph', top(p), () => ({ marks: G(styleAt(p)).paraph(L.left - ind + (ind - w) / 2, L.base, u, seed, richAt(p), chapterOf(p)) })); }
+      return later(p, 'paraph', top(p), () => ({ marks: G(styleAt(p)).paraph(L.left - ind + (ind - w) / 2, L.base, u, seed, richAt(p), chapterOf(p), k) })); }
     const key = styleAt(p), cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), mt = metricOf(FONT(400, fs)), L = boxes(p, o, sel); if (!L.length) return;
     const pr = p.getBoundingClientRect(), x = pr.left - o.left + fs * .32, base = L[0].t + mt.asc;
     marks.push({ el: p, style: key, y: base, a: pairAt(k, key), kind: 'paraph', ax: x, ay: base, marks: scaled(G(key).paraph(x, base, mt.x, seed, richAt(p), V(key)), x, base, scaleAt(p)) }); };
@@ -357,7 +369,7 @@ function specimen(c) {
   for (let k = 0; k < 20; k++) { const w = 60 + r() * 200, y = y0 + k * 30;
     out.push(it(y, pair[k % 2] ?? pair[0], 'filler', sc(S.filler(x0, x0 + w / SCALE, y - 8, y, kinds[k % kinds.length], SEED + 977 * k, RICH, W8 ? k % 7 : V), x0, y - 4, SCALE))); }
   for (let k = 0; k < 12; k++) { const x = 400 + (k % 4) * 52, y = y0 + 12 + Math.floor(k / 4) * 46;   // a tidy grid of four by three
-    out.push(it(y, S.alternate ? pair[k % 2] : pair[0], 'paraph', sc(S.paraph(x, y, 8, SEED + 131 * k, RICH, W8 ? k % 4 + 1 : V), x, y, SCALE))); }
+    out.push(it(y, S.alternate ? pair[k % 2] : pair[0], 'paraph', sc(S.paraph(x, y, 8, SEED + 131 * k, RICH, W8 ? k % 4 + 1 : V, k + 1), x, y, SCALE))); }
   const brk = (cx, y, m, rank, seed) => sc(S.breakMark(cx, y, m / SCALE, rank, seed, RICH, 8, W8 ? 1 : V), cx, y, SCALE);
   out.push(it(0, pair[0], 'chapter', brk(500, y0 + 230, 360, 1, SEED + 5)), it(0, pair[1] ?? pair[0], 'book', brk(500, y0 + 360, 420, 2, SEED + 9)));
   return out.sort((a, b) => a.y - b.y);

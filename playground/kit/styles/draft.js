@@ -157,10 +157,12 @@ function dashes(a, b, W, seed) { const L = Math.hypot(b[0] - a[0], b[1] - a[1]),
   return out; }
 // the text box a lettering run occupies (for keeping labels clear of lines and of each other)
 const labelBox = (text, x, base, cap, align = 'left') => { const w = textWidth(text, cap), l = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x; return [l - cap * .3, base - cap * 1.3, l + w + cap * .3, base + cap * .35]; };
+// the box of the words in line boxes (as the browser lays them: top, base), their descenders below the base
+const wordsOf = L => L?.length ? [Math.min(...L.map(l => l.left)), Math.min(...L.map(l => l.top)), Math.max(...L.map(l => l.right)), Math.max(...L.map(l => l.base + (l.base - l.top) * .35))] : null;
 const hits = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
 const fmt = px => (px / 96).toFixed(3).replace(/^0/, '');   // inches as decimal-inch drawings write them: .250
 
-export function initial({ ch, G, u, seed = 1, rich = .5, set = 'part' }) {
+export function initial({ ch, G, u, seed = 1, rich = .5, set = 'part', big: drop = G.big }) {
   const [x0, y0, x1, y1] = G.box, h = y1 - y0, { thin, thick } = weights(u), marks = [], letters = [];
   const fc = Math.max(6.5, u * .78), tw = Math.max(1.3, thin * .9);   // the call-outs' lettering: the notes' size and pen
   if (set === 'leroy') {
@@ -186,7 +188,7 @@ export function initial({ ch, G, u, seed = 1, rich = .5, set = 'part' }) {
   }
   // the plate: the Leroy path swept at a heavy width, its outline inked thick
   // (a line initial: the part alone, at the line's cap height, its outline at the thin weight's 1.5)
-  const small = G.big === false, views = set === 'views', cap = small ? h : h * (views ? .68 : .8), base = small ? y1 : views ? y0 + cap + h * .04 : y1 - h * .06, sw = cap * .17;
+  const small = drop === false, views = set === 'views', cap = small ? h : h * (views ? .68 : .8), base = small ? y1 : views ? y0 + cap + h * .04 : y1 - h * .06, sw = cap * .17;
   const P = plate(ch, x0 + (views || small ? (small ? 0 : thick) : textWidth('.000', fc) + u * 2.6), base, cap, sw), loops = outline(P), ow = small ? Math.max(1.6, thin * 1.4) : thick;
   for (const [i, L] of loops.entries()) marks.push(tpen(L, ow, { seed: seed + 300 + i, pool: .05 }));
   const holes = counters(P), taken = [];
@@ -260,10 +262,11 @@ function arcAt(loops, p, span) {
   const D = A[0][3] / A[0][0], E = A[1][3] / A[1][1], F = A[2][3] / A[2][2], c = [-D / 2, -E / 2], r = Math.sqrt(Math.max(0, c[0] * c[0] + c[1] * c[1] - F));
   return r > 1 && r < span * 8 ? { c, r } : null;
 }
-initial.width = (ch, set = 'part') => SETS[set] ?? 1.1;
+initial.width = (ch, o = {}) => SETS[o.set ?? 'part'] ?? 1.1;   // (o: the initial's options, { set })
 initial.line = () => .86;
 initial.lines = 5;
 initial.margin = .5;
+initial.fills = true;   // (its box is the float as the page laid it)
 
 
 // ---- the paraph: an item balloon ------------------------------------------------------------------------------------------------
@@ -283,6 +286,7 @@ export const FILLERS = ['dim', 'center', 'break'];
 export const kinds = (v, rich = .5) => rich < .25 ? ['dim'] : FILLERS;
 export function filler(x0, x1, yTop, yBase, kind = 'dim', seed = 1, rich = .5) {
   const u = yBase - yTop, { thin } = weights(u), y = yBase - u * .5, L = x1 - x0, marks = [], letters = [];
+  if (kind === 'rule') return { marks, letters };   // (a heading's: none)
   if (kind === 'center') {
     const s = u * 1.25, xe = x1 - s * 1.1;
     marks.push(...chain([x0, y], [xe - u * .9, y], thin, seed, { long: u * 3.4 }));
@@ -355,25 +359,34 @@ function lettered(text, x, base, cap, W, o = {}) {
 // the sides, counted from the foot), each zone's mark lettered in its middle; the title block in the lower right corner,
 // its cells captioned small and filled in the larger lettering.
 const TITLE = { title: 'THE NATURE OF GOTHIC', dwg: 'SV-II-VI', rev: 'A', drawn: 'J. RUSKIN', date: '1853', sheet: '1 OF 1' };
-function quote({ box, u, seed = 1, rich = .5, tb = 0 }) {
-  const { thin, thick } = weights(u), m = u * 2.1, [X0, Y0, X1, Y1] = box, marks = [], letters = [];
-  const T = [X0, Y0, X1, Y1], B = [X0 + m, Y0 + m, X1 - m, Y1 - m];
+// Where the page leaves the words too little room inside the border (lines: the quotation's line boxes), the border is
+// drawn round them a little clear and the sheet's margin stands outside the box, narrower where the page's edge (limit)
+// comes near (its zones then unlettered); the title block only where it stands clear of the words.
+function quote({ box, u, seed = 1, rich = .5, tb = 0, lines = null, limit = null }) {
+  const { thin, thick } = weights(u), [X0, Y0, X1, Y1] = box, marks = [], letters = [], d = u * 1.2, W = wordsOf(lines);
+  let m = u * 2.1, T = [X0, Y0, X1, Y1], B = [X0 + m, Y0 + m, X1 - m, Y1 - m];
+  if (W && (W[0] - d < B[0] || W[1] - d < B[1] || W[2] + d > B[2] || W[3] + d > B[3])) {
+    B = [Math.min(B[0], W[0] - d), Math.min(B[1], W[1] - d), Math.max(B[2], W[2] + d), Math.max(B[3], W[3] + d)];
+    if (limit) m = Math.max(u * .6, Math.min(m, B[0] - limit[0] - 2, limit[1] - B[2] - 2));
+    T = [B[0] - m, B[1] - m, B[2] + m, B[3] + m]; }
+  const zoned = m >= u * 1.5;
   marks.push(...rect(T, thin, { seed }), ...rect(B, thick, { seed: seed + 10 }));
   // zones: about every 9 x-heights, an even count; numbers right to left, letters bottom to top
   const zc = u * .78, zw = Math.max(2, Math.round((B[2] - B[0]) / (u * 9))), zh = Math.max(2, Math.round((B[3] - B[1]) / (u * 9)));
   for (let i = 0; i <= zw; i++) { const x = B[0] + (B[2] - B[0]) * i / zw;
     if (i > 0 && i < zw) for (const [ya, yb] of [[T[1], B[1]], [B[3], T[3]]]) marks.push(line([x, ya], [x, yb], thin, { seed: seed + 20 + i }));
-    if (i < zw) { const xm = B[0] + (B[2] - B[0]) * (i + .5) / zw, num = String(zw - i);
+    if (i < zw && zoned) { const xm = B[0] + (B[2] - B[0]) * (i + .5) / zw, num = String(zw - i);
       marks.push(...letter(num, xm, T[1] + m / 2 + zc / 2, zc, thin, { align: 'center', seed: seed + 30 + i }), ...letter(num, xm, B[3] + m / 2 + zc / 2, zc, thin, { align: 'center', seed: seed + 50 + i })); } }
   for (let j = 0; j <= zh; j++) { const y = B[1] + (B[3] - B[1]) * j / zh;
     if (j > 0 && j < zh) for (const [xa, xb] of [[T[0], B[0]], [B[2], T[2]]]) marks.push(line([xa, y], [xb, y], thin, { seed: seed + 70 + j }));
-    if (j < zh) { const ym = B[1] + (B[3] - B[1]) * (j + .5) / zh, l = 'ABCDEFGH'[zh - 1 - j];
+    if (j < zh && zoned) { const ym = B[1] + (B[3] - B[1]) * (j + .5) / zh, l = 'ABCDEFGH'[zh - 1 - j];
       marks.push(...letter(l, T[0] + m / 2, ym + zc / 2, zc, thin, { align: 'center', seed: seed + 80 + j }), ...letter(l, T[2] - m / 2, ym + zc / 2, zc, thin, { align: 'center', seed: seed + 90 + j })); } }
   // the title block, in the lower right corner inside the border: three rows; captions small at each cell's top left, the
   // entries larger below them; the title's row the tallest
   if (tb) {
     const cc = Math.max(5.2, u * .5), ec = Math.max(7, u * .82), rh = cc + ec + u * 1.5, W = Math.min(B[2] - B[0], Math.max(u * 26, (B[2] - B[0]) * .62));
     const bx0 = B[2] - W, by0 = B[3] - rh * 3, rows = [by0, by0 + rh, by0 + rh * 2, B[3]];
+    if (lines?.some(l => l.right > bx0 - u * .3 && wordsOf([l])[3] > by0 - u * .3)) return { marks, letters };   // (no room for it beside the words)
     marks.push(line([bx0, by0], [B[2], by0], thick, { seed: seed + 110 }), line([bx0, by0], [bx0, B[3]], thick, { seed: seed + 111 }));
     for (const y of rows.slice(1, 3)) marks.push(line([bx0, y], [B[2], y], thin, { seed: seed + 112 + y | 0 }));
     const cell = (cx0, cx1, r, cap, entry) => { const y = rows[r], pad = u * .3;
@@ -394,10 +407,17 @@ function phantom(a, b, W, seed) { const L = Math.hypot(b[0] - a[0], b[1] - a[1])
   return out; }
 // figure: the figure as an enlarged detail: its boundary in a phantom line round it, and under it the detail's name
 // underlined and its scale ("DETAIL B", "SCALE 2:1"), the letter the chapter's
-function figure({ box, u, seed = 1, n = 1 }) {
+// (caption: the caption's box; where it comes up under the boundary, the name and scale are lettered below it instead, the
+// scale left off where the page's room (room: [top, bottom], two x-heights kept clear of what follows) will not take it,
+// and both where it will not take the name)
+function figure({ box, u, seed = 1, n = 1, caption = null, room = null }) {
   const { thin } = weights(u), [X0, Y0, X1, Y1] = box, p = u * 1.4, B = [X0 - p, Y0 - p, X1 + p, Y1 + p], marks = [];
   for (const [a, b, i] of [[[B[0], B[1]], [B[2], B[1]], 1], [[B[2], B[1]], [B[2], B[3]], 2], [[B[2], B[3]], [B[0], B[3]], 3], [[B[0], B[3]], [B[0], B[1]], 4]]) marks.push(...phantom(a, b, thin, seed + i * 40));
-  const c1 = Math.max(7.5, u * 1.05), c2 = Math.max(6.5, u * .8), cx = (X0 + X1) / 2, b1 = B[3] + u * 1.2 + c1, t1 = 'DETAIL ' + SECT[(n + 1) % SECT.length], w1 = textWidth(t1, c1);
+  const c1 = Math.max(7.5, u * 1.05), c2 = Math.max(6.5, u * .8), cx = (X0 + X1) / 2, t1 = 'DETAIL ' + SECT[(n + 1) % SECT.length], w1 = textWidth(t1, c1);
+  let b1 = B[3] + u * 1.2 + c1; const foot = b => b + c1 * .32 + u * .7 + c2 * 1.35;
+  if (caption && caption[1] < foot(b1) + u * .4) { b1 = caption[3] + u * .9 + c1;
+    if (room && b1 + c1 * .35 + u * 2 > room[1]) return { marks, letters: [] };
+    if (room && foot(b1) + u * 2 > room[1]) { marks.push(...lettered(t1, cx, b1, c1, Math.max(1.3, thin), { align: 'center', seed: seed + 5 }), line([cx - w1 / 2, b1 + c1 * .32], [cx + w1 / 2, b1 + c1 * .32], thin, { seed: seed + 6 })); return { marks, letters: [] }; } }
   marks.push(...lettered(t1, cx, b1, c1, Math.max(1.3, thin), { align: 'center', seed: seed + 5 }), line([cx - w1 / 2, b1 + c1 * .32], [cx + w1 / 2, b1 + c1 * .32], thin, { seed: seed + 6 }));
   marks.push(...lettered('SCALE 2:1', cx, b1 + c1 * .32 + u * .7 + c2, c2, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 7 }));
   return { marks, letters: [] };
@@ -424,8 +444,9 @@ function pull({ lines, u, seed = 1, n = 1 }) {
 }
 // aside: a note in its box, flagged: the thin box round it and, on its upper left corner, the flag (the triangle a drawing
 // flags a note with) carrying the note's number
-function aside({ box, u, seed = 1, n = 1 }) {
-  const { thin } = weights(u), [X0, Y0, X1, Y1] = box, marks = [], s = u * 2.4, h = s * Math.sqrt(3) / 2, c = [X0 + s * .9, Y0];
+// (lines: the note's line boxes; the box drawn just clear of them where the page sets it closer)
+function aside({ box, u, seed = 1, n = 1, lines = null }) {
+  const W = wordsOf(lines), d = u * .6, [X0, Y0, X1, Y1] = W ? [Math.min(box[0], W[0] - d), Math.min(box[1], W[1] - d), Math.max(box[2], W[2] + d), Math.max(box[3], W[3] + d)] : box, { thin } = weights(u), marks = [], s = u * 2.4, h = s * Math.sqrt(3) / 2, c = [X0 + s * .9, Y0];
   const A = [c[0], c[1] - h * .62], Bp = [c[0] + s / 2, c[1] + h * .38], C = [c[0] - s / 2, c[1] + h * .38];
   // the box's top is broken where the flag stands on it
   marks.push(line([X0, Y0], [C[0] - thin, Y0], thin, { seed }), line([Bp[0] + thin, Y0], [X1, Y0], thin, { seed: seed + 1 }), line([X1, Y0], [X1, Y1], thin, { seed: seed + 2 }), line([X1, Y1], [X0, Y1], thin, { seed: seed + 3 }), line([X0, Y1], [X0, Y0], thin, { seed: seed + 4 }));
@@ -466,5 +487,30 @@ export const palette = {
 };
 export const loadFace = async () => {};   // (Hershey's letters are data: nothing to load)
 initial.load = loadFace;
-export const draft = { label: 'Draft · the drawing office', initial, paraph, filler, breakMark, frames, palette, printOf, kinds, FILLERS, loadFace };
+
+// ---- in the one library (kit/illum.js) ---------------------------------------------------------------------------------------
+// rubricate(root, { style: 'draft' }) lays tests/draft.html. The registry gives a paraph its number among the paragraphs
+// (7th argument: the balloon calls out item k), a break its number among its rank (A–A, B–B …), the code frame its rows
+// and the tops of its own lines (starts); a pull quote is a block of general notes, its quotation note 1.
+const itemParaph = (x, base, u, seed, rich, _n, k = 1) => paraph(x, base, u, seed, rich, k);
+// (the cutting plane stands a little above the break's middle: its arrows and letters hang below it)
+const placedBreak = (cx, y, measure, rank, seed, rich, u, n = 1) => breakMark(cx, rank < 2 ? y - u * 1.2 : y, measure, rank, seed, rich, u, n);
+const lib = { ...frames, pull: a => frames.pull({ ...a, n: 1 }) };
+// A case made ready to lay: its lettering, arrowheads and points as coverage, its lines in runs (the blue first)
+const print = (made, { dpr = 1, animate = false }) => ({ ...printOf(made, { res: dpr >= 1.5 ? 2 : 1, merge: !animate }), marks: (made.marks ?? []).flat(3).filter(m => !m.dot) });
+// A case on a hand's clock (seconds): the construction, then the inking, run by run; then the lettering and arrowheads,
+// laid over the lines (a large letter at a hand's pace, the small quickly, each begun before the last is done). At most
+// `cap`: a drop initial 4.2 s, a break 4, the contents 1.2, a paraph, filler, line initial or pull quote 1.4, the rest 2.6
+function timeline(pr, kind) {
+  const own = []; let u = 0;
+  for (const r of pr.runs) { const L = r.strokes.reduce((a, s) => a + s.L, 0), d = Math.max(.05, L / 320 + r.strokes.length * .03); own.push({ t0: u, t1: u + d, run: r }); u += d; }
+  for (const L of pr.letters) { const sz = Math.max(L.w, L.h) / L.res, d = sz > 60 ? 1.6 : sz > 30 ? .6 : .3; own.push({ t0: u, t1: u + d, letter: L, over: true }); u += d * .7 + .03; }
+  return { own, u, cap: kind === 'drop' ? 4.2 : kind === 'chapter' || kind === 'book' ? 4 : kind === 'nav' ? 1.2 : ['paraph', 'filler', 'initial', 'pull'].includes(kind) ? 1.4 : 2.6 };
+}
+export const draft = { label: 'Draft', setup: () => ({}), kinds,
+  fillAt: { gap: .9, head: 4, rise: 1 },   // a filler starts .9 x-heights after the words (a heading's: none)
+  hurry: [4, 1, 1.5, 1.6], steady: ['drop'],   // as you read, a hand behind quickens (a second at the least), never on the drop
+  inks: ['g', 'k', 'r'],   // a still lays all the blue construction, then the ink, then the lettering over it
+  paraph: itemParaph, filler, breakMark: placedBreak, initial, frames: lib, palette, print, timeline,
+  printOf, FILLERS, loadFace };
 export default draft;

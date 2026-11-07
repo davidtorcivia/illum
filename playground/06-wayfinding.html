@@ -48,8 +48,10 @@
                 newline (↵), the asterism between parts.
   Contemporary (named sources; mostly in copyright, studied from the works, not open scans):
     doodle      a sketchbook margin in one blue ballpoint: stars, spirals, arrows, hatching, loops, all wobbling.
-    cyber       the HUD and terminal type of Akira (1988) and Ghost in the Shell (1995), on a dark ground: chevrons,
-                circuit traces, ruled scales, glitch doubles, bracketed diamonds.
+    draft       the drawing office (MIT/Apollo engineering drawings, 1950s–80s), now kit/styles/draft.js, a written
+                style (tests/draft.html), replacing Cyber (?style=cyber is Draft): technical-pen ink at two weights,
+                Hershey lettering by the pen, non-repro blue construction; item balloons as paraphs, dimension lines
+                and centrelines as fillers, a cutting plane between chapters, the revision block between books.
     swiss       Müller-Brockmann (Grid Systems, 1981) and Ruder (Typographie, 1967): a red bullet, rules, flush left.
     memphis     Sottsass and Memphis, 1981: squiggles, confetti, triangles, pink, teal, yellow and black.
     riso        a two-drum risograph zine: fluorescent pink and blue overprinted (multiply), out of register.
@@ -115,9 +117,9 @@
   own size, and otherwise left out whole, never cut; a break that would is drawn smaller about its centre.
   Light and dark: the page's tokens (--paper, --ink, --rubric) belong to the host; dark follows prefers-color-scheme,
   or data-theme / ?theme=dark|light, or the colophon's day / night / system. A style colours only its own marks (and the
-  rubric, where that is its tradition); its own ground (Cyber's dark glass, Blueprint's cyanotype) only with
+  rubric, where that is its tradition); its own ground (Blueprint's cyanotype) only with
   ?ground=style. Each style has a dark palette: designed where it matters (vermilion and lapis lifted, gold as gold,
-  Cyber's neon, Blueprint's white line, Riso overprinted by screen), otherwise each pigment lifted in value with its hue
+  Blueprint's white line, Riso overprinted by screen), otherwise each pigment lifted in value with its hue
   kept. On dark the pen draws ink as its own colour (kit/marks.js pen/dot `dark` option), so pools and dried margins
   deepen instead of glowing. A change of scheme redraws at once without replaying the drawing.
   Considered and left for now: Kelmscott vine fillers, Art Nouveau whiplash, Spencerian offhand flourishes,
@@ -256,7 +258,7 @@ let SCALE = Math.max(.5, Math.min(2, parseFloat(q.get('scale') ?? art.dataset.sc
 // light or dark: the page's data-theme (?theme=dark|light) if set, else the reader's system
 const themeMode = () => document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
-// the style's own full-page ground (Cyber's dark glass, Blueprint's cyanotype) only when asked: ?ground=style
+// the style's own full-page ground (Blueprint's cyanotype) only when asked: ?ground=style
 const OWN_GROUND = (q.get('ground') ?? art.dataset.ground) === 'style';
 // the page's own business: a style may set its rubric colour where that is its tradition, and (?ground=style) its
 // ground and text; the ornament reads --paper and colours only its own marks

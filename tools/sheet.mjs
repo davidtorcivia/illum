@@ -1,11 +1,11 @@
 // Contact sheets: one page in many styles, laid side by side, for each width and scheme. Full-page screenshots, scaled
 // into a grid with each style's name under it; one PNG per width and scheme: <out>-<width>-<light|dark>.png
 // usage: node tools/sheet.mjs <url (no style param)> <out-prefix>
-// env: STYLES='gothic cyber ...' (default all)  W=1440,390  THEMES=light,dark  COLS=6  THUMB=360 (px wide per page)
+// env: STYLES='gothic draft ...' (default all)  W=1440,390  THEMES=light,dark  COLS=6  THUMB=360 (px wide per page)
 //      MAXH=0 (crop each page to this many page px; 0: whole)
 import { launch, open, load } from './chrome.mjs';
 import { writeFileSync } from 'node:fs';
-const [url, out] = process.argv.slice(2), all = 'gothic hours cadel romanesque insular hypertext doodle cyber swiss memphis riso deco carto score blueprint occult kelmscott copperplate nouveau botanical astrology tarot';
+const [url, out] = process.argv.slice(2), all = 'gothic hours cadel romanesque insular hypertext doodle draft swiss memphis riso deco carto score blueprint occult kelmscott copperplate nouveau botanical astrology tarot';
 const styles = (process.env.STYLES ?? all).split(' '), widths = (process.env.W ?? '1440,390').split(',').map(Number), themes = (process.env.THEMES ?? 'light,dark').split(','), cols = +(process.env.COLS ?? 6), maxH = +(process.env.MAXH ?? 0);
 const b = await launch();
 for (const width of widths) for (const theme of themes) {

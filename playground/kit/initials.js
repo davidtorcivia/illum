@@ -11,7 +11,7 @@
 // A style without an initial lays its letter flat in its first colour, with nothing round it.
 import { PIGMENTS } from './marks.js';
 import { flourish, drawn } from './penwork.js';
-import { STYLES, bead, line, cpStroke, cpOval, cubic } from './wayfinding.js';
+import { STYLES, line, cpStroke, cpOval, cubic } from './wayfinding.js';
 const SLANT = 55 * Math.PI / 180;
 
 const bbox = G => G.box;
@@ -36,21 +36,6 @@ function gothic({ G, keep, lh, big, level: li, seed, room: margin, bottom }) {
     : { pts: s.pts, col: 'b', ink, seed: seed + i * 13, w: s.w * 1.15, rho: s.rho, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 }) };
 }
 gothic.wider = GEOM.wider;
-
-// ---- Cyber: the letter in cyan with its glitch, a magenta copy a pixel or two off behind it; the heads-up display's
-// corner brackets round it; down the margin a ruled scale with its ticks, a long one every fourth, to a chevron
-function cyber({ G, lh, big, rich, room, bottom }) {
-  const [x0, y0, x1, y1] = bbox(G), out = [], p = big ? Math.min(5, lh * .16) : 2.5, B = [x0 - p, y0 - p, x1 + p * .6, y1 + p], arm = Math.min(B[2] - B[0], B[3] - B[1]) * (big ? .24 : .32);
-  // in the line there is no room on the text side: the left pair only
-  for (const [cx, cy, sx, sy] of [[B[0], B[1], 1, 1], [B[2], B[1], -1, 1], [B[0], B[3], 1, -1], [B[2], B[3], -1, -1]].filter(([, , sx]) => big || sx > 0))
-    out.push(line([[cx + sx * arm, cy], [cx, cy], [cx, cy + sy * arm]], 'a', big ? .8 : .6));
-  if (big && room > 10) { const x = B[0] - Math.min(room - 4, lh * .45), yb = Math.min(bottom, y1 + lh * (rich >= .5 ? 2.2 : 1.2)), step = lh * .25;
-    out.push(line([[x, B[1]], [x, yb]], 'a', .55));
-    for (let k = 0, y = B[1]; y <= yb + .01; y += step, k++) out.push(line([[x, y], [x - (k % 4 === 0 ? lh * .32 : lh * .14), y]], k % 4 === 0 && rich >= .5 ? 'b' : 'a', .5));
-    out.push(line([[x - lh * .2, yb + lh * .1], [x, yb + lh * .3], [x + lh * .2, yb + lh * .1]], 'b', .7)); }
-  if (rich >= .75) out.push(bead([B[2] - arm * .5, B[1] - p * .1], .9, 'b'));
-  return { letter: { M: G, col: 'a', ghost: { col: 'b', off: big ? [1.6, -1.1] : [1, -.7] } }, marks: out };
-}
 
 // ---- Copperplate: the letter in ink, and the writing master's capital flourish round it: one oval on the slant that
 // embraces the letter (it runs behind it, showing in its counters and round its left side), entered by a hairline from
@@ -80,6 +65,5 @@ function swiss({ G, lh, big, rich, room }) {
 }
 
 Object.assign(STYLES.gothic, { initial: gothic });
-Object.assign(STYLES.cyber, { initial: cyber });
 Object.assign(STYLES.copperplate, { initial: copperplate });
 Object.assign(STYLES.swiss, { initial: swiss });

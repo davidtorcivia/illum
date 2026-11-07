@@ -370,7 +370,7 @@ export const STYLES = {
 
 // ==== contemporary styles =======================================================================================================
 // Not pastiche of a book: each a movement or a hand with its own point of view, drawn with the same pen. A style may
-// carry a `theme` for the page (rubric colour; a dark ground for cyber) and a `blend` ('multiply' for the riso drums).
+// carry a `theme` for the page (rubric colour; a dark ground for blueprint) and a `blend` ('multiply' for the riso drums).
 // Their sources are named; most are in copyright, so they were studied from memory of the works, not from open scans.
 const line = (pts, col, w = .6, o = {}) => hair(pts, col, { w, start: 'cut', end: 'cut', ...o });
 const wob = (pts, amp, seed) => wander(pts, amp, seed, 9);
@@ -415,46 +415,9 @@ Object.assign(STYLES, {
       if (rich >= .75 && rank >= 2) out.push(hair(wob([[cx - W * .35, y + u * 1.2], [cx + W * .35, y + u * 1.1]], .5, seed + 9), 'a', { w: .5, load: .6 }));
       return out; } },
 
-  // ---- Cyber: the terminal and the heads-up display (the interface type of Akira, 1988, and Ghost in the Shell,
-  // 1995): brackets, chevrons, ruled scales with ticks, circuit traces, a glitch's doubled stroke; cyan and magenta on a
-  // dark ground
-  cyber: { label: 'Cyber', pair: ['cyan', 'magenta'], alternate: true, minGap: 1.2,
-    theme: { dark: true, ground: [13, 15, 21], text: 'rgb(198 208 218)', rubric: 'rgb(206 28 118)', rubricDark: 'rgb(255 64 150)' },
-    ink: { cyan: { solid: [0, 132, 156], hair: [0, 128, 150] }, magenta: { solid: [206, 28, 118], hair: [206, 40, 124] } },
-    inkDark: { cyan: { solid: [0, 214, 240], hair: [0, 200, 228] }, magenta: { solid: [255, 54, 142], hair: [255, 70, 150] } },
-    setup: seed => { const r = stream(seed, 'cyber'); return { kinds: pickKinds(r, ['trace', 'ticks', 'glitch'], 2), p: .85 + r() * .35, off: [1 + r(), -(.6 + r() * .6)] }; },
-    kinds: (v, rich) => rich < .25 ? ['ticks'] : v.kinds,
-    paraph(x, base, u, seed, rich, v) { const out = [], m = base - u * .55, s = u * .5;
-      for (const dx of [0, u * .55]) out.push(line([[x + dx, m - s], [x + dx + s, m], [x + dx, m + s]], 'a', .9));
-      if (rich >= .5) out.push(line([[x + u * 1.35, base + u * .1], [x + u * 1.95, base + u * .1]], 'b', .9));
-      if (rich >= .75) out.push(line([[x + v.off[0], m - s + v.off[1]], [x + s + v.off[0], m + v.off[1]], [x + v.off[0], m + s + v.off[1]]], 'b', .5));
-      return out; },
-    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
-      const r = stream(seed, 'cf'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
-      if (kind === 'trace') {   // a circuit trace: runs at three levels joined by 45° jogs, ending in a via
-        const lv = [mid, yTop + h * .15, yBase - h * .15], pts = [[x0, mid]]; let x = x0, cur = 0;
-        while (x < x1 - h * 1.6) { const run = h * (1 + r() * 2.2) * v.p, nx = Math.min(x + run, x1 - h * 1.6); pts.push([nx, lv[cur]]); x = nx;
-          if (x >= x1 - h * 1.6) break; const nxt = (cur + 1 + ((r() * 2) | 0)) % 3, dy = Math.abs(lv[nxt] - lv[cur]); pts.push([x + dy, lv[nxt]]); x += dy; cur = nxt; }
-        pts.push([x1 - h * .5, pts.at(-1)[1]]); out.push(line(pts, 'a', .7), line(arc([x1 - h * .3, pts.at(-1)[1]], h * .22, 0, 2 * Math.PI, 14), 'a', .6));
-        if (rich >= .5) out.push(bead([x0 + h * .3, mid], .9, 'b')); }
-      else if (kind === 'ticks') {   // a scale: a rule with ticks, every fifth long
-        const y = yBase - h * .05, { n, p } = fitN(x1 - x0, h * .45 * v.p); out.push(line([[x0, y], [x1, y]], 'a', .55));
-        for (let k = 0; k <= n; k++) out.push(line([[x0 + k * p, y], [x0 + k * p, y - h * (k % 5 === 0 ? .7 : .32)]], k % 5 === 0 && rich >= .5 ? 'b' : 'a', .5)); }
-      else {   // a data stream, glitched: dashes of uneven length, and their doubled ghost a pixel off
-        let x = x0; while (x < x1 - 1) { const L = Math.min(x1 - x, h * (.4 + r() * 1.6)); out.push(line([[x, mid], [x + L, mid]], 'a', .9));
-          if (rich >= .25 && r() < .6) out.push(line([[x + v.off[0], mid + v.off[1] * 2], [x + L + v.off[0] * .5, mid + v.off[1] * 2]], 'b', .5)); x += L + h * (.2 + r() * .4); } }
-      return out; },
-    breakMark(cx, y, measure, rank, seed, rich, u, v) {
-      const r = stream(seed, 'cb'), out = [], W = rank < 2 ? u * 12 : Math.min(measure * .66, u * 32), H = rank < 2 ? u * .8 : u * 1.5;
-      const D = u * (rank < 2 ? .45 : .7); out.push(line([[cx, y - D], [cx + D, y], [cx, y + D], [cx - D, y], [cx, y - D]], 'b', .7));
-      for (const s of [-1, 1]) { const xb = cx + s * W / 2;
-        out.push(line([[cx + s * D * 1.8, y], [xb - s * u * .6, y]], 'a', .6));
-        if (rank < 2) out.push(line([[xb - s * u * .3, y - H], [xb, y - H], [xb, y + H], [xb - s * u * .3, y + H]], 'a', .7));
-        else { for (const sy of [-1, 1]) out.push(line([[xb - s * u * 1.6, y + sy * H], [xb, y + sy * H], [xb, y + sy * (H - u * .9)]], 'a', .7));
-          const n = Math.floor((W / 2 - D * 2 - u) / (u * .6)); for (let k = 1; k <= n; k++) out.push(line([[cx + s * (D * 1.8 + k * u * .6), y], [cx + s * (D * 1.8 + k * u * .6), y + (k % 4 === 0 ? u * .5 : u * .22)]], 'a', .45));
-          if (rich >= .5) for (let k = 0; k < 3; k++) out.push(bead([xb - s * u * (1 + k * .6), y - H + u * .5], .8, k === 0 ? 'b' : 'a')); } }
-      if (rich >= .75) out.push(line([[cx - W * .3 + v.off[0], y + v.off[1] * 2], [cx - W * .12 + v.off[0], y + v.off[1] * 2]], 'b', .5), line([[cx + W * .18, y - v.off[1] * 2], [cx + W * .28, y - v.off[1] * 2]], 'b', .5));
-      return out; } },
+  // (the style's place in the registry's list, where Cyber stood: Draft is kit/styles/draft.js, a written style, which
+  // kit/illum.js puts here)
+  draft: null,
 
   // ---- Swiss: the International Typographic Style (Müller-Brockmann, Grid Systems in Graphic Design, 1981; Emil
   // Ruder, Typographie, 1967): one red and black, rules and bullets, everything flush left on the grid, nothing extra

@@ -118,37 +118,6 @@ const ysOf = m => m.flatMap(s => s.dot ? [s.p[1] - s.r, s.p[1] + s.r] : s.pts.ma
 const breaks = key => ({ cx, yTop, yBot, measure, u, seed, rich = .5 }) => { const S = STYLES[key], b = (y, sd) => S.breakMark(cx, y, measure, 1, sd, rich, u, { ...S.setup(sd), index: 1 });
   const a = b(yTop, seed), c = b(yBot, seed + 7); return [...shiftY(a, Math.min(0, yTop + u * 1.6 - Math.max(...ysOf(a)))), ...shiftY(c, Math.max(0, yBot - u * 1.7 - Math.min(...ysOf(c))))]; };
 
-// ---- Cyber: the heads-up display's corner brackets, tick scales running in from them along the head and the side, and a
-// label tag on the head bracket, its name in segment-display strokes ("FIG.01"); a via where a trace ends
-const SEG = { 0: 'abcdef', 1: 'bc', 2: 'abged', 3: 'abgcd', 4: 'fgbc', 5: 'afgcd', 6: 'afgedc', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg', A: 'abcefg', C: 'adef', D: 'bcdeg', E: 'adefg', F: 'aefg', G: 'acdef', I: 'ef', N: 'ceg', O: 'cdeg', R: 'eg', T: 'defg', U: 'bcdef' };
-function segText(str, [x, y], h, col) {   // y: the label's top; returns its strokes and its width
-  const w = h * .5, out = [], gp = h * .07; let cx = x;
-  for (const ch of str) { if (ch === '.') { out.push(bead([cx + w * .1, y + h], h * .07, col)); cx += w * .4; continue; }
-    const P = { a: [[0, 0], [1, 0]], b: [[1, 0], [1, .5]], c: [[1, .5], [1, 1]], d: [[0, 1], [1, 1]], e: [[0, .5], [0, 1]], f: [[0, 0], [0, .5]], g: [[0, .5], [1, .5]] };
-    for (const sg of SEG[ch] ?? '') { const [[ax, ay], [bx, by]] = P[sg], dx = (bx - ax) * gp / w, dy = (by - ay) * gp / h;
-      out.push(line([[cx + (ax + dx) * w, y + (ay + dy) * h], [cx + (bx - dx) * w, y + (by - dy) * h]], col, .55)); }
-    cx += w * 1.45; }
-  return { out, w: cx - x }; }
-const hud = (B, u, label, rich, corners = [0, 1, 2, 3]) => { const out = [], arm = Math.min(u * 2.2, (B[2] - B[0]) * .2, (B[3] - B[1]) * .3);
-  const C = [[B[0], B[1], 1, 1], [B[2], B[1], -1, 1], [B[2], B[3], -1, -1], [B[0], B[3], 1, -1]];
-  for (const k of corners) { const [cx, cy, sx, sy] = C[k]; out.push(line([[cx + sx * arm, cy], [cx, cy], [cx, cy + sy * arm]], 'a', .8)); }
-  if (rich >= .25) { const tk = (a, b, n) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), m = Math.floor(L / (u * .5));
-      for (let k = 1; k < m; k++) { const t = k / m, p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; out.push(line([p, [p[0] + n[0] * (k % 5 ? u * .22 : u * .45), p[1] + n[1] * (k % 5 ? u * .22 : u * .45)]], 'a', .45)); } };
-    if (corners.includes(0)) { tk([B[0] + arm + u * .6, B[1]], [B[0] + arm + Math.min(u * 9, (B[2] - B[0]) * .35), B[1]], [0, 1]); tk([B[0], B[1] + arm + u * .6], [B[0], B[1] + arm + Math.min(u * 6, (B[3] - B[1]) * .4)], [1, 0]); } }
-  if (label) { const h = u * .75, t = segText(label, [B[0] + u * .5, B[1] - h - u * .55], h, 'b'), tg = [B[0], B[1] - h - u * 1.05, B[0] + t.w + u * .7, B[1]];
-    out.push(...t.out, line([[tg[0], tg[3]], [tg[0], tg[1]], [tg[2], tg[1]], [tg[2] + u * .5, tg[3]]], 'b', .5)); }
-  return out; };
-const num = n => String(n).padStart(2, '0');
-STYLES.cyber.frames = {
-  quote: ({ x, lines, u, seed, rich = .5 }) => hud([x - u * .3, lines[0].top, Math.max(...lines.map(l => l.right)) + u * .5, lines.at(-1).base + u * .5], u, 'REF.' + num(1 + seed % 9), rich, [0, 3]),
-  figure: ({ box, u, seed, rich = .5 }) => hud(pad(box, u * .7), u, 'FIG.' + num(1 + seed % 9), rich),
-  code: ({ box, u, rich = .5 }) => hud(box, u, 'CODE', rich),
-  pull: breaks('cyber'),
-  aside: ({ box, u, rich = .5 }) => hud(box, u, 'NOTE', rich, [0, 3]),
-  nav: ({ box, entries, x, u, rich = .5, side = true }) => { const B = [side ? x - u * .4 : box[0] - u * .5, box[1] - u * .6, box[2] + u * .6, box[3] + u * .6], out = hud(B, u, 'TOC', rich, [0, 3]);
-    if (side) entries.forEach((e, k) => { const y = e.base - u * .45; out.push(line([[x + u * .25, y - u * .25], [x + u * .55, y], [x + u * .25, y + u * .25]], k % 2 ? 'b' : 'a', .6)); }); return out; },
-};
-
 // ---- Copperplate: no ruled line: at the corners the writing master's flourish, two ovals on the slant interlaced, and
 // from them along each side a line of beauty that thins away; a quotation gets the flourish at the head and the foot of
 // its gutter, joined by a single hairline

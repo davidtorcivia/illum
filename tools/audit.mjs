@@ -3,12 +3,12 @@
 // aware), the joins (gap: a hair's miss, always a fault; near: a spacing under 3 px, to judge by eye; over: a hair's
 // overrun), and what the guard left out (DROP kind kept/whole).
 // usage: node tools/audit.mjs [base=http://127.0.0.1:8000]
-// env: STYLES='gothic cyber ...' (default all)  SCALES='0.5 1 2'  W=1440,390  DARK=1  RICH=0.5  WHERE=n (print the n worst
+// env: STYLES='gothic draft ...' (default all)  SCALES='0.5 1 2'  W=1440,390  DARK=1  RICH=0.5  WHERE=n (print the n worst
 // joins per style)  PAGE=playground/cases.html (06's page takes the same ?audit)  EXTRA='&specimen' (any more query)
 // The shape sweep is a page too: DPR=4 CLIP=285,25,870,895 node tools/shot.mjs '<base>/playground/cases.html?sweep' out.png
 import { launch, open, load } from './chrome.mjs';
 const base = process.argv[2] ?? 'http://127.0.0.1:8000', page = process.env.PAGE ?? 'playground/cases.html';
-const all = 'gothic hours cadel romanesque insular hypertext doodle cyber swiss memphis riso deco carto score blueprint occult kelmscott copperplate nouveau botanical astrology tarot';
+const all = 'gothic hours cadel romanesque insular hypertext doodle draft swiss memphis riso deco carto score blueprint occult kelmscott copperplate nouveau botanical astrology tarot';
 const styles = (process.env.STYLES ?? all).split(' '), scales = (process.env.SCALES ?? '0.5 1 2').split(' '), widths = (process.env.W ?? '1440,390').split(',').map(Number);
 const b = await launch(), tot = { text: 0, cross: 0, self: 0, gap: 0, near: 0, over: 0 };
 for (const width of widths) { const p = await open(b, { width, dark: !!process.env.DARK });

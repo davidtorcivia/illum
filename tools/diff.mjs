@@ -2,7 +2,7 @@
 // full-page screenshots of each, compared pixel by pixel; prints whether they are identical and, if not, how many
 // pixels differ, by how much at most, and where. A refactor that drifts an approved look is a regression.
 // usage: node tools/diff.mjs <baseA> <baseB> <path?query>...      e.g.
-//   node tools/diff.mjs http://127.0.0.1:8003 http://127.0.0.1:8000 'playground/07-frames.html' 'playground/06-wayfinding.html?style=cyber'
+//   node tools/diff.mjs http://127.0.0.1:8003 http://127.0.0.1:8000 'playground/07-frames.html' 'playground/06-wayfinding.html?style=draft'
 // env: W=1440,390 (viewport widths)  THEMES=light,dark (prefers-color-scheme)  DPR=1  OUT=dir (writes a.png, b.png and
 // diff.png per case: differing pixels red over a faded b)  SETTLE=ms (wait after the page says it has drawn)
 // CLIP=selector (compare that element only, e.g. '.sheet' when the colophons differ)

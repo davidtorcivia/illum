@@ -194,8 +194,9 @@ first whose figure and leader clear the ink and stay in the cell is taken.
 
 ## The full style (kit/styles/draft.js, tests/draft.html)
 
-The specimen has the same text as the other styles. It is standalone, on the pre-library harness of
-tests/astrology.html (commit 75cd20f), and the style is not in the registry yet.
+The specimen has the same text as the other styles. Draft is now a style of the one library:
+rubricate(root, { style: 'draft' }) (kit/illum.js) lays tests/draft.html, which is a thin page on it; it stands in the
+registry where Cyber stood (?style=cyber is Draft).
 
 Every line is written by the ink engine's technical pen at the two weights. Thin is max(1.3 px, 0.12 x-height) and
 thick is max(2.4, 0.25 x-height), so about 2 : 1, as on the MIT sheets. Lettering is Hershey Simplex at Leroy's
