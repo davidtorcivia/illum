@@ -89,6 +89,12 @@ void main(){
 // what shows is the ink that lies in each pixel: a pixel the edge crosses is part-dark, a hairline is a thinner coat,
 // and a full coat saturates. The darkness is the mass until then, not a level set of it (a threshold throws away the
 // sweep's sub-pixel coverage and turns every edge back into a stair). Deeper ink is a little darker.
+// pour: a deposit given as a picture rather than a sweep (a letter's coverage, say), drawn into the stroke layer as the
+// sweep would lay it. Its texel holds R coverage, G ink (0..2 stored as 0..1), B dryness.
+const POUR_FS = `#version 300 es
+precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uSrc; uniform vec4 uDst; uniform vec2 uRes;
+void main(){ vec2 t = (vUV * uRes - uDst.xy) / uDst.zw; vec4 m = texture(uSrc, t); if (m.r <= 0.) discard; o = vec4(m.g * 2. * m.r, m.r, m.b * m.r, 0); }`;
+
 const RENDER_FS = `#version 300 es
 precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uDry, uWet, uPaper; uniform vec3 uPaperRGB, uK, uInk; uniform float uBase, uOver;
 void main(){
@@ -109,7 +115,7 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
   const prog = fs => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); const U = {}; return { p, u: n => U[n] ??= gl.getUniformLocation(p, n) }; };
-  const P = { paper: prog(PAPER_FS), sweep: prog(SWEEP_FS), flow: prog(FLOW_FS), render: prog(RENDER_FS) };
+  const P = { paper: prog(PAPER_FS), sweep: prog(SWEEP_FS), flow: prog(FLOW_FS), render: prog(RENDER_FS), pour: prog(POUR_FS) };
   const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, W, H, 0, gl.RGBA, gl.HALF_FLOAT, null);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
@@ -143,6 +149,20 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
     gl.blendEquation(gl.FUNC_ADD); gl.disable(gl.BLEND); pour();
     const m = 12; area = area ? [Math.min(area[0], x0 - m), Math.min(area[1], y0 - m), Math.max(area[2], x1 + m), Math.max(area[3], y1 + m)] : [x0 - m, y0 - m, x1 + m, y1 + m];
   }
+  // pour a deposit given as RGBA8 data (w x h texels: R coverage, G ink/2, B dryness) over the device-px rect [x, y, w, h]
+  let srcT = null;
+  function pourImage(data, w, h, rect) {
+    if (!srcT) { srcT = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, srcT);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); }
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, srcT); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.viewport(0, 0, W, H); gl.bindFramebuffer(gl.FRAMEBUFFER, F.stroke); gl.enable(gl.BLEND); gl.blendEquation(gl.MAX);
+    const pr = P.pour; gl.useProgram(pr.p); gl.uniform1i(pr.u('uSrc'), 0); gl.uniform4f(pr.u('uDst'), ...rect);   // (not uRect: the vertex shader's quad already has that name)
+    run(pr, [Math.floor(rect[0]), Math.floor(rect[1]), Math.ceil(rect[2]) + 1, Math.ceil(rect[3]) + 1]);
+    gl.blendEquation(gl.FUNC_ADD); gl.disable(gl.BLEND); pour();
+    const m = 12; area = area ? [Math.min(area[0], rect[0] - m), Math.min(area[1], rect[1] - m), Math.max(area[2], rect[0] + rect[2] + m), Math.max(area[3], rect[1] + rect[3] + m)]
+      : [rect[0] - m, rect[1] - m, rect[0] + rect[2] + m, rect[1] + rect[3] + m];
+  }
   // the ink moves: pour the pen's fresh ink in, level it, let it dry. Three small steps a frame while anything is wet.
   function step(ms) {
     if (wetting <= 0 || !area) return; wetting -= ms;
@@ -170,7 +190,7 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   // and reads grey, and a broad stroke grows a halo wider than its own anti-aliasing
   function wetness(w) { S.creep = .03 + .2 * w; S.level = .002 + .02 * w; S.drying = 250 + 1600 * w * w; }
   wetness(.25);
-  return { wetness, gl, W, H, dpr, settings: S, sweep, step, finish, render, clear, makePaper, commit() {} };
+  return { wetness, gl, W, H, dpr, settings: S, sweep, pour: pourImage, step, finish, render, clear, makePaper, commit() {} };
 }
 
 // A pen in a hand. The hand gives targets (page px, pressure, time in ms); the pen follows through a damped spring

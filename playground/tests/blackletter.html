@@ -250,7 +250,7 @@ function render(animate) {
   bk.width = Math.round(o.width * dpr); bk.height = Math.round(o.height * dpr); bk.style.width = o.width + 'px'; bk.style.height = o.height + 'px';
   const g = bk.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const P = S.palette[dark ? 'dark' : 'light'], W = createWriter(sheet, g, { dpr, dark });
-  const lay = L => { inkLetter(g, L, P.k, { dpr }); if (L.red) inkLetter(g, { ...L, M: L.red }, P.r, { dpr }); };
+  const lay = L => { if (L.red) inkLetter(g, { ...L, M: L.red }, P.r, { dpr }); inkLetter(g, L, P.k, { dpr }); };   // the red first, the black over it
   const parts = score(items).map(p => ({ ...p, part: p.letter ? { bbox: [0, p.letter.y0], at() {}, done() { lay(p.letter); } }
     : W.part(p.t0, p.t1, p.strokes.map(s => ({ pts: s.pts, angle: s.angle, press: s.press })), P[p.col], { width: p.w, hair: p.hair }) }));
   document.body.dataset.score = (parts.at(-1)?.t1 ?? 0).toFixed(1) + ' s';

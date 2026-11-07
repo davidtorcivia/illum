@@ -37,9 +37,9 @@
 //   form 'face' (the default): the letter is a blackletter typeface's capital (face: a key of FACES, default FACE). The
 //     host must `await loadFace(face)` before it measures or makes an initial. letter = { M, w, h, x0, y0, res, red? }:
 //     the black coverage (w × h cells at res per px, its top-left at x0, y0 page px) and, where the heavy strokes are
-//     split, the red laid between their halves (same grid). The host lays it first, with the ink engine:
-//     inkLetter(bake, letter, palette.k), then inkLetter(bake, { ...letter, M: letter.red }, palette.r), and then
-//     writes the marks (the bars, the staff, the cloud, the points) over it.
+//     split, the red laid between their halves (same grid; it runs a little under the black). The host lays it first,
+//     with the ink engine: inkLetter(bake, { ...letter, M: letter.red }, palette.r), then inkLetter(bake, letter,
+//     palette.k) over it, and then writes the marks (the bars, the staff, the cloud, the points) over both.
 //   form 'cadel': the procedural cadel (the letter itself built as strapwork bundles; letter: null, all marks). Kept
 //     for study; five procedurally built letters were rejected, the typeface letter replaced it as the default.
 // touch(): the rubricator's red stroke through a capital of the host's text. The host's text is never marked unasked:
@@ -572,17 +572,18 @@ cadel.width = ch => CAPS[String(ch).normalize('NFD')[0].toUpperCase()]?.w ?? .8;
 // medium's own deposit, flow and paper), so its edge carries the ink's feathering and its rim the ink's pooling, as
 // the strokes round it do.
 //
-// The faces (playground/fonts, SIL OFL 1.1, from google/fonts). Cook is the default; Maguntia and Grenze Gotisch are the
-// candidates shown beside it in tests/faces.html (fonts/cand, to be removed once one is chosen). Rejected: Texturina
-// (roman capitals), Pirata One, New Rocker, Fruktur, Germania One (display letters, not written ones); Offenbacher
-// Schwabacher CAT (its OpenType code is not under a free licence, per its author) and Strassburg Fraktur (no correct
-// licence file; its flourished capitals are too small in the body at drop size).
+// The faces (playground/fonts, SIL OFL 1.1, from google/fonts). Maguntia is the default (the user's choice over Cook);
+// Cook and Grenze Gotisch stay as candidates in tests/faces.html (fonts/cand). Maguntia's A is the historic Fraktur A,
+// which a modern reader can take for a U; the font has no alternate for it (its only features are liga, rlig, hlig).
+// Rejected: Texturina (roman capitals), Pirata One, New Rocker, Fruktur, Germania One (display letters, not written
+// ones); Offenbacher Schwabacher CAT (its OpenType code is not under a free licence, per its author) and Strassburg
+// Fraktur (no correct licence file; its flourished capitals are too small in the body at drop size).
 export const FACES = {
-  cook: { family: 'UnifrakturCook', file: 'UnifrakturCook-Bold.woff2', weight: 700, name: 'UnifrakturCook (after Koch Fette Deutsche Schrift)' },
-  maguntia: { family: 'UnifrakturMaguntia', file: 'cand/UnifrakturMaguntia-Book.woff2', weight: 400, name: 'UnifrakturMaguntia (after Mainzer Fraktur)' },
+  maguntia: { family: 'UnifrakturMaguntia', file: 'UnifrakturMaguntia-Book.woff2', weight: 400, name: 'UnifrakturMaguntia (after Mainzer Fraktur)' },
+  cook: { family: 'UnifrakturCook', file: 'cand/UnifrakturCook-Bold.woff2', weight: 700, name: 'UnifrakturCook (after Koch Fette Deutsche Schrift)' },
   grenze: { family: 'Grenze Gotisch', file: 'cand/GrenzeGotisch.woff2', weight: 800, name: 'Grenze Gotisch 800' },
 };
-export const FACE = 'cook', FORM = 'face';
+export const FACE = 'maguntia', FORM = 'face';
 const fontDir = new URL('../../fonts/', import.meta.url);
 // the face must be loaded before an initial is measured or made (nothing in the host's DOM need use it)
 export async function loadFace(name = FACE) {
@@ -600,7 +601,7 @@ const inkOf = (ch, F) => { const m0 = F.m ??= {}; if (m0[ch]) return m0[ch];
 const faceWidth = (ch, face) => { const m = inkOf(ch, faceOf(face)); return m.a > 0 ? (m.l + m.r) / m.a : .8; };
 
 // the glyph as coverage at res cells per px; its ink top on y = base - H, its ink's left edge on x0
-function glyphMask(ch, F, H, x0, base, res = 4) {
+function glyphMask(ch, F, H, x0, base, res = 2) {
   const m = inkOf(ch, F), s = H / m.a, pad = 3, gx = Math.floor(x0 - pad), gy = Math.floor(base - H - pad);
   const w = Math.ceil(x0 + (m.l + m.r) * s + pad - gx) * res, h = Math.ceil(base + m.d * s + pad - gy) * res;
   const c = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
@@ -623,8 +624,8 @@ function anatomy(L) {
 // The heaviest straight stroke (where the bars bind): of the cells near the deepest, the one whose neighbourhood of deep
 // cells is most nearly a line (its principal axis), a little below the middle of the letter preferred. { p, t, d }
 function spine(L, A, H, ink) {
-  const { w, h, res } = L, { Di, hw } = A, R = Math.round(hw * 2.6 * res), st = Math.max(1, Math.round(res / 2)); let best = null;
-  for (let j = 0; j < h; j += st * 2) for (let i = 0; i < w; i += st * 2) { const d = Di[j * w + i]; if (d < hw * .82) continue;
+  const { w, h, res } = L, { Di, hw } = A, R = Math.round(hw * 2.6 * res), st = Math.max(1, Math.round(R / 10)); let best = null;   // ~300 samples a neighbourhood
+  for (let j = 0; j < h; j += Math.max(2, st)) for (let i = 0; i < w; i += Math.max(2, st)) { const d = Di[j * w + i]; if (d < hw * .82) continue;
     let n = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
     for (let y = Math.max(0, j - R); y < Math.min(h, j + R); y += st) for (let x = Math.max(0, i - R); x < Math.min(w, i + R); x += st)
       if (Di[y * w + x] > hw * .55 && (x - i) ** 2 + (y - j) ** 2 < R * R) { n++; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; }
@@ -665,13 +666,13 @@ function tipsOf(L, A, H) {
 }
 // per level: the heavy strokes split with red between their halves, the three bars, red points in the counters, loops
 // into the margin, crosses
-const FBUDGET = [{ touch: true }, { split: true }, { split: true, bars: true, pts: 1, staff: true }, { split: true, bars: true, pts: 2, staff: true, cloud: 1 }, { split: true, bars: true, pts: 3, staff: true, cloud: 3, crosses: true }];
+const FBUDGET = [{ touch: true }, { split: true }, { split: true, bars: true, pts: 1, staff: true }, { split: true, bars: true, pts: 2, staff: true }, { split: true, bars: true, pts: 3, staff: true, cloud: 3, crosses: true }];
 
 function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, room = 100, bottom = 1e9, face = FACE }) {
   ch = String(ch).normalize('NFD')[0].toUpperCase(); const [x0, y0, , y1] = G.box, H = y1 - y0, edge = x0 - room, F = faceOf(face);
   if (!/[A-Z]/.test(ch)) return { letter: ch, marks: [], width: .8 * H };
-  const raw = glyphMask(ch, F, H, x0, y1), L = { ...drawn(raw, seed, big ? .45 : .2), ink: raw.ink }, width = raw.ink[2] - raw.ink[0];
-  const b = big ? FBUDGET[level] : { touch: true }, r = rng(seed, 'face'), A = anatomy(L), sp = spine(L, A, H, raw.ink), over = [], strands = [];
+  const raw = glyphMask(ch, F, H, x0, y1); const L = { ...drawn(raw, seed, big ? .45 : .2), ink: raw.ink }, width = raw.ink[2] - raw.ink[0];
+  const b = big ? FBUDGET[level] : { touch: true }, r = rng(seed, 'face'), A = anatomy(L); const sp = spine(L, A, H, raw.ink), over = [], strands = [];
   keep = keep.filter(k => k[2] > x0 - room - H && k[0] < x0 + width + H && k[3] > y0 - H && k[1] < y1 + H * 2);
   // the rubricator's touch: one red stroke down the heaviest stroke
   if (sp) {   // the spine's point moved onto the stroke's middle (the deepest cell across it)
@@ -684,22 +685,23 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
     for (let i = 0; i < w; i++) { let n = 0; for (let j = Math.max(0, j0); j < Math.min(h, j1); j++) n += M[j * w + i] > .5; if (n > bn) { bn = n; bi = i; } }
     const x = L.x0 + (bi + .5) / res;
     return { letter: { ...L, wet: .03, dry: 0 }, marks: [stroke([[x + H * .02, y0 + H * .22], [x - H * .02, y1 - H * .14]], Math.max(1, H * .08), 'r', .45)], width };   // small: a quicker, drier ink, or it closes the counters
-  }   // small: a quicker, drier ink, or it closes the counters
-  // the heavy strokes split: paper down the middle of every stroke as heavy as the heaviest, so each is written as two
-  // black strokes with a hair of paper and the red between them (Neudörffer's doubled strokes with colour laid between,
-  // Met 354468; Rossi's channels, 1598). The split follows the letter, closing to a point where a stroke thins.
+  }
+  // the heavy strokes split: every stroke as heavy as the heaviest written as two black strokes with red laid between
+  // them (Neudörffer's doubled strokes with colour between, Met 354468; Rossi's channels, 1598). The red is laid first and
+  // runs a little under the black (`under` px), which is written over it, so no paper shows between them; the split
+  // follows the letter and closes to a point where a stroke thins, the red tapering with it.
   if (b.split) {
     // each half is a pen stroke along the letter's edge, so it is as thick as the nib lays across that edge's direction:
     // broad where the edge runs square to the nib, a hair where it runs along it
     // (the direction read from the depth's slope a little in from the edge, and smoothed, so the split runs clean)
-    const { w, h, res } = L, Di = A.Di, hair = Math.max(.65, A.hw * .13), R = new Float32Array(L.M.length), X = new Float32Array(L.M.length), Wt = new Float32Array(L.M.length);
+    const { w, h, res } = L, Di = A.Di, under = .7, R = new Float32Array(L.M.length), X = new Float32Array(L.M.length), Wt = new Float32Array(L.M.length);
     for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) { const q = j * w + i, d = Di[q]; if (d <= .5 || d > A.hw * .6) continue;
       const gx = Di[q + 1] - Di[q - 1], gy = Di[q + w] - Di[q - w], gl = Math.hypot(gx, gy); if (gl < .1) continue;
       X[q] = Math.abs(E[0] * gx / gl + E[1] * gy / gl); Wt[q] = 1; }
     const rb = Math.max(1, Math.round(A.hw * .9 * res)), Xb = boxBlur(boxBlur(X, w, h, rb), w, h, rb), Wb = boxBlur(boxBlur(Wt, w, h, rb), w, h, rb);
     for (let q = 0; q < R.length; q++) { const d = Di[q]; if (d <= A.hw * .45) continue;
       const k = A.hw * (.5 + .34 * (Wb[q] > .01 ? Xb[q] / Wb[q] : .5));
-      L.M[q] *= 1 - sm(k - .4, k + .4, d); R[q] = sm(k + hair - .4, k + hair + .4, d); }
+      L.M[q] *= 1 - sm(k - .4, k + .4, d); R[q] = sm(k - under - .4, k - under + .4, d); }
     L.red = R;
   }
   // three bars bound across the heaviest straight stroke, below its middle; the stroke cut through where they bind it
@@ -712,28 +714,31 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
       for (let u = -1; u <= 1.001; u += .1) { const v = u * (A.hw + ov), bow = tb * .7 * (1 - u * u); pts.push([c[0] + n[0] * v + t[0] * (q * p + bow), c[1] + n[1] * v + t[1] * (q * p + bow)]); wm.push(Math.max(.2, 1 - u ** 8)); }
       over.push({ ...stroke(pts, tb, 'k', .4), angle: ang, press: pressOf(pts, wm) }); }
   }
-  // the staff: a hairline sprung from the letter's outermost point on the margin side, out into the margin and down it
-  // past the letter's foot, ending in a curl with a red point in its eye (03's staff; Neudörffer's hairlines); on the
-  // richest page loops thrown from the points of its strokes as well
+  // the staff: one stroke of the broad nib, out of the letter's side and down the margin past its foot, ending in a
+  // single curl toward the words with a red point in its eye (03's staff; the scribe's run of the pen down the margin).
+  // It leaves the letter on the nib's thin edge and swells as it turns to run down; a cubic, then a gentle straight
+  // fall, then the curl, so it reads as one gesture. On the richest page loops thrown from the points of the strokes.
   let staff = null;
   if (b.staff) {
-    const { M, w, h, res } = L, hwl = Math.max(.9, H * .009); let lp = null;
-    for (let j = 0; j < h; j += 2) for (let i = 0; i < w; i += 2) if (M[j * w + i] > .5) { const x = L.x0 + i / res, y = L.y0 + j / res, sc = -x - Math.max(0, y - y0 - H * .55) * 3; if (!lp || sc > lp.sc) lp = { sc, p: [x, y] }; }
-    for (let a = Math.min(x0 - edge - 6, H * .3); lp && a > H * .1; a *= .82) {
-      const p = lp.p, dn = H * (.55 + .25 * r()), cr = H * (.07 + .02 * r());
-      const c0 = through([p, [p[0] - a * .55, p[1] + H * .12], [x0 - a, y1 - H * .05], [x0 - a * .92, y1 + dn * .55], [x0 - a * .62, y1 + dn]], .5);
-      const q = c0.at(-1), d = unit([q[0] - c0.at(-5)[0], q[1] - c0.at(-5)[1]]), cu = curlOf(q, Math.atan2(d[1], d[0]), cr, -1), c = [...c0, ...cu.slice(1)];
+    const { M, w, h, res } = L, Wn = Math.max(2.2, H * .034); let lp = null;
+    for (let j = 0; j < h; j += 2) for (let i = 0; i < w; i += 2) if (M[j * w + i] > .5) { const x = L.x0 + i / res, y = L.y0 + j / res, sc = -x - Math.max(0, y - y0 - H * .5) * 3; if (!lp || sc > lp.sc) lp = { sc, p: [x, y] }; }
+    const bez = (p0, p1, p2, p3) => Array.from({ length: 81 }, (_, k) => { const t = k / 80, u = 1 - t; return [0, 1].map(c => u * u * u * p0[c] + 3 * u * u * t * p1[c] + 3 * u * t * t * p2[c] + t * t * t * p3[c]); });
+    for (let a = Math.min(x0 - edge - 8, H * .26); lp && a > H * .09; a *= .85) {
+      const p0 = [lp.p[0] + Wn * .3, lp.p[1]], xs = x0 - a, cr = H * (.068 + .014 * r()), fall = H * (.55 + .15 * r());
+      const top = bez(p0, [p0[0] - a * .35, p0[1] + H * .05], [xs, p0[1] + H * .2], [xs, Math.max(p0[1] + H * .45, y1 - H * .1)]), q = top.at(-1);
+      const end = [xs + a * .04, y1 + fall], down = resample([q, end], .6), dir = Math.atan2(end[1] - q[1], end[0] - q[0]);
+      const curl = flourish(end, dir, [[cr * .5, 0, -1 / cr], [cr * Math.PI * 1.35, -1 / cr, -1 / (cr * .62)]], .5);
+      const c = resample([...top, ...down.slice(1), ...curl.slice(1)], .6);
       if (hits(c, keep, edge, bottom)) continue;
-      const S2 = arc(c), Lc = S2.at(-1); strands.push({ ...hairline(c, hwl * 2.2), alt: 'own', z: -1 });
-      strands.at(-1).parts[0].wm = S2.map(v => Math.max(.25, Math.min(1, v / (H * .08), (Lc - v) / (H * .05))));
-      const tail = cu.slice(Math.round(cu.length * .45)), eye = tail.reduce((m, v) => [m[0] + v[0] / tail.length, m[1] + v[1] / tail.length], [0, 0]);
-      over.push(lozenge(eye, Math.max(1.4, cr * .3), 'r'));
-      staff = { a, dn };
+      const S2 = arc(c), Lc = S2.at(-1), lc = arc(curl).at(-1);
+      const wm = S2.map(v => Math.max(.3, Math.min(1, .35 + .65 * v / (H * .12), .3 + .7 * Math.max(0, Lc - v) / (lc * .9))));
+      over.push({ ...stroke(c, Wn, 'k', Math.max(.9, Wn * .28)), press: pressOf(c, wm) });
+      const tail = curl.slice(Math.round(curl.length * .4)), eye = tail.reduce((m, v) => [m[0] + v[0] / tail.length, m[1] + v[1] / tail.length], [0, 0]);
+      over.push(lozenge(eye, Math.max(1.6, cr * .34), 'r'));
+      staff = { a, dn: fall };
       break;
     }
   }
-  // the cloud: from the points where the letter's strokes end (the pen's thin edge running on), loops as large as the
-  // room allows, bulging away from the letter, coming back across it (Neudörffer's title cadel, Met 354468)
   if (b.cloud) { const used = [], cx = (raw.ink[0] + raw.ink[2]) / 2, cy = (raw.ink[1] + raw.ink[3]) / 2;
     for (const e of tipsOf(L, A, H)) { if (used.length >= b.cloud) break; if (e.p[0] > cx + width * .15 && e.p[1] > y0 + H * .2) continue;   // not out over the words
       if (used.some(u => Math.hypot(u[0] - e.p[0], u[1] - e.p[1]) < H * .3)) continue; let got = null;
@@ -742,7 +747,7 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
         const m = lp[Math.floor(lp.length * .35)]; if ((m[0] - cx) * e.t[0] + (m[1] - cy) * e.t[1] < 0) continue;   // it bulges outward
         const onInk = lp.filter(([x, y]) => { const i = Math.round((x - L.x0) * L.res), j = Math.round((y - L.y0) * L.res); return i >= 0 && j >= 0 && i < L.w && j < L.h && L.M[j * L.w + i] > .3; }).length / lp.length;
         if (onInk < .2 && !hits(lp, keep, edge, bottom)) got = lp; } if (got) break; } if (got) break; }
-      if (got) { used.push(e.p); strands.push({ ...hairline(got, Math.max(.9, H * .009) * 1.7), alt: 'own', z: -2 }); if (got.eye) over.push(lozenge(got.eye, Math.max(1.4, H * .014), used.length % 2 ? 'r' : 'k')); } } }
+      if (got) { used.push(e.p); { const hl = hairline(got, Math.max(1.6, H * .018)); hl.parts.forEach(p => p.hair = .9); strands.push({ ...hl, alt: 'own', z: -2 }); } if (got.eye) over.push(lozenge(got.eye, Math.max(1.4, H * .014), used.length % 2 ? 'r' : 'k')); } } }
   // a cross of four red points hung between the staff and the words, below the letter
   if (b.crosses && staff) { const p = [x0 - staff.a * .42, y1 + staff.dn * .38], s = Math.max(1.3, H * .017), cr = cross4(p, s); if (!cr.some(m => hits(m.pts, keep, edge, bottom))) over.push(...cr); }
   // a red point in each counter the letter closes (a cross of four in the widest, on the richest page)
@@ -751,30 +756,32 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
   return { letter: L, marks: [...marks, ...over], width };
 }
 // ---- laying the letter with the ink engine -----------------------------------------------------------------------------
-// The glyph's coverage poured into the medium (kit/medium.js) as one deposit: each row of the letter swept as a strip of
-// the nib's edge, a little more ink where the coverage is near its rim (the pooling of a broad stroke's borders) and a
-// slow mottle; then the medium levels it, lets it creep into the paper's fibre at the edge, and dries it. The result is
-// pressed into `bake` (a 2D context in page px at dpr) as the writer presses its windows.
-export function inkLetter(bake, L, rgb, { dpr = 2, wet = L.wet ?? .2, dry = L.dry ?? .22 } = {}) {
-  const pad = 5, ox = Math.floor(L.x0 * dpr) / dpr - pad, oy = Math.floor(L.y0 * dpr) / dpr - pad;
-  const cv = document.createElement('canvas'); cv.width = Math.ceil((L.w / L.res + pad * 2) * dpr); cv.height = Math.ceil((L.h / L.res + pad * 2) * dpr);
-  const Md = createMedium(cv, { dpr, paper: [255, 255, 255], ink: rgb }); Md.wetness(wet); Md.settings.over = true; Md.settings.ink = rgb; Md.makePaper([ox * dpr, oy * dpr]);
-  const { M, w, h, res } = L, Bl = boxBlur(boxBlur(M, w, h, Math.round(1.6 * res)), w, h, Math.round(1.6 * res)), mot = noise2(97);
-  const dev = (x, y) => [(L.x0 + x / res - ox) * dpr, (L.y0 + y / res - oy) * dpr], rowStep = Math.max(1, Math.round(res / (2 * dpr))), hh = .6, seg = 6, th = .6;
-  const rimAt = (i, j) => Math.max(0, 1 - Bl[j * w + Math.max(0, Math.min(w - 1, Math.round(i)))]) * 1.6;
-  const inkAt = (i, j) => { const rim = rimAt(i, j), px = L.x0 + i / res, py = L.y0 + j / res; return 1.0 + .38 * rim * rim + .14 * (mot(px / 9, py / 9) - .5); };
-  for (let j = 0; j < h; j += rowStep) { let a = null;
-    for (let i = 0; i <= w; i++) { const v = i < w ? M[j * w + i] : 0, u = i ? M[j * w + i - 1] : 0;
-      if (v > th && u <= th) a = i - 1 + (th - u) / (v - u || 1);
-      else if (v <= th && u > th && a !== null) { const e = i - 1 + (th - u) / (v - u || 1), [xa, y] = dev(a + .5, j + .5), [xe] = dev(e + .5, 0);
-        const x0 = xa + .5, x1 = Math.max(x0 + .01, xe - .5), n = Math.max(1, Math.ceil((x1 - x0) / seg));
-        for (let k = 0; k < n; k++) { const s0 = x0 + (x1 - x0) * k / n, s1 = x0 + (x1 - x0) * (k + 1) / n, i0 = a + (e - a) * k / n, i1 = a + (e - a) * (k + 1) / n;
-          Md.sweep([[s0, y - hh], [s0, y + hh], [s1, y + hh], [s1, y - hh]], [s0, y], [s1, y], inkAt(i0, j), inkAt(i1, j), dry * Math.max(rimAt(i0, j), rimAt(i1, j)) ** 2); }
-        a = null; } } }
+// The glyph's coverage poured into the medium (kit/medium.js) as one deposit, in one pass: the coverage, a little more
+// ink near its rim (the pooling of a broad stroke's borders) with a slow mottle, and a little dryness at the rim, are
+// drawn straight into the medium's stroke layer (as the nib's sweep would have laid them, MAX-blended); then the medium
+// levels it, lets it creep into the paper's fibre at the edge, and dries it. The result is pressed into `bake` (a 2D
+// context in page px at dpr) as the writer presses its windows. One medium serves every letter on the page.
+let shared = null;
+function mediumFor(w, h, dpr) {
+  if (shared && shared.cv.width >= w && shared.cv.height >= h && shared.dpr === dpr && !shared.gl.isContextLost()) return shared;
+  shared?.gl.getExtension('WEBGL_lose_context')?.loseContext();
+  const cv = document.createElement('canvas'); cv.width = Math.max(w, 640); cv.height = Math.max(h, 640);
+  const Md = createMedium(cv, { dpr, paper: [255, 255, 255] }), gl = Md.gl; Md.settings.over = true;
+  return shared = { cv, Md, gl, dpr };
+}
+export function inkLetter(bake, L, rgb, { dpr = 2, wet = L.wet ?? .1, dry = L.dry ?? .22 } = {}) {
+  const pad = 5, ox = Math.floor(L.x0 * dpr) / dpr - pad, oy = Math.floor(L.y0 * dpr) / dpr - pad, { M, w, h, res } = L;
+  const cw = Math.ceil((w / res + pad * 2) * dpr), ch = Math.ceil((h / res + pad * 2) * dpr), { cv, Md } = mediumFor(cw, ch, dpr);
+  Md.clear(); Md.wetness(wet); Md.settings.ink = rgb; Md.makePaper([ox * dpr, oy * dpr]);
+  // the deposit, per cell: coverage; ink (halved, to fit a byte); dryness
+  const Bl = boxBlur(boxBlur(M, w, h, Math.round(1.6 * res)), w, h, Math.round(1.6 * res)), mot = noise2(97), D = new Uint8Array(w * h * 4);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, m = M[q]; if (m <= .01) continue;
+    const rim = Math.max(0, 1 - Bl[q]) * 1.6, ink = 1 + .38 * rim * rim + .14 * (mot((L.x0 + i / res) / 9, (L.y0 + j / res) / 9) - .5);
+    D[q * 4] = Math.round(Math.min(1, m) * 255); D[q * 4 + 1] = Math.round(Math.min(1, ink / 2) * 255); D[q * 4 + 2] = Math.round(Math.min(1, dry * rim * rim) * 255); }
+  Md.pour(D, w, h, [(L.x0 - ox) * dpr, (L.y0 - oy) * dpr, w / res * dpr, h / res * dpr]);
   for (let k = 0; k < 24; k++) Md.step(16);
   Md.finish(); Md.render();
-  bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = 'source-over'; bake.drawImage(cv, Math.round(ox * dpr), Math.round(oy * dpr)); bake.restore();
-  cv.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
+  bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = 'source-over'; bake.drawImage(cv, 0, 0, cw, ch, Math.round(ox * dpr), Math.round(oy * dpr), cw, ch); bake.restore();
 }
 function boxBlur(A, w, h, r) {
   if (r < 1) return A; const T = new Float32Array(w * h), O = new Float32Array(w * h), k = 2 * r + 1;

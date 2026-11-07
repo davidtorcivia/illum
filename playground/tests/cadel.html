@@ -24,7 +24,7 @@
 <script type="module">
 import { createWriter, supported } from '../kit/writer.js';
 import S, { loadFace, inkLetter } from '../kit/styles/blackletter.js';
-const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark';
+const T0 = performance.now(), q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark';
 if (dark) document.documentElement.dataset.theme = 'dark';
 const loops = q.has('loops') ? +q.get('loops') : undefined, chars = [...(q.get('ch') ?? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')], H = +(q.get('h') ?? 120), level = +(q.get('level') ?? 4);
 const face = q.get('face') ?? undefined, form = q.get('form') ?? undefined; if (form !== 'cadel') await loadFace(face);
@@ -40,12 +40,12 @@ else {
   const dpr = Math.min(2, devicePixelRatio || 1); bk.width = Wp * dpr; bk.height = Hp * dpr; bk.style.width = Wp + 'px'; bk.style.height = Hp + 'px';
   const g = bk.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const P = S.palette[dark ? 'dark' : 'light'], W = createWriter(sheet, g, { dpr, dark }); let t = 0, n = 0;
-  for (const { letter } of marks) if (letter?.M) { inkLetter(g, letter, P.k, { dpr }); if (letter.red) inkLetter(g, { ...letter, M: letter.red }, P.r, { dpr }); }
+  for (const { letter } of marks) if (letter?.M) { if (letter.red) inkLetter(g, { ...letter, M: letter.red }, P.r, { dpr }); inkLetter(g, letter, P.k, { dpr }); }   // the red first, the black over it
   for (const { marks: ms } of marks) { let run = null; const flush = () => { if (run) { W.part(t, t + 1, run.strokes, P[run.col], { width: run.w, hair: run.hair }).done(); t += 1; n++; } run = null; };
     for (const m of ms) { if (!run || run.col !== m.col || Math.abs(run.w - m.w) > .01 || Math.abs(run.hair - m.hair) > .01) { flush(); run = { col: m.col, w: m.w, hair: m.hair, strokes: [] }; }
       run.strokes.push({ pts: m.pts, angle: m.angle, press: m.press, rho: m.rho }); }
     flush(); }
-  W.flush(); W.destroy?.(); document.body.dataset.timing = `${n} parts`;
+  W.flush(); W.destroy?.(); document.body.dataset.timing = `${n} parts, drawn in ${Math.round(performance.now() - T0)} ms`;
 }
 </script>
 </body>
