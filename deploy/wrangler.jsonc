@@ -1,0 +1,8 @@
+// illum's site: the static files in ./dist (made by tools/deploy-site.sh from ../site) served from Cloudflare,
+// at illum.davidtorcivia.com
+{
+  "name": "illum",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./dist", "not_found_handling": "404-page" },
+  "routes": [{ "pattern": "illum.davidtorcivia.com", "custom_domain": true }]
+}
