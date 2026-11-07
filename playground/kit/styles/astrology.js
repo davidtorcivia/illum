@@ -245,22 +245,73 @@ function figureLines(O, I, W, seed, holes = []) {
   cusps.forEach(([a, b], k) => r(a, b, W, 20 + k));
   return { marks, cusps, houses };
 }
-// the cusps lettered: each sign written along its line, a little off it into the house it begins, reading left to right;
-// its degree after it (rich), the sign red, the figures black, as Lilly prints "♍ 9·51"
-function cuspWriting(cusps, houses, h, asc, seed, { degrees = true, col = 'r' } = {}) {
-  const r = rng(seed, 'cusps'), els = [], rects = [];
-  cusps.forEach(([a, b], k) => { const d = unit([b[0] - a[0], b[1] - a[1]]), len = Math.hypot(b[0] - a[0], b[1] - a[1]), hc = houses[k].reduce((s, p) => [s[0] + p[0] / 3, s[1] + p[1] / 3], [0, 0]);
-    let n = [-d[1], d[0]]; const mid = lerp(a, b, .5); if ((hc[0] - mid[0]) * n[0] + (hc[1] - mid[1]) * n[1] < 0) n = [-n[0], -n[1]];
-    let rot = Math.atan2(d[1], d[0]), dir = d; if (Math.cos(rot) < -1e-3 || (Math.abs(Math.cos(rot)) < 1e-3 && Math.sin(rot) < 0)) { rot += Math.PI; dir = [-d[0], -d[1]]; }
-    const name = ZODIAC[(asc + k) % 12], txt = degrees ? degreeOf(r) : '';
-    const c = add(lerp(a, b, .5), n, h * .6 + .8);
-    els.push(writeCusp(c, dir, rot, name, h, txt, seed + k, col)); rects.push({ c, d: dir, l: blockLen(name, h, txt), t: h * 1.15 });
-    void len; });
-  return { ...join(...els), rects };
+// ---- writing that keeps to its house ------------------------------------------------------------------------------------
+// The ink of an element, as sample points with a radius (page px): a pen stroke's points with half its widest nib, a
+// polygon's vertices, a pen's point, a line of text's ink box (its four sides, sampled every 1.5 px) from the face's own
+// metrics. What the placement below keeps inside a house, and what tests/astrology.check.mjs measures.
+export function inkOf(el) {
+  const P = [], box = (c, rot, x0, y0, x1, y1, r) => { const cs = Math.cos(rot), sn = Math.sin(rot), at = (x, y) => [c[0] + x * cs - y * sn, c[1] + x * sn + y * cs, r];
+    const nx = Math.max(1, Math.ceil((x1 - x0) / 1.5)), ny = Math.max(1, Math.ceil((y1 - y0) / 1.5));
+    for (let i = 0; i <= nx; i++) { const x = x0 + (x1 - x0) * i / nx; P.push(at(x, y0), at(x, y1)); } for (let j = 1; j < ny; j++) { const y = y0 + (y1 - y0) * j / ny; P.push(at(x0, y), at(x1, y)); } };
+  for (const m of (el.marks ?? []).flat(3)) { const n = m.pts.length; let pk = 1; for (let i = 0; i < 9; i++) pk = Math.max(pk, m.press ? m.press(i / 8) : 1); const r = m.w * pk * .5 + .2; for (let i = 0; i < n; i++) P.push([m.pts[i][0], m.pts[i][1], r]); }
+  for (const t of el.letters ?? []) {
+    if (t.polys) { for (const Q of t.polys) for (const p of Q) P.push([p[0], p[1], (t.grow ?? 0) / 2 + .3]); }
+    else if (t.dot) P.push([t.dot[0], t.dot[1], t.r + .2]);
+    else if (t.text) { const face = t.face ?? 'roman', m = metricOf(t.text, face), k = t.size / metricOf('H', face).cap, w0 = (m.l + m.r) * k, r = .45;
+      if (t.c) box(t.c, t.rot ?? 0, -w0 / 2, t.size / 2 - m.a * k, w0 / 2, t.size / 2 + m.d * k, r);
+      else { const left = t.align === 'left' ? t.x : t.x - w0 / 2; box([0, 0], 0, left, t.base - m.a * k, left + w0, t.base + m.d * k, r); } } }
+  return P;
 }
-const blockLen = (name, h, txt) => signWidth(name) * h * (SCALE[name] ?? 1) + (txt ? h * .25 + textWidth(txt, h * .72, 'figures') : 0);
-// oriented boxes { c, d (unit, along), l, t }: their corners, whether two overlap (separating axes, pad px apart), whether
-// one lies in a triangle at least m px inside its edges (and by how much)
+// signed distance of p inside a convex polygon's edges (positive inside), the least over its edges
+export function depth(tri, p) {
+  const cw = Math.sign((tri[1][0] - tri[0][0]) * (tri[2][1] - tri[0][1]) - (tri[1][1] - tri[0][1]) * (tri[2][0] - tri[0][0]));
+  let m = Infinity; for (let i = 0; i < tri.length; i++) { const a = tri[i], b = tri[(i + 1) % tri.length], e = unit([b[0] - a[0], b[1] - a[1]]); m = Math.min(m, -cw * ((p[0] - a[0]) * e[1] - (p[1] - a[1]) * e[0])); }
+  return m;
+}
+// a label (a sign and its figures) as ink in its own frame (written at the origin along +x), its extent there
+// (cached; thinned to a point every ~.8 px, each radius grown to cover the gap: fitting tests these, the check the full ink)
+const inkCache = new Map();
+function labelInk(name, h, txt, col) { const key = name + '|' + h.toFixed(2) + '|' + txt; if (inkCache.has(key)) return inkCache.get(key);
+  const el = writeCusp([0, 0], [1, 0], 0, name, h, txt, 0, col), P = []; let last = null;
+  for (const p of inkOf(el)) { if (last && Math.hypot(p[0] - last[0], p[1] - last[1]) < .8 && Math.abs(p[2] - last[2]) < .3) continue; P.push([p[0], p[1], p[2] + .4]); last = p; }
+  const L = { P, x0: Math.min(...P.map(p => p[0] - p[2])), x1: Math.max(...P.map(p => p[0] + p[2])), y0: Math.min(...P.map(p => p[1] - p[2])), y1: Math.max(...P.map(p => p[1] + p[2])) };
+  L.slack = Math.min(L.x1 - L.x0, L.y1 - L.y0) * .75; inkCache.set(key, L); return L; }
+// how deep a label sits in tri at pose (c, rot): the least over its ink of (depth - radius); and its box for overlaps
+// (first the box of the ink, its radii included: a convex house holds the ink if it holds the box's corners; when the box
+// just fails, the ink itself, point by point, which a turned box overstates at its corners)
+function poseDepth(tri, L, c, rot, need = 0) { const cs = Math.cos(rot), sn = Math.sin(rot); let m = Infinity;
+  for (const [x, y] of [[L.x0, L.y0], [L.x1, L.y0], [L.x1, L.y1], [L.x0, L.y1]]) { const q = depth(tri, [c[0] + x * cs - y * sn, c[1] + x * sn + y * cs]); if (q < m) m = q; }
+  if (m >= need || m < need - L.slack) return m;
+  m = Infinity; for (const [x, y, r] of L.P) { const q = depth(tri, [c[0] + x * cs - y * sn, c[1] + x * sn + y * cs]) - r; if (q < m) m = q; }
+  return m; }
+const poseBox = (L, c, rot) => { const d = [Math.cos(rot), Math.sin(rot)], n = [-d[1], d[0]], mx = (L.x0 + L.x1) / 2, my = (L.y0 + L.y1) / 2; return { c: add(add(c, d, mx), n, my), d, l: L.x1 - L.x0, t: L.y1 - L.y0 }; };
+const readable = d => { let rot = Math.atan2(d[1], d[0]); if (Math.cos(rot) < -1e-3 || (Math.abs(Math.cos(rot)) < 1e-3 && Math.sin(rot) < 0)) rot += Math.PI; return rot; };
+// The cusps lettered: each sign written along its line, just off it into the house it begins, reading left to right; its
+// degree after it, the sign red, the figures black, as Lilly prints "♍ 9·51". Every label is kept wholly inside its house
+// at least m px clear of every rule's ink (m: the rule's own width and a hair of paper): tried along the line from its
+// middle outward; if it will not go at its size it is written smaller, then with its degree alone, then without figures, then
+// left out, as a scribe leaves a crowded house. Returns the writing and each label's box (for the planets to keep clear of).
+const TS = Array.from({ length: 25 }, (_, i) => .14 + i * .03).sort((x, y) => Math.abs(x - .5) - Math.abs(y - .5));   // along the line, from its middle out
+function cuspWriting(cusps, houses, h, asc, seed, { degrees = true, col = 'r', m = 3 } = {}) {
+  const r = rng(seed, 'cusps'), els = [], rects = [], labels = [];
+  cusps.forEach(([a, b], k) => { const d = unit([b[0] - a[0], b[1] - a[1]]), tri = houses[k], hc = tri.reduce((s, p) => [s[0] + p[0] / 3, s[1] + p[1] / 3], [0, 0]);
+    let n = [-d[1], d[0]]; const mid = lerp(a, b, .5); if ((hc[0] - mid[0]) * n[0] + (hc[1] - mid[1]) * n[1] < 0) n = [-n[0], -n[1]];
+    const rot = readable(d), ly = [-Math.sin(rot), Math.cos(rot)], s = Math.sign(n[0] * ly[0] + n[1] * ly[1]) || 1, name = ZODIAC[(asc + k) % 12], deg = degrees ? degreeOf(r) : '';
+    let placed = null;
+    const dd = deg.split('·')[0];   // (the degree without its minutes, where the minutes will not go)
+    for (const [hh, txt] of [[h, deg], [h * .9, deg], [h, dd], [h * .9, dd], [h * .8, dd], [h, ''], [h * .85, ''], [h * .72, '']]) { if (hh < 6 || (txt && hh * .72 < 7)) continue;   // (figures never under 7 px)
+      const L = labelInk(name, hh, txt, col), off = m + (s > 0 ? -L.y0 : L.y1);   // (the least offset that clears the cusp line itself)
+      // (of the places along the line where it goes, the one farthest from the middle of the house: the room left there is
+      // for the house's planets)
+      for (const t of TS) { const c = add(lerp(a, b, t), n, off), q = poseDepth(tri, L, c, rot, m);
+        if (q >= m - .01) { const far = Math.hypot(c[0] - hc[0], c[1] - hc[1]); if (!placed || far > placed.far) placed = { c, rot, hh, txt, L, far }; } }
+      if (placed) break; }
+    if (!placed) return;
+    const el = writeCusp(placed.c, [Math.cos(placed.rot), Math.sin(placed.rot)], placed.rot, name, placed.hh, placed.txt, seed + k, col);
+    els.push(el); rects.push(poseBox(placed.L, placed.c, placed.rot)); labels.push({ house: k, el }); });
+  return { ...join(...els), rects, labels };
+}
+// oriented boxes { c, d (unit, along), l, t }: their corners, whether two overlap (separating axes, pad px apart)
 const corners = R => { const n = [-R.d[1], R.d[0]]; return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => add(add(R.c, R.d, i * R.l / 2), n, j * R.t / 2)); };
 function overlaps(A, B, pad = 1.5) {
   const ca = corners(A), cb = corners(B);
@@ -268,26 +319,10 @@ function overlaps(A, B, pad = 1.5) {
     if (Math.max(...pa) + pad < Math.min(...pb) || Math.max(...pb) + pad < Math.min(...pa)) return false; }
   return true;
 }
-function inside(tri, R) {   // the least distance of R's corners inside tri's edges (negative: outside)
-  const cw = Math.sign((tri[1][0] - tri[0][0]) * (tri[2][1] - tri[0][1]) - (tri[1][1] - tri[0][1]) * (tri[2][0] - tri[0][0]));
-  let m = Infinity; for (const p of corners(R)) for (let i = 0; i < 3; i++) { const a = tri[i], b = tri[(i + 1) % 3], e = unit([b[0] - a[0], b[1] - a[1]]);
-    m = Math.min(m, cw * ((p[0] - a[0]) * e[1] - (p[1] - a[1]) * e[0]) * -1); }
-  return m;
-}
-// a block of writing placed in a triangle where it fits best clear of what is written already: tried upright and along
-// each edge, over a grid; the place deepest inside the triangle wins (null if none clears m)
-function placeIn(tri, l, t, taken, m) {
-  const xs = tri.map(p => p[0]), ys = tri.map(p => p[1]), dirs = [[1, 0]];
-  for (let i = 0; i < 3; i++) { let e = unit([tri[(i + 1) % 3][0] - tri[i][0], tri[(i + 1) % 3][1] - tri[i][1]]); if (e[0] < -1e-3 || (Math.abs(e[0]) < 1e-3 && e[1] < 0)) e = [-e[0], -e[1]]; dirs.push(e); }
-  let best = null;
-  for (let a = 1; a < 11; a++) for (let b = 1; b < 11; b++) { const c = [Math.min(...xs) + (Math.max(...xs) - Math.min(...xs)) * a / 11, Math.min(...ys) + (Math.max(...ys) - Math.min(...ys)) * b / 11];
-    for (const d of dirs) { const R = { c, d, l, t }, q = inside(tri, R); if (q < m || (best && q <= best.q)) continue; if (taken.some(T => overlaps(R, T))) continue; best = { ...R, q }; } }
-  return best;
-}
 const degreeOf = r => String(1 + (r() * 29 | 0)) + '·' + String(r() * 60 | 0).padStart(2, '0');
 // a sign and its degree written along dir, centred on c (the sign in red, the figures black)
 function writeCusp(c, dir, rot, name, h, txt, seed, col = 'r') {
-  const sw = signWidth(name) * h * (SCALE[name] ?? 1), tw = txt ? textWidth(txt, h * .72, 'figures') : 0, gap = h * .25, tot = sw + (txt ? gap + tw : 0), start = add(c, dir, -tot / 2), els = [];
+  const sw = signWidth(name) * h * (SCALE[name] ?? 1), tw = txt ? textWidth(txt, h * .72, 'figures') : 0, gap = h * .18, tot = sw + (txt ? gap + tw : 0), start = add(c, dir, -tot / 2), els = [];
   els.push(sign(name, add(start, dir, sw / 2), h, { col, seed, rot }));
   if (txt) els.push({ marks: [], letters: [{ text: txt, c: add(start, dir, sw + gap + tw / 2), rot, size: h * .72, face: 'figures', col: 'k' }] });
   return join(...els);
@@ -295,17 +330,26 @@ function writeCusp(c, dir, rot, name, h, txt, seed, col = 'r') {
 // the square chart in a square box [x, y, S]: the ruling, the cusps lettered, planets in the four angles
 function squareChart(x, y, S, { W, seed, asc = 0, rich = .5, inner = .5 } = {}) {
   const g = S * (1 - inner) / 2, O = [x, y, x + S, y + S], I = [x + g, y + g, x + S - g, y + S - g];
-  const F = figureLines(O, I, W, seed), h = Math.max(7.5, S * .068);
-  const C = cuspWriting(F.cusps, F.houses, h, asc, seed, { degrees: rich >= .5 && h >= 9 }), els = [{ marks: F.marks }, C];
-  // the planets in their houses, each with its degree (Lilly's "♃ 27·15"), written small in black where it clears the
-  // cusps' writing and the ruling; a house that has no room for one is left as Lilly leaves an empty house. Only when the
-  // figure is large enough to write them (a planet's sign under ~9 px is a blot)
+  const F = figureLines(O, I, W, seed), h = Math.max(7.5, S * .068), m = W * 1.12 + 1.5 + .6;   // (from the rule's centre: its width, a hair of paper, and its bow)
+  const C = cuspWriting(F.cusps, F.houses, h, asc, seed, { degrees: rich >= .5 && h >= 9, m }), els = [{ marks: F.marks }, C], labels = [...C.labels];
+  // the planets in their houses, each with its degree (Lilly's "♃ 27·15"), written small in black where the whole of its
+  // ink clears the ruling and the cusps' writing: over a grid in the house, upright and along each edge, the deepest place
+  // wins; a house with no room is left empty, as Lilly leaves it. Only when the figure is large enough to write them (a
+  // planet's sign under ~9 px is a blot)
   const hp = h * .82;
   if (rich >= .25 && hp >= 9) { const r = rng(seed, 'planets'), names = [...PLANETS].sort(() => r() - .5).slice(0, rich >= .75 ? 7 : rich >= .5 ? 5 : 3), order = [...F.houses.keys()].sort(() => r() - .5), taken = [...C.rects];
-    for (const name of names) for (let i = 0; i < order.length; i++) { const k = order[i], deg = degreeOf(r), P = placeIn(F.houses[k], blockLen(name, hp, deg), hp * 1.1, taken, W * .8 + 1.2);
-      if (!P) continue; order.splice(i, 1); taken.push(P);
-      els.push(writeCusp(P.c, P.d, Math.atan2(P.d[1], P.d[0]), name, hp, deg, seed + 40 + k, 'k')); break; } }
-  return { ...join(...els), I };
+    for (const name of names) { const deg = degreeOf(r); let done = false;
+      for (const [sz, txt] of [[hp, deg], [hp * .9, deg], [Math.max(8.5, hp * .8), deg]]) { if (done) break; const L = labelInk(name, sz, txt, 'k');
+      for (let i = 0; i < order.length; i++) { const k = order[i], tri = F.houses[k], xs = tri.map(p => p[0]), ys = tri.map(p => p[1]), rots = [0];
+        for (let e = 0; e < 3; e++) { const q = readable([tri[(e + 1) % 3][0] - tri[e][0], tri[(e + 1) % 3][1] - tri[e][1]]); if (Math.abs(Math.cos(q)) > .3 && Math.abs(Math.sin(q)) > .3) rots.push(q); }   // (upright, or along a slanting edge: never on end)
+        let best = null; const cand = [];
+        for (let a = 1; a < 13; a++) for (let b = 1; b < 13; b++) { const c0 = [Math.min(...xs) + (Math.max(...xs) - Math.min(...xs)) * a / 13, Math.min(...ys) + (Math.max(...ys) - Math.min(...ys)) * b / 13], dq = depth(tri, c0); if (dq >= m + (L.y1 - L.y0) / 2) cand.push([dq, c0]); }   // (a place shallower than half the writing's height cannot hold it)
+        cand.sort((x, y) => y[0] - x[0]);   // (the deepest places first; the first that clears the house by a little more than m is taken)
+        // (c0: the middle of the writing's box; the overlap with what is written is tested first, being cheaper)
+        for (const [, c0] of cand) { for (const rot of rots) { const d = [Math.cos(rot), Math.sin(rot)], c = add(add(c0, d, -(L.x0 + L.x1) / 2), [-d[1], d[0]], -(L.y0 + L.y1) / 2), R = poseBox(L, c, rot); if (taken.some(T => overlaps(R, T, 1.2))) continue; const q = poseDepth(tri, L, c, rot, m); if (q < m || (best && q <= best.q)) continue; best = { c, rot, q, R }; } if (best && best.q >= m + 1) break; }
+        if (!best) continue; order.splice(i, 1); taken.push(best.R);
+        const el = writeCusp(best.c, [Math.cos(best.rot), Math.sin(best.rot)], best.rot, name, sz, txt, seed + 40 + k, 'k'); els.push(el); labels.push({ house: k, el }); done = true; break; } } } }
+  return { ...join(...els), I, chart: { houses: F.houses, rules: F.marks, labels, m } };
 }
 
 // ---- the volvelle --------------------------------------------------------------------------------------------------------
@@ -441,8 +485,11 @@ function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'square',
   // the day and the year there ("Anno: Dom: 1638")
   const ts = iS * .13, line = title && rich >= .5 && ts >= 8.5 ? String(title) : '', tw = line ? textWidth(line, ts, 'italic') : 0, fit = line ? Math.min(1, iS * .84 / tw) : 1;
   const cap = Math.min(iS * (line ? .6 : .74), iS * .9 / Math.max(.6, textWidth(ch, 1))), capBase = line ? iy0 + iS * .12 + cap : iy0 + iS / 2 + cap / 2;
-  const letters = [{ text: ch, x: cx, base: capBase, size: cap, col: 'r' }]; if (line) letters.push({ text: line, x: cx, base: iy0 + iS * .9, size: ts * fit, face: 'italic', col: 'k' });
-  return { ...join(F, { marks: [], letters }), width: S };
+  const mid = [[ix0, iy0], [ix1, iy0], [ix1, iy0 + iS], [ix0, iy0 + iS]], cl = { marks: [], letters: [{ text: ch, x: cx, base: capBase, size: cap, col: 'r' }] }, labels = [{ house: 'middle', el: cl }];
+  // the line under the capital, only where the whole of it clears the middle square's rules (else the capital alone)
+  if (line) { const al = { marks: [], letters: [{ text: line, x: cx, base: iy0 + iS * .9, size: ts * fit, face: 'italic', col: 'k' }] };
+    if (Math.min(...inkOf(al).map(([x, y, r]) => depth(mid, [x, y]) - r)) >= F.chart.m) labels.push({ house: 'middle', el: al }); else cl.letters[0] = { text: ch, x: cx, base: iy0 + iS / 2 + cap / 2, size: cap, col: 'r' }; }
+  return { ...join(F, ...labels.map(l => l.el)), width: S, chart: { ...F.chart, middle: mid, labels: [...F.chart.labels, ...labels] } };
 }
 initial.width = () => 1;
 initial.lines = 6;   // the figure's own depth: at 6 lines its cusps carry their degrees and its houses their planets (the host's data-lines rules)
@@ -459,7 +506,7 @@ const frames = {
   // a figure: set in the middle of a figure of heaven unrolled to its box: the twelve houses a band round it (three to a
   // side, the corners ruled in to the figure's), each house's sign and degree written along the band, the first house on
   // the left in its middle, counter-clockwise as the square figure numbers them
-  figure: (o) => o.form === 'octagon' ? octagonFrame(o) : housesFrame(o),
+  figure: (o) => o.form === 'houses' ? housesFrame(o) : octagonFrame(o),   // (the user's choice: Apian's octagon; ?figure=houses the band of houses)
 };
 // The figure in an octagon as Apian frames his volvelles (Astronomicum Caesareum, 1540): a double rule cut at the corners,
 // the band between its rules checkered as his degree rings are, broken at the head and the foot by a small ring holding

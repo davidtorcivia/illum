@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Astrology Check</title>
+<!-- The drop initial's writing measured against its ruling (run by tests/astrology.check.mjs): for seeds × depths (data-lines
+     4–8) × the specimen's two type sizes (1440: 20/32 px; 390: 18/27.9 px), every label's ink (kit/styles/astrology.js
+     inkOf: pen points with half the nib, polygon vertices, text ink boxes from the face's metrics) is tested
+       inside:  wholly inside its own house (or the middle square), every point at depth > its radius;
+       clear:   at least the rule's width + 1.5 px from the centre line of every rule as drawn (its bow and wander included),
+                less the point's own radius;
+       apart:   no two labels' ink nearer than 1 px.
+     Results in document.body.dataset.result (JSON). ?theme=light|dark -->
+<style>:root { color-scheme: light; } :root[data-theme=dark] { color-scheme: dark; } html { background: #f4eee2; } :root[data-theme=dark] html, :root[data-theme=dark] body { background: #1c1916; color: #ddd; } body { font: 14px/1.4 ui-monospace, monospace; padding: 16px; margin: 0; } pre { white-space: pre-wrap; }</style>
+</head>
+<body><pre id="out">measuring…</pre>
+<script type="module">
+import S, { loadFace, inkOf } from '../kit/styles/astrology.js';
+const q = new URLSearchParams(location.search); document.documentElement.dataset.theme = q.get('theme') === 'dark' ? 'dark' : 'light';
+await loadFace(); await document.fonts.load('400 20px "EB Garamond"').catch(() => {});
+const seg = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)); return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+const sizes = [['1440', 20, 32], ['390', 18, 27.9]], cap = .65, seeds = Array.from({ length: +(q.get('seeds') ?? 12) }, (_, i) => 1 + i * 7919);
+let charts = 0, labels = 0, bad = [], minClear = Infinity, minDepth = Infinity, minApart = Infinity, dropped = 0;
+for (const [wname, fs, lh] of sizes) for (let n = 4; n <= 8; n++) for (const seed of seeds) {
+  const Sz = (n - 1) * lh + fs * cap, u = fs * .42, G = { box: [10, 10, 10 + Sz, 10 + Sz] }, I = S.initial({ ch: 'B', G, big: true, rich: .5, seed, set: 'square', u, title: 'Anno Dom: 1853' }), C = I.chart; charts++;
+  const W = Math.max(1.3, Sz * .0105), need = W + 1.5, rules = C.rules.map(m => m.pts), inks = C.labels.map(l => inkOf(l.el));
+  dropped += 12 - C.labels.filter(l => l.house !== 'middle' && l.el.letters.length + l.el.marks.length && C.labels.indexOf(l) < 12).length;
+  C.labels.forEach((l, i) => { labels++; const poly = l.house === 'middle' ? C.middle : C.houses[l.house];
+    for (const [x, y, r] of inks[i]) {
+      const d = S.depth ? 0 : 0; void d;
+      let dep = Infinity; { const cw = Math.sign((poly[1][0] - poly[0][0]) * (poly[2][1] - poly[0][1]) - (poly[1][1] - poly[0][1]) * (poly[2][0] - poly[0][0]));
+        for (let e = 0; e < poly.length; e++) { const a = poly[e], b = poly[(e + 1) % poly.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]); dep = Math.min(dep, -cw * ((x - a[0]) * (b[1] - a[1]) - (y - a[1]) * (b[0] - a[0])) / L); } }
+      let cl = Infinity; for (const P of rules) for (let k = 1; k < P.length; k++) cl = Math.min(cl, seg([x, y], P[k - 1], P[k]));
+      const clear = cl - r - need, depthR = dep - r; minClear = Math.min(minClear, clear); minDepth = Math.min(minDepth, depthR);
+      if (clear < 0 || depthR < 0) { bad.push({ w: wname, lines: n, seed, house: l.house, what: l.el.letters.map(t => t.text ?? (t.polys ? 'sign' : 'dot')).join(' ') + (l.el.marks.length ? ' +pen' : ''), clear: +clear.toFixed(2), depth: +depthR.toFixed(2) }); break; } } });
+  for (let i = 0; i < inks.length; i++) for (let j = i + 1; j < inks.length; j++) { let md = Infinity; for (const a of inks[i]) for (const b of inks[j]) md = Math.min(md, Math.hypot(a[0] - b[0], a[1] - b[1]) - a[2] - b[2]);
+    minApart = Math.min(minApart, md); if (md < 1) bad.push({ w: wname, lines: n, seed, apart: [C.labels[i].house, C.labels[j].house], d: +md.toFixed(2) }); }
+}
+const res = { charts, labels, violations: bad.length, minClear: +minClear.toFixed(2), minDepth: +minDepth.toFixed(2), minApart: +minApart.toFixed(2), first: bad.slice(0, 12) };
+document.getElementById('out').textContent = JSON.stringify(res, null, 1); document.body.dataset.result = JSON.stringify(res); document.body.dataset.timing = 'drawn';
+</script>
+<script type="module" src="../kit/theme-toggle.js"></script>
+</body>
+</html>

@@ -77,9 +77,14 @@ test, as polygons).
 - Drop initial (the user's choice, C: the square figure, 6 lines deep by the style's own `initial.lines`; the host's
   data-lines rules): the IM FELL capital in red in the middle square, under it a line in the italic as Lilly writes the
   day there ("Anno Dom: 1853", `title`); each of the twelve cusps' signs in red along its line with its degree in black;
-  five planets with their degrees written small in the houses, each placed by a search over the triangle (upright or
-  along an edge) where it lies deepest clear of the cusps' writing and the ruling (a house with no room stays empty, as
-  Lilly's do). Under ~9 px a planet would be a blot: on a phone the figure keeps its cusps only. ?set=volvelle: the round
+  planets with their degrees written small in the houses where they fit. Every label is kept wholly inside its house,
+  its ink (inkOf: pen points with their nib, polygon vertices, the text's ink box from the face's metrics) at least the
+  rule's width + 1.5 px (and its bow) from every rule's centre: a cusp's label is tried along its line; if it will not go
+  it is written smaller, then with its degree alone, then without figures, then left out; a planet is tried over a grid
+  in the house, upright or along a slanting edge, clear of what is written; a house with no room stays empty, as Lilly's
+  do. Figures never under 7 px; under ~9 px a planet would be a blot, so on a phone the figure keeps its cusps only.
+  tests/astrology.check.mjs (with tests/astrology-check.html) measures every label against the drawn rules and its house
+  over 12 seeds × data-lines 4–8 × the 1440 and 390 type sizes: 0 crossings. ?set=volvelle: the round
   form, a ring of the signs round a checkered degree ring.
 - The signs: the zodiac traced from the Clavis woodcut (♋ ♎ ♑ pen-written in its proportions); the planets ☉ ☽ ☿ ♀ ♂ ♃ ♄ ☊
   pen-written in the forms of Lilly's ephemeris head (traced from its 45 px type they were blots above 20 px); the five
@@ -95,10 +100,9 @@ test, as polygons).
   (and a hair either side), its edge one pen stroke out to the point and back; a rivet at the centre, the lines stopping
   at it.
 - Frames: code, Lilly's ephemeris head (thick and thin rules; the day column; eight planets in red each headed M and D, or
-  A, over their signs; two days' rows of degrees and minutes in the planets' own motions, a rule under them); figure, two
-  forms for the user (?figure=houses: the twelve houses unrolled into a band round the figure, my abstraction of the
-  square chart; ?figure=octagon: Apian's octagon, its band checkered as his degree rings, broken at head and foot by a
-  small ring with the chapter's sign and its opposite); pull quote, two arcs of a checkered ring broken by signs;
+  A, over their signs; two days' rows of degrees and minutes in the planets' own motions, a rule under them); figure, Apian's
+  octagon (the user's choice), its band checkered as his degree rings, broken at head and foot by a small ring with the
+  chapter's sign and its opposite (?figure=houses: the twelve houses unrolled into a band round the figure); pull quote, two arcs of a checkered ring broken by signs;
   quotation, the table's thick-and-thin ruling; aside, a NOTA head band between aspect signs; contents, the ephemeris's
   day column.
 - Palette: light k [56 42 32], r [178 62 36]; dark k [226 214 194], r [236 120 86].

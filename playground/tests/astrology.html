@@ -15,7 +15,7 @@
   ?draw writes it as you read (each case when its line comes 15% into view; never scrolls); ?theme=light|dark; ?rich=0..1;
   #seed=n; ?set=square|volvelle (the drop initial: the square figure of heaven, or the round volvelle); ?lines=n (the
   drop's depth; the style's own is 6); ?title= (the line under the capital, 'Anno Dom: 1853');
-  ?figure=houses|octagon (the figure's frame: the houses unrolled round it, or Apian's checkered octagon); ?audit.
+  ?figure=octagon|houses (the figure's frame: Apian's checkered octagon, the default; or the houses unrolled round it); ?audit.
 -->
 <style>
   @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
@@ -40,7 +40,7 @@
   blockquote { margin: 3em 0 1.6em; padding: 0 1.3em 0 1.4em; }
   blockquote p { margin: 0 0 .3em; }
   blockquote footer { font-style: italic; font-size: .9em; text-align: right; margin-top: .9em; }
-  figure { margin: 4.4em auto 2em; max-width: 24em; }
+  figure { margin: 4.4em auto 4.4em; max-width: 24em; }   /* (room for the octagon's foot and its ring) */
   figure svg { display: block; width: 100%; height: auto; }
   figure svg g { stroke: var(--ink); }
   figure svg rect[fill] { fill: var(--ink); }
@@ -196,7 +196,7 @@ function compose() {
   art.querySelectorAll('nav').forEach((nav, k) => { const list = nav.querySelector('ol'), nbx = rel(list, o), side = nbx[0] > 60;
     push(nav, () => F.nav({ box: nbx, entries: [...nav.querySelectorAll('li')].map(li => linesOf(li, o)[0]), x: nbx[0] - u * 5.6, u, seed: s(1 + k), rich: RICH, side })); });
   art.querySelectorAll('blockquote').forEach((bq, k) => push(bq, () => F.quote({ box: rel(bq, o), u, seed: s(10 + k), rich: RICH })));
-  art.querySelectorAll('figure').forEach((f, k) => push(f, () => { const c = f.querySelector('figcaption'); return F.figure({ box: rel(f.querySelector('svg'), o), cap: c && rel(c, o)[3], u, seed: s(20 + k), rich: RICH, n: chapterOf(f) || 1, limit: [0, o.width], form: q.get('figure') ?? 'houses' }); }));
+  art.querySelectorAll('figure').forEach((f, k) => push(f, () => { const c = f.querySelector('figcaption'); return F.figure({ box: rel(f.querySelector('svg'), o), cap: c && rel(c, o)[3], u, seed: s(20 + k), rich: RICH, n: chapterOf(f) || 1, limit: [0, o.width], form: q.get('figure') ?? 'octagon' }); }));
   art.querySelectorAll('aside').forEach((a, k) => push(a, () => F.aside({ box: rel(a, o), u, seed: s(30 + k), rich: RICH, n: chapterOf(a) || 1 })));
   art.querySelectorAll('.pull').forEach((p, k) => { const L = linesOf(p, o); push(p, () => F.pull({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 1.6, yBot: L.at(-1).base + u * 2.2, measure, u, seed: s(40 + k), rich: RICH, n: (chapterOf(p) + 11) % 12 })); });
   art.querySelectorAll('pre').forEach((p, k) => push(p, () => F.code({ box: rel(p, o), u, seed: s(50 + k), rich: RICH, n: chapterOf(p) || 1 })));
