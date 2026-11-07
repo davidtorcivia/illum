@@ -8,7 +8,7 @@ import { homedir } from 'node:os';
 export function launch() {
   const pw = homedir() + '/.cache/ms-playwright', dir = readdirSync(pw).filter(d => /^chromium-\d+$/.test(d)).sort().pop();
   return puppeteer.launch({ executablePath: process.env.ILLUM_CHROME ?? `${pw}/${dir}/chrome-linux64/chrome`,
-    args: ['--no-sandbox', '--use-angle=vulkan', '--enable-gpu', '--ignore-gpu-blocklist', '--hide-scrollbars'] });
+    args: ['--no-sandbox', `--use-angle=${process.env.ILLUM_ANGLE ?? 'vulkan'}`, '--enable-gpu', '--ignore-gpu-blocklist', '--hide-scrollbars'] });
 }
 // a page at a viewport, dark or light by the system's scheme, its errors printed
 export async function open(b, { width = 1440, height = 1000, dpr = 1, dark = false } = {}) {
