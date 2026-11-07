@@ -24,10 +24,10 @@ const GLYPHS = {
   vB: { f: 'kelmscott-vine-vB.woff2', c: "B", a: 1.0031, w: 0.0097, k: null },   // 4764 B; IA MorrisChaucer leaf n313 [990,773,1640,1421]
   vA: { f: 'kelmscott-vine-vA.woff2', c: "A", a: 0.9842, w: 0.0153, k: null },   // 2908 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n16 [279,364,466,554]
   vC: { f: 'kelmscott-vine-vC.woff2', c: "C", a: 0.9948, w: 0.0111, k: null },   // 3284 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n421 [1299,973,1489,1164]
-  vD: { f: 'kelmscott-vine-vD.woff2', c: "D", a: 1.0, w: 0.0156, k: null, m: 1 },   // 2320 B; composed: letter tD.json (type) on the ground of vO.json
-  vE: { f: 'kelmscott-vine-vE.woff2', c: "E", a: 0.9944, w: 0.0111, k: null, m: 1 },   // 3392 B; composed: letter tE.json (type) on the ground of vC.json
+  vD: { f: 'kelmscott-vine-vD.woff2', c: "D", a: 0.96, w: 0.011, k: null, m: 1 },   // 3496 B; composed: K's stem and the vine left of it (n415), and C's bowl turned to face it (n421)
+  vE: { f: 'kelmscott-vine-vE.woff2', c: "E", a: 0.99, w: 0.011, k: null, m: 1 },   // 3740 B; composed: C (n421) with A's cross-bar and the vine round it (n16)
   vF: { f: 'kelmscott-vine-vF.woff2', c: "F", a: 0.8587, w: 0.0121, k: null },   // 2840 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n428 [62,1253,220,1437]
-  vG: { f: 'kelmscott-vine-vG.woff2', c: "G", a: 0.9944, w: 0.0111, k: null, m: 1 },   // 3360 B; composed: letter tG.json (type) on the ground of vC.json
+  vG: { f: 'kelmscott-vine-vG.woff2', c: "G", a: 0.99, w: 0.011, k: null, m: 1 },   // 3668 B; composed: C (n421) with the foot of P's stem and its vine for its beard (n248)
   vH: { f: 'kelmscott-vine-vH.woff2', c: "H", a: 0.9904, w: 0.0066, k: null },   // 5520 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n101 [1065,312,1373,623]
   vI: { f: 'kelmscott-vine-vI.woff2', c: "I", a: 0.8707, w: 0.01, k: null },   // 4376 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n362 [78,344,354,661]
   vK: { f: 'kelmscott-vine-vK.woff2', c: "K", a: 0.9577, w: 0.0132, k: null },   // 3312 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n415 [1279,1221,1460,1410]
@@ -36,14 +36,14 @@ const GLYPHS = {
   vN: { f: 'kelmscott-vine-vN.woff2', c: "N", a: 0.7958, w: 0.0131, k: null },   // 2788 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n212 [83,1422,235,1613]
   vO: { f: 'kelmscott-vine-vO.woff2', c: "O", a: 1.0, w: 0.0156, k: null },   // 2468 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n98 [163,556,355,748]
   vP: { f: 'kelmscott-vine-vP.woff2', c: "P", a: 0.9731, w: 0.0134, k: null },   // 2948 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n248 [804,2042,985,2228]
-  vQ: { f: 'kelmscott-vine-vQ.woff2', c: "Q", a: 1.0, w: 0.0156, k: null, m: 1 },   // 2540 B; composed: letter sQ.json (two-line, colours turned) on the ground of vO.json
-  vR: { f: 'kelmscott-vine-vR.woff2', c: "R", a: 0.9733, w: 0.0134, k: null, m: 1 },   // 2996 B; composed: letter sR.json (two-line, colours turned) on the ground of vP.json
+  vQ: { f: 'kelmscott-vine-vQ.woff2', c: "Q", a: 1.0, w: 0.011, k: null, m: 1 },   // 3048 B; composed: O (n98) with K's leg and its vine for its tail (n415)
+  vR: { f: 'kelmscott-vine-vR.woff2', c: "R", a: 0.97, w: 0.011, k: null, m: 1 },   // 3424 B; composed: P (n248) with K's leg and its vine (n415)
   vS: { f: 'kelmscott-vine-vS.woff2', c: "S", a: 0.9937, w: 0.0079, k: null },   // 5240 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n137 [393,1217,706,1532]
   vT: { f: 'kelmscott-vine-vT.woff2', c: "T", a: 0.9945, w: 0.0098, k: null },   // 3152 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n95 [1113,1482,1295,1665]
   vV: { f: 'kelmscott-vine-vV.woff2', c: "V", a: 0.9788, w: 0.0159, k: null },   // 2652 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n276 [830,1903,1015,2092]
-  vW: { f: 'kelmscott-vine-vW.woff2', c: "W", a: 0.8722, w: 0.016, k: null, m: 1 },   // 2508 B; composed: letter tW.json (type) on the ground of vM.json
-  vX: { f: 'kelmscott-vine-vX.woff2', c: "X", a: 0.9578, w: 0.0132, k: null, m: 1 },   // 3376 B; composed: letter tX.json (type) on the ground of vK.json
-  vY: { f: 'kelmscott-vine-vY.woff2', c: "Y", a: 0.9789, w: 0.0159, k: null, m: 1 },   // 2648 B; composed: letter tY.json (type) on the ground of vV.json
+  vW: { f: 'kelmscott-vine-vW.woff2', c: "W", a: 1.0127, w: 0.008, k: null },   // 5524 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n375 [569,343,887,657]
+  vX: { f: 'kelmscott-vine-vX.woff2', c: "X", a: 0.98, w: 0.011, k: null, m: 1 },   // 4884 B; composed: K's arm and leg with their vine (Chaucer n415), and their mirror, joined at the crossing
+  vY: { f: 'kelmscott-vine-vY.woff2', c: "Y", a: 0.98, w: 0.011, k: null, m: 1 },   // 4676 B; composed: the upper half of our X (K's arm and its mirror, n415) over I's stem and its vine (n362)
   vZ: { f: 'kelmscott-vine-vZ.woff2', c: "Z", a: 1.0326, w: 0.0158, k: null },   // 2840 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n96 [931,1289,1121,1473]
   sB: { f: 'kelmscott-two-sB.woff2', c: "B", a: 1.0962, w: 0.0172, k: null },   // 3004 B; IA MorrisChaucer leaf n125 [3636,2244,3978,2556]
   sA: { f: 'kelmscott-two-sA.woff2', c: "A", a: 0.9756, w: 0.0251, k: null },   // 2168 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n21 [1297,738,1377,820]
@@ -145,9 +145,11 @@ function silhouette(L) {
 // in a black square thick with vine), and the two-line initials (s*: a black letter edged in white with a white leaf in its
 // counter, on a scalloped ground). A drop deeper than 6 x-heights takes the white-vine block, a shallower one or a letter in
 // the line the two-line block; each the other where its own is not cut. J is set as I and U as V, as the Chaucer sets
-// them. Morris cut no white-vine D, E, G, Q, R, W, X or Y that survives in the books searched: those blocks (m: 1 in GLYPHS)
-// are composed by us from his own cutting (tools/kcompose.py: the letter his Chaucer type's capital, or his two-line
-// capital with its colours turned; the ground one of his white-vine blocks, its letter cut away). Every letter has a block;
+// them. The W is his large white-vine W (the Chaucer's Boece, "Weestow"). Morris cut no white-vine D, E, G, Q, R, X or Y
+// that survives in the books searched: those blocks (m: 1 in GLYPHS) are grafted by us from pieces of his own blocks,
+// each a letter's part with the vine round it (tools/kgraft.py: X from K's arm and leg and their mirror; D from K's stem and
+// C's bowl turned; E from C and A's cross-bar; G from C and P's stem; Q from O and K's leg; R from P and K's leg; Y from the
+// X's head over I's stem), joined along seams of least difference through the black. Every letter has a block;
 // a capital of the page's face in red stays only as the fallback for a character outside A–Z.
 const ALIAS = { J: 'I', U: 'V' };
 const letterOf = ch => String(ch).normalize('NFD')[0].toUpperCase();

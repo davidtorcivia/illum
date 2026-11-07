@@ -108,25 +108,32 @@ Found by detecting every initial block in eleven Kelmscott scans and reading the
 line beside the block; the letter is the one that makes the word). The two-line series turns up in all the later books;
 the white-vine series only in the Chaucer, and in it no D, E, G, Q, R, W, X or Y was found.
 
-**Composed by us** (tools/kcompose.py; GLYPHS m: 1; captioned "composed by us" on tests/kelmscott-letters.html). Nothing
-in them is drawn: the letter is traced from Morris (his Chaucer type's capital, ~26 px in the BPL scan: D n36 "Duc",
-E n15 "Everich", G n36 "God", W n15 "Wel", X n366 "Metre X.", Y n36 "Yemen"; or his two-line capital with its colours
-turned: Q, R); the ground is one of his white-vine blocks (D, Q on O; E, G on C; R on P; W on M; X on K; Y on V), its
-own letter cut away (the white wider than ~3 % of the height, grown back to its edge), the new letter laid in its place
-thinned 1.2 % of the height toward his strokes' weight with a black line round it, his vine showing through its counters,
-the stubs the cut leaves filled, bare black seeded with the donor's own round dots.
+**Round four (the user: the composed letters "jumped out ... messy and undetailed").** The type-capital-on-vine method
+(tools/kcompose.py, removed) is replaced:
 
-| letter | white-vine | two-line |
-|---|---|---|
-| A B C F H I K L M N O P S T V Z | Morris | A B E F G H I K L M N O P Q R S T V W Y Morris |
-| D E G Q R W X Y | composed by us | — |
-| C D X Z (two-line) | — | the white-vine block (C, Z Morris's; D, X ours) |
-| J, U | I's and V's blocks (the Chaucer's own practice) | the same |
+- **W is Morris's own:** the Chaucer's large white-vine W (BPL n375, Boece, "WEESTOW", [569,343,887,657]), found by sweeping
+  the Chaucer's other initial series. It is his gothic W (the same form as his two-line W); there is no Roman-form W in
+  his initials.
+- **D E G Q R X Y are grafted** (tools/kgraft.py; GLYPHS m: 1): each made only of whole pieces of his six-line blocks, a
+  letter's part with the vine that grows round it, joined along seams of least difference run through the black (Efros &
+  Freeman's quilting seam), at 700 px a block, then refitted into the font like his own. Nothing is drawn, smoothed or
+  outlined; the spurs, hairlines, stems ending in buds and the dots are all his.
 
-What falls short in the composed letters: their capitals are plainer than Morris's (his are cut with black spurs and
-hairlines inside the white and grow their vine from the letter; ours stand in the vine with a black line round them, and
-some stems end at that line); D and E still read a little heavy beside his. The type capitals are small in the scan (~26 px),
-so their edge is the smoothing's, not the type's.
+| letter | made from (Chaucer, BPL leaf) |
+|---|---|
+| X | K's arm and leg with their vine (n415), and their mirror, joined at the crossing; brought back to his width (×.73) |
+| Y | the head of that X over I's stem and its vine (n362) |
+| D | K's stem and the vine left of it (n415), and C's bowl turned to face it (n421) |
+| E | C (n421) with A's cross-bar and the vine round it (n16) |
+| G | C (n421) with the foot of P's stem and its vine for its beard (n248) |
+| Q | O (n98) with K's leg and its vine for its tail (n415) |
+| R | P (n248) with K's leg and its vine (n415) |
+
+Tried and dropped: guided image quilting (Efros & Freeman's texture transfer from all sixteen blocks onto a drawn letter
+guide, tools/kquilt.py, removed): the vine came out in fragments, not stems.
+
+What still shows (blind sheet test-pagesize-*.png): X and Y are mirror-symmetric where Morris's blocks never are; E's bar
+is a short ragged bar crossed by vine; G's beard reads weakly (it can read as C); D's bowl carries C's inner curl.
 
 **Breaks:** all three kept, by role (?break=all, the default): a book's break the grape foot; a chapter's the rose foot and
 the rose foot mirrored in turn (n odd: the rose, n even: the mirror). tests/kelmscott-long.html shows five.
