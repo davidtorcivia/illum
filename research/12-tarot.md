@@ -118,6 +118,13 @@ pooling is taken back out of the stencil masks (gouache through a stencil has no
 - Breaks: chapter, the numeral band with the chapter's number, the chapter's suit standing either side; book, two
   batons crossed in a flat saltire running into the woven lozenge that binds them (strips over and under, pale blue,
   red points in the holes, yellow collars at its edges), the title band with the book's number below.
+- Small pips (third pass, after the user asked): below a coin's diameter of 32 px and a cup's height of 32 px the pip is
+  cut as the cartiers cut it small (the coins of the Valet de deniers, c035; the cups of the Cavalier and Valet de coupe,
+  c053, c055), not shrunk: the coin keeps its bold ring, an inner ring cut in eight deep scallops (the valet's ring of
+  round lobes; a plain ring under 20 px, where a scallop cannot show), a large red heart with an upright cross of four
+  petal-shaped cuts; the cup keeps its wide lip red inside, a short round bowl with two or three bold gadroons, a round
+  knop stencilled red (the Cavalier's) and the spreading foot. The line is about a sixth of the radius, never under
+  1.2 px. The contents' pips were raised to 16 px. Sheet: tests/tarot-small.html (16, 20, 24, 32 px).
 - The bell: the flared, solid end of a baton and the pommel of a sword pip (c013, c087), printed black in register with
   the line; sides curving out slowly then fast to a broad, shallowly hollowed mouth, a sword's swept to one side; on a
   large one the wood's grain cut through the black in light streaks. The sword is the pip cards' hilt: blade, an oval
@@ -132,8 +139,7 @@ pooling is taken back out of the stencil masks (gouache through a stencil has no
   (lighter than the text, as the print's thin ink is); dark, the line a warm pale ink and the stencil colours deepened
   toward their mass tones so they sit under it.
 
-What falls short (at the 4× gate against the sources): a paraph-sized pip (~20 px) cannot carry the card's detail (the
-coin loses its scallop and rose, the cup its gadroons), and its line is relatively ~5× heavier than the card's; the
+What falls short (at the 4× gate against the sources): a paraph-sized pip's line is relatively ~5× heavier than the card's; the
 stencil colour is more even than Conver's streaky lemon and vermilion; the drop initial is a bare card beside a printed
 figure (a letter cannot be a figure; the contour setting brings colour in); long rules are written in lengths a dip
 carries, broken at their corners and otherwise only every ~480 px, so the pen pools only where a cutter would stop; a wide capital (M, W) is shrunk to fit the card's fixed 0.66 width;

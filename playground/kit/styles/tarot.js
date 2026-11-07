@@ -77,6 +77,7 @@ const fill = (col, polys, lines = []) => ({ col, polys, lines });
 // coin (denier): concentric rings, the scalloped band between them, the four-petalled rose in the middle with a red heart
 // (c043, c047); yellow. At a small size only the rings and the heart (what can be cut at that size).
 function coin(c, R, W, seed = 0) {
+  if (R < 16) return smallCoin(c, R, W, seed);
   const marks = [cut(ring(c, R), W, { seed })], fills = [fill('y', [ring(c, R)])];
   if (R >= 7) marks.push(cut(ring(c, R * .6, R * .6, -Math.PI / 4), W * .85, { seed: seed + 1 }));
   if (R >= 13) {   // the scalloped band and the rose
@@ -89,10 +90,48 @@ function coin(c, R, W, seed = 0) {
   } else fills.push(fill('r', [ring(c, R * (R >= 7 ? .26 : .3))]));
   return { marks, fills };
 }
+// ---- the small pips: cut as the cartiers cut them small ----------------------------------------------------------------------
+// Not the large drawing shrunk: on the courts' coins and cups (Valet de deniers c035, Cavalier and Valet de coupe c053,
+// c055) the cutter kept a pip's few strong signs and let the rest go. The line is kept in proportion (about a sixth of the
+// radius, never under 1.2 px) so a small pip is not a blot.
+// The small coin: the bold outer ring; an inner ring cut in a few deep scallops, where the large coin has its scalloped
+// band (the valet's coin reduces that band to a ring of round lobes); a clear rose at the middle, an upright cross of four
+// petal-shaped cuts on the red heart. Yellow, the heart red. Below a radius of 7 only the ring and the heart.
+function smallCoin(c, R, W, seed = 0) {
+  const w = Math.max(1.2, Math.min(W, R * .17)), marks = [cut(ring(c, R), w * 1.1, { seed, wob: .06 })], fills = [fill('y', [ring(c, R)])];
+  if (R < 7) { fills.push(fill('r', [ring(c, R * .34)])); return { marks, fills }; }
+  // the band reduced to a ring of round lobes (the valet's coin): the inner line cut in eight scallops bulging out; on a
+  // coin too small for a scallop to show (under 10 px across a lobe's width), a plain ring
+  const n = 8, a0 = (seed % 7) * .07, r1 = R * .6, amp = R >= 10 ? R * .13 : 0;
+  marks.push(cut(Array.from({ length: 129 }, (_, k) => { const a = -Math.PI / 2 + k / 128 * TAU * 1.02, r = r1 + amp * (Math.abs(Math.cos((a - a0) * n / 2)) ** .55 - .5); return [c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]; }), w * .95, { seed: seed + 1, wob: .04 }));
+  // the rose: a cross of four short cuts, upright, each swelling and pointed like a petal, on the red heart
+  const rr = R * .4;
+  for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2, d = [Math.cos(a), Math.sin(a)]; marks.push(cut([add(c, d, rr * .12), add(c, d, rr * .9)], Math.max(1.2, w * 1.05), { seed: seed + 20 + k, wob: 0, taper: [rr * .25, rr * .45] })); }
+  fills.push(fill('r', [ring(c, rr)]));
+  return { marks, fills };
+}
+// The small cup: the wide lip, red inside; a short bowl tapering to its waist, two bold gadroon cuts down it (three when
+// there is room); the knop, a clear round knob stencilled red as on the Cavalier's cup; the foot spreading to a broad
+// base. Yellow. s: its height; c: the middle of its base
+function smallCup(c, s, W, seed = 0) {
+  const [x, b] = c, w = Math.max(1.2, Math.min(W, s * .075)), top = b - s, lr = s * .34, lry = s * .09, ly = top + lry + w * .3;
+  const wb = top + s * .5, kr = Math.max(s * .1, w * 1.45), ky = wb + kr * .9, fy = ky + kr * .8, fr = s * .3;
+  const mirror = P => P.slice().reverse().map(p => [2 * x - p[0], p[1]]);
+  const bowl = bez([x - lr, ly], [x - lr * .97, top + s * .38], [x - s * .2, wb], [x - s * .07, wb], 10);
+  const foot = bez([x - s * .05, fy], [x - s * .06, b - s * .16], [x - fr * .7, b - s * .05], [x - fr, b], 8);
+  const lip = ring([x, ly], lr, lry, Math.PI), body = [...bowl, ...mirror(bowl)], footP = [...foot, ...mirror(foot)];
+  const marks = [cut(lip, w, { seed, wob: .05 }), cut(body, w, { seed: seed + 1, wob: .05 }), cut(ring([x, ky], kr * .9, kr), w * .9, { seed: seed + 2, wob: 0 }),
+    cut([...foot, ...mirror(foot)], w, { seed: seed + 3, wob: .05 }), cut([[x - fr, b], [x + fr, b]], w, { seed: seed + 4, wob: 0 })];
+  // the gadroons: bold cuts down the bowl from under the lip, following its taper
+  const gs = s >= 22 ? [-.55, 0, .55] : [-.45, .45];
+  for (const g of gs) marks.push(cut([[x + g * lr * .8, ly + lry + w * .6], [x + g * s * .1, wb - w * .4]], Math.max(1.2, w * .9), { seed: seed + 6 + g * 3, wob: 0 }));
+  return { marks, fills: [fill('y', [body, footP]), fill('r', [ring([x, ly], lr * .9, lry * .78), ring([x, ky], kr * .9, kr)])] };
+}
 // cup (coupe): a footed cup seen from the side (c059, c065): the lip a wide ellipse, red inside; a deep round bowl,
 // gadrooned (ribbed) where it is large enough to cut; a knop and a short stem; a faceted foot spreading to a broad base.
 // Yellow. s: its height; c: the middle of its base
 function cup(c, s, W, seed = 0) {
+  if (s < 32) return smallCup(c, s, W, seed);
   const [x, b] = c, top = b - s, lr = s * .31, ly = top + s * .08, bowlB = top + s * .5, kn = top + s * .57, fr = s * .27, ft = b - s * .2;
   const mirror = P => P.slice().reverse().map(p => [2 * x - p[0], p[1]]);
   const bowl = bez([x - lr, ly], [x - lr * 1.12, top + s * .32], [x - s * .2, bowlB], [x - s * .045, bowlB], 16), bowlP = [...bowl, ...mirror(bowl)];
@@ -494,7 +533,7 @@ const frames = {
     if (side) els.push(baton([x, box[1] - u * 1.8], [x, box[3] + u * 1.6], u * .55, W, seed));
     else els.push(baton([box[0] - u * .2, box[1] - u * 1.6], [Math.min(box[2], box[0] + u * 26), box[1] - u * 1.6], u * .5, W, seed));
     entries.forEach((e, k) => { const px = side ? x + u * 2.5 : box[0] - u * 1.5, s = SUITS[k % 4];
-      els.push(s === 'coin' ? coin([px, e.base - u * .5], u * .78, W, seed + k) : s === 'cup' ? cup([px, e.base + u * .3], u * 1.8, W, seed + k)
+      els.push(s === 'coin' ? coin([px, e.base - u * .5], u * .95, W, seed + k) : s === 'cup' ? cup([px, e.base + u * .35], u * 2, W, seed + k)
         : s === 'sword' ? sword([px + u * .1, e.base - u * .1], u * 2, W, seed + k, .5, { b: u * .16, g: u * .48 }) : baton(rot([px, e.base + u * .4], [px, e.base - u * .5], .55), rot([px, e.base - u * 1.4], [px, e.base - u * .5], .55), u * .36, W, seed + k)); });
     return join(...els); },
 };

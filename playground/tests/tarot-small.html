@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tarot small pips</title>
+<!--
+  The small coin and cup (kit/styles/tarot.js smallCoin, smallCup) at 16, 20, 24 and 32 px, laid by the same engine as
+  tests/tarot.html, for the side-by-side sheets at 1x and 4x. ?theme=dark; #seed=n.
+-->
+<style>
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; color-scheme: light; }
+  :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); color-scheme: dark; }
+  html { background: var(--paper); } body { margin: 0; color: var(--ink); font: 13px/1.3 sans-serif; }
+  .sheet { position: relative; width: 300px; height: 160px; }
+  .sheet > canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .lab { position: absolute; opacity: .55; }
+</style>
+</head>
+<body>
+<main class="sheet"><canvas id="bake" aria-hidden="true"></canvas></main>
+<script type="module">
+import { createWriter } from '../kit/writer.js';
+import { inkLetter, warmInk } from '../kit/inkletter.js';
+import S, { loadFace, printOf } from '../kit/styles/tarot.js';
+const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark';
+if (dark) document.documentElement.dataset.theme = 'dark';
+const sheet = document.querySelector('.sheet'), bk = document.getElementById('bake'), DPR = Math.min(2, devicePixelRatio || 1), RES = DPR >= 1.5 ? 2 : 1;
+const P = S.palette[dark ? 'dark' : 'light'], X = S.pips, seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+const writer = createWriter(sheet, bk.getContext('2d'), { dpr: DPR, dark }); warmInk(DPR);
+await loadFace();
+bk.width = 300 * DPR; bk.height = 160 * DPR; bk.style.width = '300px'; bk.style.height = '160px'; bk.getContext('2d').setTransform(DPR, 0, 0, DPR, 0, 0);
+const cells = [], lab = (x, y, t) => { const d = document.createElement('div'); d.className = 'lab'; Object.assign(d.style, { left: x + 'px', top: y + 'px' }); d.textContent = t; sheet.append(d); };
+const add = (x, y, t, make, slip = 1) => { if (t) lab(x, y, t); cells.push({ make, slip }); };
+// each pip at 16, 20, 24 and 32 px (a coin's diameter, a cup's height), in the line's own nib (x-height 8.4 px)
+const Lw = Math.max(1.35, Math.min(2.3, 8.4 * .17)), SIZES = [16, 20, 24, 32];
+SIZES.forEach((z, k) => { const x = 40 + k * 60; lab(x, 14, z + ' px');
+  add(x, 0, '', () => X.coin([x + 16, 60], z / 2, Lw, seed), Math.max(.7, z * .045));
+  add(x, 0, '', () => X.cup([x + 16, 120 + 16], z, Lw, seed), Math.max(.7, z * .045)); });
+// lay them: the stencils, the lettering, the line
+for (const c of cells) { const pr = printOf(c.make(), { res: RES, seed, slip: c.slip });
+  for (const p of pr.pours) inkLetter(bk.getContext('2d'), { ...p, wet: .03, dry: p.col === 'k' ? .2 : .45 }, P[p.col], { dpr: DPR });
+  for (const L of pr.letters) { if (L.red) inkLetter(bk.getContext('2d'), { ...L, M: L.red, wet: .03, dry: .45 }, P[L.redCol], { dpr: DPR }); inkLetter(bk.getContext('2d'), L, P.k, { dpr: DPR }); }
+  for (const r of pr.runs) writer.part(0, 1, r.strokes.map(s => ({ pts: s.pts, press: s.press, rho: s.rho })), P.k, { width: r.w, hair: r.hair }).done(); }
+writer.flush(); document.body.dataset.timing = 'drawn';
+</script>
+</body>
+</html>
