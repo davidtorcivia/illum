@@ -28,10 +28,14 @@ float lay(vec4 s, vec4 pap) {
 const PAPER_FS = `#version 300 es
 precision highp float; in vec2 vUV; out vec4 o; uniform vec2 uRes; uniform float uSeed, uPx, uRough;
 ${NOISE}
+// a cell c CSS px across, never finer than 2.5 device px (a texture sampled below its own grid is only sparkle)
+float N(vec2 q, vec2 c, float s){ return vn(q / max(c / uPx, vec2(2.5)) + s); }
 void main(){
-  vec2 p = vUV * uRes * uPx;
-  float t = .5 * vn(p / vec2(1.9, 1.5) + uSeed) + .3 * vn(p / .8 + uSeed * 2.) + .2 * vn(p / 4.5 + uSeed * 3.);
-  o = vec4(mix(.5, t, uRough), vn(p / .55 + 71. + uSeed), 0, 0);
+  vec2 q = vUV * uRes;
+  float t = .5 * N(q, vec2(1.9, 1.5), uSeed) + .3 * N(q, vec2(.8), uSeed * 2.) + .2 * N(q, vec2(4.5), uSeed * 3.);
+  vec2 f = mat2(.94, .34, -.34, .94) * q;                         // the fibres lie long, a little off the horizontal
+  float fib = .6 * N(f, vec2(3.4, .9), 71. + uSeed) + .4 * N(f, vec2(9., 2.4), 113. + uSeed);
+  o = vec4(mix(.5, t, uRough), fib, 0, 0);
 }`;
 
 // one step of the nib's sweep: the quad [A0, A1, B1, B0] its edge passes over. The sides are anti-aliased; the two
@@ -65,7 +69,7 @@ vec2 at(vec2 uv) { vec4 w = texture(uWet, uv), s = texture(uStroke, uv); float f
   return vec2(max(w.r, f) + .3 * min(w.r, f), max(w.g, s.g * uPour)); }
 void main(){
   vec2 c = at(vUV); float V = c.x, M = min(c.y, 1.), dV = 0., Mn = 0.;
-  float perm = .55 + .9 * texture(uPaper, vUV).g;                       // fibre: the paper drinks unevenly
+  float perm = .7 + .6 * texture(uPaper, vUV).g;                       // fibre: the paper drinks unevenly
   for (int k = 0; k < 8; k++) {
     vec2 off = vec2(k < 4 ? (k == 0 ? 1. : k == 1 ? -1. : 0.) : (k == 4 || k == 6 ? 1. : -1.), k < 4 ? (k == 2 ? 1. : k == 3 ? -1. : 0.) : (k < 6 ? 1. : -1.));
     vec2 n = at(vUV + off * uTexel); float nM = min(n.y, 1.), wgt = k < 4 ? 1. : .5;
@@ -82,15 +86,16 @@ void main(){
   oDry = texture(uDry, vUV) + vec4(settle, 0, 0, 0);
 }`;
 
-// what shows is the ink's surface: a soft threshold of its volume, so its edge is a level set (smooth, merged) and
-// it is as dark as it is deep
+// what shows is the ink that lies in each pixel: a pixel the edge crosses is part-dark, a hairline is a thinner coat,
+// and a full coat saturates. The darkness is the mass until then, not a level set of it (a threshold throws away the
+// sweep's sub-pixel coverage and turns every edge back into a stair). Deeper ink is a little darker.
 const RENDER_FS = `#version 300 es
 precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uDry, uWet, uPaper; uniform vec3 uPaperRGB, uK; uniform float uBase;
 void main(){
   vec2 uv = vec2(vUV.x, 1. - vUV.y);                 // the simulation runs y down, the screen's framebuffer y up
   float V = texture(uDry, uv).r + texture(uWet, uv).r, f = texture(uPaper, uv).g;
-  // ink is ink-coloured wherever it lies (a hairline is as dark as a stroke, only narrower); deeper ink is a little darker
-  float d = smoothstep(.025, .11, V + (f - .5) * .03) * (uBase + .45 * V);
+  float cov = min(1., V * (.85 + .3 * f) / .55);     // the fibre moves the edge a fraction of a pixel either way
+  float d = cov * (uBase + .45 * min(V, 1.5));
   o = vec4(uPaperRGB * exp(-uK * d), 1);
 }`;
 
@@ -115,7 +120,7 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
     gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0); gl.uniform4f(pr.u('uRect'), ...rect); gl.uniform2f(pr.u('uRes'), W, H); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
   const bind = (pr, name, unit, t) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(pr.u(name), unit); };
   const clearT = f => { gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); };
-  const S = { rough, ink, paper, rim: 0, density: 1, base: .62, drying: 500, level: .08, creep: .12 };
+  const S = { rough, ink, paper, rim: 0, density: 1, base: .62, drying: 500 };
 
   function makePaper() { gl.viewport(0, 0, W, H); gl.bindFramebuffer(gl.FRAMEBUFFER, F.paper); gl.disable(gl.BLEND); gl.useProgram(P.paper.p);
     gl.uniform1f(P.paper.u('uSeed'), seed % 97); gl.uniform1f(P.paper.u('uPx'), 1 / dpr); gl.uniform1f(P.paper.u('uRough'), S.rough); run(P.paper); }
@@ -150,8 +155,10 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
     gl.uniform3f(pr.u('uPaperRGB'), ...S.paper.map(c => c / 255)); gl.uniform1f(pr.u('uBase'), S.base);
     gl.uniform3f(pr.u('uK'), ...S.ink.map((c, i) => -Math.log(Math.max(.02, c / S.paper[i])) / S.density)); run(pr);
   }
-  // how wet the ink is, 0 (a dry, quick ink: barely moves) .. 1 (a wet, slow ink: merges, softens, creeps)
-  function wetness(w) { S.creep = .05 + .25 * w; S.level = .05 + .07 * w; S.drying = 250 + 1600 * w * w; }
+  // how wet the ink is, 0 (a dry, quick ink: barely moves) .. 1 (a wet, slow ink: merges, softens, creeps).
+  // The pigment hardly travels on sized paper: the level is kept small, or a hairline is spread over three pixels
+  // and reads grey, and a broad stroke grows a halo wider than its own anti-aliasing
+  function wetness(w) { S.creep = .03 + .2 * w; S.level = .002 + .02 * w; S.drying = 250 + 1600 * w * w; }
   wetness(.25);
   return { wetness, gl, W, H, dpr, settings: S, sweep, step, render, clear, makePaper, commit() {} };
 }
