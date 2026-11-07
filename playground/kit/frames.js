@@ -108,65 +108,132 @@ export function navFrame({ box: [x0, y0, x1, y1], entries, x, u, g = 2.4, seed, 
 }
 
 // ==== the registry's frames ======================================================================================================
-// Every style frames the same six boxes, with the same arguments as the functions above; Gothic's are those functions.
-// The others are built from each style's own vocabulary: rule(a, b, n) a run along a straight side (n its outward
-// normal), end(p, h) how a run ends (h its heading out of the run), mark(p, k) the sign set at a line or an entry, and
-// the style's own chapter break for a pull quote. Runs meet at corners exactly; ends grow from a run's own end.
-import { STYLES, line, glyph, SIGNS, pip, fill, cpStroke, cpOval, beauty } from './wayfinding.js';
-const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], len = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
-function vocabFrames(key, V) {
-  const brk = (cx, y, measure, seed, rich, u) => { const S = STYLES[key]; return S.breakMark(cx, y, measure, 1, seed, rich, u, { ...S.setup(seed), index: 1 }); };
-  const run = (pts, ns, u, seed, rich) => pts.slice(1).flatMap((b, i) => V.rule(pts[i], b, ns[i], u, seed + i, rich));
-  return {
-    quote({ x, lines, u, seed, rich = .5 }) { const y0 = lines[0].top + u * .2, y1 = lines.at(-1).base + u * .35, out = [...V.rule([x, y0], [x, y1], [-1, 0], u, seed, rich), ...V.end([x, y0], -Math.PI / 2, u, rich), ...V.end([x, y1], Math.PI / 2, u, rich)];
-      if (rich >= .25) lines.forEach((ln, k) => out.push(...V.mark([x + u * .75, ln.base - u * .48], u, k, rich))); return out; },
-    figure({ box: [x0, y0, x1, y1], u, seed, rich = .5 }) { const out = [];
-      for (const [y, ny] of [[y0 - u * .9, -1], [y1 + u * .9, 1]]) out.push(...V.rule([x0, y], [x1, y], [0, ny], u, seed + ny, rich), ...V.end([x0, y], Math.PI, u, rich), ...V.end([x1, y], 0, u, rich));
-      return out; },
-    code({ box: [x0, y0, x1, y1], u, seed, rich = .5 }) { const out = [], aw = Math.min((x1 - x0) * .28, u * 14), ah = Math.min((y1 - y0) * .45, u * 9);
-      for (const [cx, cy, sx, sy] of [[x0, y0, 1, 1], [x1, y1, -1, -1]]) out.push(...run([[cx + sx * aw, cy], [cx, cy], [cx, cy + sy * ah]], [[0, -sy], [-sx, 0]], u, seed + sx, rich),
-        ...V.end([cx + sx * aw, cy], sx > 0 ? 0 : Math.PI, u, rich), ...V.end([cx, cy + sy * ah], sy > 0 ? Math.PI / 2 : -Math.PI / 2, u, rich));
-      return out; },
-    // a pull quote: the style's chapter break above and below, each moved clear of the words by its own height
-    pull({ cx, yTop, yBot, measure, u, seed, rich = .5 }) { const ys = m => m.flatMap(s => s.dot ? [s.p[1] - s.r, s.p[1] + s.r] : s.pts.map(p => p[1])), shift = (m, d) => m.map(s => s.dot ? { ...s, p: [s.p[0], s.p[1] + d] } : { ...s, pts: s.pts.map(([x, y]) => [x, y + d]) });
-      const a = brk(cx, yTop, measure, seed, rich, u), b = brk(cx, yBot, measure, seed + 7, rich, u);
-      return [...shift(a, Math.min(0, yTop + u * 1.6 - Math.max(...ys(a)))), ...shift(b, Math.max(0, yBot - u * 1.7 - Math.min(...ys(b))))]; },
-    aside({ box: [x0, y0, x1, y1], u, seed, rich = .5 }) { const a = [x0 + (x1 - x0) * .72, y0], b = [x0, y0 + Math.min((y1 - y0) * .7, y1 - y0 - u)];
-      return [...run([a, [x0, y0], b], [[0, -1], [-1, 0]], u, seed, rich), ...V.end(a, 0, u, rich), ...V.end(b, Math.PI / 2, u, rich)]; },
-    nav({ box: [x0, y0, x1, y1], entries, x, u, seed, rich = .5, side = true }) { const out = [];
-      if (side) { const top = y0 - u * 1.2, bot = y1 + u * 2.4; out.push(...V.rule([x, top], [x, bot], [-1, 0], u, seed, rich), ...V.end([x, top], -Math.PI / 2, u, rich), ...V.end([x, bot], Math.PI / 2, u, rich));
-        entries.forEach((e, k) => out.push(...V.mark([x + u * .75, e.base - u * .45], u, k, rich))); return out; }
-      for (const [y, ny] of [[y0 - u * 1.1, -1], [y1 + u * 1.1, 1]]) out.push(...V.rule([x0, y], [x1, y], [0, ny], u, seed + ny, rich), ...V.end([x0, y], Math.PI, u, rich), ...V.end([x1, y], 0, u, rich));
-      out.push(...V.mark([(x0 + x1) / 2, y0 - u * 1.9], u, 0, rich)); return out; },
-  };
-}
-const ticks = (a, b, n, step, long, col, w, out, every = 4) => { const L = len(a, b), m = Math.floor(L / step);
-  for (let k = 0; k <= m; k++) { const p = lerp(a, b, k * step / L), l = k % every === 0 ? long : long * .45; out.push(line([p, [p[0] + n[0] * l, p[1] + n[1] * l]], col, w)); } };
-const VOCAB = {
-  // Cyber: a ruled scale, its ticks outward, a long one every fourth; a run ends in a via (a small ring); a chevron at each line
-  cyber: { rule: (a, b, n, u, seed, rich) => { const out = [line([a, b], 'a', .6)]; if (rich >= .25) ticks(a, b, n, u * .6, u * .5, 'a', .45, out); return out; },
-    end: (p, h, u) => { const R = u * .2, c = [p[0] + Math.cos(h) * R, p[1] + Math.sin(h) * R]; return [line(arc(c, R, h + Math.PI, h + 3 * Math.PI, 14), 'b', .55)]; },
-    mark: (p, u, k) => [line([[p[0] - u * .18, p[1] - u * .25], [p[0] + u * .08, p[1]], [p[0] - u * .18, p[1] + u * .25]], k % 2 ? 'b' : 'a', .6)] },
-  // Occult: a ruled line with the planetary signs set off it now and then; a run ends in a small ring; a sign at a line
-  occult: { rule: (a, b, n, u, seed, rich) => { const r = stream(seed, 'ofr'), out = [line([a, b], 'b', .55)];
-      if (rich >= .5) { const L = len(a, b), m = Math.floor(L / (u * 4)); for (let k = 1; k < m; k++) { const p = lerp(a, b, k / m); out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [p[0] + n[0] * u * .85, p[1] + n[1] * u * .85], u * .42, 'a', .5)); } }
-      return out; },
-    end: (p, h, u) => { const R = u * .22, c = [p[0] + Math.cos(h) * R, p[1] + Math.sin(h) * R]; return [hair(arc(c, R, h + Math.PI, h + 3 * Math.PI, 16), 'b', { w: .5, start: 'cut', end: 'cut' })]; },
-    mark: (p, u, k) => glyph(SIGNS[k % SIGNS.length], p, u * .4, k % 2 ? 'b' : 'a', .5) },
-  // Tarot: the card's border: two black lines with the yellow stencil between; a run ends square; a red point at a line
-  tarot: { rule: (a, b, n, u) => { const o = d => [[a[0] + n[0] * d, a[1] + n[1] * d], [b[0] + n[0] * d, b[1] + n[1] * d]];
-      return [fill(o(0), u * .3, 'g'), line(o(-u * .2), 'k', .5), line(o(u * .2), 'k', .5)]; },
-    end: (p, h, u) => { const n = [-Math.sin(h), Math.cos(h)]; return [line([[p[0] - n[0] * u * .2, p[1] - n[1] * u * .2], [p[0] + n[0] * u * .2, p[1] + n[1] * u * .2]], 'k', .5)]; },
-    mark: (p, u, k) => [bead(p, u * .13, k % 2 ? 'b' : 'a')] },
-  // Copperplate: a line of beauty, shaded as the pen runs down the slant; a run ends in a small oval closed on itself
-  copperplate: { rule: (a, b, n, u) => [cpStroke(beauty(a, b, .02, Math.max(20, Math.round(len(a, b) / 2))), u * .07, 'a', 3)],
-    end: (p, h, u) => { const R = u * .4, c = [p[0] + Math.cos(h) * R * .55, p[1] + Math.sin(h) * R * .55], ring = cpOval(c, R, R * .55, 0, 2 * Math.PI, 60, 0);
-      let k0 = 0; ring.forEach((q, k) => { if (len(q, p) < len(ring[k0], p)) k0 = k; });   // written on from the run's own end
-      return [cpStroke([p, ...[...ring.slice(k0), ...ring.slice(1, k0 + 1)].slice(1, -5)], u * .06, 'a', 3)]; },
-    mark: (p, u) => [cpStroke([[p[0] - u * .1, p[1] - u * .3], [p[0] + u * .05, p[1]], [p[0] - u * .08, p[1] + u * .25]], u * .06, 'a', 3)] },
-  // Swiss: a hairline, square at its ends; a red square at a line or an entry
-  swiss: { rule: (a, b) => [line([a, b], 'b', .55)], end: () => [],
-    mark: (p, u) => [{ col: 'a', broad: 1, nib: Math.PI / 2, w: u * .32, load: 1.1, dry: 0, swell: 0, start: 'cut', end: 'cut', pts: [[p[0] - u * .16, p[1]], [p[0] + u * .16, p[1]]] }] },
+// Every style frames the same six boxes, with the same arguments as the functions above (a pull quote also gets its
+// `lines`); Gothic's are those functions. Each other style frames in its own tradition's idiom.
+import { STYLES, line, glyph, SIGNS, pip, fill, numeral, ROMAN, cpStroke, cpOval, beauty } from './wayfinding.js';
+const pad = ([x0, y0, x1, y1], d, dy = d) => [x0 - d, y0 - dy, x1 + d, y1 + dy];
+const shiftY = (m, d) => m.map(s => s.dot ? { ...s, p: [s.p[0], s.p[1] + d] } : { ...s, pts: s.pts.map(([x, y]) => [x, y + d]) });
+const ysOf = m => m.flatMap(s => s.dot ? [s.p[1] - s.r, s.p[1] + s.r] : s.pts.map(p => p[1]));
+// the style's chapter break above and below a pull quote, each moved clear of the words by its own height
+const breaks = key => ({ cx, yTop, yBot, measure, u, seed, rich = .5 }) => { const S = STYLES[key], b = (y, sd) => S.breakMark(cx, y, measure, 1, sd, rich, u, { ...S.setup(sd), index: 1 });
+  const a = b(yTop, seed), c = b(yBot, seed + 7); return [...shiftY(a, Math.min(0, yTop + u * 1.6 - Math.max(...ysOf(a)))), ...shiftY(c, Math.max(0, yBot - u * 1.7 - Math.min(...ysOf(c))))]; };
+// a rounded rectangle, from the top-left corner round clockwise to it again
+const rrect = ([a, b, c, e], k) => [[a + k, b], [c - k, b], ...arc([c - k, b + k], k, -Math.PI / 2, 0, 6).slice(1), [c, e - k], ...arc([c - k, e - k], k, 0, Math.PI / 2, 6).slice(1), [a + k, e], ...arc([a + k, e - k], k, Math.PI / 2, Math.PI, 6).slice(1), [a, b + k], ...arc([a + k, b + k], k, Math.PI, Math.PI * 1.5, 6).slice(1)];
+
+// ---- Tarot: the card's border round the box, a double black line with round corners; at its head the numeral box
+// (flesh under a double line, the number cut black), as at the head of a Marseille trump; the stencil yellow between
+// the lines on a richer page; the suits at the contents' entries
+const tarotCard = (B, u, n, rich) => { const out = [], k = u * .8, d = u * .32;
+  if (rich >= .75) for (const [p, q] of [[[B[0] + k, B[1] + d / 2], [B[2] - k, B[1] + d / 2]], [[B[0] + k, B[3] - d / 2], [B[2] - k, B[3] - d / 2]]]) out.push(fill([p, q], d * .7, 'g'));
+  out.push(line([...rrect(B, k), rrect(B, k)[0]], 'k', .7), line([...rrect(pad(B, -d), k - d * .5), rrect(pad(B, -d), k - d * .5)[0]], 'k', .45));
+  if (n) { const str = ROMAN(n), W = u * (2 + str.length * .9), H = u * 2, cx = (B[0] + B[2]) / 2, b = [cx - W / 2, B[1] - H, cx + W / 2, B[1]];
+    out.push(fill([[b[0] + u * .2, (b[1] + b[3]) / 2], [b[2] - u * .2, (b[1] + b[3]) / 2]], H * .62, 'f'), line([...rrect(b, u * .2), rrect(b, u * .2)[0]], 'k', .6), ...numeral(str, [cx, (b[1] + b[3]) / 2], H * .58, 'k')); }
+  return out; };
+STYLES.tarot.frames = {
+  quote: ({ x, lines, u, rich = .5 }) => tarotCard([x - u * .5, lines[0].top - u * .5, Math.max(...lines.map(l => l.right)) + u * 1.1, lines.at(-1).base + u * 1.2], u, 0, rich),
+  figure: ({ box, u, seed, rich = .5 }) => tarotCard(pad(box, u * .8), u, 1 + (seed % 12), rich),
+  code: ({ box, u, rich = .5 }) => tarotCard(pad(box, -u * .2), u, 0, rich),
+  pull: breaks('tarot'),
+  aside: ({ box, u, rich = .5 }) => tarotCard([box[0] - u * .2, box[1] - u * .2, box[2] + u * 1.1, box[3] + u * .3], u, 0, rich),
+  nav: ({ box, entries, x, u, rich = .5, side = true }) => { const out = tarotCard([side ? x - u * 1.2 : box[0] - u * .6, box[1] - u * 1.2, box[2] + u * .8, box[3] + u * .9], u, 0, rich);
+    if (side) entries.forEach((e, k) => out.push(...pip(['coin', 'cup', 'sword', 'baton'][k % 4], [x + u * .3, e.base - u * .45], u * .7))); return out; },
 };
+
+// ---- Cyber: the heads-up display's corner brackets, tick scales running in from them along the head and the side, and a
+// label tag on the head bracket, its name in segment-display strokes ("FIG.01"); a via where a trace ends
+const SEG = { 0: 'abcdef', 1: 'bc', 2: 'abged', 3: 'abgcd', 4: 'fgbc', 5: 'afgcd', 6: 'afgedc', 7: 'abc', 8: 'abcdefg', 9: 'abcdfg', A: 'abcefg', C: 'adef', D: 'bcdeg', E: 'adefg', F: 'aefg', G: 'acdef', I: 'ef', N: 'ceg', O: 'cdeg', R: 'eg', T: 'defg', U: 'bcdef' };
+function segText(str, [x, y], h, col) {   // y: the label's top; returns its strokes and its width
+  const w = h * .5, out = [], gp = h * .07; let cx = x;
+  for (const ch of str) { if (ch === '.') { out.push(bead([cx + w * .1, y + h], h * .07, col)); cx += w * .4; continue; }
+    const P = { a: [[0, 0], [1, 0]], b: [[1, 0], [1, .5]], c: [[1, .5], [1, 1]], d: [[0, 1], [1, 1]], e: [[0, .5], [0, 1]], f: [[0, 0], [0, .5]], g: [[0, .5], [1, .5]] };
+    for (const sg of SEG[ch] ?? '') { const [[ax, ay], [bx, by]] = P[sg], dx = (bx - ax) * gp / w, dy = (by - ay) * gp / h;
+      out.push(line([[cx + (ax + dx) * w, y + (ay + dy) * h], [cx + (bx - dx) * w, y + (by - dy) * h]], col, .55)); }
+    cx += w * 1.45; }
+  return { out, w: cx - x }; }
+const hud = (B, u, label, rich, corners = [0, 1, 2, 3]) => { const out = [], arm = Math.min(u * 2.2, (B[2] - B[0]) * .2, (B[3] - B[1]) * .3);
+  const C = [[B[0], B[1], 1, 1], [B[2], B[1], -1, 1], [B[2], B[3], -1, -1], [B[0], B[3], 1, -1]];
+  for (const k of corners) { const [cx, cy, sx, sy] = C[k]; out.push(line([[cx + sx * arm, cy], [cx, cy], [cx, cy + sy * arm]], 'a', .8)); }
+  if (rich >= .25) { const tk = (a, b, n) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), m = Math.floor(L / (u * .5));
+      for (let k = 1; k < m; k++) { const t = k / m, p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; out.push(line([p, [p[0] + n[0] * (k % 5 ? u * .22 : u * .45), p[1] + n[1] * (k % 5 ? u * .22 : u * .45)]], 'a', .45)); } };
+    if (corners.includes(0)) { tk([B[0] + arm + u * .6, B[1]], [B[0] + arm + Math.min(u * 9, (B[2] - B[0]) * .35), B[1]], [0, 1]); tk([B[0], B[1] + arm + u * .6], [B[0], B[1] + arm + Math.min(u * 6, (B[3] - B[1]) * .4)], [1, 0]); } }
+  if (label) { const h = u * .75, t = segText(label, [B[0] + u * .5, B[1] - h - u * .55], h, 'b'), tg = [B[0], B[1] - h - u * 1.05, B[0] + t.w + u * .7, B[1]];
+    out.push(...t.out, line([[tg[0], tg[3]], [tg[0], tg[1]], [tg[2], tg[1]], [tg[2] + u * .5, tg[3]]], 'b', .5)); }
+  return out; };
+const num = n => String(n).padStart(2, '0');
+STYLES.cyber.frames = {
+  quote: ({ x, lines, u, seed, rich = .5 }) => hud([x - u * .3, lines[0].top, Math.max(...lines.map(l => l.right)) + u * .5, lines.at(-1).base + u * .5], u, 'REF.' + num(1 + seed % 9), rich, [0, 3]),
+  figure: ({ box, u, seed, rich = .5 }) => hud(pad(box, u * .7), u, 'FIG.' + num(1 + seed % 9), rich),
+  code: ({ box, u, rich = .5 }) => hud(box, u, 'CODE', rich),
+  pull: breaks('cyber'),
+  aside: ({ box, u, rich = .5 }) => hud(box, u, 'NOTE', rich, [0, 3]),
+  nav: ({ box, entries, x, u, rich = .5, side = true }) => { const B = [side ? x - u * .4 : box[0] - u * .5, box[1] - u * .6, box[2] + u * .6, box[3] + u * .6], out = hud(B, u, 'TOC', rich, [0, 3]);
+    if (side) entries.forEach((e, k) => { const y = e.base - u * .45; out.push(line([[x + u * .25, y - u * .25], [x + u * .55, y], [x + u * .25, y + u * .25]], k % 2 ? 'b' : 'a', .6)); }); return out; },
+};
+
+// ---- Occult: the grimoire's diagram: a double rule, and at its corners the seals (a ring, a sign in it); between the
+// rules, on a richer page, the band of signs; a quotation and the contents get the rule down their side with a seal at
+// each end
+const seal = (c, R, k, col) => [hair(arc(c, R, 0, 2 * Math.PI + .02, 24), col, { w: .55, start: 'cut', end: 'cut' }), hair(arc(c, R * .78, 0, 2 * Math.PI + .02, 20), col, { w: .4, start: 'cut', end: 'cut' }), ...glyph(SIGNS[k % SIGNS.length], c, R * .5, col === 'a' ? 'b' : 'a', .45)];
+function grimoire(B, u, seed, rich, sides = [1, 1, 1, 1]) {   // sides: head, right, foot, left
+  const r = stream(seed, 'grim'), out = [], d = u * .55, R = u * .75, C = [[B[0], B[1]], [B[2], B[1]], [B[2], B[3]], [B[0], B[3]]];
+  for (let s = 0; s < 4; s++) { if (!sides[s]) continue; const p = C[s], q = C[(s + 1) % 4], t = [Math.sign(q[0] - p[0]), Math.sign(q[1] - p[1])], n = [-t[1], t[0]];
+    const a = [p[0] + t[0] * R, p[1] + t[1] * R], b = [q[0] - t[0] * R, q[1] - t[1] * R];
+    for (const o of [0, d]) out.push(line([[a[0] - n[0] * o, a[1] - n[1] * o], [b[0] - n[0] * o, b[1] - n[1] * o]], 'b', o ? .4 : .55));
+    if (rich >= .5) { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), m = Math.floor(L / (u * 2.4)); for (let k = 1; k < m; k++) { const c = [a[0] + (b[0] - a[0]) * k / m - n[0] * d / 2, a[1] + (b[1] - a[1]) * k / m - n[1] * d / 2];
+        out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], c, d * .36, 'a', .4)); } } }
+  C.forEach((c, k) => { if (sides[k] || sides[(k + 3) % 4]) out.push(...seal(c, R, (seed + k) % 9, 'a')); });
+  return out; }
+STYLES.occult.frames = {
+  quote: ({ x, lines, u, seed, rich = .5 }) => grimoire([x, lines[0].top, x + 1, lines.at(-1).base + u * .4], u, seed, rich, [0, 0, 0, 1]),
+  figure: ({ box, u, seed, rich = .5 }) => grimoire(pad(box, u * 1.1), u, seed, rich),
+  code: ({ box, u, seed, rich = .5 }) => grimoire(pad(box, -u * .5), u, seed, rich),
+  pull: breaks('occult'),
+  aside: ({ box, u, seed, rich = .5 }) => grimoire([box[0], box[1], box[2] + u * .3, box[3]], u, seed, rich, [1, 0, 0, 1]),
+  nav: ({ box, entries, x, u, seed, rich = .5, side = true }) => { if (!side) return grimoire(pad(box, u * .7, u * 1.1), u, seed, rich, [1, 0, 1, 0]);
+    const out = grimoire([x, box[1] - u * 1.2, x + 1, box[3] + u * 1.2], u, seed, rich, [0, 0, 0, 1]); entries.forEach((e, k) => out.push(...glyph(SIGNS[k % SIGNS.length], [x + u * 1, e.base - u * .45], u * .32, k % 2 ? 'b' : 'a', .45))); return out; },
+};
+
+// ---- Copperplate: no ruled line: at the corners the writing master's flourish, two ovals on the slant interlaced, and
+// from them along each side a line of beauty that thins away; a quotation gets the flourish at the head and the foot of
+// its gutter, joined by a single hairline
+function cpCorner([cx, cy], sx, sy, u, sides = [1, 1], len = [u * 5, u * 5]) {   // sx, sy: which way the box lies from the corner
+  const out = [], c = [cx - sx * u * .35, cy - sy * u * .35];
+  // the two ovals lie along the two sides, crossing at the corner
+  out.push(cpStroke(cpOval([c[0] + sx * u * 1.1, c[1] - sy * u * .15], u * 2.4, u * .78, Math.PI * .6, Math.PI * 2.04, 72, -.16 * sx * sy), u * .085, 'a', 3.4), cpStroke(cpOval([c[0] - sx * u * .15, c[1] + sy * u * 1.1], u * 2.4, u * .78, Math.PI * .1, Math.PI * 2.04, 72, Math.PI / 2 + .16 * sx * sy), u * .075, 'a', 3.2));
+  if (sides[0]) out.push(cpStroke(beauty([cx + sx * u * 3.4, cy], [cx + sx * (len[0] + u * 3), cy], .03 * sy, 30), u * .055, 'a', 2.5, { start: 'taper', end: 'taper' }));
+  if (sides[1]) out.push(cpStroke(beauty([cx, cy + sy * u * 3.4], [cx, cy + sy * (len[1] + u * 3)], .03 * sx, 30), u * .055, 'a', 2.5, { start: 'taper', end: 'taper' }));
+  return out; }
+STYLES.copperplate.frames = {
+  quote: ({ x, lines, u }) => { const y0 = lines[0].top, y1 = lines.at(-1).base + u * .4;
+    return [...cpCorner([x, y0], 1, 1, u, [0, 0]), ...cpCorner([x, y1], 1, -1, u, [0, 0]), cpStroke(beauty([x, y0 + u * 1.2], [x, y1 - u * 1.2], .015, 40), u * .05, 'a', 2.5)]; },
+  figure: ({ box, u }) => { const B = pad(box, u * .9), L = [Math.min(u * 6, (B[2] - B[0]) * .3), Math.min(u * 5, (B[3] - B[1]) * .3)];
+    return [...cpCorner([B[0], B[1]], 1, 1, u, [1, 1], L), ...cpCorner([B[2], B[1]], -1, 1, u, [1, 1], L), ...cpCorner([B[2], B[3]], -1, -1, u, [1, 1], L), ...cpCorner([B[0], B[3]], 1, -1, u, [1, 1], L)]; },
+  code: ({ box, u }) => { const L = [Math.min(u * 7, (box[2] - box[0]) * .3), Math.min(u * 4, (box[3] - box[1]) * .4)]; return [...cpCorner([box[0], box[1]], 1, 1, u, [1, 1], L), ...cpCorner([box[2], box[3]], -1, -1, u, [1, 1], L)]; },
+  pull: breaks('copperplate'),
+  aside: ({ box, u }) => cpCorner([box[0], box[1]], 1, 1, u, [1, 1], [Math.min(u * 8, (box[2] - box[0]) * .5), Math.min(u * 5, (box[3] - box[1]) * .6)]),
+  nav: ({ box, entries, x, u, side = true }) => { if (!side) { const c = [(box[0] + box[2]) / 2, box[1] - u * 1.3]; return [...cpCorner(c, 1, 1, u * .55, [0, 0]), cpStroke(beauty([c[0] + u * 1.2, c[1]], [Math.min(box[2], c[0] + u * 9), c[1]], .03, 30), u * .06, 'a', 2.5)]; }
+    const y0 = box[1] - u * .6, y1 = box[3] + u * .4; return [...cpCorner([x, y0], 1, 1, u, [0, 0]), ...cpCorner([x, y1], 1, -1, u, [0, 0]), cpStroke(beauty([x, y0 + u * 1.2], [x, y1 - u * 1.2], .015, 40), u * .05, 'a', 2.5)]; },
+};
+
+// ---- Swiss: rules and a numbered label on the grid, asymmetric and flush left: a heavy bar, a hairline, the number set
+// in a grotesque's figures beside a red square
+const FIG = { 0: [], 1: [[.25, .18], [.6, 0], [.6, 1]], 2: [[.05, .25], [.2, .05], [.5, 0], [.8, .05], [.95, .25], [.9, .45], [.05, 1], [1, 1]], 3: [[.05, .12], [.5, 0], [.9, .15], [.9, .38], [.5, .5], [.95, .65], [.95, .88], [.5, 1], [.05, .88]],
+  4: [[.75, 1], [.75, 0], [0, .7], [1, .7]], 5: [[.9, 0], [.15, 0], [.08, .45], [.5, .38], [.92, .55], [.92, .85], [.5, 1], [.05, .88]], 6: [[.85, .08], [.5, 0], [.12, .25], [.08, .65], [.3, .98], [.7, .98], [.92, .72], [.75, .48], [.4, .45], [.1, .62]],
+  7: [[0, 0], [1, 0], [.35, 1]], 8: [[.5, .5], [.12, .3], [.5, 0], [.88, .3], [.5, .5], [.08, .75], [.5, 1], [.92, .75], [.5, .5]], 9: [[.15, .92], [.5, 1], [.88, .75], [.92, .35], [.7, .02], [.3, .02], [.08, .28], [.25, .52], [.6, .55], [.9, .38]] };
+const figure_ = (n, [x, y], h, col) => [...String(n)].map((ch, i) => ch === '0' ? line(arc([x + i * h * .7 + h * .27, y + h / 2], h * .27, 0, 2 * Math.PI + .02, 24).map(([px, py]) => [px, y + h / 2 + (py - y - h / 2) * 1.85]), col, .7)
+  : line(FIG[ch].map(([px, py]) => [x + i * h * .7 + px * h * .55, y + py * h]), col, .7));
+const bar = (a, b, w, col = 'b') => ({ col, broad: 1, nib: Math.abs(b[1] - a[1]) > Math.abs(b[0] - a[0]) ? 0 : Math.PI / 2, w, load: 1.1, dry: 0, swell: 0, start: 'cut', end: 'cut', pts: [a, b] });
+const label = ([x, y], n, u) => [bar([x, y + u * .6], [x + u * .8, y + u * .6], u * .8, 'a'), ...figure_(n, [x + u * 1.35, y - u * .4], u * 1.6, 'b')];
+STYLES.swiss.frames = {
+  quote: ({ x, lines, u }) => [bar([x - u * .2, lines[0].top + u * .25], [x - u * .2, lines.at(-1).base + u * .3], u * .35)],
+  figure: ({ box: [x0, y0, x1, y1], u, seed }) => [bar([x0, y0 - u * .9], [x0 + (x1 - x0) * .5, y0 - u * .9], u * .35), ...label([x0, y0 - u * 2.6], 1 + seed % 9, u), line([[x0, y1 + u * .9], [x1, y1 + u * .9]], 'b', .5)],
+  code: ({ box: [x0, y0, x1, y1], u, seed }) => [line([[x0, y0], [x1, y0]], 'b', .5), bar([x0, y0], [x0 + u * 3, y0], u * .35), ...label([x1 - u * 2.4, y0 + u * .35], 1 + seed % 9, u)],
+  // a pull quote: the bar at the head of its first line, on the column's left as everything else; a hairline under it
+  pull: ({ yTop, yBot, u, lines }) => { const L = lines ?? [{ left: 0, right: 0 }], x0 = Math.min(...L.map(l => l.left)), x1 = Math.max(...L.map(l => l.right));
+    return [bar([x0, yTop + u * 1.1], [x0 + u * 3, yTop + u * 1.1], u * .45, 'a'), line([[x0, yBot - u * .1], [x1, yBot - u * .1]], 'b', .5)]; },
+  aside: ({ box: [x0, y0, x1, y1], u }) => [bar([x0, y0], [x0 + (x1 - x0) * .38, y0], u * .35), line([[x0, y0], [x0, y1]], 'b', .5)],
+  nav: ({ box: [x0, y0, x1, y1], entries, x, u, side = true }) => { const out = [bar([side ? x - u * 1.6 : x0, y0 - u * .9], [(side ? x - u * 1.6 : x0) + u * 3, y0 - u * .9], u * .35)];
+    if (side) entries.forEach((e, k) => out.push(...figure_(k + 1, [x - u * 1.6, e.base - u * .95], u * .85, 'b'))); else out.push(line([[x0, y1 + u * .9], [x1, y1 + u * .9]], 'b', .5)); return out; },
+};
+
 STYLES.gothic.frames = { quote: quoteFrame, figure: figureFrame, code: codeFrame, pull: pullFrame, aside: asideFrame, nav: navFrame };
-for (const [k, V] of Object.entries(VOCAB)) STYLES[k].frames = vocabFrames(k, V);

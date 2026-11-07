@@ -65,14 +65,14 @@ export function collect(root, sheet, { style = 'gothic', rich = .5, seed = 1 } =
     out.push({ el: span, kind: big ? 'drop' : 'initial', style: key, a: S.pair[0], seed: args.seed, ...made });
   });
   const F = key => STYLES[key].frames;
-  const frame = (el, kind, k, make) => { const key = styleOf(el, root, style); if (F(key)?.[kind]) out.push({ el, kind, style: key, marks: make(F(key)[kind]) }); };
+  const frame = (el, kind, _, make) => { const key = styleOf(el, root, style); if (F(key)?.[kind]) out.push({ el, kind, style: key, marks: make(F(key)[kind]) }); };
   root.querySelectorAll(SELECT.nav).forEach((nav, k) => { const list = nav.querySelector('ol, ul') ?? nav, nb = rel(list, o), side = nb[0] > 46;
     frame(nav, 'nav', k, f => f({ box: nb, entries: [...nav.querySelectorAll('li')].map(li => linesOf(li, o)[0]), x: nb[0] - u * 2.2, u, g, seed: s(1 + k), rich, side })); });
   root.querySelectorAll(SELECT.quote).forEach((bq, k) => { const b = rel(bq, o); frame(bq, 'quote', k, f => f({ x: b[0] + u * .9, lines: linesOf(bq, o), u, g, seed: s(10 + k), rich })); });
   root.querySelectorAll(SELECT.figure).forEach((fg, k) => frame(fg, 'figure', k, f => f({ box: rel(fg.querySelector('svg, img, canvas') ?? fg, o), u, g, seed: s(20 + k), rich })));
   root.querySelectorAll(SELECT.aside).forEach((a, k) => frame(a, 'aside', k, f => f({ box: rel(a, o), u, g, seed: s(30 + k), rich })));
   root.querySelectorAll(SELECT.pull).forEach((p, k) => { const L = linesOf(p, o), m = [text.left - o.left, 0, text.right - o.left];
-    frame(p, 'pull', k, f => f({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 2.2, yBot: L.at(-1).base + u * 2.6, measure: m[2] - m[0], u, seed: s(40 + k), rich })); });
+    frame(p, 'pull', k, f => f({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 2.2, yBot: L.at(-1).base + u * 2.6, measure: m[2] - m[0], lines: L, u, seed: s(40 + k), rich })); });
   root.querySelectorAll(SELECT.code).forEach((p, k) => frame(p, 'code', k, f => f({ box: rel(p, o), u, g, seed: s(50 + k), rich })));
   // reading order; the frames' colours alternate down the page (07)
   out.sort((x, y) => x.el.getBoundingClientRect().top - y.el.getBoundingClientRect().top);
