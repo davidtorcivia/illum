@@ -81,6 +81,24 @@
                 with its label.
   Occult's magic circle now varies per instance: two or three rings, a band of ticks, signs or sigil-letters, and a
   sigil, a sign or a triangle at its heart.
+  Batch three: the three reworked from studied references, and two added.
+    copperplate rebuilt on the writing master's geometry (Baumann after van de Velde, c. 1620, Met 345657, studied at
+                full size): the true oval, the compound curve, the line of beauty; letters at 55°, the flourish's long
+                ovals flatter; hairline up, swelling only on the downstroke (the pen's pressure follows the stroke's
+                direction); no tremor. The book break is Baumann's interlace of ovals through one compound curve.
+    nouveau     rebuilt on Obrist's Whiplash (1895, studied from the museum's scan): a taut, barely bowed body whose
+                bending accelerates into the crack; tapered at both ends, fullest before the turn; clean buds; Obrist's
+                barbed stems; Guimard's twin stems for a book.
+    botanical   rebuilt on Huntington's pencil study of hemlock with its dated label (1871, Met 16141): a sure line over
+                a faint axis; exact small specimens (a veined leaf, a seed, a feather); labels on leader lines; an
+                alternating scale bar; a tag with a reinforced eyelet; a pressed sprig with scale and tag for a book.
+    astrology   the ephemeris and the nativity (Regiomontanus's tables; the Renaissance square chart): navy and gold;
+                the twelve signs as paraphs; aspects (☌ ☍ △ □ ⚹) on a rule, the moon's phases, the ecliptic band;
+                a house wheel or the moon's row between chapters; a round or square chart between books.
+    tarot       the Tarot de Marseille (Conver, 1760) and the Visconti-Sforza deck (named, not studied from scans here):
+                the four suits as paraphs in flat red, yellow, blue and flesh under a black line; pips or the card's
+                stencil border as fillers; the numeral box between chapters and the trump's banner between books, each
+                numbered by the real chapter or book.
   Light and dark: the page's tokens (--paper, --ink, --rubric) belong to the host; dark follows prefers-color-scheme,
   or data-theme / ?theme=dark|light, or the colophon's day / night / system. A style colours only its own marks (and the
   rubric, where that is its tradition); its own ground (Cyber's dark glass, Blueprint's cyanotype) only with
@@ -284,16 +302,17 @@ function compose() {
   const u0 = metric('400 20px "EB Garamond"');
   if (q.has('specimen')) return score(marks);
   // a break at unit size about its centre, then scaled; a flush-left style keeps its left edge on the measure
-  const brk = (cx, y, measure, rank, seed, u) => { const L = S.breakMark(cx, y, measure / SCALE, rank, seed, RICH, u, V); return scaled(L, S.flush ? cx - measure / 2 : cx, y, S.flush ? cx - measure / (2 * SCALE) : cx); };
+  // index: the part's real number (a card's numeral)
+  const brk = (cx, y, measure, rank, seed, u, index) => { const L = S.breakMark(cx, y, measure / SCALE, rank, seed, RICH, u, index ? { ...V, index } : V); return scaled(L, S.flush ? cx - measure / 2 : cx, y, S.flush ? cx - measure / (2 * SCALE) : cx); };
   document.querySelectorAll('.book').forEach((book, bi) => {
     const h2 = book.querySelector('h2'), hr = h2.getBoundingClientRect(), br = book.getBoundingClientRect(), fs = parseFloat(getComputedStyle(h2).fontSize);
     // the break above the book's head, in the room its padding leaves; the first book is opened by the title, so it
     // takes the device too: the same rank
     const u = parseFloat(getComputedStyle(art).fontSize) * u0.x / 20;
-    marks.push({ y: br.top - sr.top, a: pairAt(bi + 1), type: 'book', list: brk((hr.left + hr.right) / 2 - sr.left, (br.top + hr.top) / 2 - sr.top, hr.width, 2, SEED + 101 * bi, u) });
+    marks.push({ y: br.top - sr.top, a: pairAt(bi + 1), type: 'book', list: brk((hr.left + hr.right) / 2 - sr.left, (br.top + hr.top) / 2 - sr.top, hr.width, 2, SEED + 101 * bi, u, bi + 1) });
     book.querySelectorAll('.chapter').forEach((ch, ci) => {
       const h3 = ch.querySelector('h3'), cr = ch.getBoundingClientRect(), h3r = h3.getBoundingClientRect();
-      if (ci > 0) marks.push({ y: cr.top - sr.top, a: pairAt(ci + 1), type: 'chapter', list: brk((h3r.left + h3r.right) / 2 - sr.left, (cr.top + h3r.top) / 2 - sr.top + 2, h3r.width, 1, SEED + 101 * bi + 7 * ci, u) });
+      if (ci > 0) marks.push({ y: cr.top - sr.top, a: pairAt(ci + 1), type: 'chapter', list: brk((h3r.left + h3r.right) / 2 - sr.left, (cr.top + h3r.top) / 2 - sr.top + 2, h3r.width, 1, SEED + 101 * bi + 7 * ci, u, ci + 1) });
       fillAfter(h3, pairAt(1), SEED + 31 * bi + 3 * ci);
       ch.querySelectorAll('p').forEach((p, pi) => {
         const cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), mt = metric(`400 ${fs}px "EB Garamond"`), L = lines(p, sr);
@@ -320,10 +339,10 @@ function compose() {
     m.list = m.list.filter(s => !hits(s)); }
   const groups = [];
   marks.sort((m, n) => m.y - n.y).forEach((m, mi) => { const g0 = clock, from = parts.length; m.list.forEach((s, i) => {
-    const col = s.col === 'g' ? 'gold' : s.col === 'k' ? 'black' : s.col === 'a' ? m.a : other(m.a), INK = PAL[col] ?? PAL[S.pair[0]];
+    const col = s.col === 'g' ? 'gold' : s.col === 'k' ? 'black' : s.col === 'f' ? 'flesh' : s.col === 'a' ? m.a : other(m.a), INK = PAL[col] ?? PAL[S.pair[0]];
     if (s.dot) { drawn.push({ mi, type: m.type, dot: s.p, r: s.r }); parts.push(dotted(clock, s.p, s.r, INK.solid, BLEND)); clock += .03; return; }
     const ink = s.broad ? INK.solid : INK.hair, pts = refine(s.pts), ends = freeEnds(s, m.list);
-    const o = { w: s.w * (s.broad ? 1 : 1.1), ink, paper: PAPER_NOW, dark: DARK, blend: BLEND, seed: (SEED + mi * 131 + i * 7) >>> 0, start: ends.start, end: ends.end, load: s.load ?? .85, dry: s.dry ?? .3, broad: s.broad ?? .3, swell: s.swell ?? .25, nib: s.nib ?? .55 };
+    const o = { w: s.w * (s.broad ? 1 : 1.1), ink, paper: PAPER_NOW, dark: DARK, blend: BLEND, seed: (SEED + mi * 131 + i * 7) >>> 0, start: ends.start, end: ends.end, load: s.load ?? .85, dry: s.dry ?? .3, broad: s.broad ?? .3, swell: s.swell ?? .25, nib: s.nib ?? .55, press: s.press };
     drawn.push({ mi, type: m.type, pts, w: o.w, ends: [pts[0], pts.at(-1)] }); const d = Math.max(.05, arclen(pts) / (s.broad ? 70 : 260)); parts.push(stem(clock, clock + d, pts, { ...o, live: 'cut' })); clock += d * .8;
   }); groups.push({ y: m.y, type: m.type, parts: parts.slice(from).map(p => ({ ...p, t0: p.t0 - g0, t1: p.t1 - g0 })) }); });
   let end = Math.max(.1, ...parts.map(p => p.t1)); const k = Math.min(1, 14 / end);
@@ -454,8 +473,8 @@ function sweep() {
   Object.keys(STYLES).forEach((key, row) => { const GS = grammar(STYLES[key]), t = STYLES[key].theme ?? {}, paper = PAPER_NOW, P = paletteOf(STYLES[key], themeMode());
     if (false) { g.fillStyle = `rgb(${t.ground.join(',')})`; g.fillRect(20, 30 + row * 40, 30 * 28 + 10, 40); }
     for (let i = 0; i < 30; i++) { const seed = 1000 + i * 7919, V = GS.setup(seed), x = 28 + i * 28, base = 30 + row * 40 + 28, a = GS.alternate ? GS.pair[i % 2] : GS.pair[0];
-      for (const m of GS.paraph(x, base, 8, seed + 89, RICH, V)) { const col = m.col === 'g' ? 'gold' : m.col === 'k' ? 'black' : m.col === 'a' ? a : (GS.pair[0] === a ? GS.pair[1] : GS.pair[0]), INK = P[col] ?? P[GS.pair[0]];
-        blended(g, DARK ? GS.blendDark ?? (GS.blend ? 'screen' : null) : GS.blend, () => m.dot ? dot(g, m.p, m.r, INK.solid, paper, .95, DARK) : pen(g, refine(m.pts), { dark: DARK, w: m.w * (m.broad ? 1 : 1.1), ink: m.broad ? INK.solid : INK.hair, paper, seed: seed + 3, start: m.start, end: m.end, load: m.load ?? .85, dry: m.dry ?? .3, broad: m.broad ?? .3, swell: m.swell ?? .25, nib: m.nib ?? .55 })); } } });
+      for (const m of GS.paraph(x, base, 8, seed + 89, RICH, V)) { const col = m.col === 'g' ? 'gold' : m.col === 'k' ? 'black' : m.col === 'f' ? 'flesh' : m.col === 'a' ? a : (GS.pair[0] === a ? GS.pair[1] : GS.pair[0]), INK = P[col] ?? P[GS.pair[0]];
+        blended(g, DARK ? GS.blendDark ?? (GS.blend ? 'screen' : null) : GS.blend, () => m.dot ? dot(g, m.p, m.r, INK.solid, paper, .95, DARK) : pen(g, refine(m.pts), { dark: DARK, w: m.w * (m.broad ? 1 : 1.1), ink: m.broad ? INK.solid : INK.hair, paper, seed: seed + 3, start: m.start, end: m.end, load: m.load ?? .85, dry: m.dry ?? .3, broad: m.broad ?? .3, swell: m.swell ?? .25, nib: m.nib ?? .55, press: m.press })); } } });
   document.body.dataset.timing = 'sweep';
 }
 await document.fonts.ready;
