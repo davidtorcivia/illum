@@ -18,14 +18,18 @@
   Paris Bible bar border (Met 469985, 466281: a bar down the gutter, knops off it, branching at the foot into arms
   that turn out along the bottom margin) and the medieval diple (>) beside quoted lines; what it adds that a book
   could not is a frame that knows its box's real lines and room, and changes form when the measure changes.
-  Marks: kit/marks.js; shapes: kit/frames.js (with kit/wayfinding.js's eye, hook, scallop and break).
+  Drawn by kit/illum.js rubricate() (the frames are its six frame cases); shapes: kit/frames.js (with kit/wayfinding.js's
+  eye, hook, scallop and break); marks: kit/marks.js.
   Text: our own notes, and John Ruskin, The Stones of Venice II (1853), ch. VI § XII, Project Gutenberg #30755.
   The figure is drawn here: the proportions of the medieval two-page spread (the Van de Graaf canon: text block
   corners on the page and spread diagonals, margins 2:3:4:6). EB Garamond, SIL OFL.
 
   Richness: ?rich=0..1 (default .5), or the control in the colophon. Seed: a hash of the text; #seed=N overrides.
-  ?draw: each frame is drawn the first time its box comes into view (IntersectionObserver), once; never under
-  prefers-reduced-motion. Content untouched; every mark is aria-hidden on a canvas behind.
+  ?draw: each frame is written when its box comes 15% into the viewport, in reading order (rubricate's read mode);
+  never under prefers-reduced-motion. ?ink=medium writes the hairlines with the ink engine (kit/writer.js); the stamped
+  pen is the default here. ?style= any style with frames (gothic, the default; cyber, occult, tarot, copperplate, swiss).
+  Light and dark: the marks follow data-theme (?theme=dark|light) or the reader's system, with each style's dark palette.
+  Content untouched; every mark is aria-hidden on a canvas behind.
 
   Score 2026-11-06 (self, unseen by the user): every frame is open, measured and off the words at 1440 and 390, and
   the contents changes form on a phone; the vocabulary is the book's, the behaviour is the web's. Short of museum: the
@@ -37,6 +41,8 @@
   @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
   @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
   :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(176 58 36); color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: rgb(29 26 23); --ink: rgb(226 218 204); --rubric: rgb(232 112 88); color-scheme: dark; } }
+  :root[data-theme="dark"] { --paper: rgb(29 26 23); --ink: rgb(226 218 204); --rubric: rgb(232 112 88); color-scheme: dark; }
   html { background: var(--paper); }
   body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
   .sheet { position: relative; max-width: 900px; margin: 0 auto; padding: 120px 100px 140px 200px; box-sizing: border-box; }
@@ -85,8 +91,6 @@
 </head>
 <body>
 <main class="sheet">
-  <canvas id="orn" aria-hidden="true"></canvas>
-  <canvas id="live" aria-hidden="true"></canvas>
   <article class="text">
     <h1>Finding one’s way</h1>
     <p class="sub">Notes on the ornament that made a book a place</p>
@@ -112,11 +116,11 @@
     <p>The scribe’s page was ruled before a word was written. Its proportions were not arbitrary: in the books that look most at rest, the text block sits in the page as the page sits in the spread, and the margins grow from the gutter outward, the foot the widest of all.</p>
     <figure>
       <svg viewBox="0 0 420 320" role="img" aria-label="Two facing pages of proportion two to three, with the diagonals of each page and of the spread; on each page a text block whose corners lie on those diagonals, its margins growing from the gutter to the foot.">
-        <g fill="none" stroke="rgb(43 33 25)" stroke-linecap="round">
+        <g fill="none" stroke="currentColor" stroke-linecap="round">
           <path d="M10 10 L410 310 M410 10 L10 310 M210 10 L10 310 M210 10 L410 310" stroke-opacity=".4" stroke-width=".5"/>
           <rect x="10" y="10" width="200" height="300" stroke-width=".7"/><rect x="210" y="10" width="200" height="300" stroke-width=".7"/>
-          <rect x="54.4" y="43.3" width="133.3" height="200" stroke-width=".9" fill="rgb(43 33 25)" fill-opacity=".08"/>
-          <rect x="232.2" y="43.3" width="133.3" height="200" stroke-width=".9" fill="rgb(43 33 25)" fill-opacity=".08"/>
+          <rect x="54.4" y="43.3" width="133.3" height="200" stroke-width=".9" fill="currentColor" fill-opacity=".08"/>
+          <rect x="232.2" y="43.3" width="133.3" height="200" stroke-width=".9" fill="currentColor" fill-opacity=".08"/>
         </g>
       </svg>
       <figcaption>The spread, after Van de Graaf: each page two by three, the text block in the same proportion with its corners on the diagonals, its margins inner, head, outer and foot as 2 : 3 : 4 : 6.</figcaption>
@@ -143,91 +147,17 @@ for (const el of boxes(document))
   <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the frames are"> richer</label></p>
 
 <script type="module">
-import { pen, dot, fnv } from './kit/marks.js';
-import { quoteFrame, figureFrame, codeFrame, pullFrame, asideFrame, navFrame } from './kit/frames.js';
+import { rubricate } from './kit/illum.js';
 
-const q = new URLSearchParams(location.search), art = document.querySelector('.text');
-const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(art.textContent.replace(/\s+/g, ' ').trim()) % 1e7);
-document.getElementById('seed').textContent = SEED;
-let RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0));
-const SOLID = { red: [200, 66, 40], blue: [40, 70, 160] }, HAIR = { red: [212, 100, 74], blue: [56, 84, 166] };
-const other = c => c === 'red' ? 'blue' : 'red';
-const ASC = (() => { const c = document.createElement('canvas').getContext('2d'); c.font = '400 100px "EB Garamond"'; const m = c.measureText('x');
-  return { asc: c.measureText('H').fontBoundingBoxAscent / 100, x: m.actualBoundingBoxAscent / 100 }; })();
-// the lines of an element as the browser laid them out: one rect per line box, with its baseline
-const linesOf = (el, o) => { const rg = document.createRange(); rg.selectNodeContents(el); const fs = parseFloat(getComputedStyle(el).fontSize), out = [];
-  for (const r of rg.getClientRects()) { if (r.width < 1) continue; const t = r.top - o.top, last = out.at(-1);
-    if (last && Math.abs(last.top - t) < 3) { last.right = Math.max(last.right, r.right - o.left); continue; }
-    out.push({ top: t, base: t + ASC.asc * fs, left: r.left - o.left, right: r.right - o.left }); }
-  return out; };
-const rel = (el, o) => { const r = el.getBoundingClientRect(); return [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top]; };
-
-// each frame: the element it belongs to and its marks; the colours alternate down the page
-function compose() {
-  const sheet = document.querySelector('.sheet'), o = sheet.getBoundingClientRect(), fs = parseFloat(getComputedStyle(art).fontSize), u = fs * ASC.x, g = u * .3;
-  const frames = [], R = RICH, s = k => (SEED + k * 7919) >>> 0;
-  const nav = document.querySelector('nav.toc'), nb = rel(nav.querySelector('ol'), o), side = nb[0] > 46;
-  frames.push({ el: nav, marks: navFrame({ box: nb, entries: [...nav.querySelectorAll('li')].map(li => linesOf(li, o)[0]), x: nb[0] - u * 2.2, u, g, seed: s(1), rich: R, side }) });
-  document.querySelectorAll('blockquote').forEach((bq, k) => { const b = rel(bq, o), L = linesOf(bq, o);
-    frames.push({ el: bq, marks: quoteFrame({ x: b[0] + u * .9, lines: L, u, g, seed: s(10 + k), rich: R }) }); });
-  document.querySelectorAll('figure').forEach((f, k) => frames.push({ el: f, marks: figureFrame({ box: rel(f.querySelector('svg'), o), u, g, seed: s(20 + k), rich: R }) }));
-  document.querySelectorAll('aside').forEach((a, k) => frames.push({ el: a, marks: asideFrame({ box: rel(a, o), u, g, seed: s(30 + k), rich: R }) }));
-  document.querySelectorAll('.pull').forEach((p, k) => { const b = rel(p, o), L = linesOf(p, o), m = rel(art, o);
-    frames.push({ el: p, marks: pullFrame({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 2.2, yBot: L.at(-1).base + u * 2.6, measure: m[2] - m[0], u, seed: s(40 + k), rich: R }) }); });
-  document.querySelectorAll('pre').forEach((p, k) => frames.push({ el: p, marks: codeFrame({ box: rel(p, o), u, g, seed: s(50 + k), rich: R }) }));
-  frames.sort((a, b) => a.el.getBoundingClientRect().top - b.el.getBoundingClientRect().top).forEach((f, k) => f.col = k % 2 ? 'red' : 'blue');
-  return { o, frames };
-}
-// a frame as a score: its marks in order at a hand's pace, times from the moment it is first seen
-function scoreOf(f) {
-  const parts = []; let t = .05;
-  f.marks.forEach((m, i) => { const col = m.col === 'a' ? f.col : other(f.col);
-    if (m.dot) { parts.push({ t0: t, t1: t + .03, at: () => {}, done: g => dot(g, m.p, m.r, SOLID[col], undefined, .95) }); t += .03; return; }
-    const o = { w: m.w * 1.1, ink: HAIR[col], seed: (SEED + i * 13) >>> 0, start: m.start, end: m.end, load: m.load ?? .85, dry: .3, broad: m.broad ?? .3, swell: .25, nib: .55 };
-    const d = Math.max(.05, arclen(m.pts) / 240); parts.push(stem(t, t + d, m.pts, { ...o, live: 'cut' })); t += d * .7; });
-  const k = Math.min(1, 2.6 / Math.max(.1, t)); parts.forEach(p => { p.t0 *= k; p.t1 *= k; });   // no frame takes longer than ~2.6 s
-  return parts;
-}
-const arclen = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
-function stem(t0, t1, pts, o) {
-  const S = [0]; for (let i = 1; i < pts.length; i++) S.push(S[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-  const upTo = f => { const L = f * S[S.length - 1]; let i = 1; while (i < S.length - 1 && S[i] < L) i++;
-    const u = (L - S[i - 1]) / ((S[i] - S[i - 1]) || 1), a = pts[i - 1], b = pts[i]; return [...pts.slice(0, i), [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]]; };
-  const { live = 'taper', ...po } = o;
-  return { t0, t1, at: (g, f) => { const p = upTo(f); if (p.length > 1 && S[S.length - 1] * f > .6) pen(g, p, { ...po, end: live }); }, done: g => pen(g, pts, po) };
-}
-
-let raf = 0, io = null;
-function render(animate) {
-  cancelAnimationFrame(raf); io?.disconnect();
-  const t0 = performance.now(), { o, frames } = compose(), t1 = performance.now(), dpr = Math.min(2, devicePixelRatio || 1);
-  const ctx = c => { c.width = Math.round(o.width * dpr); c.height = Math.round(o.height * dpr); c.style.width = o.width + 'px'; c.style.height = o.height + 'px';
-    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); return g; };
-  const base = ctx(document.getElementById('orn')), live = ctx(document.getElementById('live'));
-  const scores = frames.map(f => ({ f, parts: scoreOf(f), start: null, done: null }));
-  if (!animate) { scores.forEach(s => s.parts.forEach(p => p.done(base))); document.body.dataset.timing = `grow ${(t1 - t0) | 0} ms, draw ${(performance.now() - t1) | 0} ms`; return; }
-  // drawn as the reader comes to each box, once
-  io = new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; const s = scores.find(s => s.f.el === e.target); if (s && s.start == null) { s.start = performance.now(); s.done = new Uint8Array(s.parts.length); kick(); } io.unobserve(e.target); }), { threshold: .25 });
-  scores.forEach(s => io.observe(s.f.el));
-  let running = false;
-  const tick = () => {
-    const now = performance.now(); live.save(); live.setTransform(1, 0, 0, 1, 0, 0); live.clearRect(0, 0, live.canvas.width, live.canvas.height); live.restore();
-    let active = false;
-    for (const s of scores) { if (s.start == null) continue; const t = (now - s.start) / 1000;
-      s.parts.forEach((p, i) => { if (s.done[i]) return; active = true; if (t >= p.t1) { p.done(base); s.done[i] = 1; } else if (t > p.t0) p.at(live, (t - p.t0) / (p.t1 - p.t0)); }); }
-    if (active) raf = requestAnimationFrame(tick); else { running = false; if (scores.every(s => s.start != null)) document.body.dataset.timing = 'drawn'; }
-  };
-  const kick = () => { if (!running) { running = true; raf = requestAnimationFrame(tick); } };
-}
-
-await document.fonts.ready;
-const still_ = matchMedia('(prefers-reduced-motion: reduce)').matches;
-render(!still_ && q.has('draw'));
-document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); scrollTo(0, 0); render(!still_); });
-const richIn = document.getElementById('rich'); richIn.value = RICH;
-richIn.addEventListener('input', () => { RICH = +richIn.value; render(false); const u = new URL(location.href); u.searchParams.set('rich', RICH); history.replaceState(null, '', u); });
-let lastW = innerWidth, timer;
-new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; render(false); } }, 150); }).observe(document.querySelector('.sheet'));
+const q = new URLSearchParams(location.search), art = document.querySelector('.text'), sd = location.hash.match(/seed=(\d+)/)?.[1];
+if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
+const rich = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0));
+// the frames, measured from their boxes and drawn behind them; redrawn on a change of width or scheme
+const r = rubricate(art, { style: q.get('style') ?? 'gothic', rich, ink: q.get('ink') ?? 'pen', draw: q.has('draw') ? 'read' : 'still', seed: sd ? +sd : undefined,
+  on: (state, t) => { document.getElementById('seed').textContent = r.state.seed; document.body.dataset.timing = t ? `grow ${t.grow} ms, draw ${t.draw} ms` : state === 'written' ? 'drawn' : state; } });
+document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); scrollTo(0, 0); r.redraw({ draw: 'read' }); });
+const richIn = document.getElementById('rich'); richIn.value = rich;
+richIn.addEventListener('input', () => { r.redraw({ rich: +richIn.value }); const u = new URL(location.href); u.searchParams.set('rich', richIn.value); history.replaceState(null, '', u); });
 addEventListener('hashchange', () => location.reload());
 </script>
 </body>

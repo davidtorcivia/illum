@@ -154,7 +154,7 @@ function walk(root, sheet, c) {
   root.querySelectorAll(sel.figure).forEach((fg, k) => frame(fg, 'figure', (f, u, g, rich) => f({ box: rel(fg.querySelector('svg, img, canvas') ?? fg, o), u, g, seed: s(20 + k), rich })));
   root.querySelectorAll(sel.aside).forEach((a, k) => frame(a, 'aside', (f, u, g, rich) => f({ box: rel(a, o), u, g, seed: s(30 + k), rich })));
   root.querySelectorAll(sel.pull).forEach((p, k) => { const L = linesOf(p, o), m = [text.left - o.left, 0, text.right - o.left];
-    frame(p, 'pull', (f, u, g, rich) => f({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 2.2, yBot: L.at(-1).base + u * 2.6, measure: m[2] - m[0], lines: L, u, seed: s(40 + k), rich })); });
+    frame(p, 'pull', (f, u, _, rich) => f({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 2.2, yBot: L.at(-1).base + u * 2.6, measure: m[2] - m[0], lines: L, u, seed: s(40 + k), rich })); });
   root.querySelectorAll(sel.code).forEach((p, k) => frame(p, 'code', (f, u, g, rich) => f({ box: rel(p, o), u, g, seed: s(50 + k), rich })));
 
   // the wayfinding (06): paraphs, fillers and breaks, each made at unit size and scaled about its anchor
@@ -275,19 +275,32 @@ function wiped(t0, t1, paint, [x, y, w, h], dpr, before) {
       g.lineTo(cx + dir[0] * d + n[0] * R, cy + dir[1] * d + n[1] * R); g.lineTo(cx - dir[0] * R + n[0] * R, cy - dir[1] * R + n[1] * R); g.closePath();
       g.clip(); g.drawImage(img(), x, y, w, h); g.restore(); } };
 }
+// a laid stroke's width along it, as the stamped pen makes it: its designed swell (press), set down and lifted at its ends
+// (a cut end square, a taper drawn out, a ball end only half lifted), so it leaves the medium in the same shape
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function swell(s, pts, { start, end }) {
+  const L = arclen(pts) || 1;
+  return f => (s.press ? s.press(f) : 1) * (start === 'cut' ? 1 : .4 + .6 * smooth(0, Math.min(.15, 9 / L), f))
+    * (end === 'cut' ? 1 : end === 'ball' ? .55 + .45 * (1 - smooth(1 - Math.min(.3, 24 / L), 1, f)) : .08 + .92 * Math.pow(1 - smooth(1 - Math.min(.35, 34 / L), 1, f), 1.2));
+}
 function score(items, c) {
   const { SEED, PAPER, DARK, dpr, W } = c, parts = [], groups = [], drawn = [], hand = { open: null }; let clock = .3, li = 0;
   // a part written by the medium: never two at once (the window would move under the first), so a part that begins
   // finishes the one still open
-  const written = (t0, t1, strokes, ink) => { const wp = W.part(t0, t1, strokes, ink, { width: 1.45 / 1.15, hair: 1.4 / 1.15 }); let fin = false;
+  const written = (t0, t1, strokes, ink, opts) => { const wp = W.part(t0, t1, strokes, ink, opts); let fin = false;
     const take = () => { if (hand.open && hand.open !== me) hand.open.done(); hand.open = me; };
-    const me = { t0, t1, at: (g, f) => { if (fin) return; take(); wp.at(f); }, done: () => { if (fin) return; take(); wp.done(); fin = true; hand.open = null; } };
+    const me = { t0, t1, at: (_, f) => { if (fin) return; take(); wp.at(f); }, done: () => { if (fin) return; take(); wp.done(); fin = true; hand.open = null; } };
     return me; };
   items.forEach((it, idx) => {
     const g0 = clock, from = parts.length, S = STYLES[it.style], P = paletteOf(S, c.mode, c.own), BLEND = DARK ? S.blendDark ?? (S.blend === 'multiply' ? 'screen' : S.blend) : S.blend;
     const other = col => { const [a, b] = S.pair; return col === a ? b ?? a : a; }, mi = it.line ? li++ : -1;
     const inkOf = s => { const col = s.col === 'g' ? 'gold' : s.col === 'k' ? 'black' : s.col === 'f' ? 'flesh' : s.col === 'a' ? it.a : other(it.a); return P[col] ?? P[S.pair[0]]; };
-    const isLine = s => W && !s.dot && !s.press && !s.plate && !BLEND && (s.load ?? .85) < 1 && !(s.broad >= .5), later = [], quill = new Map();
+    // which hand writes a stroke with the medium: the quill (a round, fine pen: the hairlines), or a broad nib at the
+    // mark's own angle (a paraph's bowl and stems, a capitulum, a bar); fills, spindles, an overprint's plates, marks laid
+    // in a blend, and the designed swells of a copperplate shade or a whiplash stay with the stamped pen (the medium's
+    // quill keeps its hairline under a swell, so a whiplash could not taper to its point)
+    const handOf = s => !W || s.dot || s.plate || BLEND || s.press ? null : s.broad >= .5 || (s.broad >= .4 && s.load >= 1) ? 'broad' : (s.load ?? .85) < 1 ? 'quill' : null;
+    const later = [], quill = new Map();
     const mark = (s, i, list) => {
       const INK = inkOf(s), solid = s.ink ? (DARK ? lift(s.ink) : s.ink) : INK.solid;
       if (s.dot) { drawn.push({ mi: idx, type: it.kind, dot: s.p, r: s.r, free: s.free, plate: s.plate | 0 });
@@ -298,7 +311,13 @@ function score(items, c) {
       const seed = it.line ? (SEED + mi * 131 + i * 7) >>> 0 : it.letter ? s.seed ?? (SEED + idx * 131 + i * 7) >>> 0 : (SEED + i * 13) >>> 0;
       drawn.push({ mi: idx, type: it.kind, pts, w, ends: [pts[0], pts.at(-1)], cap: [ends.start, ends.end], plate: s.plate | 0, free: s.free, solid: (s.load ?? .85) >= 1 || s.broad >= .5 || !!s.press });
       const ink = s.ink ? solid : s.broad ? INK.solid : INK.hair;
-      if (isLine(s)) { const k = ink.join(); quill.has(k) || quill.set(k, { ink, strokes: [] }); quill.get(k).strokes.push({ pts, w, rho: s.rho });
+      const hand = handOf(s);
+      if (hand) { const k = `${ink}|${hand}|${hand === 'broad' ? s.broad : ''}`, laid = hand === 'broad';
+        // the quill is near round (03's approved width, 1.45 and 1.4 of the penwork's own); a broad nib its full width,
+        // its hairline what the stamped pen's thinnest would be (the nib's angle as the stamped pen reads it: the medium's
+        // angle rises to the right, and this sign is the one that turns a paraph's stems out in their lozenges)
+        quill.has(k) || quill.set(k, { ink, strokes: [], opts: hand === 'broad' ? { width: 1, hair: Math.max(.08, 1 - s.broad) } : { width: 1.45 / 1.15, hair: 1.4 / 1.15 } });
+        quill.get(k).strokes.push({ pts, w, rho: s.rho, ...(hand === 'broad' ? { angle: s.nib ?? .55 } : {}), ...(laid ? { press: swell(s, pts, ends) } : {}) });
         // the quill lifts clean, so a curl's finishing ball is set down after it, as the stamped pen makes it (03's
         // penwork, approved without, keeps its own points)
         if (!it.letter) for (const [e, q] of [[ends.start, pts[0]], [ends.end, pts.at(-1)]]) if (e === 'ball') { const r = Math.max(1.05, w * (.75 + .5 * stream(seed, 'ball')()));
@@ -310,7 +329,7 @@ function score(items, c) {
     (it.ground ?? []).forEach((s, i, l) => mark(s, i, l));
     // the quill's ink: on a light ground as it multiplies into the paper (as 03 was approved: the medium's sheet laid
     // over the page in multiply), so ink laid as colour and opacity comes out the same; on a dark ground its own colour
-    const flushQuill = () => { for (const { ink, strokes } of quill.values()) { const d = strokes.reduce((a, s) => a + arclen(s.pts) / 300, 0) * .75 + strokes.length * .05; parts.push(written(clock, clock + d, strokes, DARK ? ink : ink.map((v, j) => Math.round(v * PAPER[j] / 255)))); clock += d; } quill.clear();
+    const flushQuill = () => { for (const { ink, strokes, opts } of quill.values()) { const d = strokes.reduce((a, s) => a + arclen(s.pts) / 300, 0) * .75 + strokes.length * .05; parts.push(written(clock, clock + d, strokes, DARK ? ink : ink.map((v, j) => Math.round(v * PAPER[j] / 255)), opts)); clock += d; } quill.clear();
       for (const make of later) { parts.push(make(clock)); clock += .03; } later.length = 0; };
     if (it.letter) { flushQuill(); const L = it.letter, M = L.M, pad = L.outline || L.ghost ? 3 : 0, box = [M.x0 - pad, M.y0 - pad, M.w / M.res + pad * 2, M.h / M.res + pad * 2];
       // a brushed letter is laid subtractively, which on a dark ground would sink to black: there it is laid flat, lifted
@@ -354,6 +373,7 @@ export function rubricate(root, opts = {}) {
     const sr = host.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
     for (const c of [base, live]) { c.width = Math.round(sr.width * dpr); c.height = Math.round(sr.height * dpr); c.style.width = sr.width + 'px'; c.style.height = sr.height + 'px'; c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); }
     W?.destroy(); W = o.ink !== 'pen' && supported() ? createWriter(host, base.getContext('2d'), { dpr, dark: DARK }) : null;
+    if (mode !== 'still') W?.warm();   // a hand about to write: the medium made now, not in the first frame of writing
     const c = { SEED, sel, style: key, rich, scale, gram, setups, kind: o.kind, mode: tm, own, DARK, PAPER, dpr, W };
     const t0 = performance.now(), w = o.view === 'specimen' ? { items: specimen(c), words: [], dropped: {} } : walk(root, host, c);
     const sc = score(w.items, c);

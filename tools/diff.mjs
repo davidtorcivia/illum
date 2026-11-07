@@ -26,7 +26,7 @@ for (const path of paths) for (const width of widths) for (const theme of themes
       if (m) { n++; max = Math.max(max, m); bb = [Math.min(bb[0], px), Math.min(bb[1], py), Math.max(bb[2], px), Math.max(bb[3], py)]; d.data.set([255, 0, 0, 255], i); }
       else d.data.set([...[0, 1, 2].map(k => 255 - (255 - y.data[i + k]) * .25), 255], i); }
     let diff = null; if (n) { const cv = new OffscreenCanvas(x.width, x.height); cv.getContext('2d').putImageData(d, 0, 0);
-      const u8 = new Uint8Array(await (await cv.convertToBlob()).arrayBuffer()); let s = ''; for (let i = 0; i < u8.length; i += 32768) s += String.fromCharCode(...u8.subarray(i, i + 32768)); diff = btoa(s); }
+      const u8 = new Uint8Array(await (await cv.convertToBlob()).arrayBuffer()); let s = ''; for (let q = 0; q < u8.length; q += 32768) s += String.fromCharCode(...u8.subarray(q, q + 32768)); diff = btoa(s); }
     return { n, max, bb, w: x.width, h: x.height, diff };
   }, shots[0].png, shots[1].png); await p.close();
   const tag = `${path.replace(/^playground\//, '')} ${width} ${theme}`;
