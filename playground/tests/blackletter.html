@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blackletter</title>
+<!--
+  Blackletter: a specimen of kit/styles/blackletter.js (research/11-blackletter.md). The whole rubricator's pass over
+  one text, written by the ink engine (kit/writer.js): the cadel drop initial and a line initial, paraphs, line-fillers,
+  a chapter and a book break, and the six frames. Text: Ruskin, The Stones of Venice II (1853), ch. VI, Project
+  Gutenberg #30755 (as 03), and the notes of 07. ?draw writes it as you watch; ?theme=dark; ?rich=0..1; #seed=n.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(170 44 28); color-scheme: light; }
+  :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); --rubric: rgb(232 110 86); color-scheme: dark; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
+  .sheet { position: relative; max-width: 900px; margin: 0 auto; padding: 120px 100px 140px 200px; box-sizing: border-box; }
+  .sheet > canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .15em; }
+  .sub { font-style: italic; margin: 0 0 2.4em; }
+  h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
+  p { margin: 0; }
+  /* the gap the scribe left for the rubricator's paraph */
+  p.par { text-indent: 1.6em; }
+  hr { border: 0; height: 3.2em; margin: .4em 0; }
+  hr.book { height: 4.6em; }
+  a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
+  nav.toc { margin: 0 0 2.4em; font-style: italic; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; }
+  blockquote { margin: 1.4em 0; padding: 0 0 0 2.4em; }
+  blockquote p { margin: 0 0 .3em; }
+  blockquote footer { font-style: italic; font-size: .9em; text-align: right; }
+  figure { margin: 2.8em auto 2em; max-width: 24em; }
+  figure svg { display: block; width: 100%; height: auto; }
+  figure svg g { stroke: var(--ink); }
+  figure svg rect[fill] { fill: var(--ink); }
+  figcaption { font-style: italic; font-size: .9em; margin-top: 1.6em; text-align: left; hyphens: manual; }
+  pre { margin: 1.8em 0; padding: 1.3em 1.6em; font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; hyphens: none; }
+  .pull { margin: 2.8em 1.5em; font-size: 1.35em; line-height: 1.4; font-style: italic; text-align: center; hyphens: manual; }
+  aside.note { margin: 2em 0 2em 2.5em; padding: 1em 0 .2em 1.4em; font-size: .9em; }
+  aside.note p { margin: 0 0 .6em; }
+  /* the letter is text; its ink is on the canvas. Sizes are set from the font's metrics once it has loaded */
+  .ini { color: transparent; font-weight: 600; }
+  .ini.drop { float: left; line-height: 1; }
+  .ini.line { display: inline-block; font-size: 1.8em; line-height: 0; margin-right: .1em; }
+  .ghost .ini { color: rgb(255 0 160 / .45); }
+  .colophon { max-width: 900px; margin: 0 auto; padding: 0 100px 60px 200px; box-sizing: border-box; font-size: 14px; font-style: italic; opacity: .6; }
+  .colophon a { color: inherit; }
+  @media (max-width: 640px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .sheet { padding: 64px 20px 80px 48px; }
+    .text { text-align: left; }
+    blockquote { padding-left: 2em; }
+    pre { padding: 1.2em 1.1em; font-size: 13.5px; }
+    .pull { margin: 2.6em .4em; }
+    aside.note { margin-left: .8em; }
+    .colophon { padding: 0 20px 40px 48px; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <canvas id="bake" aria-hidden="true"></canvas>
+  <article class="text">
+    <h1>Changefulness</h1>
+    <p class="sub">John Ruskin, The Stones of Venice, 1853</p>
+    <nav class="toc" aria-label="Contents">
+      <ol>
+        <li><a href="#map">The page as a map</a></li>
+        <li><a href="#measure">The measure of the page</a></li>
+        <li><a href="#rank">Rank, not decoration</a></li>
+        <li><a href="#grown">Grown from the page</a></li>
+      </ol>
+    </nav>
+    <p><span class="ini drop" data-lines="3">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture. And this we suppose to be all the pleasure that architecture was ever intended to give us. The idea of reading a building as we would read Milton or Dante, and getting the same kind of delight out of the stones as out of the stanzas, never enters our minds for a moment.</p>
+    <p class="par">Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art, for the production of which either rules or models can be given. Exactly so far as architecture works on known rules, and from given models, it is not an art, but a manufacture.</p>
+    <p><span class="ini line" data-lines="1">L</span>et us then understand at once, that change or variety is as much a necessity to the human heart and brain in buildings as in books; that there is no merit, though there is some occasional use, in monotony; and that we must no more expect to derive either pleasure or profit from an architecture whose ornaments are of one pattern, and whose pillars are of one proportion, than we should out of a universe in which the clouds were all of one shape, and the trees all of one size.</p>
+    <hr class="chapter">
+
+    <h2 id="map">The page as a map</h2>
+    <p>A medieval book had no page numbers, no index and no search. Its readers found their way by its ornament: the large initial that opened a book, the smaller one at a chapter, the paraph at a paragraph, the filler that closed a short line. Every mark said where you were and how much it mattered.</p>
+    <p class="par">The same marks can be grown on a web page from the page’s own structure, so that the ornament is the information architecture, not a costume over it. That asks something of the maker that Ruskin asked of the builders of his day.</p>
+    <blockquote>
+      <p>You must either make a tool of the creature, or a man of him. You cannot make both. Men were not intended to work with the accuracy of tools, to be precise and perfect in all their actions. If you will have that precision out of them, and make their fingers measure degrees like cog-wheels, and their arms strike curves like compasses, you must unhumanize them.</p>
+      <footer>John Ruskin, <cite>The Stones of Venice</cite>, 1853</footer>
+    </blockquote>
+    <p>A program cannot be a man, but it can refuse to be a cog-wheel: it can let every line it draws keep a little of the hand’s irregularity.</p>
+
+    <h2 id="measure">The measure of the page</h2>
+    <p>The scribe’s page was ruled before a word was written. In the books that look most at rest, the text block sits in the page as the page sits in the spread, and the margins grow from the gutter outward.</p>
+    <figure>
+      <svg viewBox="0 0 420 320" role="img" aria-label="Two facing pages of proportion two to three, with the diagonals of each page and of the spread; on each page a text block whose corners lie on those diagonals.">
+        <g fill="none" stroke-linecap="round">
+          <path d="M10 10 L410 310 M410 10 L10 310 M210 10 L10 310 M210 10 L410 310" stroke-opacity=".4" stroke-width=".5"/>
+          <rect x="10" y="10" width="200" height="300" stroke-width=".7"/><rect x="210" y="10" width="200" height="300" stroke-width=".7"/>
+          <rect x="54.4" y="43.3" width="133.3" height="200" stroke-width=".9" fill="currentColor" fill-opacity=".08"/>
+          <rect x="232.2" y="43.3" width="133.3" height="200" stroke-width=".9" fill="currentColor" fill-opacity=".08"/>
+        </g>
+      </svg>
+      <figcaption>The spread, after Van de Graaf: each page two by three, the text block in the same proportion with its corners on the diagonals.</figcaption>
+    </figure>
+    <p class="par">A web page has no fixed page, but it has a measure, and the measure can be honoured in the same way: the ornament sits in the margins the text leaves.</p>
+    <aside class="note">
+      <p><b>The pilcrow.</b> The scribe left a gap at the head of a paragraph for the rubricator to paint a ¶ in red. When the rubricator ran out of time the gap stayed empty, and the empty gap became the paragraph indent.</p>
+    </aside>
+
+    <h2 id="rank">Rank, not decoration</h2>
+    <p>Ornament that marks everything marks nothing. In the book the ladder was strict: a painted initial opened a book, a penwork initial a chapter, a paraph a paragraph.</p>
+    <p class="pull">Our most invisible typographic convention is an ornament that was never painted.</p>
+    <p class="par">On the web the ranks are already in the markup: headings, sections, quotations, figures, code, asides, navigation.</p>
+
+    <h2 id="grown">Grown from the page</h2>
+    <p>Each frame on this page is measured from its box when the page is laid out, and written again when it changes.</p>
+<pre><code>// a frame for every box, grown from its own box
+for (const el of boxes(document))
+  draw(frameFor(el, measure(el), { rich, seed }));</code></pre>
+    <p class="par">Nothing here covers or crowds a word. Take the frames away and the page is complete; put them back and it is a place.</p>
+    <hr class="book">
+  </article>
+</main>
+<p class="colophon">Rubricated by illum, blackletter, seed <span id="seed"></span>. <a href="?draw" id="redraw">Watch it written</a>.</p>
+
+<script type="module">
+import { createWriter, supported } from '../kit/writer.js';
+import S from '../kit/styles/blackletter.js';
+
+const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark';
+if (dark) document.documentElement.dataset.theme = 'dark';
+if (q.has('ghost')) document.body.classList.add('ghost');
+const art = document.querySelector('.text'), sheet = document.querySelector('.sheet'), bk = document.getElementById('bake');
+const fnv = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
+const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(art.textContent.replace(/\s+/g, ' ').trim()) % 1e7);
+const RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0)), LEVEL = Math.round(RICH * 4);
+document.getElementById('seed').textContent = SEED;
+
+// ---- measuring ---------------------------------------------------------------------------------------------------------
+const FONT = (w, px) => `${w} ${px}px "EB Garamond"`;
+const M = (() => { const c = document.createElement('canvas').getContext('2d'); c.font = FONT(600, 100); const H = c.measureText('H'); c.font = FONT(400, 100); const x = c.measureText('x');
+  return { asc: H.fontBoundingBoxAscent / 100, desc: H.fontBoundingBoxDescent / 100, cap: H.actualBoundingBoxAscent / 100, x: x.actualBoundingBoxAscent / 100 }; });
+let MET;
+// a drop initial: its top on the first line's cap height, its foot on the last line's baseline, as wide as the
+// blackletter capital it will be, and the float cut to exactly n lines
+function setInitials() {
+  for (const s of art.querySelectorAll('.ini.drop')) {
+    const cs = getComputedStyle(s.parentElement), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = +s.dataset.lines || 3;
+    const base = (lh - (MET.asc + MET.desc) * fs) / 2 + MET.asc * fs, F = ((n - 1) * lh + fs * MET.cap) / MET.cap, top = (n - 1) * lh + base - F * ((1 - MET.asc - MET.desc) / 2 + MET.asc);
+    const H = F * MET.cap;
+    Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', display: 'block', width: (S.initial.width(s.textContent) * H) + 'px',
+      marginRight: Math.round(lh * .38 + S.initial.wider[LEVEL]) + 'px', marginLeft: '0' });
+  }
+  // a line initial: as wide as its blackletter capital
+  for (const s of art.querySelectorAll('.ini.line')) s.style.width = (S.initial.width(s.textContent) * parseFloat(getComputedStyle(s).fontSize) * MET.cap) + 'px';
+}
+// the letter's ink box: from the cap line to the baseline, from its left edge
+function boxOf(span, o) {
+  const F = parseFloat(getComputedStyle(span).fontSize), rg = document.createRange(); rg.selectNodeContents(span); const rc = rg.getClientRects()[0];
+  const base = rc.top - o.top + MET.asc * F + (rc.height - (MET.asc + MET.desc) * F) / 2;
+  return [rc.left - o.left, base - MET.cap * F, rc.left - o.left + S.initial.width(span.textContent) * MET.cap * F, base];
+}
+function wordRects(o, pad) {
+  const out = [], tw = document.createTreeWalker(art, NodeFilter.SHOW_TEXT);
+  for (let n; (n = tw.nextNode());) { if (n.parentElement.closest('.ini') || !n.textContent.trim()) continue;
+    const rg = document.createRange(); rg.selectNodeContents(n);
+    for (const r of rg.getClientRects()) out.push([r.left - o.left - pad, r.top - o.top + 2 - pad * .5, r.right - o.left + pad, r.bottom - o.top - 2 + pad * .5]); }
+  return out;
+}
+const linesOf = (el, o) => { const rg = document.createRange(); rg.selectNodeContents(el); const fs = parseFloat(getComputedStyle(el).fontSize), out = [];
+  for (const r of rg.getClientRects()) { if (r.width < 1) continue; const t = r.top - o.top, last = out.at(-1);
+    if (last && Math.abs(last.top - t) < 3) { last.right = Math.max(last.right, r.right - o.left); last.left = Math.min(last.left, r.left - o.left); continue; }
+    out.push({ top: t, base: t + (r.height - (MET.asc + MET.desc) * fs) / 2 + MET.asc * fs, left: r.left - o.left, right: r.right - o.left }); }
+  return out; };
+const rel = (el, o) => { const r = el.getBoundingClientRect(); return [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top]; };
+
+// ---- the rubricator's pass: every case, in reading order, as marks --------------------------------------------------------
+function compose() {
+  const o = sheet.getBoundingClientRect(), fs = parseFloat(getComputedStyle(art).fontSize), u = fs * MET.x, keep = wordRects(o, 3), edge = 10, items = [];
+  const s = k => (SEED + k * 7919) >>> 0, at = el => el.getBoundingClientRect().top;
+  art.querySelectorAll('.ini').forEach((span, k) => { const big = span.classList.contains('drop'), box = boxOf(span, o);
+    items.push({ el: span, y: at(span), marks: S.initial({ ch: span.textContent, G: { box }, keep, big, level: LEVEL, rich: RICH, seed: s(k), room: box[0] - edge, bottom: o.height - 30 }).marks }); });
+  const m = rel(art, o), measure = m[2] - m[0], kinds = S.kinds(S.setup(SEED), RICH);
+  // paraphs, in the gap the scribe left at the head of a paragraph
+  art.querySelectorAll('p.par').forEach((p, k) => { const L = linesOf(p, o)[0], ind = parseFloat(getComputedStyle(p).textIndent), w = u * 1.65;
+    items.push({ el: p, y: at(p), marks: S.paraph(L.left - ind + (ind - w) / 2, L.base, u, s(100 + k), RICH) }); });
+  // line-fillers: a heading's line run out to the measure; a paragraph's last line when it leaves a good gap
+  let nf = 0;
+  art.querySelectorAll('h2, .text > p:not(.sub):not(.pull)').forEach((el, k) => { const L = linesOf(el, o).at(-1); if (!L) return;
+    const x0 = L.right + u * .8, x1 = m[2], h2 = el.tagName === 'H2'; if (x1 - x0 < (h2 ? u * 3 : measure * .3)) return;   // a short last line only: a long gap is what a filler closed
+    items.push({ el, y: at(el) + 1, marks: S.filler(x0, x1, L.base - u, L.base, h2 ? 'rule' : kinds[nf++ % kinds.length], s(200 + k), RICH) }); });
+  // capitals touched with red: the first letter of each sentence in the running text
+  if (RICH >= .5) { let n = 0; const tw = document.createTreeWalker(art, NodeFilter.SHOW_TEXT);
+    for (let t; (t = tw.nextNode());) { const el = t.parentElement; if (!el.matches('.text > p:not(.sub):not(.pull), .text > p *') || el.closest('.ini, a, b')) continue;
+      for (const mt of t.textContent.matchAll(/(?:^|[.;:?!]\s+)([A-Z])/g)) { const i = mt.index + mt[0].length - 1; if (el.closest('p').firstChild === t && i < 2 && el.closest('p').querySelector('.ini')) continue;
+        const rg = document.createRange(); rg.setStart(t, i); rg.setEnd(t, i + 1); const rc = rg.getClientRects()[0]; if (!rc) continue;
+        const L = linesOf(el.closest('p'), o).find(l => Math.abs(l.top - (rc.top - o.top)) < 4); if (!L) continue;
+        items.push({ el, y: rc.top, marks: S.touch(rc.left - o.left + rc.width * .32, L.base - fs * MET.cap, L.base, u, s(400 + n++)) }); } } }
+  // breaks
+  art.querySelectorAll('hr').forEach((hr, k) => { const b = rel(hr, o); items.push({ el: hr, y: at(hr), marks: S.breakMark((m[0] + m[2]) / 2, (b[1] + b[3]) / 2, measure, hr.classList.contains('book') ? 2 : 1, s(300 + k), RICH, u) }); });
+  // the frames
+  const F = S.frames, push = (el, marks) => items.push({ el, y: at(el), marks });
+  art.querySelectorAll('nav').forEach((nav, k) => { const list = nav.querySelector('ol'), nb = rel(list, o), side = nb[0] > 46;
+    push(nav, F.nav({ box: nb, entries: [...nav.querySelectorAll('li')].map(li => linesOf(li, o)[0]), x: nb[0] - u * 3.2, u, seed: s(1 + k), rich: RICH, side })); });
+  art.querySelectorAll('blockquote').forEach((bq, k) => { const b = rel(bq, o); push(bq, F.quote({ x: b[0] + u * .9, lines: linesOf(bq, o), u, seed: s(10 + k), rich: RICH })); });
+  art.querySelectorAll('figure').forEach((f, k) => push(f, F.figure({ box: rel(f.querySelector('svg'), o), u, seed: s(20 + k), rich: RICH })));
+  art.querySelectorAll('aside').forEach((a, k) => push(a, F.aside({ box: rel(a, o), u, seed: s(30 + k), rich: RICH })));
+  art.querySelectorAll('.pull').forEach((p, k) => { const L = linesOf(p, o); push(p, F.pull({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 2.2, yBot: L.at(-1).base + u * 2.6, measure, lines: L, u, seed: s(40 + k), rich: RICH })); });
+  art.querySelectorAll('pre').forEach((p, k) => push(p, F.code({ box: rel(p, o), u, seed: s(50 + k), rich: RICH })));
+  return { o, items: items.sort((a, b) => a.y - b.y) };
+}
+
+// ---- writing it ----------------------------------------------------------------------------------------------------------
+// runs of marks in one colour and one nib become one writer part; a hand's pace, a little pause between marks
+// each case takes at most its cap (an initial ~6 s, a frame or a break ~1.2 s, a touched capital a moment), so the whole
+// page is written in well under a minute
+function score(items) {
+  const parts = []; let t = .1;
+  for (const it of items) {
+    const own = []; let run = null, u = 0;
+    const flush = () => { if (!run) return; const L = run.strokes.reduce((a, s) => a + s.L, 0), d = Math.max(.05, L / 260 + run.strokes.length * .04);
+      own.push({ t0: u, t1: u + d, ...run }); u += d; run = null; };
+    for (const m of it.marks) { const L = m.pts.reduce((a, p, i) => i ? a + Math.hypot(p[0] - m.pts[i - 1][0], p[1] - m.pts[i - 1][1]) : 0, 0);
+      if (!run || run.col !== m.col || Math.abs(run.w - m.w) > .01 || Math.abs(run.hair - m.hair) > .01) { flush(); run = { col: m.col, w: m.w, hair: m.hair, strokes: [] }; }
+      run.strokes.push({ pts: m.pts, L, angle: m.angle }); }
+    flush();
+    const cap = it.el.classList?.contains('drop') ? 6 : it.marks.length <= 1 ? .3 : 1.2, k = Math.min(1, cap / Math.max(u, .01));
+    for (const p of own) parts.push({ ...p, t0: t + p.t0 * k, t1: t + p.t1 * k });
+    t += u * k + .12;
+  }
+  return parts;
+}
+
+let raf = 0;
+function render(animate) {
+  cancelAnimationFrame(raf); sheet.querySelectorAll('canvas:not(#bake)').forEach(c => c.remove());
+  const t0 = performance.now(); setInitials(); const { o, items } = compose(), t1 = performance.now(), dpr = Math.min(2, devicePixelRatio || 1);
+  bk.width = Math.round(o.width * dpr); bk.height = Math.round(o.height * dpr); bk.style.width = o.width + 'px'; bk.style.height = o.height + 'px';
+  const g = bk.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const P = S.palette[dark ? 'dark' : 'light'], W = createWriter(sheet, g, { dpr, dark });
+  const parts = score(items).map(p => ({ ...p, part: W.part(p.t0, p.t1, p.strokes.map(s => ({ pts: s.pts, angle: s.angle })), P[p.col], { width: p.w, hair: p.hair }) }));
+  document.body.dataset.score = (parts.at(-1)?.t1 ?? 0).toFixed(1) + ' s';
+  if (!animate) { parts.forEach(p => p.part.done()); W.flush(); W.destroy?.();
+    document.body.dataset.timing = `compose ${(t1 - t0) | 0} ms, write ${(performance.now() - t1) | 0} ms, ${parts.length} parts`; return; }
+  const start = performance.now(); let i = 0;
+  const tick = () => { const now = (performance.now() - start) / 1000;
+    while (i < parts.length && now >= parts[i].t1) parts[i++].part.done();
+    if (i < parts.length && now > parts[i].t0) { parts[i].part.at((now - parts[i].t0) / (parts[i].t1 - parts[i].t0));
+      const y = parts[i].part.bbox[1]; if (y > scrollY + innerHeight * .75 || y < scrollY) scrollTo({ top: y - innerHeight * .35, behavior: 'smooth' }); }
+    if (i < parts.length) raf = requestAnimationFrame(tick); else { W.flush(); document.body.dataset.timing = 'drawn'; } };
+  raf = requestAnimationFrame(tick);
+}
+
+await document.fonts.ready; MET = M();
+if (!supported()) document.body.dataset.timing = 'no webgl2';
+else render(q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches);
+</script>
+</body>
+</html>

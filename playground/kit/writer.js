@@ -52,8 +52,9 @@ export function createWriter(host, bake, { dpr = Math.min(2, devicePixelRatio ||
   }
 
   // a run of strokes in one ink, written between t0 and t1 (seconds on the score); the hand slows into and out of each
-  // per stroke: s.angle (the nib's angle, radians above the line; default the pen's), s.press (f in 0..1 along the
-  // stroke -> a width multiplier: a designed swell), s.rho (how heavily it is laid)
+  // The nib: its edge is s.w * width CSS px wide and s.hair (CSS px; default s.w * hair) thick; with no s.w, width and
+  // hair are themselves CSS px. Per stroke too: s.angle (the nib's angle, radians above the line; default the pen's),
+  // s.press (f in 0..1 along the stroke -> a width multiplier: a designed swell), s.rho (how heavily it is laid).
   function part(t0, t1, strokes, rgb, { width = 1.2, hair = .85, angle = null } = {}) {
     strokes = strokes.filter(s => s.pts.length > 1);
     let bb = [Infinity, Infinity, -Infinity, -Infinity];
@@ -61,7 +62,7 @@ export function createWriter(host, bake, { dpr = Math.min(2, devicePixelRatio ||
     bb = [bb[0] - 6, bb[1] - 6, bb[2] + 6, bb[3] + 6];
     const total = strokes.reduce((a, s) => a + arclen(s.pts) + 15, 0) || 1, plan = []; let u = 0;
     for (const s of strokes) {
-      const P = s.pts, L = arclen(P); let acc = 0; plan.push({ u, dip: true, w: (s.w ?? 1) * width, hair: (s.w ?? 1) * hair, angle: s.angle ?? angle });
+      const P = s.pts, L = arclen(P); let acc = 0; plan.push({ u, dip: true, w: (s.w ?? 1) * width, hair: s.hair ?? (s.w ?? 1) * hair, angle: s.angle ?? angle });
       P.forEach((q, i) => { if (i) acc += Math.hypot(q[0] - P[i - 1][0], q[1] - P[i - 1][1]); const f = L ? acc / L : 0;
         const e = f - Math.sin(2 * Math.PI * f) / (2 * Math.PI) * .6;
         plan.push({ u: u + e * L / total, x: q[0], y: q[1], p: .5 + .25 * Math.cos(Math.PI * f) ** 2 * (s.rho ?? 1), wm: s.press ? s.press(f) : 1 }); });
