@@ -798,11 +798,20 @@ STYLES.occult = { label: 'Occult', pair: ['red', 'black'], alternate: true, minG
     return out; },
   breakMark(cx, y, measure, rank, seed, rich, u, v) {
     const r = stream(seed, 'ob'), out = [];
-    if (rank < 2) {   // a magic circle: two rings, marks like lettering between them, a sigil for its seal
-      const R = u * 1.6; out.push(hair(arc([cx, y], R, 0, 2 * Math.PI, 48), 'b', { w: .55, start: 'cut', end: 'cut' }), hair(arc([cx, y], R * .74, 0, 2 * Math.PI, 40), 'b', { w: .45, start: 'cut', end: 'cut' }));
-      const n = rich >= .5 ? 12 : 8; for (let k = 0; k < n; k++) { const a = k / n * 2 * Math.PI + r() * .1, c = [cx + Math.cos(a) * R * .87, y + Math.sin(a) * R * .87];
-        out.push(k % 3 === 0 ? bead(c, .7, 'a') : line([[c[0] - Math.sin(a) * u * .14, c[1] + Math.cos(a) * u * .14], [c[0] + Math.sin(a) * u * .14, c[1] - Math.cos(a) * u * .14]], 'a', .5)); }
-      out.push(...sigil(cx - R * .42, y - R * .42, R * .84, R * .84, r, 'a'));
+    if (rank < 2) {   // a magic circle: rings (two or three), a band of lettering between them (ticks, points, small signs,
+      // or little sigil-letters), and at its heart a seal (a sigil, a sign, or a triangle with a sign in it); each its own
+      const R = u * (2.2 + r() * .5), rings = 2 + (r() < .45 ? 1 : 0), band = ['ticks', 'signs', 'letters'][(r() * 3) | 0], heart = ['sigil', 'sign', 'triangle'][(r() * 3) | 0];
+      for (let k = 0; k < rings; k++) out.push(hair(arc([cx, y], R * (1 - k * .2), r() * 6, r() * 6 + 2 * Math.PI + .02, 56), k ? 'b' : 'a', { w: k ? .45 : .6, start: 'cut', end: 'cut' }));
+      const bR = R * .9 - (rings > 2 ? R * .1 : 0), n = Math.round((rich >= .5 ? 14 : 10) * (band === 'signs' ? .6 : 1));
+      for (let k = 0; k < n; k++) { const a = k / n * 2 * Math.PI + r() * .08, c = [cx + Math.cos(a) * bR, y + Math.sin(a) * bR], t = [-Math.sin(a), Math.cos(a)];
+        if (band === 'signs') out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], c, u * .26, k % 2 ? 'a' : 'b', .45));
+        else if (band === 'letters') { const L = u * .2, pts = [[c[0] - t[0] * L, c[1] - t[1] * L], [c[0] + Math.cos(a) * L * (r() - .5) * 2, c[1] + Math.sin(a) * L * (r() - .5) * 2], [c[0] + t[0] * L, c[1] + t[1] * L]]; out.push(line(pts, 'a', .45)); }
+        else out.push(k % 3 === 0 ? bead(c, .75, 'a') : line([[c[0] - Math.cos(a) * u * .16, c[1] - Math.sin(a) * u * .16], [c[0] + Math.cos(a) * u * .16, c[1] + Math.sin(a) * u * .16]], 'a', .5)); }
+      const iR = R * (rings > 2 ? .5 : .62);
+      if (heart === 'sigil') out.push(...sigil(cx - iR * .7, y - iR * .7, iR * 1.4, iR * 1.4, r, 'a'));
+      else if (heart === 'sign') out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [cx, y], iR * .8, 'a', .7));
+      else { out.push(line([[cx, y - iR * .85], [cx + iR * .75, y + iR * .45], [cx - iR * .75, y + iR * .45], [cx, y - iR * .85]], 'b', .55)); out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [cx, y + iR * .08], iR * .38, 'a', .5)); }
+      if (rich >= .25) for (const s of [-1, 1]) out.push(line([[cx + s * (R + u * .5), y], [cx + s * (R + u * (3 + r() * 2)), y]], 'b', .45, { start: s > 0 ? 'cut' : 'taper', end: s > 0 ? 'taper' : 'cut' }));
       return out; }
     const W = Math.min(measure * .5, u * 22);
     if (v.book === 'ouro') {   // the ouroboros: a body swelling and thinning round the circle, its head taking its tail
@@ -819,3 +828,150 @@ STYLES.occult = { label: 'Occult', pair: ['red', 'black'], alternate: true, minG
     if (rich >= .25) for (const s of [-1, 1]) { const a = cx + s * u * 2.8, b = cx + s * W / 2; out.push(line([[a, y], [b, y]], 'b', .45, { start: 'cut', end: 'taper' }));
       if (rich >= .5) for (let k = 1; k <= 2; k++) out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [a + s * (b - a) * k / 3, y - u * .45], u * .32, 'a', .45)); }
     return out; } };
+
+
+// ==== batch two: Kelmscott, copperplate, Art Nouveau, botanical field notes ==================================================
+// a whiplash: an S whose curvature runs one way, through nothing, and tightens the other way into a curl (the coup de fouet)
+const whip = (p, h, L, k, sense = 1) => tendril(p, h, L, -sense * k * .35, sense * k, 2.2, .4);
+// a heart-shaped leaf as Morris drew the hedera: two lobes laid solid with the pen, a curled stalk
+const hedera = (c, s, dir, col, r) => { const out = [], t = [Math.cos(dir), Math.sin(dir)], n = [-t[1], t[0]], P = (a, b) => [c[0] + t[0] * a + n[0] * b, c[1] + t[1] * a + n[1] * b];
+  // the leaf solid: a broad midrib from the notch to the point, and a lobe swelling each side of it, so no paper shows
+  out.push({ col, broad: .05, w: s * .62, load: 1.1, dry: .05, swell: .1, start: 'cut', end: 'taper', pts: [P(-s * .35, 0), P(s * .1, 0), P(s * .7, 0)] });
+  for (const sd of [-1, 1]) out.push({ col, broad: .05, w: s * .46, load: 1.1, dry: .05, swell: .1, start: 'taper', end: 'taper', pts: [P(-s * .46, sd * s * .14), P(-s * .28, sd * s * .36), P(s * .2, sd * s * .26), P(s * .62, sd * s * .03)] });
+  out.push(hair([P(-s * .5, 0), P(-s * .9, s * .1), ...tendril(P(-s * .9, s * .1), dir + Math.PI + .3, s * 1.1, 0, 2.6 / s, 1.4, .25).slice(1)], col, { w: .5, start: 'cut', end: 'ball' }));
+  return out; };
+Object.assign(STYLES, {
+  // ---- Kelmscott: William Morris's Kelmscott Press (1891–98; the Chaucer, 1896): black and red, the vine borders
+  // brought into the line, the hedera leaf for the paragraph
+  kelmscott: { label: 'Kelmscott', pair: ['red', 'black'], alternate: false, minGap: 1.4, theme: { rubric: 'rgb(172 36 28)', rubricDark: 'rgb(226 104 86)' },
+    ink: { red: { solid: [174, 34, 26], hair: [180, 44, 34] }, black: { solid: [26, 22, 20], hair: [30, 26, 22] } },
+    inkDark: { red: { solid: [228, 98, 80], hair: [224, 108, 92] }, black: { solid: [226, 216, 200], hair: [216, 206, 190] } },
+    setup: seed => { const r = stream(seed, 'kelm'); return { kinds: pickKinds(r, ['vine', 'berries', 'leaves'], 2), p: .85 + r() * .3 }; },
+    kinds: (v, rich) => rich < .25 ? ['leaves'] : v.kinds,
+    paraph: (x, base, u, seed, rich) => { const r = stream(seed, 'kp'); return hedera([x + u * .85, base - u * .6], u * .85, .85 + (r() - .5) * .3, 'a', r); },   // the hedera, pointing down and on
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const r = stream(seed, 'kf'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [], { n, p } = fitN(x1 - x0, h * 2 * v.p), st = [];
+      if (kind === 'leaves') { for (let k = 0; k < n; k++) out.push(...hedera([x0 + (k + .5) * p, mid], h * .5, (k % 2 ? .25 : -.25), k % 2 ? 'a' : 'b', r)); return out; }
+      for (let x = x0; x <= x1 + .01; x += .6) st.push([x, mid + Math.sin((x - x0) / p * 2 * Math.PI) * h * .22]);
+      out.push(hair(st, 'b', { w: .55, start: 'taper', end: 'cut' }));
+      for (let k = 0; k < n * 2; k++) { const px = x0 + (k + .5) * p / 2, py = mid + Math.sin((px - x0) / p * 2 * Math.PI) * h * .22, up = k % 2 ? 1 : -1;
+        if (kind === 'berries' && k % 2) { for (const [dx, dy] of [[0, 0], [h * .18, h * .1], [-h * .16, h * .12]]) out.push(bead([px + dx, py + up * h * .28 + dy * up], h * .1, 'a')); }
+        else out.push({ col: 'a', broad: .05, w: h * .3, load: 1.1, dry: .05, swell: .1, start: 'taper', end: 'taper', pts: [[px, py], [px + h * .25, py + up * h * .28], [px + h * .5, py + up * h * .3]] }); }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u) {
+      const r = stream(seed, 'kb'), out = [];
+      if (rank < 2) { out.push(...hedera([cx, y], u * 1.1, (r() - .5) * .2, 'a', r)); if (rich >= .5) out.push(...hedera([cx - u * 2.6, y + u * .2], u * .6, Math.PI + .2, 'b', r), ...hedera([cx + u * 2.6, y + u * .2], u * .6, -.2, 'b', r)); return out; }
+      const W = Math.min(measure * .5, u * 24);   // a vine from a rose: scrolls each way, leaves laid solid, the rose at the heart
+      for (const s of [-1, 1]) { const st = []; for (let d = u * 1.2; d <= W / 2; d += .7) st.push([cx + s * d, y + Math.sin(d / (u * 2.4)) * u * .55]);
+        out.push(hair(st, 'b', { w: .6, start: 'cut', end: 'taper' }));
+        for (let d = u * 2.2, k = 0; d < W / 2 - u; d += u * 2.4, k++) { const py = y + Math.sin(d / (u * 2.4)) * u * .55, up = k % 2 ? 1 : -1;
+          out.push({ col: 'a', broad: .05, w: u * .55, load: 1.1, dry: .05, swell: .1, start: 'taper', end: 'taper', pts: [[cx + s * d, py], [cx + s * (d + u * .5), py + up * u * .6], [cx + s * (d + u * 1), py + up * u * .7]] }); } }
+      for (let k = 0; k < 5; k++) { const a = k / 5 * 2 * Math.PI - Math.PI / 2; out.push({ col: 'a', broad: .05, w: u * .5, load: 1.1, dry: .05, swell: .1, start: 'taper', end: 'taper', pts: [[cx, y], [cx + Math.cos(a) * u * .45, y + Math.sin(a) * u * .45], [cx + Math.cos(a) * u * .8, y + Math.sin(a) * u * .8]] }); }
+      out.push(bead([cx, y], u * .2, 'b'));
+      return out; } },
+
+  // ---- Copperplate: the nineteenth-century writing master (Platt Rogers Spencer, Spencerian Key to Practical Penmanship,
+  // 1866; the "offhand flourishing" of the business colleges): one ink, a flexible nib swelling on the downstroke,
+  // running ovals, loops, and for a book the flourished bird
+  copperplate: { label: 'Copperplate', pair: ['ink', 'ink'], alternate: false, minGap: 1.4, theme: { rubric: 'rgb(44 36 30)', rubricDark: 'rgb(226 216 200)' },
+    ink: { ink: { solid: [32, 26, 22], hair: [40, 32, 26] } }, inkDark: { ink: { solid: [228, 218, 202], hair: [218, 208, 192] } },
+    setup: seed => { const r = stream(seed, 'copper'); return { kinds: pickKinds(r, ['ovals', 'loops', 'flourish'], 2), p: .85 + r() * .3, slant: .3 + r() * .15 }; },
+    kinds: (v, rich) => rich < .25 ? ['flourish'] : v.kinds,
+    paraph(x, base, u, seed, rich, v) {   // a capital stroke: an entry hairline, an oval, the shaded downstroke through it
+      const r = stream(seed, 'cp'), c = [x + u * .8, base - u * .7], sl = v.slant, out = [];
+      out.push(hair(arc(c, u * .6, Math.PI * .1, Math.PI * 2.05, 30).map(([a, b]) => [a + (c[1] - b) * sl * .5, b]), 'a', { w: .55, start: 'taper', end: 'taper' }));
+      out.push({ col: 'a', broad: 0, w: u * .32, load: 1, dry: .1, swell: .3, start: 'taper', end: 'taper', pts: [[c[0] + u * 1.05 + u * .7 * sl, c[1] - u * .95], [c[0] + u * .66, c[1]], [c[0] + u * .3 - u * .2 * sl, base + u * .25]] });   // the shaded stem beside the oval, touching it
+      if (rich >= .5) out.push(hair(tendril([c[0] + u * .3 - u * .2 * sl, base + u * .25], Math.PI * .75, u * 2.2, .5 / u, 3 / u, 1.3, .3), 'a', { w: .5, start: 'cut', end: 'ball' }));
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const r = stream(seed, 'cf2'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [], sl = v.slant;
+      if (kind === 'ovals') { const { n, p } = fitN(x1 - x0, h * .55 * v.p), pts = [];   // the running-oval drill: compressed, slanted
+        for (let k = 0; k <= n * 24; k++) { const t = k / 24 * 2 * Math.PI, yy = mid - h * .4 * Math.cos(t); pts.push([x0 + k / 24 * p + h * .35 * Math.sin(t) + (mid - yy) * sl, yy]); }
+        out.push(hair(pts.filter(q => q[0] >= x0 && q[0] <= x1), 'a', { w: .5, start: 'taper', end: 'taper' })); }
+      else if (kind === 'loops') { const { n, p } = fitN(x1 - x0, h * 1.1 * v.p), pts = [];
+        for (let k = 0; k <= n * 20; k++) { const t = k / 20 * 2 * Math.PI; pts.push([x0 + k / 20 * p - h * .4 * Math.sin(t) + h * .2 * sl, mid - h * .45 * Math.cos(t) + h * .1]); }
+        out.push(hair(pts.filter(q => q[0] >= x0 && q[0] <= x1), 'a', { w: .55, start: 'taper', end: 'taper' })); }
+      else { const L = x1 - x0 - h * 1.2, pts = []; for (let k = 0; k <= 60; k++) { const t = k / 60; pts.push([x0 + t * L, mid + Math.sin(t * Math.PI * 2) * h * .35 * (1 - t * .4)]); }   // a swelling S run out to a loop
+        out.push({ col: 'a', broad: 0, w: h * .16, load: 1, dry: .1, swell: .3, start: 'taper', end: 'cut', pts }, hair(tendril(pts.at(-1), 0, h * 3.2, .3 / h, 2.6 / h, 1.3, .3), 'a', { w: .5, start: 'cut', end: 'ball' })); }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u, v) {
+      const r = stream(seed, 'cb'), out = [], sl = v.slant;
+      if (rank < 2) { for (const s of [-1, 1]) { const pts = []; for (let k = 0; k <= 50; k++) { const t = k / 50; pts.push([cx + s * (u * .5 + t * u * 6), y + Math.sin(t * Math.PI * 2) * u * .6 * (1 - t * .5)]); }
+          out.push({ col: 'a', broad: 0, w: u * .2, load: 1, dry: .1, swell: .3, start: 'taper', end: 'cut', pts }, hair(tendril(pts.at(-1), s > 0 ? 0 : Math.PI, u * 3, .4 / u, 2.8 / u, 1.3, .3), 'a', { w: .5, start: 'cut', end: 'ball' })); }
+        out.push(hair(arc([cx, y], u * .5, 0, 2 * Math.PI, 24), 'a', { w: .5, start: 'cut', end: 'cut' })); return out; }
+      // the offhand bird: a shaded body, a head with its eye and beak, a wing of nested loops, a tail of swelling strokes
+      const b = [cx, y], out2 = out;
+      out2.push({ col: 'a', broad: 0, w: u * .35, load: 1, dry: .1, swell: .3, start: 'taper', end: 'taper', pts: arc([b[0], b[1]], u * 1.6, Math.PI * .95, Math.PI * 2.05, 30).map(([a, c]) => [a, b[1] + (c - b[1]) * .45]) });
+      const hd = [b[0] + u * 1.9, b[1] - u * .55]; out2.push(hair(arc(hd, u * .45, 0, 2 * Math.PI, 20), 'a', { w: .55, start: 'cut', end: 'cut' }), bead([hd[0] + u * .12, hd[1] - u * .08], .6, 'a'), line([[hd[0] + u * .42, hd[1]], [hd[0] + u * .95, hd[1] + u * .12], [hd[0] + u * .42, hd[1] + u * .2]], 'a', .5));
+      for (let k = 0; k < 3; k++) out2.push(hair(arc([b[0] - u * .2 + k * u * .25, b[1] - u * (1.3 + k * .35)], u * (1.3 - k * .25), Math.PI * .95, Math.PI * 1.9, 20).map(([a, c]) => [a + (b[1] - c) * sl * .4, c]), 'a', { w: .5, start: 'taper', end: 'taper' }));
+      for (let k = 0; k < 3; k++) out2.push({ col: 'a', broad: 0, w: u * .22, load: 1, dry: .1, swell: .3, start: 'cut', end: 'taper', pts: [[b[0] - u * 1.5, b[1]], [b[0] - u * 3, b[1] + u * (.3 + k * .35)], [b[0] - u * 4.3 - k * u * .4, b[1] + u * (.2 + k * .6)]] });
+      if (rich >= .5) for (const s of [-1, 1]) out2.push(hair(tendril([cx + s * u * 6, y + u * 1.3], s > 0 ? 0 : Math.PI, u * 4, .3 / u, 2.4 / u, 1.4, .3), 'a', { w: .5, start: 'taper', end: 'ball' }));
+      return out2; } },
+
+  // ---- Art Nouveau: the whiplash (coup de fouet) of Hector Guimard's Métro entrances (1900) and Mucha's Documents
+  // décoratifs (1902): long curves that slacken and snap into a curl, buds, olive and gold
+  nouveau: { label: 'Nouveau', pair: ['olive', 'gold'], alternate: false, minGap: 1.5, theme: { rubric: 'rgb(98 108 52)', rubricDark: 'rgb(178 190 118)' },
+    ink: { olive: { solid: [86, 100, 48], hair: [92, 106, 54] }, gold: { solid: [176, 128, 46], hair: [170, 124, 44] } },
+    inkDark: { olive: { solid: [168, 184, 108], hair: [160, 176, 104] }, gold: { solid: [212, 168, 86], hair: [204, 160, 80] } },
+    setup: seed => { const r = stream(seed, 'nouveau'); return { kinds: pickKinds(r, ['whiplash', 'tendrils', 'buds'], 2), p: .85 + r() * .35, sense: r() < .5 ? 1 : -1 }; },
+    kinds: (v, rich) => rich < .25 ? ['whiplash'] : v.kinds,
+    paraph(x, base, u, seed, rich, v) { const r = stream(seed, 'np'), out = [];
+      out.push(hair(whip([x + u * .2, base + u * .3], -Math.PI / 2 + .55, u * 3.8, 1.6 / u, 1), 'a', { w: .75, start: 'taper', end: 'ball' }));
+      if (rich >= .5) out.push({ col: 'b', broad: .05, w: u * .45, load: 1.1, dry: .05, swell: .1, start: 'taper', end: 'taper', pts: [[x + u * .2, base - u * .4], [x + u * .7, base - u * .7], [x + u * 1.1, base - u * .55]] });
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const r = stream(seed, 'nf'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
+      if (kind === 'whiplash') { const L = x1 - x0 - h * 1.6, pts = []; for (let k = 0; k <= 90; k++) { const t = k / 90, e = Math.pow(t, 1.6); pts.push([x0 + t * L, mid + v.sense * h * .5 * Math.sin(e * Math.PI * 2.2) * (1 - t * .3)]); }
+        const a = Math.atan2(pts.at(-1)[1] - pts.at(-3)[1], pts.at(-1)[0] - pts.at(-3)[0]);
+        out.push(hair([...pts, ...tendril(pts.at(-1), a, h * 3, .3 / h, 4.2 / h * (Math.sin(Math.PI * 2.2) > 0 ? -v.sense : v.sense), 1.3, .3).slice(1)], 'a', { w: .7, start: 'taper', end: 'ball' })); }
+      else if (kind === 'tendrils') { for (let k = 0; k < 3; k++) { const pts = []; for (let x = x0 + k * h * .6; x <= x1 - h * (1.2 - k * .3); x += .6) { const t = (x - x0) / (x1 - x0); pts.push([x, mid + (k - 1) * h * .28 * (1 - t * .7) + Math.sin(t * Math.PI * 1.5) * h * .1]); }   // they draw together but never touch
+          out.push(hair(pts, k === 1 ? 'a' : 'b', { w: .5, start: 'taper', end: k === 1 ? 'ball' : 'taper' })); } }
+      else { const { n, p } = fitN(x1 - x0, h * 2.6 * v.p); for (let k = 0; k < n; k++) { const a = [x0 + k * p + h * .2, yBase], c = [x0 + (k + .7) * p, yTop + h * .1];
+          out.push(hair([a, [a[0] + p * .25, mid + h * .25], [c[0] - p * .1, c[1] + h * .3], c], 'a', { w: .55, start: 'taper', end: 'cut' }), { col: 'b', broad: .05, w: h * .35, load: 1.1, dry: .05, swell: .1, start: 'taper', end: 'taper', pts: [[c[0] - h * .05, c[1] + h * .05], [c[0] + h * .1, c[1] - h * .1], [c[0] + h * .25, c[1] - h * .15]] }); } }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u, v) {
+      const out = [];
+      if (rank < 2) { for (const s of [-1, 1]) out.push(hair(whip([cx + s * u * .4, y + u * .2], s > 0 ? -.15 : Math.PI + .15, u * 5, 1 / u, s), 'a', { w: .65, start: 'taper', end: 'ball' }));
+        out.push({ col: 'b', broad: .05, w: u * .5, load: 1.1, dry: .05, swell: .1, start: 'taper', end: 'taper', pts: [[cx, y + u * .2], [cx, y - u * .4], [cx, y - u * .9]] }); return out; }
+      // Guimard: two whiplash stems rising from a root, leaning out, curling back; a bud at the top; leaves at the root
+      for (const s of [-1, 1]) { out.push(hair(whip([cx + s * u * .3, y + u * 1.2], -Math.PI / 2 + s * .5, u * 10, .55 / u, -s), 'a', { w: .8, start: 'taper', end: 'ball' }));
+        out.push({ col: 'b', broad: .05, w: u * .6, load: 1.1, dry: .05, swell: .1, start: 'taper', end: 'taper', pts: [[cx, y + u * 1.2], [cx + s * u * 1.2, y + u * .9], [cx + s * u * 2.2, y + u * 1.1]] });
+        if (rich >= .5) out.push(hair(whip([cx + s * u * 2.6, y + u * 1.2], s > 0 ? -.1 : Math.PI + .1, u * 8, .6 / u, s), 'b', { w: .55, start: 'taper', end: 'ball' })); }
+      out.push(hair(arc([cx, y - u * 1.1], u * .55, 0, 2 * Math.PI, 24).map(([a, b]) => [a, y - u * 1.1 + (b - y + u * 1.1) * 1.5]), 'b', { w: .6, start: 'cut', end: 'cut' }));
+      return out; } },
+
+  // ---- Field notes: the botanist's notebook (the herbarium sheet and its tied label; Kew and the Smithsonian field
+  // books): graphite and a red pencil, a sketched leaf with its veins, a scale in millimetres, the specimen tag on its string
+  botanical: { label: 'Field notes', pair: ['graphite', 'redpencil'], alternate: false, minGap: 1.5,
+    ink: { graphite: { solid: [86, 86, 92], hair: [96, 96, 102] }, redpencil: { solid: [178, 64, 52], hair: [182, 74, 62] } },
+    inkDark: { graphite: { solid: [196, 196, 202], hair: [184, 184, 190] }, redpencil: { solid: [226, 120, 104], hair: [222, 128, 112] } },
+    setup: seed => { const r = stream(seed, 'bot'); return { kinds: pickKinds(r, ['stem', 'scale', 'tag'], 2), p: .85 + r() * .3 }; },
+    kinds: (v, rich) => rich < .25 ? ['stem'] : v.kinds,
+    paraph(x, base, u, seed, rich) {   // a leaf sketched: its outline, a midrib, a few veins
+      const r = stream(seed, 'bp2'), c = [x + u * .75, base - u * .6], a = -.6 + (r() - .5) * .4, t = [Math.cos(a), Math.sin(a)], n = [-t[1], t[0]], L = u * 1.1, W = u * .45, P = (s, q) => [c[0] + t[0] * s + n[0] * q, c[1] + t[1] * s + n[1] * q], o = { w: .5, load: .65, start: 'taper', end: 'taper' };
+      const side = sg => Array.from({ length: 13 }, (_, k) => { const s = -L + 2 * L * k / 12; return P(s, sg * W * Math.sin((k / 12) * Math.PI) ** .8); });
+      const out = [hair(wob(side(1), .08, seed), 'a', o), hair(wob(side(-1), .08, seed + 1), 'a', o), hair([P(-L * 1.4, 0), P(L * .95, 0)], 'a', { ...o, w: .45 })];
+      for (let k = 1; k <= (rich >= .5 ? 3 : 2); k++) for (const sg of [-1, 1]) out.push(hair([P(-L + k * L * .5, 0), P(-L + k * L * .5 + L * .3, sg * W * .7)], 'a', { ...o, w: .38 }));
+      return out; },
+    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+      const r = stream(seed, 'bf'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [], o = { w: .5, load: .65, start: 'taper', end: 'taper' };
+      if (kind === 'stem') { out.push(hair(wob([[x0, mid + h * .2], [x1, mid - h * .1]], .25, seed), 'a', o)); const { n, p } = fitN(x1 - x0, h * 1.3 * v.p);
+        for (let k = 0; k < n; k++) { const px = x0 + (k + .5) * p, py = mid + h * .2 - (px - x0) / (x1 - x0) * h * .3, up = k % 2 ? 1 : -1;
+          out.push(hair([[px, py], [px + h * .35, py + up * h * .2], [px + h * .65, py + up * h * .28]], 'a', o), hair([[px + h * .05, py], [px + h * .4, py + up * h * .4], [px + h * .65, py + up * h * .28]], 'a', o)); } }
+      else if (kind === 'scale') { const y = yBase - h * .05, { n, p } = fitN(x1 - x0, h * .35); out.push(hair([[x0, y], [x1, y]], 'a', { ...o, w: .45 }));
+        for (let k = 0; k <= n; k++) out.push(hair([[x0 + k * p, y], [x0 + k * p, y - h * (k % 10 === 0 ? .75 : k % 5 === 0 ? .5 : .28)]], k % 10 === 0 && rich >= .5 ? 'b' : 'a', { ...o, w: .38, start: 'cut' })); }
+      else { const tg = [x1 - h * 1.6, mid], W = h * 1.6, H = h * .9;   // the string, then the tag tied on it: a card with a cut corner and its eyelet
+        out.push(hair(wob([[x0, mid], [tg[0] - h * .15, mid + h * .05]], .3, seed), 'a', o), hair(arc([tg[0] + h * .22, mid], h * .14, 0, 2 * Math.PI, 12), 'a', { ...o, start: 'cut', end: 'cut' }));
+        out.push(hair([[tg[0] + h * .4, mid - H / 2], [x1 - .3, mid - H / 2], [x1 - .3, mid + H / 2], [tg[0] + h * .4, mid + H / 2], [tg[0], mid + H * .2], [tg[0], mid - H * .2], [tg[0] + h * .4, mid - H / 2]], 'b', { ...o, w: .5, start: 'cut', end: 'cut' }));
+        if (rich >= .5) out.push(hair([[tg[0] + h * .55, mid], [x1 - h * .25, mid]], 'a', { ...o, w: .35 })); }
+      return out; },
+    breakMark(cx, y, measure, rank, seed, rich, u) {
+      const r = stream(seed, 'bb'), out = [], o = { w: .55, load: .65, start: 'taper', end: 'taper' }, leafAt = (c, a, L) => { const t = [Math.cos(a), Math.sin(a)], n = [-t[1], t[0]], P = (s, q) => [c[0] + t[0] * s + n[0] * q, c[1] + t[1] * s + n[1] * q];
+        return [hair(Array.from({ length: 11 }, (_, k) => P(L * k / 10, L * .32 * Math.sin(k / 10 * Math.PI))), 'a', o), hair(Array.from({ length: 11 }, (_, k) => P(L * k / 10, -L * .32 * Math.sin(k / 10 * Math.PI))), 'a', o), hair([P(0, 0), P(L * .9, 0)], 'a', { ...o, w: .4 })]; };
+      const S = rank < 2 ? 1 : 1.6, stem = [[cx - u * 4 * S, y + u * .8 * S], [cx, y], [cx + u * 3.5 * S, y - u * .9 * S]];
+      out.push(hair(wob(stem, .3, seed), 'a', o));
+      for (let k = 0; k < (rank < 2 ? 3 : 6); k++) { const t = (k + .5) / (rank < 2 ? 3 : 6), px = cx - u * 4 * S + t * u * 7.5 * S, py = y + u * .8 * S - t * u * 1.7 * S; out.push(...leafAt([px, py], -Math.PI / 2 + (k % 2 ? .9 : -.9) + (r() - .5) * .3, u * (1.2 + r() * .4) * S)); }
+      if (rank >= 2) { const tg = [cx + u * 5.5, y + u * 1.4]; out.push(hair([[cx + u * 3.4, y - u * .8], [tg[0] - u * .2, tg[1] - u * .5]], 'a', o), hair([[tg[0], tg[1] - u * .55], [tg[0] + u * 2.6, tg[1] - u * .55], [tg[0] + u * 2.6, tg[1] + u * .7], [tg[0], tg[1] + u * .7], [tg[0] - u * .4, tg[1] + u * .1], [tg[0], tg[1] - u * .55]], 'b', { ...o, start: 'cut', end: 'cut' }));
+        if (rich >= .25) for (let k = 0; k < 2; k++) out.push(hair(wob([[tg[0] + u * .3, tg[1] - u * .1 + k * u * .45], [tg[0] + u * (1.6 + k * .5), tg[1] - u * .1 + k * u * .45]], .15, seed + k), 'a', { ...o, w: .4 })); }
+      return out; } },
+});

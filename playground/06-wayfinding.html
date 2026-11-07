@@ -68,6 +68,19 @@
     books. By construction no sigil holds a Z, N or ϟ run or a zig-back (tools: scratchpad sigilcheck.mjs checks thousands),
     and no sign is four-armed or hooked in rotation.
 
+  Batch two (named sources; studied from the works, not scans in this session):
+    kelmscott   Morris's Kelmscott Press (1891–98; the Chaucer, 1896): black and red; the hedera leaf for the paragraph;
+                vine fillers with solid leaves or berries; a hedera sprig between chapters, a vine from a rose between books.
+    copperplate the nineteenth-century writing master (Spencer, Spencerian Key, 1866; offhand flourishing): one ink, the
+                shaded downstroke; running ovals, loops, a swelling S run out to a loop; mirrored S flourishes between
+                chapters, the flourished bird between books.
+    nouveau     the whiplash of Guimard's Métro (1900) and Mucha's Documents décoratifs (1902): olive and gold; a whiplash
+                sprout for the paragraph; whiplash, converging tendrils, buds; Guimard's twin stems and bud between books.
+    botanical   the botanist's field book and herbarium label: graphite and red pencil; a sketched leaf with its veins;
+                a stem with leaves, a millimetre scale, a tag tied on its string; a sprig, and for a book a pressed specimen
+                with its label.
+  Occult's magic circle now varies per instance: two or three rings, a band of ticks, signs or sigil-letters, and a
+  sigil, a sign or a triangle at its heart.
   Light and dark: the page's tokens (--paper, --ink, --rubric) belong to the host; dark follows prefers-color-scheme,
   or data-theme / ?theme=dark|light, or the colophon's day / night / system. A style colours only its own marks (and the
   rubric, where that is its tradition); its own ground (Cyber's dark glass, Blueprint's cyanotype) only with
@@ -243,9 +256,9 @@ function specimen(g, sr) {
   const S = st(), V = S.setup(SEED), u = 8 * SCALE, out = [], r = stream(SEED, 'spec'), x0 = 40, y0 = 60, kinds = S.kinds(V, RICH);
   for (let k = 0; k < 20; k++) { const w = 60 + r() * 200, col = k % 2, y = y0 + k * 30, x = x0 + (k % 2 ? 300 : 0) * 0;
     out.push({ y, a: S.pair[col % 2] ?? S.pair[0], type: 'filler', list: scaled(S.filler(x, x + w / SCALE, y - 8, y, kinds[k % kinds.length], SEED + 977 * k, RICH, V), x, y - 4) }); }
-  for (let k = 0; k < 12; k++) { const x = 380 + (k % 4) * 70, y = y0 + 40 + Math.floor(k / 4) * 70;
+  for (let k = 0; k < 12; k++) { const x = 400 + (k % 4) * 52, y = y0 + 12 + Math.floor(k / 4) * 46;   // a tidy grid of four by three
     out.push({ y, a: S.alternate ? S.pair[k % 2] : S.pair[0], type: 'paraph', list: scaled(S.paraph(x, y, 8, SEED + 131 * k, RICH, V), x, y) }); }
-  out.push({ y: 0, a: S.pair[0], type: 'chapter', list: brk(560, y0 + 300, 360, 1, SEED + 5, 8) }, { y: 0, a: S.pair[1] ?? S.pair[0], type: 'book', list: brk(560, y0 + 380, 420, 2, SEED + 9, 8) });
+  out.push({ y: 0, a: S.pair[0], type: 'chapter', list: brk(500, y0 + 230, 360, 1, SEED + 5, 8) }, { y: 0, a: S.pair[1] ?? S.pair[0], type: 'book', list: brk(500, y0 + 360, 420, 2, SEED + 9, 8) });
   return out;
   function brk(cx, y, m, rank, seed, uu) { return scaled(S.breakMark(cx, y, m / SCALE, rank, seed, RICH, uu, V), cx, y); }
 }
