@@ -900,7 +900,6 @@ Object.assign(STYLES, {
       for (let k = 0; k < 5; k++) { const a = k / 5 * 2 * Math.PI - Math.PI / 2; out.push({ col: 'a', broad: .05, w: u * .5, load: 1.1, dry: .05, swell: .1, start: 'taper', end: 'taper', pts: [[cx, y], [cx + Math.cos(a) * u * .45, y + Math.sin(a) * u * .45], [cx + Math.cos(a) * u * .8, y + Math.sin(a) * u * .8]] }); }
       out.push(bead([cx, y], u * .2, 'b'));
       return out; } },
-
 });
 
 
@@ -1120,7 +1119,7 @@ function specimen(kind, c, s, a, rich, r, bare = false) {
   return out;
 }
 
-// ==== astrology and tarot =======================================================================================================
+// ==== astrology =================================================================================================================
 // the signs of the zodiac as a pen draws them, in a cell of half-height s about c
 // a sign drawn smaller than a few pixels is a mark, not a construction: its parts are not held to the joins audit
 const small = list => list.map(m => ({ ...m, free: true }));
@@ -1155,32 +1154,6 @@ const moon = (k, c, R, col) => { const out = [hair(arc(c, R, 0, 2 * Math.PI, 24)
   out.push(hair(Array.from({ length: 17 }, (_, i) => { const a = -Math.PI / 2 + i / 16 * Math.PI; return [c[0] + side * f * R * Math.cos(a) * -1, c[1] + R * Math.sin(a)]; }), col, { w: .4, start: 'cut', end: 'cut' }));
   for (let i = -2; i <= 2; i++) { const yy = c[1] + i * R * .35, half = Math.sqrt(Math.max(0, R * R - (yy - c[1]) ** 2)); out.push(line([[c[0] - side * half * .92, yy], [c[0] - side * half * (f * side > 0 ? .1 : .9) * Math.abs(f), yy]], col, .3)); }
   return out; };
-const ROMAN = n => ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][n] ?? String(n);
-// a Roman numeral cut in strokes with small serifs, centred at c, cap height h
-function numeral(str, c, h, col) {
-  const out = [], wI = h * .28, wV = h * .62, ws = { I: wI, V: wV, X: wV, L: h * .5 }, tot = [...str].reduce((a, ch) => a + ws[ch] + h * .12, -h * .12); let x = c[0] - tot / 2; const t = c[1] - h / 2, b = c[1] + h / 2, sr = h * .1;
-  for (const ch of str) { const w = ws[ch], m = x + w / 2;
-    if (ch === 'I') out.push(line([[m, t], [m, b]], col, .8), line([[m - sr, t], [m + sr, t]], col, .5), line([[m - sr, b], [m + sr, b]], col, .5));
-    else if (ch === 'V') out.push(line([[x, t], [m, b], [x + w, t]], col, .75), line([[x - sr, t], [x + sr, t]], col, .5), line([[x + w - sr, t], [x + w + sr, t]], col, .5));
-    else if (ch === 'X') out.push(line([[x, t], [x + w, b]], col, .75), line([[x + w, t], [x, b]], col, .55), line([[x - sr, t], [x + sr, t]], col, .5), line([[x + w - sr, b], [x + w + sr, b]], col, .5));
-    else out.push(line([[x + sr, t], [x + sr, b], [x + w, b]], col, .75));
-    x += w + h * .12; }
-  return out;
-}
-const fill = (pts, w, col) => ({ col, broad: .05, w, load: 1.1, dry: .02, swell: 0, start: 'cut', end: 'cut', pts });   // a flat stencil fill laid with a broad pen
-function pip(kind, c, s) {   // the four suits after the Tarot de Marseille (Conver, 1760): flat colour under a black line
-  const [x, y] = c, out = [], k = 'k';
-  if (kind === 'coin') { out.push(bead(c, s * .55, 'g'), hair(arc(c, s * .55, 0, 2 * Math.PI, 28), k, { w: .6, start: 'cut', end: 'cut' }), hair(arc(c, s * .33, 0, 2 * Math.PI, 22), k, { w: .45, start: 'cut', end: 'cut' }), { ...bead(c, s * .12, 'a'), free: true }); return out; }
-  if (kind === 'cup') { const bowl = arc([x, y - s * .35], s * .42, 0, Math.PI, 16);
-    out.push(fill([[x - s * .3, y - s * .22], [x + s * .3, y - s * .22]], s * .32, 'g'), fill([[x - s * .3, y + s * .5], [x + s * .3, y + s * .5]], s * .14, 'a'), fill([[x, y + .05 * s], [x, y + s * .42]], s * .1, 'b'));
-    out.push(hair([[x - s * .5, y - s * .35], [x + s * .5, y - s * .35]], k, { w: .55, start: 'cut', end: 'cut' }), hair(bowl, k, { w: .6, start: 'cut', end: 'cut' }), line([[x - s * .06, y + s * .07], [x - s * .06, y + s * .42]], k, .45), line([[x + s * .06, y + s * .07], [x + s * .06, y + s * .42]], k, .45), line([[x - s * .34, y + s * .58], [x - s * .2, y + s * .42], [x + s * .2, y + s * .42], [x + s * .34, y + s * .58], [x - s * .34, y + s * .58]], k, .5)); return out; }
-  if (kind === 'sword') { const tip = [x + s * .12, y - s * .7], g0 = [x - s * .05, y + s * .22];   // upright, leaning a little: point, blade, guard, grip, pommel
-    out.push(fill([[g0[0], g0[1] - s * .05], [tip[0] - s * .02, tip[1] + s * .18]], s * .2, 'b'), fill([[x - s * .38, y + s * .26], [x + s * .3, y + s * .2]], s * .12, 'g'), bead([x - s * .12, y + s * .68], s * .11, 'a'));
-    out.push(line([[g0[0] - s * .1, g0[1]], tip, [g0[0] + s * .1, g0[1] - s * .02]], k, .5), line([[x - s * .4, y + s * .2], [x + s * .32, y + s * .14], [x + s * .3, y + s * .3], [x - s * .4, y + s * .36], [x - s * .4, y + s * .2]], k, .5), line([[x - s * .05, y + s * .34], [x - s * .1, y + s * .6]], k, .6)); return out; }
-  out.push(fill([[x - s * .42, y + s * .55], [x + s * .42, y - s * .55]], s * .2, 'g'), fill([[x - s * .22, y + s * .2], [x - s * .08, y + s * .32]], s * .26, 'a'), fill([[x + s * .08, y - s * .32], [x + s * .22, y - s * .2]], s * .26, 'b'));   // baton
-  out.push(line([[x - s * .5, y + s * .5], [x + s * .36, y - s * .62]], k, .5), line([[x - s * .36, y + s * .62], [x + s * .5, y - s * .5]], k, .5), line([[x - s * .5, y + s * .5], [x - s * .36, y + s * .62]], k, .5), line([[x + s * .36, y - s * .62], [x + s * .5, y - s * .5]], k, .5));
-  return out;
-}
 Object.assign(STYLES, {
   // ---- Astrology (the printed ephemerides and almanacs; Renaissance nativities, round and square, as in Regiomontanus's
   // tables and the square charts of the sixteenth century): navy and gold; a sign of the zodiac for each paragraph,
@@ -1223,43 +1196,7 @@ Object.assign(STYLES, {
       for (let k = 0; k < (rich >= .5 ? 3 : 2); k++) out.push(...glyph(['sun', 'moon', 'mars', 'venus', 'saturn'][(r() * 5) | 0], [cx + (r() - .5) * R * .35, y + (r() - .5) * R * .35], u * .22, 'b', .4));
       if (rich >= .25) for (const s of [-1, 1]) out.push(line([[cx + s * (R + u * .6), y], [cx + s * Math.min(measure * .3, R + u * 6), y]], 'b', .45, { start: s > 0 ? 'cut' : 'taper', end: s > 0 ? 'taper' : 'cut' }));
       return out; } },
-
-  // ---- Tarot (the Tarot de Marseille, Nicolas Conver, 1760; the Visconti-Sforza deck, c. 1450, Morgan Library and
-  // Beinecke): the four suits as paraphs, flat stencil colour (red, yellow, blue, flesh) under a black line; a card's
-  // numeral box between chapters, the trump's title banner between books, numbered by the part
-  tarot: { label: 'Tarot', pair: ['red', 'blue'], alternate: true, minGap: 1.6, terms: [1, 0, 0, 0, 0], theme: { rubric: 'rgb(170 40 30)', rubricDark: 'rgb(230 108 90)' },
-    ink: { red: { solid: [200, 52, 40], hair: [200, 52, 40] }, blue: { solid: [52, 104, 176], hair: [52, 104, 176] }, gold: { solid: [232, 184, 52], hair: [232, 184, 52] }, flesh: { solid: [236, 196, 160], hair: [236, 196, 160] }, black: { solid: [24, 20, 18], hair: [24, 20, 18] } },
-    inkDark: { red: { solid: [232, 96, 78], hair: [232, 96, 78] }, blue: { solid: [104, 152, 226], hair: [104, 152, 226] }, gold: { solid: [236, 196, 80], hair: [236, 196, 80] }, flesh: { solid: [236, 200, 168], hair: [236, 200, 168] }, black: { solid: [228, 218, 202], hair: [228, 218, 202] } },
-    setup: seed => { const r = stream(seed, 'tarot'); return { kinds: pickKinds(r, ['pips', 'border'], 1), suits: ['coin', 'cup', 'sword', 'baton'].filter(() => r() < .7) }; },
-    kinds: (v, rich) => rich < .25 ? ['border'] : rich >= .5 ? ['pips', 'border'] : v.kinds,
-    // the suit at a paraph's height (about two x-heights, as the others), each sized by its own drawn height
-    paraph(x, base, u, seed, rich, v) { const r = stream(seed, 'tp'), pool = v.suits.length ? v.suits : ['coin', 'cup', 'sword', 'baton'], k = pool[(r() * pool.length) | 0];
-      return pip(k, [x + u * .95, base - u * .85], u * { coin: 1.7, cup: 2.05, sword: 1.42, baton: 1.68 }[k]); },
-    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
-      const r = stream(seed, 'tf'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
-      if (kind === 'pips') { const pool = v.suits.length ? v.suits : ['coin']; const { n, p } = fitN(x1 - x0, h * 2); out.push(line([[x0, yBase + h * .1], [x1, yBase + h * .1]], 'k', .45, { start: 'taper', end: 'taper' }));
-        for (let k = 0; k < n; k++) out.push(...restOn(pip(pool[k % pool.length], [x0 + (k + .5) * p, mid], h * .8), yBase + h * .1)); }   // each pip stands on the rule
-      else { const { n, p } = fitN(x1 - x0, h * .9);   // the card's border: a double rule with the stencil band between, beads at the joins
-        out.push(fill([[x0 + .5, mid], [x1 - .5, mid]], h * .4, 'g'), line([[x0, mid - h * .3], [x1, mid - h * .3]], 'k', .5), line([[x0, mid + h * .3], [x1, mid + h * .3]], 'k', .5));
-        if (rich >= .5) for (let k = 1; k < n; k++) out.push(bead([x0 + k * p, mid], h * .1, k % 2 ? 'a' : 'b')); }
-      return out; },
-    breakMark(cx, y, measure, rank, seed, rich, u, v) {
-      const out = [], num = ROMAN(v.index ?? 1);
-      if (rank < 2) { const W = u * (2.4 + num.length * .9), H = u * 1.9;   // the numeral box at a card's head, flesh under a double line, the numeral cut black
-        out.push(fill([[cx - W / 2 + u * .3, y], [cx + W / 2 - u * .3, y]], H * .7, 'f'));
-        for (const d of [0, u * .22]) out.push(line([[cx - W / 2 + d, y - H / 2 + d], [cx + W / 2 - d, y - H / 2 + d], [cx + W / 2 - d, y + H / 2 - d], [cx - W / 2 + d, y + H / 2 - d], [cx - W / 2 + d, y - H / 2 + d]], 'k', d ? .4 : .6));
-        out.push(...numeral(num, [cx, y], H * .5, 'k'));
-        if (rich >= .25) for (const s of [-1, 1]) out.push(line([[cx + s * (W / 2 + u * .4), y], [cx + s * (W / 2 + u * 3.5), y]], 'k', .45, { start: s > 0 ? 'cut' : 'taper', end: s > 0 ? 'taper' : 'cut' }));
-        return out; }
-      // the trump's banner: a ribbon with swallowtail ends, yellow under the black line, the book's numeral at its heart
-      const W = Math.min(measure * .55, u * 22), H = u * 2, x0 = cx - W / 2, x1 = cx + W / 2, nt = u * 1.2;
-      out.push(fill([[x0 + nt, y], [x1 - nt, y]], H * .8, 'g'), fill([[x0 - nt * .2, y], [x0 + nt, y]], H * .55, 'a'), fill([[x1 - nt, y], [x1 + nt * .2, y]], H * .55, 'a'));
-      out.push(line([[x0 + nt, y - H / 2], [x1 - nt, y - H / 2], [x1 - nt, y + H / 2], [x0 + nt, y + H / 2], [x0 + nt, y - H / 2]], 'k', .65));
-      for (const [e, s] of [[x0, -1], [x1, 1]]) { const b = e + s * -nt; out.push(line([[b, y - H * .35], [e - s * nt * .2 + s * nt * .3, y - H * .35], [e + s * nt * .35, y - H * .35], [e - s * nt * .15, y], [e + s * nt * .35, y + H * .35], [b, y + H * .35]], 'k', .55)); }
-      out.push(...numeral(num, [cx, y], H * .55, 'k'));
-      if (rich >= .5) for (const s of [-1, 1]) out.push(...pip(['coin', 'cup', 'sword', 'baton'][(v.index ?? 1) % 4], [cx + s * W * .3, y], u * .7));
-      return out; } },
 });
 
 // the vocabulary, for the initials and frames that grow from the same hands (kit/initials.js, kit/frames.js)
-export { line, poly, glyph, restOn, SIGNS, sigil, pip, fill, numeral, ROMAN, cpStroke, cpOval, beauty, slantOval, cubic, fitN, spindle, leaf, lash, lashStroke, bud, pressed };
+export { line, poly, glyph, restOn, SIGNS, sigil, cpStroke, cpOval, beauty, slantOval, cubic, fitN, spindle, leaf, lash, lashStroke, bud, pressed };

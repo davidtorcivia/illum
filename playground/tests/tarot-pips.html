@@ -36,9 +36,9 @@ const add = (x, y, t, make, slip = 1) => { lab(x, y, t); cells.push({ make, slip
 for (const [k, u] of [[0, 8.4], [1, 25]]) {   // the specimen's size, and three times it
   const y = k ? 230 : 40, o = k ? 0 : 0, W = S.pips, Lw = Math.max(1.35, Math.min(2.3, u * .17));
   add(40, y, 'coin', () => X.coin([80, y + 30 + u * 2], u * 1.08, Lw, seed), u * .14);
-  add(40 + (k ? 160 : 90), y, 'cup', () => S.paraph(40 + (k ? 160 : 90), y + 30 + u * 3, u, seed, .5, 0), u * .14);
-  add(40 + (k ? 320 : 180), y, 'baton', () => S.paraph(40 + (k ? 320 : 180), y + 30 + u * 3, u, seed, .5, 1), u * .14);
-  add(40 + (k ? 480 : 270), y, 'sword', () => S.paraph(40 + (k ? 480 : 270), y + 30 + u * 3, u, seed, .5, 2), u * .14);
+  add(40 + (k ? 160 : 90), y, 'cup', () => X.paraph(40 + (k ? 160 : 90), y + 30 + u * 3, u, seed, .5, 0), u * .14);
+  add(40 + (k ? 320 : 180), y, 'baton', () => X.paraph(40 + (k ? 320 : 180), y + 30 + u * 3, u, seed, .5, 1), u * .14);
+  add(40 + (k ? 480 : 270), y, 'sword', () => X.paraph(40 + (k ? 480 : 270), y + 30 + u * 3, u, seed, .5, 2), u * .14);
   add(40 + (k ? 640 : 360), y, 'flower', () => X.flower([40 + (k ? 640 : 360) + u * 2, y + 30 + u * 4.6], -Math.PI / 2, u * 4.6, Lw, seed), u * .14);
   add(40 + (k ? 820 : 450), y, 'weave', () => X.weave([40 + (k ? 820 : 450) + u * 3.6, y + 30 + u * 2.4], u * 3.4, u * 2.2, Lw, seed), u * .14);
 }

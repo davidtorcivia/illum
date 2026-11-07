@@ -4,11 +4,12 @@
 // it (kit/illum.js lays a style's letter with it: { M, w, h, x0, y0, res, red? }, the red first, the black over it).
 //   inkLetter(bake, L, rgb, { dpr })                    laid at once (flat in its colour if the engine is unavailable)
 //   letterWriter(bake, L, { k, r }, { dpr, host, below })  written: .at(f) f 0..1, .done(); the black, then the red beneath
+//   sweepIn(bake, mask, rgb, { dpr })                   a stencil's colour laid in beneath the page's ink as you watch
 //   warmInk(dpr)                                        the shared medium made ahead (its shaders compiled)
 //   dist(feat, w, h, nearest?)                          the distance transform the letter is read with
 // (Moved from kit/styles/blackletter.js unchanged, so the approved letter is the same to the pixel.)
 import { createMedium } from './medium.js';
-import { noise2 } from './marks.js';
+import { noise2, fnv } from './marks.js';
 
 // Distance (cells) from every cell to the nearest cell where feat is set: two sweeps carrying the offset to the nearest
 // set cell (8SSEDT, Danielsson 1980; exact but for rare configurations, a fraction of a cell off)
@@ -189,5 +190,33 @@ function boxBlur(A, w, h, r) {
   return O;
 }
 
+// ---- a stencil swept in -------------------------------------------------------------------------------------------------------
+// A mask poured as a colour (a stencil: { M, w, h, x0, y0, res, col, wet?, dry? }) laid in as you watch: poured once into a
+// scratch layer of the page's size there, then laid on the page beneath what is there (destination-over; a print's own
+// solid black, col 'k', over it) as a stencil brush sweeps across its longer side, a dab at a time, each cell once.
+// (Moved from tests/tarot.html unchanged.) .at(f) f 0..1, .done()
+export function sweepIn(bake, p, rgb, { dpr = 2 } = {}) {
+  let sc = null, T = null, order = null, at = 0, tmp = null, X0 = 0, Y0 = 0;
+  const open = () => { const pad = 8; X0 = Math.floor((p.x0 - pad) * dpr); Y0 = Math.floor((p.y0 - pad) * dpr); const w = Math.ceil((p.w / p.res + 2 * pad) * dpr), h = Math.ceil((p.h / p.res + 2 * pad) * dpr);
+    const cv = new OffscreenCanvas(w, h), g = cv.getContext('2d', { willReadFrequently: true });
+    const proxy = { save() {}, restore() {}, setTransform() {}, set globalCompositeOperation(v) {},
+      drawImage(c, ...a) { if (a.length === 8) g.drawImage(c, a[0], a[1], a[2], a[3], a[4] - X0, a[5] - Y0, a[6], a[7]); else g.drawImage(c, a[0] * dpr - X0, a[1] * dpr - Y0, a[2] * dpr, a[3] * dpr); } };
+    inkLetter(proxy, p, rgb, { dpr });
+    sc = g.getImageData(0, 0, w, h); tmp = new OffscreenCanvas(w, h);
+    // the brush's way: across the stencil's longer side, in dabs (a cell's time: how far along, and a dab's jitter)
+    const ang = (fnv(p.x0 + ':' + p.y0) % 628) / 100, dx = Math.cos(ang), dy = Math.sin(ang), cells = [], t = [];
+    let lo = Infinity, hi = -Infinity; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const a = sc.data[(j * w + i) * 4 + 3]; if (!a) continue; const v = i * dx + j * dy; lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    const span = Math.max(1, hi - lo), dab = 3.2 * dpr;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { if (!sc.data[(j * w + i) * 4 + 3]) continue; const v = (i * dx + j * dy - lo) / span, jit = ((Math.sin(Math.floor(i / dab) * 12.9898 + Math.floor(j / dab) * 78.233) * 43758.5453) % 1 + 1) % 1;
+      cells.push(j * w + i); t.push(v * .82 + jit * .18); }
+    order = Int32Array.from(cells.map((c, k) => k).sort((a, b) => t[a] - t[b]).map(k => cells[k])); T = { w, h }; };
+  const self = { at(f) { if (!sc) open(); const upto = Math.min(order.length, Math.ceil(Math.min(1, f) * order.length)); if (upto <= at) return;
+      const { w, h } = T, im = new ImageData(w, h);
+      for (let x = at; x < upto; x++) { const q = order[x] * 4; im.data[q] = sc.data[q]; im.data[q + 1] = sc.data[q + 1]; im.data[q + 2] = sc.data[q + 2]; im.data[q + 3] = sc.data[q + 3]; }
+      tmp.getContext('2d').putImageData(im, 0, 0);
+      bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = p.col === 'k' ? 'source-over' : 'destination-over'; bake.drawImage(tmp, X0, Y0); bake.restore(); at = upto; },
+    done() { self.at(1); } };
+  return self;
+}
 // a letter being written is finished now (a page drawn again does not leave it half-written over the new drawing)
 export const settle = () => active?.done();

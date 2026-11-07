@@ -110,34 +110,13 @@ export function navFrame({ box: [x0, y0, x1, y1], entries, x, u, g = 2.4, seed, 
 // ==== the registry's frames ======================================================================================================
 // Every style frames the same six boxes, with the same arguments as the functions above (a pull quote also gets its
 // `lines`); Gothic's are those functions. Each other style frames in its own tradition's idiom.
-import { STYLES, line, glyph, SIGNS, pip, fill, numeral, ROMAN, cpStroke, cpOval, beauty } from './wayfinding.js';
+import { STYLES, line, glyph, SIGNS, cpStroke, cpOval, beauty } from './wayfinding.js';
 const pad = ([x0, y0, x1, y1], d, dy = d) => [x0 - d, y0 - dy, x1 + d, y1 + dy];
 const shiftY = (m, d) => m.map(s => s.dot ? { ...s, p: [s.p[0], s.p[1] + d] } : { ...s, pts: s.pts.map(([x, y]) => [x, y + d]) });
 const ysOf = m => m.flatMap(s => s.dot ? [s.p[1] - s.r, s.p[1] + s.r] : s.pts.map(p => p[1]));
 // the style's chapter break above and below a pull quote, each moved clear of the words by its own height
 const breaks = key => ({ cx, yTop, yBot, measure, u, seed, rich = .5 }) => { const S = STYLES[key], b = (y, sd) => S.breakMark(cx, y, measure, 1, sd, rich, u, { ...S.setup(sd), index: 1 });
   const a = b(yTop, seed), c = b(yBot, seed + 7); return [...shiftY(a, Math.min(0, yTop + u * 1.6 - Math.max(...ysOf(a)))), ...shiftY(c, Math.max(0, yBot - u * 1.7 - Math.min(...ysOf(c))))]; };
-// a rounded rectangle, from the top-left corner round clockwise to it again
-const rrect = ([a, b, c, e], k) => [[a + k, b], [c - k, b], ...arc([c - k, b + k], k, -Math.PI / 2, 0, 6).slice(1), [c, e - k], ...arc([c - k, e - k], k, 0, Math.PI / 2, 6).slice(1), [a + k, e], ...arc([a + k, e - k], k, Math.PI / 2, Math.PI, 6).slice(1), [a, b + k], ...arc([a + k, b + k], k, Math.PI, Math.PI * 1.5, 6).slice(1)];
-
-// ---- Tarot: the card's border round the box, a double black line with round corners; at its head the numeral box
-// (flesh under a double line, the number cut black), as at the head of a Marseille trump; the stencil yellow between
-// the lines on a richer page; the suits at the contents' entries
-const tarotCard = (B, u, n, rich) => { const out = [], k = u * .8, d = u * .32;
-  if (rich >= .75) for (const [p, q] of [[[B[0] + k, B[1] + d / 2], [B[2] - k, B[1] + d / 2]], [[B[0] + k, B[3] - d / 2], [B[2] - k, B[3] - d / 2]]]) out.push(fill([p, q], d * .7, 'g'));
-  out.push(line([...rrect(B, k), rrect(B, k)[0]], 'k', .7), line([...rrect(pad(B, -d), k - d * .5), rrect(pad(B, -d), k - d * .5)[0]], 'k', .45));
-  if (n) { const str = ROMAN(n), W = u * (2 + str.length * .9), H = u * 2, cx = (B[0] + B[2]) / 2, b = [cx - W / 2, B[1] - H, cx + W / 2, B[1]];
-    out.push(fill([[b[0] + u * .2, (b[1] + b[3]) / 2], [b[2] - u * .2, (b[1] + b[3]) / 2]], H * .62, 'f'), line([...rrect(b, u * .2), rrect(b, u * .2)[0]], 'k', .6), ...numeral(str, [cx, (b[1] + b[3]) / 2], H * .58, 'k')); }
-  return out; };
-STYLES.tarot.frames = {
-  quote: ({ x, lines, u, rich = .5 }) => tarotCard([x - u * .5, lines[0].top - u * .5, Math.max(...lines.map(l => l.right)) + u * 1.1, lines.at(-1).base + u * 1.2], u, 0, rich),
-  figure: ({ box, u, seed, rich = .5 }) => tarotCard(pad(box, u * .8), u, 1 + (seed % 12), rich),
-  code: ({ box, u, rich = .5 }) => tarotCard(pad(box, -u * .2), u, 0, rich),
-  pull: breaks('tarot'),
-  aside: ({ box, u, rich = .5 }) => tarotCard([box[0] - u * .2, box[1] - u * .2, box[2] + u * 1.1, box[3] + u * .3], u, 0, rich),
-  nav: ({ box, entries, x, u, rich = .5, side = true }) => { const out = tarotCard([side ? x - u * 1.2 : box[0] - u * .6, box[1] - u * 1.2, box[2] + u * .8, box[3] + u * .9], u, 0, rich);
-    if (side) entries.forEach((e, k) => out.push(...pip(['coin', 'cup', 'sword', 'baton'][k % 4], [x + u * .3, e.base - u * .45], u * .7))); return out; },
-};
 
 // ---- Cyber: the heads-up display's corner brackets, tick scales running in from them along the head and the side, and a
 // label tag on the head bracket, its name in segment-display strokes ("FIG.01"); a via where a trace ends

@@ -22,8 +22,10 @@
 //   initial(o) -> { marks, fills, letters, width }   (o: ch, G: { box }, big, rich, seed, set: 'solid' | 'contour', u, n)
 //   frames.{ quote, figure, code, pull, aside, nav }(args), palette.{ light, dark }
 // Marks: { pts (page px), w (the nib, px), hair, col: 'k', press?, rho: 0 }. Nothing here touches the DOM except
-// stencil(), glyph(), printOf() and loadFace(), which the page calls (printOf(element) -> { pours, letters, runs }: what
-// the page lays with inkLetter / letterWriter and writes with the writer; tests/tarot.html shows how, still and ?draw).
+// stencil(), glyph(), printOf() and loadFace() (printOf(element) -> { pours, letters, runs }: what is laid with inkLetter /
+// letterWriter and written with the writer). In the one library (kit/illum.js: rubricate(root, { style: 'tarot' }), as
+// tests/tarot.html) the style also gives print() and timeline() (a case made ready to lay, and its clock), initial.load,
+// .line, .margin and .fills, fillAt and hurry; its registry paraph takes the chapter's number, not the suit.
 import { noise2 } from '../marks.js';
 
 const fnv = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
@@ -488,10 +490,15 @@ initial.line = ch => textWidth(String(ch).normalize('NFD')[0].toUpperCase(), 1);
 // The card's own furniture: the frame rule round the box, square at the corners; the numeral band across its head; the
 // title band across its foot; on a pip card the numeral in each side margin, turned. No corner pips (those are the
 // French playing card's, not the tarot's).
+// A card grown, where the page leaves it too little room, so that its furniture stays off the words: at least [l, t, r, b]
+// px between the text's lines (their boxes; the foot from the last baseline) and the card's edge. On a page that leaves
+// the room (tests/tarot.html) the card is its box.
+const clear = (B, lines, [l, t, r, b]) => !lines?.length ? B : [Math.min(B[0], Math.min(...lines.map(L => L.left)) - l), Math.min(B[1], lines[0].top - t),
+  Math.max(B[2], Math.max(...lines.map(L => L.right)) + r), Math.max(B[3], lines.at(-1).base + b)];
 const rect = (B, W, seed) => cut([[B[0], B[1]], [B[2], B[1]], [B[2], B[3]], [B[0], B[3]], [B[0], B[1] - W * .3]], W, { seed, wob: .14 });
 const frames = {
   // a quotation: a card round it, its footer (the attribution) in the title band at its foot
-  quote: ({ box, foot, u, seed, rich = .5 }) => { const W = LW(u) * 1.25, B = [box[0], box[1] - u * 1.6, box[2], box[3] + u * 1.1];
+  quote: ({ box, foot, lines, u, seed, rich = .5 }) => { const W = LW(u) * 1.25, B = clear([box[0], box[1] - u * 1.6, box[2], box[3] + u * 1.1], lines, [u * .9, u * 1.2, u * .9, u * 1.5]);
     const marks = [rect(B, W, seed)]; if (foot) marks.push(cut([[B[0], foot - u * .9], [B[2], foot - u * .9]], W, { seed: seed + 1 }));
     return { marks, fills: [] }; },
   // a figure: the trump: the frame, the numeral band at its head, the title band (its caption) at its foot
@@ -500,11 +507,14 @@ const frames = {
     if (cap) marks.push(cut([[B[0], box[3] + u * 1.35], [B[2], box[3] + u * 1.35]], W, { seed: seed + 2 }));
     const size = u * 1.5; return { marks, fills: [], letters: [{ text: roman(n), x: (B[0] + B[2]) / 2, base: B[1] + hb / 2 + size / 2, size }] }; },
   // code: the pip card: the frame, its number turned in each side margin, reading up the left and down the right (c023)
-  code: ({ box, u, seed, rich = .5, n = 1 }) => { const W = LW(u) * 1.2, B = box, size = u * 1.4, txt = roman(n), cy = (B[1] + B[3]) / 2, cx = (B[0] + B[2]) / 2;
+  // (the flowers only where the page leaves them room above and below the code; the card grown off the words if need be)
+  code: ({ box, lines, u, seed, rich = .5, n = 1 }) => { const W = LW(u) * 1.2, fl = Math.min(u * 4.3, (box[3] - box[1]) * .32), side = rich >= .25 ? u * 2.4 : u * .9;
+    const flowers = rich >= .25 && (!lines?.length || (lines[0].top - box[1] >= fl * 1.08 + u * .6 && box[3] - lines.at(-1).base >= fl * 1.08 + u * 1.3));
+    const B = clear(box, lines, [side, u * .9, side, u * 1.6]), size = u * 1.4, txt = roman(n), cy = (B[1] + B[3]) / 2, cx = (B[0] + B[2]) / 2;
     // the composition of a pip card (VIII batons, c023): the number turned in each side margin, a flower at the head of
     // the field and one at its foot, each growing out from the middle toward the frame, its bud to the frame
     const els = [{ marks: [rect(B, W, seed)], fills: [], letters: rich >= .25 ? [{ text: txt, x: B[0] + u * 1.15, base: cy + size / 2, size, rot: -Math.PI / 2 }, { text: txt, x: B[2] - u * 1.15, base: cy + size / 2, size, rot: Math.PI / 2 }] : [] }];
-    if (rich >= .25) { const fl = Math.min(u * 4.3, (B[3] - B[1]) * .32); els.push(flower([cx, B[1] + fl * 1.08], -Math.PI / 2, fl, LW(u), seed + 3), flower([cx, B[3] - fl * 1.08], Math.PI / 2, fl, LW(u), seed + 4)); }
+    if (flowers) { els.push(flower([cx, B[1] + fl * 1.08], -Math.PI / 2, fl, LW(u), seed + 3), flower([cx, B[3] - fl * 1.08], Math.PI / 2, fl, LW(u), seed + 4)); }
     return join(...els); },
   // a pull quote: the bands' rules above and below, a coin on each
   pull: ({ cx, yTop, yBot, measure, u, seed, rich = .5 }) => { const W = LW(u) * 1.15, half = Math.min(measure * .4, u * 18), R = u * 1.7, els = [];
@@ -513,14 +523,17 @@ const frames = {
       els.push(coin([cx, y], R, LW(u), seed + 10 + k)); }
     return join(...els); },
   // an aside: the card's left edge and its head band, a cup standing in the band
-  aside: ({ box, u, seed, rich = .5, n = 1, title = 'NOTA' }) => { const W = LW(u) * 1.2, B = box, hb = u * 2.7, fb = u * 2.7, cx = (B[0] + B[2]) / 2;
+  // (the ground only where the page leaves it room below the words; the card grown off the words if need be)
+  aside: ({ box, lines, u, seed, rich = .5, n = 1, title = 'NOTA' }) => { const W = LW(u) * 1.2, hb = u * 2.7, fb = u * 2.7, gnd = u * (1.9 + 2.6 * .82);
+    const ground = rich >= .5 && (!lines?.length || box[3] - lines.at(-1).base >= u * 1.2 + fb + gnd);
+    const B = clear(box, lines, [u * .9, hb + u * .5, u * .9, u * 1.2 + fb]), cx = (B[0] + B[2]) / 2;
     // a trump: the frame, the numeral band at its head with the chapter's number, the title band at its foot lettered as
     // the cards are, in Roman capitals (NOTA: the old books' mark for a note), a point either side of the word
     // and, as on the drop initial, the field's ground above the title band: yellow under a low wavering line, hatched
     // with Le Bateleur's curves, a tuft of his in each corner
     const size = u * 1.4, t = rich >= .25 ? `·${title}·` : title, r = rng(seed, 'aside'), els = [{ marks: [rect(B, W, seed), cut([[B[0], B[1] + hb], [B[2], B[1] + hb]], W, { seed: seed + 1 }), cut([[B[0], B[3] - fb], [B[2], B[3] - fb]], W, { seed: seed + 2 })], fills: [],
       letters: [{ text: roman(n), x: cx, base: B[1] + hb / 2 + size / 2, size }, { text: t, x: cx, base: B[3] - fb / 2 + size * .5, size: size * .92 }] }];
-    if (rich >= .5) { const fy1 = B[3] - fb, gh = u * 1.9, gt = fy1 - gh, cw = B[2] - B[0], wave = Array.from({ length: 49 }, (_, k) => { const f = k / 48; return [B[0] + f * cw, gt + Math.sin(f * Math.PI * 5) * u * .1 + (r() - .5) * u * .05]; });
+    if (ground) { const fy1 = B[3] - fb, gh = u * 1.9, gt = fy1 - gh, cw = B[2] - B[0], wave = Array.from({ length: 49 }, (_, k) => { const f = k / 48; return [B[0] + f * cw, gt + Math.sin(f * Math.PI * 5) * u * .1 + (r() - .5) * u * .05]; });
       els.push({ marks: [cut(wave, LW(u) * .9, { seed: seed + 3 })], fills: [fill('y', [[...wave.map(([x, y]) => [Math.min(B[2] - W, Math.max(B[0] + W, x)), y]), [B[2] - W, fy1 - W * .5], [B[0] + W, fy1 - W * .5]]])] });
       // the hatching in three clusters (under each tuft and at the middle), not a repeat
       const clip = [B[0] + W, gt + W, B[2] - W, fy1 - W], th = gh * 1.25, tw = TRACE.ground.a * th;
@@ -529,7 +542,8 @@ const frames = {
       for (const sd of [-1, 1]) els.push(place('plant', [sd < 0 ? B[0] + W + u * .3 : B[2] - W - u * .3 - pw, gt - ph * .82, ph], Math.max(1.2, LW(u) * .8), { mirror: sd > 0, seed: seed + 30 + sd })); }
     return join(...els); },
   // the contents: a baton down the margin; the four suits, one at each entry (its chapter's paraph is that suit)
-  nav: ({ box, entries, x, u, seed, rich = .5, side = true }) => { const W = LW(u), els = [];
+  // (its own distance off the list, u * 4.2; beside it when the margin has 60 px, else a baton across its head)
+  nav: ({ box, entries, u, seed, rich = .5 }) => { const W = LW(u), els = [], side = box[0] > 60, x = box[0] - u * 4.2;
     if (side) els.push(baton([x, box[1] - u * 1.8], [x, box[3] + u * 1.6], u * .55, W, seed));
     else els.push(baton([box[0] - u * .2, box[1] - u * 1.6], [Math.min(box[2], box[0] + u * 26), box[1] - u * 1.6], u * .5, W, seed));
     entries.forEach((e, k) => { const px = side ? x + u * 2.5 : box[0] - u * 1.5, s = SUITS[k % 4];
@@ -548,8 +562,38 @@ export const palette = {
   dark: { k: [228, 218, 200], r: [196, 92, 66], y: [206, 170, 66], b: [86, 112, 170], p: [112, 138, 166], f: [196, 160, 128], g: [96, 136, 96] },
 };
 
-export const tarot = { label: 'Tarot', minGap: 2,
+// ---- in the one library (kit/illum.js) ---------------------------------------------------------------------------------------
+// The registry's paraph is given the chapter's number n (0 before the first): the chapter's suit, in the cards' order
+// cups, batons, swords, coins; coins before the first chapter. (paraph(x, base, u, seed, rich, k) itself takes the suit.)
+const chapterParaph = (x, base, u, seed, rich, n) => paraph(x, base, u, seed, rich, typeof n === 'number' ? (n ? (n - 1) % 4 : 3) : null);
+// A case made ready to lay (rubricate calls it once a case is made): its stencils and lettering as masks, its line in runs.
+// The register slips with the size of the hand (u, the x-height), more on a drop card; the seed is the case's place.
+const SLIP = { drop: 1.5, initial: .8, paraph: .8, filler: .8 };
+function print(made, { dpr = 1, kind, u, y, seed }) {
+  const pr = printOf(made, { res: dpr >= 1.5 ? 2 : 1, seed: fnv(y + ':' + seed), slip: Math.max(.7, Math.min(2.2, u * .14 * (SLIP[kind] ?? 1))) });
+  for (const p of pr.pours) Object.assign(p, { wet: .03, dry: p.col === 'k' ? .2 : .45 });
+  for (const L of pr.letters) Object.assign(L, { redWet: .03, redDry: .45 });
+  return pr;
+}
+// A case on a hand's clock (seconds): the print first, its solids, then its line, then its lettering (a big letter at a
+// hand's pace, a numeral quickly); then the stencils laid in beneath. A still lays every stencil first, in no time. The
+// case takes at most `cap` (a drop card 5 s; a paraph, filler, line initial or pull quote 1 s; the rest 1.6 s).
+function timeline(pr, kind, animate) {
+  const own = []; let u = 0;
+  for (const p of animate ? pr.pours.filter(p => p.col === 'k') : pr.pours) { const d = animate ? .3 : 0; own.push({ t0: u, t1: u + d, pour: p }); u += d; }
+  for (const r of pr.runs) { const L = r.strokes.reduce((a, s) => a + s.L, 0), d = Math.max(.05, L / 300 + r.strokes.length * .03); own.push({ t0: u, t1: u + d, run: r }); u += d; }
+  for (const L of pr.letters) { const d = L.h / L.res > 40 ? 2.6 : .5; own.push({ t0: u, t1: u + d, letter: L }); u += d + .08; }
+  if (animate) for (const p of pr.pours.filter(p => p.col !== 'k')) { const d = Math.min(.6, .2 + p.w * p.h / (p.res * p.res) / 12000); own.push({ t0: u, t1: u + d, pour: p }); u += d + .05; }
+  return { own, u, cap: kind === 'drop' ? 5 : ['paraph', 'filler', 'initial', 'pull'].includes(kind) ? 1 : 1.6 };
+}
+initial.load = () => loadFace();
+initial.margin = .42;   // the gap to the words, in line heights
+initial.fills = true;   // the card is the float: its box is the float as the page laid it
+
+export const tarot = { label: 'Tarot', minGap: 2, theme: { rubric: 'rgb(160 64 40)', rubricDark: 'rgb(222 120 92)' },
   setup: () => ({ kinds: FILLERS }), kinds: (v, rich) => rich < .25 ? ['baton'] : rich < .5 ? ['baton', 'sword'] : FILLERS,
-  paraph, filler, breakMark, initial, frames, palette, FILLERS, SUITS, stencil, glyph, loadFace, printOf,
-  pips: { coin, cup, sword, baton, flower, weave } };
+  fillAt: { gap: .9, head: 4, rise: 1.05 },
+  hurry: [4, 1, 1.5, 1.6],   // as you read, a hand behind quickens, but a case is still seen being written: a second at the least   // a filler starts .9 x-heights after the words, a heading's only if 4 are left
+  paraph: chapterParaph, filler, breakMark, initial, frames, palette, print, timeline, FILLERS, SUITS, stencil, glyph, loadFace, printOf,
+  pips: { coin, cup, sword, baton, flower, weave, paraph } };
 export default tarot;

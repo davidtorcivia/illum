@@ -19,4 +19,12 @@ for (const u of [6, 8.4, 12]) for (const rich of [0, .5, 1]) for (const seed of 
 for (const ch of 'ABIMW') for (const set of ['solid', 'contour']) for (const big of [true, false]) {
   const el = S.initial({ ch, G: { box: [100, 100, 160, 210] }, big, rich: .5, seed: 1, set, u: 8.4, n: 1 });
   if (big) ok(el, `initial ${ch} ${set}`); assert.ok(el.letters.length && el.letters.every(t => Number.isFinite(t.x) && t.size > 0), `initial ${ch}: its letter`); }
+// the clock kit/illum.js lays a case by: a still lays every stencil first in no time and times only line and lettering;
+// written, the print's black first, the colours last, beneath
+{ const pr = { pours: [{ col: 'y', w: 40, h: 40, res: 1 }, { col: 'k', w: 10, h: 10, res: 1 }], runs: [{ w: 1.4, hair: 1.3, strokes: [{ L: 120 }] }], letters: [{ h: 20, res: 1 }] };
+  const still = S.timeline(pr, 'paraph', false), drawn = S.timeline(pr, 'drop', true), kinds = t => t.own.map(e => e.pour ? 'pour:' + e.pour.col : e.run ? 'run' : 'letter').join(' ');
+  assert.equal(kinds(still), 'pour:y pour:k run letter'); assert.ok(still.own.slice(0, 2).every(e => e.t1 === 0) && still.cap === 1, 'still: the stencils first, in no time');
+  assert.equal(kinds(drawn), 'pour:k run letter pour:y'); assert.equal(drawn.cap, 5); }
+for (const [n, k] of [[0, 3], [1, 0], [2, 1], [3, 2], [4, 3], [5, 0]]) assert.deepEqual(S.paraph(100, 200, 8, 1, .5, n).fills, S.pips.paraph(100, 200, 8, 1, .5, k).fills,
+  'the chapter\'s suit: coins before the first chapter, then cups, batons, swords, coins');
 console.log('ok');

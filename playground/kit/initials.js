@@ -11,7 +11,7 @@
 // A style without an initial lays its letter flat in its first colour, with nothing round it.
 import { stream, PIGMENTS } from './marks.js';
 import { flourish, drawn } from './penwork.js';
-import { STYLES, arc, hair, bead, line, glyph, SIGNS, pip, fill, cpStroke, cpOval, cubic } from './wayfinding.js';
+import { STYLES, arc, hair, bead, line, glyph, SIGNS, cpStroke, cpOval, cubic } from './wayfinding.js';
 const SLANT = 55 * Math.PI / 180;
 
 const bbox = G => G.box;
@@ -68,19 +68,6 @@ function occult({ G, lh, big, rich, seed, room }) {
 }
 occult.wider = [6, 6, 7, 8, 10];   // the circle's rim needs a little more room on the text side
 
-// ---- Tarot: the letter as a card: a double black line with round corners, flesh under the letter, the letter red under
-// a black line of its own; the suit at its foot in the margin
-function tarot({ G, lh, big, rich, seed, room }) {
-  const r = stream(seed, 'tini'), [x0, y0, x1, y1] = bbox(G), p = big ? Math.min(6, lh * .2) : 3, B = [x0 - p, y0 - p, x1 + p * .7, y1 + p], rr = p * .9, ground = [], out = [];
-  const rect = d => { const [a, b, c, e] = [B[0] + d, B[1] + d, B[2] - d, B[3] - d], k = rr - d * .5;
-    return [[a + k, b], [c - k, b], ...arc([c - k, b + k], k, -Math.PI / 2, 0, 6).slice(1), [c, e - k], ...arc([c - k, e - k], k, 0, Math.PI / 2, 6).slice(1), [a + k, e], ...arc([a + k, e - k], k, Math.PI / 2, Math.PI, 6).slice(1), [a, b + k], ...arc([a + k, b + k], k, Math.PI, Math.PI * 1.5, 6).slice(1)]; };
-  if (!big) return { letter: { M: G, col: 'a', outline: { col: 'k', w: .6 } }, marks: [] };   // in the line, no room for the card: the letter alone, outlined
-  const iw = B[3] - B[1] - p * 2; ground.push(fill([[B[0] + p * 1.2, (B[1] + B[3]) / 2], [B[2] - p * 1.2, (B[1] + B[3]) / 2]], iw, 'f'));
-  out.push(line(rect(0), 'k', big ? .7 : .55), ...(big ? [line(rect(p * .35), 'k', .4)] : []));
-  if (big && room > lh * .7 && rich >= .25) out.push(...pip(['coin', 'cup', 'sword', 'baton'][(r() * 4) | 0], [B[0] - lh * .45, B[3] - lh * .4], lh * .5));
-  return { letter: { M: G, col: 'a', outline: { col: 'k', w: big ? .9 : .6 } }, ground, marks: out };
-}
-
 // ---- Copperplate: the letter in ink, and the writing master's capital flourish round it: one oval on the slant that
 // embraces the letter (it runs behind it, showing in its counters and round its left side), entered by a hairline from
 // the foot in the margin and closed by a shaded downstroke; a second, smaller oval interlaced in the margin when there is
@@ -111,6 +98,5 @@ function swiss({ G, lh, big, rich, room }) {
 Object.assign(STYLES.gothic, { initial: gothic });
 Object.assign(STYLES.cyber, { initial: cyber });
 Object.assign(STYLES.occult, { initial: occult });
-Object.assign(STYLES.tarot, { initial: tarot });
 Object.assign(STYLES.copperplate, { initial: copperplate });
 Object.assign(STYLES.swiss, { initial: swiss });
