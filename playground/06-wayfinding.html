@@ -61,6 +61,20 @@
                 trill; a fermata between chapters, coda and repeat bars between books.
     blueprint   the technical drawing on a cyanotype ground: a section marker, dimension lines, centre lines,
                 section hatching; section A–A between chapters, a title block between books.
+  And occult: the grimoires and alchemical books (Agrippa's kameas and seals, 1533; Dee's Monas Hieroglyphica, 1564;
+    Khunrath, 1595; the Ripley Scroll; the Key of Solomon MSS; named, not studied from scans here): red and black; planetary
+    and alchemical signs as paraphs; signs strung on a ruled line, or sigils drawn on the 3×3 kamea (a circle at the start,
+    a bar at the end) as fillers; a magic circle with a sigil seal between chapters; an ouroboros or Dee's Monas between
+    books. By construction no sigil holds a Z, N or ϟ run or a zig-back (tools: scratchpad sigilcheck.mjs checks thousands),
+    and no sign is four-armed or hooked in rotation.
+
+  Light and dark: the page's tokens (--paper, --ink, --rubric) belong to the host; dark follows prefers-color-scheme,
+  or data-theme / ?theme=dark|light, or the colophon's day / night / system. A style colours only its own marks (and the
+  rubric, where that is its tradition); its own ground (Cyber's dark glass, Blueprint's cyanotype) only with
+  ?ground=style. Each style has a dark palette: designed where it matters (vermilion and lapis lifted, gold as gold,
+  Cyber's neon, Blueprint's white line, Riso overprinted by screen), otherwise each pigment lifted in value with its hue
+  kept. On dark the pen draws ink as its own colour (kit/marks.js pen/dot `dark` option), so pools and dried margins
+  deepen instead of glowing. A change of scheme redraws at once without replaying the drawing.
   Considered and left for now: Kelmscott vine fillers, Art Nouveau whiplash, Spencerian offhand flourishes,
   Constructivist bars, botanical field notes (depth of variation was preferred to count).
 
@@ -94,7 +108,11 @@
 <style>
   @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
   @font-face { font-family: "EB Garamond"; src: url(fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  /* the page's tokens: the host's paper, ink and rubric. The ornament reads them; a style only colours its own marks.
+     Dark follows the reader's system unless the page says otherwise (data-theme / ?theme=) */
   :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(176 58 36); color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: rgb(29 26 23); --ink: rgb(226 218 204); --rubric: rgb(232 112 88); color-scheme: dark; } }
+  :root[data-theme="dark"] { --paper: rgb(29 26 23); --ink: rgb(226 218 204); --rubric: rgb(232 112 88); color-scheme: dark; }
   html { background: var(--paper); }
   body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
   .sheet { position: relative; max-width: 900px; margin: 0 auto; padding: 120px 100px 120px 200px; box-sizing: border-box; }
@@ -173,11 +191,12 @@
 <p class="colophon">Rubricated by illum, wayfinding, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch it rubricated</a>, or <a href="#" id="asread">as you read</a>.
   <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the pen marks are"> richer</label>
   <label class="rich">smaller <input type="range" id="scale" min="0.5" max="2" step="0.25" aria-label="How large the pen marks are"> larger</label><br>
-  <span class="styles" role="group" aria-label="Tradition of rubrication">In the manner of </span></p>
+  <span class="styles" role="group" aria-label="Tradition of rubrication">In the manner of </span><br>
+  <span class="styles modes" role="group" aria-label="Light or dark">Seen by <button type="button" data-mode="light">day</button>, <button type="button" data-mode="dark">night</button>, or <button type="button" data-mode="">as the system is</button>.</span></p>
 
 <script type="module">
 import { pen, dot, fnv, stream } from './kit/marks.js';
-import { STYLES, grammar } from './kit/wayfinding.js';
+import { STYLES, grammar, paletteOf, lift } from './kit/wayfinding.js';
 
 const q = new URLSearchParams(location.search), art = document.querySelector('.text');
 const text = art.textContent.replace(/\s+/g, ' ').trim();
@@ -192,11 +211,20 @@ let SCALE = Math.max(.5, Math.min(2, parseFloat(q.get('scale') ?? art.dataset.sc
 let PAPER_NOW = [244, 238, 226];
 // a style may set the page's rubric colour, and (cyber) a dark ground and light text, through CSS variables; the
 // paragraph indent widens if the paraphs are drawn large
+// light or dark: the page's data-theme (?theme=dark|light) if set, else the reader's system
+const themeMode = () => document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
+// the style's own full-page ground (Cyber's dark glass, Blueprint's cyanotype) only when asked: ?ground=style
+const OWN_GROUND = (q.get('ground') ?? art.dataset.ground) === 'style';
+let PAL = null, DARK = false, BLEND = null;
+const cssRgb = s => s.match(/\d+/g).slice(0, 3).map(Number);
 function applyTheme() {
-  const t = STYLES[STYLE].theme ?? {}, root = document.documentElement.style;
-  if (t.rubric) root.setProperty('--rubric', t.rubric); else root.removeProperty('--rubric');
-  if (t.dark) { root.setProperty('--paper', `rgb(${t.ground.join(' ')})`); root.setProperty('--ink', t.text); root.colorScheme = 'dark'; PAPER_NOW = t.ground; }
-  else { root.removeProperty('--paper'); root.removeProperty('--ink'); root.colorScheme = ''; PAPER_NOW = [244, 238, 226]; }
+  const sty = STYLES[STYLE], t = sty.theme ?? {}, root = document.documentElement.style, mode = themeMode(), own = OWN_GROUND && t.dark;
+  root.removeProperty('--paper'); root.removeProperty('--ink'); root.removeProperty('--rubric');
+  if (own) { root.setProperty('--paper', `rgb(${t.ground.join(' ')})`); root.setProperty('--ink', t.text); root.setProperty('--rubric', t.groundRubric ?? t.rubricDark ?? t.rubric); }
+  else if (t.rubric) root.setProperty('--rubric', mode === 'dark' ? t.rubricDark ?? `rgb(${lift(cssRgb(t.rubric)).join(' ')})` : t.rubric);
+  DARK = own || mode === 'dark'; PAL = paletteOf(sty, mode, own); BLEND = DARK ? sty.blendDark ?? (sty.blend === 'multiply' ? 'screen' : sty.blend) : sty.blend;
+  PAPER_NOW = cssRgb(getComputedStyle(document.documentElement).getPropertyValue('--paper'));
   art.style.setProperty('--orn', SCALE);
 }
 applyTheme();
@@ -279,10 +307,10 @@ function compose() {
     m.list = m.list.filter(s => !hits(s)); }
   const groups = [];
   marks.sort((m, n) => m.y - n.y).forEach((m, mi) => { const g0 = clock, from = parts.length; m.list.forEach((s, i) => {
-    const col = s.col === 'g' ? 'gold' : s.col === 'k' ? 'black' : s.col === 'a' ? m.a : other(m.a), INK = S.ink[col] ?? S.ink[S.pair[0]];
-    if (s.dot) { drawn.push({ mi, type: m.type, dot: s.p, r: s.r }); parts.push(dotted(clock, s.p, s.r, INK.solid, S.blend)); clock += .03; return; }
+    const col = s.col === 'g' ? 'gold' : s.col === 'k' ? 'black' : s.col === 'a' ? m.a : other(m.a), INK = PAL[col] ?? PAL[S.pair[0]];
+    if (s.dot) { drawn.push({ mi, type: m.type, dot: s.p, r: s.r }); parts.push(dotted(clock, s.p, s.r, INK.solid, BLEND)); clock += .03; return; }
     const ink = s.broad ? INK.solid : INK.hair, pts = refine(s.pts), ends = freeEnds(s, m.list);
-    const o = { w: s.w * (s.broad ? 1 : 1.1), ink, paper: PAPER_NOW, blend: S.blend, seed: (SEED + mi * 131 + i * 7) >>> 0, start: ends.start, end: ends.end, load: s.load ?? .85, dry: s.dry ?? .3, broad: s.broad ?? .3, swell: s.swell ?? .25, nib: s.nib ?? .55 };
+    const o = { w: s.w * (s.broad ? 1 : 1.1), ink, paper: PAPER_NOW, dark: DARK, blend: BLEND, seed: (SEED + mi * 131 + i * 7) >>> 0, start: ends.start, end: ends.end, load: s.load ?? .85, dry: s.dry ?? .3, broad: s.broad ?? .3, swell: s.swell ?? .25, nib: s.nib ?? .55 };
     drawn.push({ mi, type: m.type, pts, w: o.w, ends: [pts[0], pts.at(-1)] }); const d = Math.max(.05, arclen(pts) / (s.broad ? 70 : 260)); parts.push(stem(clock, clock + d, pts, { ...o, live: 'cut' })); clock += d * .8;
   }); groups.push({ y: m.y, type: m.type, parts: parts.slice(from).map(p => ({ ...p, t0: p.t0 - g0, t1: p.t1 - g0 })) }); });
   let end = Math.max(.1, ...parts.map(p => p.t1)); const k = Math.min(1, 14 / end);
@@ -345,7 +373,7 @@ function freeEnds(s, list) {
   return { start: fix(s.start, s.pts[0]), end: fix(s.end, s.pts.at(-1)) };
 }
 const blended = (g, mode, f) => { if (!mode) return f(); g.save(); g.globalCompositeOperation = mode; f(); g.restore(); };
-const dotted = (t, p, r, ink, mode) => ({ t0: t, t1: t + .03, layer: 0, at: () => {}, done: g => blended(g, mode, () => dot(g, p, r, ink, PAPER_NOW, .95)) });
+const dotted = (t, p, r, ink, mode) => ({ t0: t, t1: t + .03, layer: 0, at: () => {}, done: g => blended(g, mode, () => dot(g, p, r, ink, PAPER_NOW, .95, DARK)) });
 // a style's mark list at unit size, scaled about an anchor (ax, ay) by the ornament scale (fx: where the anchor was
 // generated, for a flush-left break). Strokes thicken in proportion when larger; when smaller they thin only by the
 // square root, so a hairline stays a line a pen could draw
@@ -410,11 +438,11 @@ function sweep() {
   art.style.visibility = 'hidden'; const sheet = document.querySelector('.sheet'), o = sheet.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1), c = document.getElementById('orn');
   c.width = Math.round(o.width * dpr); c.height = Math.round(o.height * dpr); c.style.width = o.width + 'px'; c.style.height = o.height + 'px';
   const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  Object.keys(STYLES).forEach((key, row) => { const GS = grammar(STYLES[key]), t = STYLES[key].theme ?? {}, paper = t.dark ? t.ground : [244, 238, 226];
-    if (t.dark) { g.fillStyle = `rgb(${t.ground.join(',')})`; g.fillRect(20, 30 + row * 40, 30 * 28 + 10, 40); }
+  Object.keys(STYLES).forEach((key, row) => { const GS = grammar(STYLES[key]), t = STYLES[key].theme ?? {}, paper = PAPER_NOW, P = paletteOf(STYLES[key], themeMode());
+    if (false) { g.fillStyle = `rgb(${t.ground.join(',')})`; g.fillRect(20, 30 + row * 40, 30 * 28 + 10, 40); }
     for (let i = 0; i < 30; i++) { const seed = 1000 + i * 7919, V = GS.setup(seed), x = 28 + i * 28, base = 30 + row * 40 + 28, a = GS.alternate ? GS.pair[i % 2] : GS.pair[0];
-      for (const m of GS.paraph(x, base, 8, seed + 89, RICH, V)) { const col = m.col === 'g' ? 'gold' : m.col === 'k' ? 'black' : m.col === 'a' ? a : (GS.pair[0] === a ? GS.pair[1] : GS.pair[0]), INK = GS.ink[col] ?? GS.ink[GS.pair[0]];
-        blended(g, GS.blend, () => m.dot ? dot(g, m.p, m.r, INK.solid, paper, .95) : pen(g, refine(m.pts), { w: m.w * (m.broad ? 1 : 1.1), ink: m.broad ? INK.solid : INK.hair, paper, seed: seed + 3, start: m.start, end: m.end, load: m.load ?? .85, dry: m.dry ?? .3, broad: m.broad ?? .3, swell: m.swell ?? .25, nib: m.nib ?? .55 })); } } });
+      for (const m of GS.paraph(x, base, 8, seed + 89, RICH, V)) { const col = m.col === 'g' ? 'gold' : m.col === 'k' ? 'black' : m.col === 'a' ? a : (GS.pair[0] === a ? GS.pair[1] : GS.pair[0]), INK = P[col] ?? P[GS.pair[0]];
+        blended(g, DARK ? GS.blendDark ?? (GS.blend ? 'screen' : null) : GS.blend, () => m.dot ? dot(g, m.p, m.r, INK.solid, paper, .95, DARK) : pen(g, refine(m.pts), { dark: DARK, w: m.w * (m.broad ? 1 : 1.1), ink: m.broad ? INK.solid : INK.hair, paper, seed: seed + 3, start: m.start, end: m.end, load: m.load ?? .85, dry: m.dry ?? .3, broad: m.broad ?? .3, swell: m.swell ?? .25, nib: m.nib ?? .55 })); } } });
   document.body.dataset.timing = 'sweep';
 }
 await document.fonts.ready;
@@ -424,6 +452,12 @@ if (q.has('sweep')) sweep(); else render(still_ ? false : DRAW === 'read' ? 'rea
 document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); readDone.clear(); render(!still_); });
 document.getElementById('asread').addEventListener('click', e => { e.preventDefault(); readDone.clear(); scrollTo(0, 0); render(still_ ? false : 'read'); });
 const richIn = document.getElementById('rich'); richIn.value = RICH;
+// light and dark: a change of the system's scheme or of the toggle redraws at once, without replaying the drawing
+const redrawStill = () => { applyTheme(); render(io && !still_ ? 'read' : false); };
+const modes = document.querySelector('.modes'), showMode = () => modes.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', (document.documentElement.dataset.theme ?? '') === b.dataset.mode));
+showMode();
+modes.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { if (b.dataset.mode) document.documentElement.dataset.theme = b.dataset.mode; else delete document.documentElement.dataset.theme; showMode(); redrawStill(); }));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (!document.documentElement.dataset.theme) redrawStill(); });
 const scaleIn = document.getElementById('scale'); scaleIn.value = SCALE;
 scaleIn.addEventListener('input', () => { SCALE = +scaleIn.value; applyTheme(); render(false); const u = new URL(location.href); u.searchParams.set('scale', SCALE); history.replaceState(null, '', u); });
 // the traditions, named in the colophon's line; choosing one redraws at once and is kept in the address

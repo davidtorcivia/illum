@@ -56,7 +56,7 @@ export function spline(cp, n = 16) {
 export const INK = [36, 25, 18];
 export function pen(g, pts, o = {}) {
   const { w = 1.4, nib = .7, broad = .45, load = .95, dry = .3, swell = .45, ink = INK, paper = PAPER, seed = 1,
-    start = 'pool', end = 'taper', shade = null, from = 0, to = 1, press = null } = o;
+    start = 'pool', end = 'taper', shade = null, from = 0, to = 1, press = null, dark = false } = o;
   const ds = Math.max(.25, Math.min(1, w * .35)), P = resample(pts, ds), n = P.length; if (n < 3) return;
   const wob = noise1(seed), wob2 = noise1(seed ^ 0x55), edge = noise1(seed ^ 0x99);
   let L = 0; const S = [0]; for (let i = 1; i < n; i++) S.push(L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
@@ -79,7 +79,9 @@ export function pen(g, pts, o = {}) {
     const dwell = (start === 'pool' ? .5 : .15) * Math.exp(-s / 5) + Math.min(.35, k * 1.6);
     RHO.push(Math.max(.25, (load - dry * u) * (.9 + .2 * wob2(s / 9))) + dwell + .25 * (1 - lift));
   }
-  const col = rho => `rgb(${paper.map((p, j) => Math.round(p * Math.exp(-Kc[j] * rho)))})`;
+  // on a dark ground (opt-in) ink cannot darken the paper: it is its own colour, rising from the ground as it loads and
+  // a shade deeper where it pools, so a pool or a dried margin never becomes a light glow
+  const col = dark ? rho => darkInk(ink, paper, rho) : rho => `rgb(${paper.map((p, j) => Math.round(p * Math.exp(-Kc[j] * rho)))})`;
   // body: quads between consecutive samples, each a touch longer so they never show a seam
   g.globalAlpha = 1;
   const i0 = from <= 0 ? 0 : S.findIndex(v => v >= from * L), i1 = to >= 1 ? n - 1 : Math.max(i0, S.findIndex(v => v >= to * L));
@@ -101,10 +103,13 @@ export function pen(g, pts, o = {}) {
 }
 
 // A single dot of ink or paint, as the pen leaves it when touched to the page and lifted.
-export function dot(g, p, r, ink = INK, paper = PAPER, rho = 1.1) {
+export function dot(g, p, r, ink = INK, paper = PAPER, rho = 1.1, dark = false) {
   const Kc = ink.map((c, i) => -Math.log(Math.max(.02, c / paper[i])));
-  g.beginPath(); g.arc(p[0], p[1], r, 0, 7); g.fillStyle = `rgb(${paper.map((q, j) => Math.round(q * Math.exp(-Kc[j] * rho)))})`; g.fill();
+  g.beginPath(); g.arc(p[0], p[1], r, 0, 7); g.fillStyle = dark ? darkInk(ink, paper, rho) : `rgb(${paper.map((q, j) => Math.round(q * Math.exp(-Kc[j] * rho)))})`; g.fill();
 }
+// ink on a dark ground: mixed up from the ground toward the ink's own colour by its load, a little deeper past full
+const darkInk = (ink, paper, rho) => { const k = Math.min(1, Math.pow(Math.max(0, rho), .7)), deep = rho > 1 ? 1 - .07 * Math.min(1, rho - 1) : 1;
+  return `rgb(${ink.map((c, j) => Math.round((paper[j] + (c - paper[j]) * k) * deep))})`; };
 
 // A branch as a hand draws it: it leaves the parent almost along it, bends away, then turns back on one smooth
 // curvature into a curl (or, for a leaf's stalk, only part way). kAway < 0 relative to the curl's sense.

@@ -172,6 +172,7 @@ export const STYLES = {
   // ---- Italian Gothic choir book: the set first made (466179, 466376, 466773)
   gothic: { label: 'Gothic', pair: ['red', 'blue'], alternate: true, minGap: 1.4,
     ink: { red: { solid: [200, 66, 40], hair: [212, 100, 74] }, blue: { solid: [40, 70, 160], hair: [56, 84, 166] } },
+    inkDark: { red: { solid: [232, 104, 78], hair: [226, 118, 94] }, blue: { solid: [112, 146, 232], hair: [120, 150, 228] } },
     setup: seed => { const r = stream(seed, 'gothic'); return { kinds: pickKinds(r, FILLERS, 3) }; },
     kinds: (v, rich) => rich < .25 ? ['beads'] : rich < .5 ? ['beads', 'zigzag'] : v.kinds,
     paraph: (x, base, u, seed, rich) => paraph(x, base, u, seed, rich),
@@ -182,6 +183,7 @@ export const STYLES = {
   // 2003.493: the hairline ivy with gold leaves and points of the borders, brought down into the text as fillers)
   hours: { label: 'Hours', pair: ['salmon', 'blue'], alternate: true, minGap: 1.6,
     ink: { salmon: { solid: [206, 104, 82], hair: [214, 126, 104] }, blue: { solid: [56, 86, 168], hair: [76, 102, 174] }, gold: { solid: [184, 146, 66], hair: [184, 146, 66] } },
+    inkDark: { salmon: { solid: [234, 140, 116], hair: [228, 150, 128] }, blue: { solid: [128, 156, 230], hair: [132, 160, 226] }, gold: { solid: [206, 168, 86], hair: [200, 162, 82] } },
     setup: seed => { const r = stream(seed, 'hours'); return { kinds: pickKinds(r, ['ivy', 'golddots', 'bar'], 2), p: .9 + r() * .3, berry: r() < .4 }; },
     kinds: (v, rich) => rich < .25 ? ['golddots'] : v.kinds,
     paraph: (x, base, u, seed, rich) => { const r = stream(seed, 'hp'), out = paraph(x + u * .1, base, u * .8, seed, rich >= .75 ? .5 : rich >= .25 ? .25 : 0);
@@ -374,7 +376,7 @@ const arrowHead = (p, a, s, col, w) => line([[p[0] - Math.cos(a - .5) * s, p[1] 
 Object.assign(STYLES, {
   // ---- Doodle: the margin of a sketchbook, one blue ballpoint; loose, wobbling, quick
   doodle: { label: 'Doodle', pair: ['bic', 'bic'], alternate: false, minGap: 1.3, theme: { rubric: 'rgb(34 54 140)' },
-    ink: { bic: { solid: [30, 50, 140], hair: [40, 62, 152] } },
+    ink: { bic: { solid: [30, 50, 140], hair: [40, 62, 152] } }, inkDark: { bic: { solid: [124, 152, 244], hair: [128, 156, 240] } },
     setup: seed => { const r = stream(seed, 'doodle'); return { kinds: pickKinds(r, ['loops', 'arrow', 'hatch', 'spirals'], 2), par: ['star', 'spiral', 'arrow'][(r() * 3) | 0], p: .85 + r() * .35 }; },
     kinds: (v, rich) => rich < .25 ? ['arrow'] : v.kinds,
     paraph(x, base, u, seed, rich, v) { const r = stream(seed, 'dp'), c = [x + u * .75, base - u * .55], out = [], o = { w: .62, load: .72, start: 'pool', end: 'taper' };
@@ -410,8 +412,9 @@ Object.assign(STYLES, {
   // 1995): brackets, chevrons, ruled scales with ticks, circuit traces, a glitch's doubled stroke; cyan and magenta on a
   // dark ground
   cyber: { label: 'Cyber', pair: ['cyan', 'magenta'], alternate: true, minGap: 1.2,
-    theme: { dark: true, ground: [13, 15, 21], text: 'rgb(198 208 218)', rubric: 'rgb(255 64 150)' },
-    ink: { cyan: { solid: [0, 214, 240], hair: [0, 200, 228] }, magenta: { solid: [255, 54, 142], hair: [255, 70, 150] } },
+    theme: { dark: true, ground: [13, 15, 21], text: 'rgb(198 208 218)', rubric: 'rgb(206 28 118)', rubricDark: 'rgb(255 64 150)' },
+    ink: { cyan: { solid: [0, 132, 156], hair: [0, 128, 150] }, magenta: { solid: [206, 28, 118], hair: [206, 40, 124] } },
+    inkDark: { cyan: { solid: [0, 214, 240], hair: [0, 200, 228] }, magenta: { solid: [255, 54, 142], hair: [255, 70, 150] } },
     setup: seed => { const r = stream(seed, 'cyber'); return { kinds: pickKinds(r, ['trace', 'ticks', 'glitch'], 2), p: .85 + r() * .35, off: [1 + r(), -(.6 + r() * .6)] }; },
     kinds: (v, rich) => rich < .25 ? ['ticks'] : v.kinds,
     paraph(x, base, u, seed, rich, v) { const out = [], m = base - u * .55, s = u * .5;
@@ -499,7 +502,7 @@ Object.assign(STYLES, {
       return out; } },
 
   // ---- Riso: a two-drum zine: fluorescent pink and blue overprinted, a little out of register, bold and blunt
-  riso: { label: 'Riso', pair: ['pink', 'blue'], alternate: false, minGap: 1.3, blend: 'multiply', theme: { rubric: 'rgb(240 64 160)' },
+  riso: { label: 'Riso', pair: ['pink', 'blue'], alternate: false, minGap: 1.3, blend: 'multiply', blendDark: 'screen', inkDark: { pink: { solid: [255, 96, 188], hair: [255, 96, 188] }, blue: { solid: [40, 150, 230], hair: [40, 150, 230] } }, theme: { rubric: 'rgb(240 64 160)' },
     ink: { pink: { solid: [255, 72, 176], hair: [255, 72, 176] }, blue: { solid: [0, 120, 191], hair: [0, 120, 191] } },
     setup: seed => { const r = stream(seed, 'riso'); return { kinds: pickKinds(r, ['halftone', 'stripes', 'bold'], 2), off: [1.8 + r() * 1.4, (r() < .5 ? -1 : 1) * (1.2 + r() * .9)] }; },   // the drums out of register by about half a millimetre
     kinds: (v, rich) => rich < .25 ? ['bold'] : v.kinds,
@@ -644,8 +647,9 @@ Object.assign(STYLES, {
   // ---- Blueprint: the technical drawing (cyanotype ground, white line): dimension lines with arrows, centre lines,
   // section hatching; section markers between chapters and a title block between books
   blueprint: { label: 'Blueprint', pair: ['white', 'cyan'], alternate: false, minGap: 1.4,
-    theme: { dark: true, ground: [22, 62, 128], text: 'rgb(226 236 248)', rubric: 'rgb(255 255 255)' },
-    ink: { white: { solid: [236, 244, 255], hair: [228, 238, 252] }, cyan: { solid: [150, 210, 255], hair: [150, 210, 255] } },
+    theme: { dark: true, ground: [22, 62, 128], text: 'rgb(226 236 248)', rubric: 'rgb(30 66 140)', rubricDark: 'rgb(214 228 250)', groundRubric: 'rgb(255 255 255)' },
+    ink: { white: { solid: [30, 66, 140], hair: [36, 72, 146] }, cyan: { solid: [80, 128, 196], hair: [80, 128, 196] } },   // on paper: the blue-line print
+    inkDark: { white: { solid: [236, 244, 255], hair: [228, 238, 252] }, cyan: { solid: [150, 210, 255], hair: [150, 210, 255] } },
     setup: seed => { const r = stream(seed, 'bp'); return { kinds: pickKinds(r, ['dim', 'centre', 'hatch'], 2), p: .85 + r() * .3 }; },
     kinds: (v, rich) => rich < .25 ? ['centre'] : v.kinds,
     paraph(x, base, u, seed, rich) {   // a section marker: a circle halved, an arrow off it
@@ -716,3 +720,102 @@ export function grammar(style) {
     breakMark(cx, y, measure, rank, seed, rich, u, v) { const r = stream(seed, 'gb'); return style.breakMark(cx, y, measure * (style.flush ? 1 : .86 + r() * .26), rank, seed, rich, u * (.94 + r() * .12), v); },   // a flush-left style keeps the measure exactly
   };
 }
+
+
+// ==== light and dark ==========================================================================================================
+// The palette a style draws with on the host's ground. Light: the style's own inks. Dark: its designed dark inks where
+// it has them; otherwise each pigment lifted in value with its hue kept (vermilion stays vermilion, lapis lapis), and
+// black or brown ink becomes the warm light ink of a dark page. Never an inversion.
+const hsl = ([r, g, b]) => { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return [0, 0, l]; const s = d / (1 - Math.abs(2 * l - 1)), h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return [h * 60, s, l]; };
+const rgbOf = ([h, s, l]) => { const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]; return [r, g, b].map(v => Math.round((v + m) * 255)); };
+export const lift = rgb => { const [h, s, l] = hsl(rgb); if (l < .26 || s < .18) return [226, 216, 200]; return rgbOf([h, Math.min(.9, s * .92), Math.max(l, .64)]); };
+export function paletteOf(style, mode, ownGround = false) {
+  if (ownGround && style.theme?.dark) return style.inkDark ?? style.ink;
+  if (mode !== 'dark') return style.ink;
+  const out = {}; for (const [k, v] of Object.entries(style.ink)) out[k] = style.inkDark?.[k] ?? { solid: lift(v.solid), hair: lift(v.hair) };
+  return out;
+}
+
+// ==== occult ====================================================================================================================
+// After the grimoires and alchemical books: Agrippa, De occulta philosophia (1533; the planetary kameas and their seals),
+// John Dee, Monas Hieroglyphica (1564), Khunrath's Amphitheatrum (1595), the Ripley Scroll (Wellcome MS 692) and the
+// Key of Solomon manuscripts: red and black ink, planetary and alchemical signs, sigils drawn on the kamea, magic
+// circles, the ouroboros. Named from those works; not studied from scans in this session.
+// Safety by construction: a sigil must have at least four points and both a level and an upright move, and may not
+// make two diagonals in turn that zig back (the shape that can read as a Sowilo or double-sig rune); no sign here is
+// four-armed or hooked in rotation.
+const glyph = (kind, c, s, col, w = .65) => {   // the planetary and alchemical signs as a pen makes them; s is about half their height
+  const o = { w, start: 'cut', end: 'cut' }, ring = (cc, R) => hair(arc(cc, R, 0, 2 * Math.PI, 28), col, o), cross = (top, L) => [line([[top[0], top[1]], [top[0], top[1] + L]], col, w), line([[top[0] - L * .4, top[1] + L * .45], [top[0] + L * .4, top[1] + L * .45]], col, w)];
+  const [x, y] = c;
+  if (kind === 'sun') return [ring(c, s * .62), bead(c, Math.max(.6, s * .14), col)];
+  if (kind === 'moon') return [hair([...arc([x, y], s * .7, -Math.PI * .62, Math.PI * .62, 18), ...arc([x + s * .32, y], s * .52, Math.PI * .5, -Math.PI * .5, 16)], col, o)];
+  if (kind === 'venus') return [ring([x, y - s * .35], s * .45), ...cross([x, y + s * .1], s * .9)];
+  if (kind === 'mercury') return [ring([x, y - s * .2], s * .38), hair(arc([x, y - s * .8], s * .36, Math.PI * .15, Math.PI * .85, 10), col, o), ...cross([x, y + s * .18], s * .78)];
+  if (kind === 'mars') return [ring([x - s * .12, y + s * .15], s * .45), line([[x + s * .2, y - s * .17], [x + s * .62, y - s * .6]], col, w), line([[x + s * .28, y - s * .62], [x + s * .62, y - s * .6], [x + s * .6, y - s * .28]], col, w)];
+  if (kind === 'jupiter') return [hair([[x - s * .5, y - s * .45], ...arc([x - s * .15, y - s * .45], s * .36, Math.PI, Math.PI * 2.1, 10), [x - s * .55, y + s * .25], [x + s * .55, y + s * .25]], col, o), line([[x + s * .25, y - s * .7], [x + s * .25, y + s * .8]], col, w)];
+  if (kind === 'saturn') return [line([[x - s * .2, y - s * .85], [x - s * .2, y + s * .35]], col, w), line([[x - s * .5, y - s * .5], [x + s * .1, y - s * .5]], col, w), hair([[x - s * .2, y - s * .05], ...arc([x + s * .12, y + s * .05], s * .32, -Math.PI * .85, Math.PI * .3, 10), [x + s * .1, y + s * .75]], col, { ...o, end: 'taper' })];
+  if (kind === 'sulphur') return [line([[x - s * .5, y], [x, y - s * .8], [x + s * .5, y], [x - s * .5, y]], col, w), ...cross([x, y], s * .8)];
+  return [ring(c, s * .55), line([[x - s * .55, y], [x + s * .55, y]], col, w)];   // salt
+};
+const SIGNS = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn', 'sulphur', 'salt'];
+// a sigil on the 3×3 kamea: a path of cells from a seeded word, a small circle where it starts, a bar where it ends
+function sigil(x0, y0, W, H, r, col) {
+  for (let tries = 0; tries < 40; tries++) {
+    const n = 4 + ((r() * 3) | 0), cells = []; while (cells.length < n) { const c = (r() * 9) | 0; if (c !== cells.at(-1)) cells.push(c); }
+    const P = cells.map(c => [x0 + (c % 3) / 2 * W, y0 + ((c / 3) | 0) / 2 * H]), d = P.slice(1).map((p, i) => [Math.sign(Math.round(p[0] - P[i][0])), Math.sign(Math.round(p[1] - P[i][1]))]);
+    const level = d.some(v => v[1] === 0), upright = d.some(v => v[0] === 0), diag = v => v[0] && v[1], same = (a, b) => a[0] === b[0] && a[1] === b[1];
+    const zig = d.some((v, i) => i && diag(v) && diag(d[i - 1]) && v[0] !== d[i - 1][0]);
+    // no Z, N or ϟ in three strokes (two of them side by side can read as the double-sig rune; a Z or N with a bar
+    // as the Wolfsangel): a stroke, a turn, and the first stroke again
+    const zed = d.some((v, i) => i > 1 && same(v, d[i - 2]) && !same(v, d[i - 1]) && (diag(v) !== !!diag(d[i - 1])));
+    if (!level || !upright || zig || zed) continue;
+    const a = P[0], b = P.at(-1), e = d.at(-1), nrm = [-e[1], e[0]], L = Math.min(W, H) * .18, l = Math.hypot(...nrm) || 1;
+    return [hair(arc(a, Math.min(W, H) * .1, 0, 2 * Math.PI, 14), col, { w: .5, start: 'cut', end: 'cut' }), line(P, col, .55, { start: 'cut', end: 'cut' }),
+      line([[b[0] - nrm[0] / l * L, b[1] - nrm[1] / l * L], [b[0] + nrm[0] / l * L, b[1] + nrm[1] / l * L]], col, .55, { start: 'taper', end: 'taper' })];
+  }
+  return [];
+}
+STYLES.occult = { label: 'Occult', pair: ['red', 'black'], alternate: true, minGap: 1.5, theme: { rubric: 'rgb(160 26 20)', rubricDark: 'rgb(228 92 76)' },
+  ink: { red: { solid: [172, 30, 22], hair: [176, 40, 30] }, black: { solid: [30, 24, 20], hair: [36, 30, 26] } },
+  inkDark: { red: { solid: [230, 92, 74], hair: [226, 100, 84] }, black: { solid: [224, 214, 198], hair: [214, 204, 188] } },
+  setup: seed => { const r = stream(seed, 'occult'); return { kinds: pickKinds(r, ['signs', 'sigils'], 1), p: .9 + r() * .3, favour: SIGNS.filter(() => r() < .6), book: r() < .5 ? 'ouro' : 'monas' }; },
+  kinds: (v, rich) => rich < .25 ? ['signs'] : rich >= .5 ? ['signs', 'sigils'] : v.kinds,
+  paraph(x, base, u, seed, rich, v) { const r = stream(seed, 'op'), pool = v.favour.length > 2 ? v.favour : SIGNS, k = pool[(r() * pool.length) | 0], c = [x + u * .7, base - u * .62];
+    const out = glyph(k, c, u * .78, 'a', .75);
+    if (rich >= .5) out.push(bead([c[0] + u * .95, c[1] - u * .55], .7, 'b'), bead([c[0] + u * .95, c[1] + u * .25], .7, 'b'));
+    return out; },
+  filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
+    const r = stream(seed, 'of'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
+    if (kind === 'signs') {   // signs strung on a ruled line, each standing on it
+      const { n, p } = fitN(x1 - x0, h * 2.1 * v.p), y = yBase - h * .05; out.push(line([[x0, y], [x1, y]], 'b', .45, { start: 'taper' }));
+      for (let k = 0; k < n; k++) out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [x0 + (k + .5) * p, mid - h * .1], h * .45, k % 2 && rich >= .5 ? 'b' : 'a', .5));
+    } else {   // sigils, each on its own kamea, joined by a ruled hairline
+      const { n, p } = fitN(x1 - x0, h * 2.4 * v.p); out.push(line([[x0, mid], [x1, mid]], 'b', .35, { start: 'taper', end: 'taper' }));
+      for (let k = 0; k < n; k++) out.push(...sigil(x0 + k * p + p * .18, yTop + h * .05, p * .64, h * .9, r, 'a'));
+    }
+    return out; },
+  breakMark(cx, y, measure, rank, seed, rich, u, v) {
+    const r = stream(seed, 'ob'), out = [];
+    if (rank < 2) {   // a magic circle: two rings, marks like lettering between them, a sigil for its seal
+      const R = u * 1.6; out.push(hair(arc([cx, y], R, 0, 2 * Math.PI, 48), 'b', { w: .55, start: 'cut', end: 'cut' }), hair(arc([cx, y], R * .74, 0, 2 * Math.PI, 40), 'b', { w: .45, start: 'cut', end: 'cut' }));
+      const n = rich >= .5 ? 12 : 8; for (let k = 0; k < n; k++) { const a = k / n * 2 * Math.PI + r() * .1, c = [cx + Math.cos(a) * R * .87, y + Math.sin(a) * R * .87];
+        out.push(k % 3 === 0 ? bead(c, .7, 'a') : line([[c[0] - Math.sin(a) * u * .14, c[1] + Math.cos(a) * u * .14], [c[0] + Math.sin(a) * u * .14, c[1] - Math.cos(a) * u * .14]], 'a', .5)); }
+      out.push(...sigil(cx - R * .42, y - R * .42, R * .84, R * .84, r, 'a'));
+      return out; }
+    const W = Math.min(measure * .5, u * 22);
+    if (v.book === 'ouro') {   // the ouroboros: a body swelling and thinning round the circle, its head taking its tail
+      const R = u * 1.9, body = arc([cx, y], R, -Math.PI / 2 + .35, Math.PI * 1.5 - .05, 60);
+      out.push({ col: 'a', broad: 0, w: u * .42, load: 1.05, dry: .1, swell: .1, start: 'taper', end: 'cut', pts: body });
+      const hd = [cx + Math.cos(-Math.PI / 2 + .2) * R, y + Math.sin(-Math.PI / 2 + .2) * R];
+      out.push(hair(arc(hd, u * .38, 0, 2 * Math.PI, 18), 'a', { w: .6, start: 'cut', end: 'cut' }), bead([hd[0] + u * .12, hd[1] - u * .1], .55, 'b'));
+      out.push(...glyph('sun', [cx, y], u * .7, 'b', .55));
+    } else {   // Dee's Monas: the moon's horns over the sun, the cross below, the twin arcs of Aries at the foot
+      const c = [cx, y - u * .2]; out.push(...glyph('sun', c, u * .9, 'a', .7), hair(arc([cx, c[1] - u * 1.05], u * .62, Math.PI * .1, Math.PI * .9, 14), 'a', { w: .7, start: 'taper', end: 'taper' }));
+      out.push(line([[cx, c[1] + u * .6], [cx, c[1] + u * 2.2]], 'a', .7), line([[cx - u * .55, c[1] + u * 1.2], [cx + u * .55, c[1] + u * 1.2]], 'a', .7));
+      for (const s of [-1, 1]) out.push(hair(arc([cx + s * u * .32, c[1] + u * 2.45], u * .32, s > 0 ? Math.PI : 0, s > 0 ? Math.PI * 2 : -Math.PI, 10).filter(q => q[1] >= c[1] + u * 2.2), 'a', { w: .6, start: 'cut', end: 'taper' }));
+    }
+    if (rich >= .25) for (const s of [-1, 1]) { const a = cx + s * u * 2.8, b = cx + s * W / 2; out.push(line([[a, y], [b, y]], 'b', .45, { start: 'cut', end: 'taper' }));
+      if (rich >= .5) for (let k = 1; k <= 2; k++) out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [a + s * (b - a) * k / 3, y - u * .45], u * .32, 'a', .45)); }
+    return out; } };
