@@ -121,13 +121,17 @@ the white-vine series only in the Chaucer, and in it no D, E, G, Q, R, W, X or Y
 
 | letter | made from (Chaucer, BPL leaf) |
 |---|---|
-| X | K's arm and leg with their vine (n415), and their mirror, joined at the crossing; brought back to his width (×.73) |
-| Y | the head of that X over I's stem and its vine (n362) |
-| D | K's stem and the vine left of it (n415), and C's bowl turned to face it (n421) |
-| E | C (n421) with A's cross-bar and the vine round it (n16) |
-| G | C (n421) with the foot of P's stem and its vine for its beard (n248) |
-| Q | O (n98) with K's leg and its vine for its tail (n415) |
-| R | P (n248) with K's leg and its vine (n415) |
+| D | K's stem and the vine left of it (n415), and C's bowl turned to face it (n421) (round four, kept: "good") |
+| Q | O (n98) with K's leg and its vine for its tail (n415) (round four, kept: "okay") |
+| E | L (n421) with F's head and middle arms and the vine round them (n428) (round five) |
+| G | C (n421) with the foot of K's stem for its beard (n415) and F's middle arm for its spur (n428) (round five) |
+| R | P (n248) with K's leg taken from its junction, the join set at P's bowl foot (n415) (round five) |
+| X | K's arm and leg (n415) crossed by V's thick arm (n276) and A's left leg (n16): no mirror (round five) |
+| Y | the head of that X over I's stem and its vine (n362): no mirror (round five) |
+
+The user's round-four verdict: E, X, Y, G "awful" (X and Y mirrored; E built on C; G read as C), R "mid", Q okay, D good.
+Round five (above) answers each. Still weak on the blind sheet: X and Y keep K's arm and stem so they can read as K; G's
+spur is small.
 
 Tried and dropped: guided image quilting (Efros & Freeman's texture transfer from all sixteen blocks onto a drawn letter
 guide, tools/kquilt.py, removed): the vine came out in fragments, not stems.
