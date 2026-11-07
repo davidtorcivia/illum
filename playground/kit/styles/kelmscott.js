@@ -22,18 +22,29 @@ import { dist } from '../inkletter.js';
 // initials; the rest the ornaments. The comment is the font's size.
 const GLYPHS = {
   vB: { f: 'kelmscott-vine-vB.woff2', c: "B", a: 1.0031, w: 0.0097, k: null },   // 4764 B; IA MorrisChaucer leaf n313 [990,773,1640,1421]
+  vA: { f: 'kelmscott-vine-vA.woff2', c: "A", a: 0.9842, w: 0.0153, k: null },   // 2908 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n16 [279,364,466,554]
   vC: { f: 'kelmscott-vine-vC.woff2', c: "C", a: 0.9948, w: 0.0111, k: null },   // 3284 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n421 [1299,973,1489,1164]
+  vD: { f: 'kelmscott-vine-vD.woff2', c: "D", a: 1.0, w: 0.0156, k: null, m: 1 },   // 2320 B; composed: letter tD.json (type) on the ground of vO.json
+  vE: { f: 'kelmscott-vine-vE.woff2', c: "E", a: 0.9944, w: 0.0111, k: null, m: 1 },   // 3392 B; composed: letter tE.json (type) on the ground of vC.json
   vF: { f: 'kelmscott-vine-vF.woff2', c: "F", a: 0.8587, w: 0.0121, k: null },   // 2840 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n428 [62,1253,220,1437]
+  vG: { f: 'kelmscott-vine-vG.woff2', c: "G", a: 0.9944, w: 0.0111, k: null, m: 1 },   // 3360 B; composed: letter tG.json (type) on the ground of vC.json
   vH: { f: 'kelmscott-vine-vH.woff2', c: "H", a: 0.9904, w: 0.0066, k: null },   // 5520 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n101 [1065,312,1373,623]
+  vI: { f: 'kelmscott-vine-vI.woff2', c: "I", a: 0.8707, w: 0.01, k: null },   // 4376 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n362 [78,344,354,661]
   vK: { f: 'kelmscott-vine-vK.woff2', c: "K", a: 0.9577, w: 0.0132, k: null },   // 3312 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n415 [1279,1221,1460,1410]
   vL: { f: 'kelmscott-vine-vL.woff2', c: "L", a: 0.9516, w: 0.0157, k: null },   // 3108 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n421 [583,1124,760,1310]
   vM: { f: 'kelmscott-vine-vM.woff2', c: "M", a: 0.8717, w: 0.016, k: null },   // 2772 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n103 [385,1604,548,1791]
   vN: { f: 'kelmscott-vine-vN.woff2', c: "N", a: 0.7958, w: 0.0131, k: null },   // 2788 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n212 [83,1422,235,1613]
   vO: { f: 'kelmscott-vine-vO.woff2', c: "O", a: 1.0, w: 0.0156, k: null },   // 2468 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n98 [163,556,355,748]
   vP: { f: 'kelmscott-vine-vP.woff2', c: "P", a: 0.9731, w: 0.0134, k: null },   // 2948 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n248 [804,2042,985,2228]
+  vQ: { f: 'kelmscott-vine-vQ.woff2', c: "Q", a: 1.0, w: 0.0156, k: null, m: 1 },   // 2540 B; composed: letter sQ.json (two-line, colours turned) on the ground of vO.json
+  vR: { f: 'kelmscott-vine-vR.woff2', c: "R", a: 0.9733, w: 0.0134, k: null, m: 1 },   // 2996 B; composed: letter sR.json (two-line, colours turned) on the ground of vP.json
   vS: { f: 'kelmscott-vine-vS.woff2', c: "S", a: 0.9937, w: 0.0079, k: null },   // 5240 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n137 [393,1217,706,1532]
   vT: { f: 'kelmscott-vine-vT.woff2', c: "T", a: 0.9945, w: 0.0098, k: null },   // 3152 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n95 [1113,1482,1295,1665]
   vV: { f: 'kelmscott-vine-vV.woff2', c: "V", a: 0.9788, w: 0.0159, k: null },   // 2652 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n276 [830,1903,1015,2092]
+  vW: { f: 'kelmscott-vine-vW.woff2', c: "W", a: 0.8722, w: 0.016, k: null, m: 1 },   // 2508 B; composed: letter tW.json (type) on the ground of vM.json
+  vX: { f: 'kelmscott-vine-vX.woff2', c: "X", a: 0.9578, w: 0.0132, k: null, m: 1 },   // 3376 B; composed: letter tX.json (type) on the ground of vK.json
+  vY: { f: 'kelmscott-vine-vY.woff2', c: "Y", a: 0.9789, w: 0.0159, k: null, m: 1 },   // 2648 B; composed: letter tY.json (type) on the ground of vV.json
+  vZ: { f: 'kelmscott-vine-vZ.woff2', c: "Z", a: 1.0326, w: 0.0158, k: null },   // 2840 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n96 [931,1289,1121,1473]
   sB: { f: 'kelmscott-two-sB.woff2', c: "B", a: 1.0962, w: 0.0172, k: null },   // 3004 B; IA MorrisChaucer leaf n125 [3636,2244,3978,2556]
   sA: { f: 'kelmscott-two-sA.woff2', c: "A", a: 0.9756, w: 0.0251, k: null },   // 2168 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n21 [1297,738,1377,820]
   sE: { f: 'kelmscott-two-sE.woff2', c: "E", a: 1.0449, w: 0.0281, k: null },   // 2228 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n235 [389,623,482,712]
@@ -51,6 +62,7 @@ const GLYPHS = {
   sR: { f: 'kelmscott-two-sR.woff2', c: "R", a: 1.0, w: 0.018, k: null },   // 2140 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n75 [750,1911,838,1999]
   sS: { f: 'kelmscott-two-sS.woff2', c: "S", a: 1.0795, w: 0.0234, k: null },   // 2164 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n37 [1316,703,1411,791]
   sT: { f: 'kelmscott-two-sT.woff2', c: "T", a: 0.8256, w: 0.0233, k: null },   // 1980 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n23 [495,684,566,770]
+  sV: { f: 'kelmscott-two-sV.woff2', c: "V", a: 1.129, w: 0.0204, k: null },   // 3220 B; W72.jpg [424,3547,774,3857]
   sW: { f: 'kelmscott-two-sW.woff2', c: "W", a: 1.0698, w: 0.0313, k: null },   // 1968 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n31 [1334,1683,1426,1769]
   sY: { f: 'kelmscott-two-sY.woff2', c: "Y", a: 1.0, w: 0.0291, k: null },   // 2028 B; BPL Chaucer (IA worksofgeoffreyc00chau_0) leaf n30 [902,941,988,1027]
   hedera: { f: 'kelmscott-ornaments-hedera.woff2', c: "\ue000", a: 1.4, w: 0.0375, k: null },   // 960 B; Met 354288 photograph 1 [3216,998,3272,1038]
@@ -59,7 +71,7 @@ const GLYPHS = {
   footGrape: { f: 'kelmscott-ornaments-footGrape.woff2', c: "\ue003", a: 5.4129, w: 0.0106, k: 0.0199 },   // 15676 B; Water of the Wondrous Isles (IA MorrisWaterWondrousIsles) leaf n21, isolated [107,80,3371,683]
   footRose: { f: 'kelmscott-ornaments-footRose.woff2', c: "\ue004", a: 5.4264, w: 0.0199, k: 0.0325 },   // 7852 B; Water of the Wondrous Isles leaf n22, isolated [155,215,2331,616]
   headRose: { f: 'kelmscott-ornaments-headRose.woff2', c: "\ue005", a: 6.7073, w: 0.0274, k: 0.0371 },   // 8028 B; Water of the Wondrous Isles leaf n22, isolated [77,112,2277,440]
-  vine: { f: 'kelmscott-ornaments-vine.woff2', c: "\ue006", a: 0.3221, w: 0.0031, k: 0.0048 },   // 2036 B; Water of the Wondrous Isles leaf n21, isolated [29,46,900,2750]
+  vine: { f: 'kelmscott-ornaments-vine.woff2', c: "\ue006", a: 0.1913, w: 0.002, k: 0.0031 },   // 3328 B; Water of the Wondrous Isles leaf n21, isolated [29,46,900,4600]
 };
 
 // ---- the fonts --------------------------------------------------------------------------------------------------------------
@@ -78,7 +90,7 @@ function needed() {
   for (const s of document.querySelectorAll('.ini')) { const ch = letterOf(s.textContent); keys.add('v' + ch).add('s' + ch).add('v' + ALIAS[ch]).add('s' + ALIAS[ch]); }
   if (has('blockquote, aside') && !QUIET) keys.add('vine');
   if (has('.pull') && !QUIET) keys.add('headRose').add('footRose');
-  if (has('hr, .break, .book, .chapter')) for (const k of Object.values(BREAK)) keys.add(k);
+  if (has('hr, .break, .book, .chapter')) keys.add('footRose').add('footGrape');
   if (FILL === 'knot') keys.add('knot');
   return [...keys].filter(k => GLYPHS[k]);
 }
@@ -132,9 +144,11 @@ function silhouette(L) {
 // the Chaucer sets them), as wide as its block. Two families from the Chaucer: the white-vine initials (v*: a white letter
 // in a black square thick with vine), and the two-line initials (s*: a black letter edged in white with a white leaf in its
 // counter, on a scalloped ground). A drop deeper than 6 x-heights takes the white-vine block, a shallower one or a letter in
-// the line the two-line block; each the other where its own is not traced. J is set as I and U as V, as the Chaucer sets
-// them; a letter with neither block (D, X, Z) is set as a capital of the page's face in the rubric's red, as the
-// Kelmscott books set a plain initial.
+// the line the two-line block; each the other where its own is not cut. J is set as I and U as V, as the Chaucer sets
+// them. Morris cut no white-vine D, E, G, Q, R, W, X or Y that survives in the books searched: those blocks (m: 1 in GLYPHS)
+// are composed by us from his own cutting (tools/kcompose.py: the letter his Chaucer type's capital, or his two-line
+// capital with its colours turned; the ground one of his white-vine blocks, its letter cut away). Every letter has a block;
+// a capital of the page's face in red stays only as the fallback for a character outside A–Z.
 const ALIAS = { J: 'I', U: 'V' };
 const letterOf = ch => String(ch).normalize('NFD')[0].toUpperCase();
 const shapeFor = (ch, deep) => { const c = GLYPHS['v' + ch] || GLYPHS['s' + ch] ? ch : ALIAS[ch] ?? ch; return deep ? (GLYPHS['v' + c] ? 'v' + c : GLYPHS['s' + c] ? 's' + c : null) : (GLYPHS['s' + c] ? 's' + c : GLYPHS['v' + c] ? 'v' + c : null); };
@@ -186,12 +200,16 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
 // Morris composed them balanced, not mirrored. rank 1 (?break=rose): the foot from leaf n22, a figure-of-eight knot with a
 // bud at one end and a rose at the other; rank 2 (?break=grape): the vine-and-grapes foot from leaf n21. ?break=mirror: the
 // rose foot made mirror-symmetric about its stem (its rose end turned to both sides; not Morris's composition).
-let BREAK = { 1: 'footRose', 2: 'footGrape' }, MIRROR = false;
+// By default (?break=all) every foot has a role: a book's break the grape foot; a chapter's the rose foot and the rose foot
+// mirrored in turn (the first chapter break the rose, the second the mirrored, and on), so a long page has variety and
+// stays composed. ?break=rose | grape | mirror: that one everywhere.
+let BREAK = 'all';
 const STEM = { footRose: .37, footGrape: .459 };   // where the stem stood, a fraction of the foot's width
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1) {
-  const g = BREAK[rank > 1 ? 2 : 1], W = Math.min(measure * (rank > 1 ? .78 : .56), u * (rank > 1 ? 62 : 44)), h = W / GLYPHS[g].a;
-  if (!MIRROR) return { marks: [], letters: [block(g, cx - W / 2, y - h / 2, h)] };
-  const c = 1 - STEM[g], half = c * W;   // the right-hand part (from the stem) kept, and its mirror image to the left
+  const kind = BREAK !== 'all' ? BREAK : rank > 1 ? 'grape' : n % 2 ? 'rose' : 'mirror', g = kind === 'grape' ? 'footGrape' : 'footRose';
+  const W = Math.min(measure * (g === 'footGrape' ? .78 : .56), u * (g === 'footGrape' ? 62 : 44)), h = W / GLYPHS[g].a;
+  if (kind !== 'mirror') return { marks: [], letters: [block(g, cx - W / 2, y - h / 2, h)] };
+  const half = (1 - STEM[g]) * W;   // the right-hand part (from the stem) kept, and its mirror image to the left
   return { marks: [], letters: [{ g, x: cx, y: y - h / 2, w: half, h, em: h, col: 'k', sx: STEM[g] }, { g, x: cx - half, y: y - h / 2, w: half, h, em: h, col: 'k', sx: STEM[g], flip: true }] };
 }
 
@@ -205,15 +223,20 @@ const rect = (x, y, w, h) => ({ rect: true, x, y, w, h, col: 'k' });
 const ruled = ([X0, Y0, X1, Y1], w) => [rect(X0, Y0, X1 - X0, w), rect(X0, Y1 - w, X1 - X0, w), rect(X0, Y0, w, Y1 - Y0), rect(X1 - w, Y0, w, Y1 - Y0)];
 const linesBox = (box, lines) => !lines?.length ? box : [Math.min(...lines.map(L => L.left)), lines[0].top, Math.max(...lines.map(L => L.right)), lines.at(-1).base];
 // the vine down the side: em sized so its line is ~1.5 px; its stem (.15–.20 em from the glyph's left, its curls included) a
-// gap left of the words; its head (the leaf, the top .14 em, reaching right) above the first line; its foot a little below
-// the last, cut off as Morris draws a cut stem (the open tube of its outline), clear of the text that follows
-const VINE = { stem: .165, right: .2, head: .14 };
+// gap left of the words; its head (the leaf, reaching right) above the first line; its foot a little below the last, cut
+// off as Morris draws a cut stem (the open tube of its outline). The traced stem is ~490 px at 1440; a taller block's vine
+// goes on with a length of the same stem (VINE.loop: two rows of it where its outline stands at the same place with the same
+// lean, so the stem runs on through the join; tools: the scratchpad's row match), as long as it needs.
+const VINE = { stem: .098, right: .125, head: .083, loop: [.256, .747] };
 function vineDown(xl, top, bot, u) {
-  const sx = xl - u * .9 - (VINE.right - VINE.stem) * 1.5 / GLYPHS.vine.k, room = sx - 3;   // (the stem's page x, for a first guess of the em)
-  const em = Math.max(180, Math.min(1.5 / GLYPHS.vine.k, room / (GLYPHS.vine.a - VINE.stem))), stem = xl - u * .9 - (VINE.right - VINE.stem) * em;
-  // ponytail: one traced length (an em, ~310 px); a longer block's vine stops short. Stack a second length of stem when one is needed
-  const x = stem - VINE.stem * em, w = GLYPHS.vine.a * em, y0 = top - VINE.head * em, L = Math.min(bot + u * .6 - y0, em);
-  return [{ g: 'vine', x, y: y0, w, h: L, em, col: 'k', v: [0, L / em] }];
+  const k = GLYPHS.vine.k, guess = 1.5 / k, room = xl - u * .9 - (VINE.right - VINE.stem) * guess - 3;
+  const em = Math.max(260, Math.min(guess, room / (GLYPHS.vine.a - VINE.stem))), stem = xl - u * .9 - (VINE.right - VINE.stem) * em;
+  const x = stem - VINE.stem * em, w = GLYPHS.vine.a * em, y0 = top - VINE.head * em, L = bot + u * .6 - y0, out = [];
+  const piece = (y, v0, h) => out.push({ g: 'vine', x, y, w, h, em, col: 'k', v: [v0, v0 + h / em] });
+  if (L <= em) piece(y0, 0, L);
+  else { const [a, b] = VINE.loop; piece(y0, 0, b * em); let y = y0 + b * em;
+    while (y < y0 + L - .5) { const h = Math.min((b - a) * em, y0 + L - y); piece(y, a, h); y += h; } }
+  return out;
 }
 let CODE = 'rule';
 let QUIET = false;   // ?vine=none: the quotation and the aside left plain, the pull quote between two red sprigs
@@ -294,6 +317,6 @@ export const kelmscott = { label: 'Kelmscott', minGap: 2, theme: { rubric: 'rgb(
   paraph, filler, breakMark, initial, frames, palette, print, timeline, FILLERS, GLYPHS, loadGlyph,
   set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : 'none'; },
   set darkCut(c) { DARK_CUT = c === 'negative' ? 'negative' : 'positive'; },
-  set breaks(c) { MIRROR = c === 'mirror'; BREAK = c === 'grape' ? { 1: 'footGrape', 2: 'footGrape' } : c === 'rose' ? { 1: 'footRose', 2: 'footRose' } : { 1: 'footRose', 2: 'footGrape' }; },
+  set breaks(c) { BREAK = ['rose', 'grape', 'mirror'].includes(c) ? c : 'all'; },
   set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; } };
 export default kelmscott;

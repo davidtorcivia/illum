@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kelmscott breaks</title>
+<!--
+  Kelmscott over a longer page (kit/styles/kelmscott.js): several chapter breaks (the rose foot and the rose foot mirrored
+  in turn), a book break (the grape foot), and a quotation taller than the traced vine, whose stem runs on through a second
+  length of itself. The same options as tests/kelmscott.html.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(184 54 40); color-scheme: light; }
+  :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); --rubric: rgb(222 120 92); color-scheme: dark; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
+  .sheet { position: relative; max-width: 900px; margin: 0 auto; padding: 120px 100px 140px 200px; box-sizing: border-box; }
+  .sheet > canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .15em; }
+  .sub { font-style: italic; margin: 0 0 2.4em; }
+  h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
+  p { margin: 0; }
+  p.par { text-indent: 1.8em; }
+  hr { border: 0; height: 3.4em; margin: .4em 0; }
+  hr[data-rank="2"] { height: 9em; margin: 1em 0 0; }
+  a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
+  nav.toc { margin: 0 0 2.4em; font-style: italic; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; }
+  blockquote { margin: 3em 0 1.6em; padding: 0 1.3em 0 1.4em; }
+  blockquote p { margin: 0 0 .3em; }
+  blockquote footer { font-style: italic; font-size: .9em; text-align: right; margin-top: .9em; }
+  figure { margin: 4.4em auto 2em; max-width: 24em; }
+  figure svg { display: block; width: 100%; height: auto; }
+  figure svg g { stroke: var(--ink); }
+  figure svg rect[fill] { fill: var(--ink); }
+  figcaption { font-style: italic; font-size: .9em; margin-top: 1.6em; text-align: left; hyphens: manual; }
+  pre { margin: 1.8em 0; padding: 3.5em 2.7em; font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; hyphens: none; }
+  .pull { margin: 3em 1.5em; font-size: 1.35em; line-height: 1.4; font-style: italic; text-align: center; hyphens: manual; }
+  aside.note { margin: 2.6em 0 2.4em 2em; padding: 3.4em 1.4em 4em; font-size: .9em; }
+  aside.note p { margin: 0 0 .6em; }
+  .ini { color: transparent; }
+  .ini.drop { float: left; line-height: 1; }
+  .ini.line { display: inline-block; font-size: 1.8em; line-height: 0; margin-right: .12em; }
+  .ghost .ini { color: rgb(255 0 160 / .45); }
+  .colophon { max-width: 900px; margin: 0 auto; padding: 0 100px 60px 200px; box-sizing: border-box; font-size: 14px; font-style: italic; opacity: .6; }
+  .colophon a { color: inherit; }
+  @media (max-width: 640px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .sheet { padding: 64px 20px 80px 48px; }
+    .text { text-align: left; }
+    blockquote { padding: 0 .9em 0 1em; }
+    pre { padding: 3.5em 2.3em; font-size: 13.5px; }
+    .pull { margin: 2.8em .4em; }
+    aside.note { margin-left: 0; }
+    .colophon { padding: 0 20px 40px 48px; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <article class="text">
+    <h1>Changefulness</h1>
+    <p class="sub">John Ruskin, The Stones of Venice, 1853</p>
+    <p><span class="ini drop">T</span>he same marks can be grown on a web page from the page’s own structure, so that the ornament is the information architecture, not a costume over it. That asks something of the maker that Ruskin asked of the builders of his day.</p>
+    <hr>
+    <h2>The first part</h2>
+    <p>A medieval book had no page numbers, no index and no search. Its readers found their way by its ornament: the large initial that opened a book, the smaller one at a chapter, the paraph at a paragraph, the filler that closed a short line.</p>
+    <blockquote>
+      <p>You must either make a tool of the creature, or a man of him. You cannot make both. Men were not intended to work with the accuracy of tools, to be precise and perfect in all their actions. If you will have that precision out of them, and make their fingers measure degrees like cog-wheels, and their arms strike curves like compasses, you must unhumanize them.</p>
+      <p>All the energy of their spirits must be given to make cogs and compasses of themselves. All their attention and strength must go to the accomplishment of the mean act. The eye of the soul must be bent upon the finger-point, and the soul’s force must fill all the invisible nerves that guide it, ten hours a day, that it may not err from its steely precision, and so soul and sight be worn away, and the whole human being be lost at last.</p>
+      <p>On the other hand, if you will make a man of the working creature, you cannot make a tool. Let him but begin to imagine, to think, to try to do anything worth doing; and the engine-turned precision is lost at once.</p>
+      <footer>John Ruskin, <cite>The Stones of Venice</cite>, 1853</footer>
+    </blockquote>
+    <hr>
+    <h2>The second part</h2>
+    <p>A medieval book had no page numbers, no index and no search. Its readers found their way by its ornament: the large initial that opened a book, the smaller one at a chapter, the paraph at a paragraph, the filler that closed a short line.</p>
+    <hr>
+    <h2>The third part</h2>
+    <p>A medieval book had no page numbers, no index and no search. Its readers found their way by its ornament: the large initial that opened a book, the smaller one at a chapter, the paraph at a paragraph, the filler that closed a short line.</p>
+    <hr data-rank="2">
+    <h2>The fourth part</h2>
+    <p>A medieval book had no page numbers, no index and no search. Its readers found their way by its ornament: the large initial that opened a book, the smaller one at a chapter, the paraph at a paragraph, the filler that closed a short line.</p>
+    <hr>
+    <h2>The fifth part</h2>
+    <p>A medieval book had no page numbers, no index and no search. Its readers found their way by its ornament: the large initial that opened a book, the smaller one at a chapter, the paraph at a paragraph, the filler that closed a short line.</p>
+  </article>
+</main>
+<p class="colophon">Cut and printed by illum, kelmscott, seed <span id="seed"></span>.</p>
+<script type="module">
+import { rubricate } from '../kit/illum.js';
+import { STYLES } from '../kit/wayfinding.js';
+import kelmscott from '../kit/styles/kelmscott.js';
+STYLES.kelmscott = kelmscott;   // (in the registry in place of the breadth-first entry; kit/illum.js is not this page's to change)
+
+const q = new URLSearchParams(location.search), sd = location.hash.match(/seed=(\d+)/)?.[1];
+document.documentElement.dataset.theme = q.get('theme') === 'dark' || (!q.get('theme') && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+if (q.has('ghost')) document.body.classList.add('ghost');
+if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.dataset.lines = Math.max(2, Math.min(9, +q.get('lines') || 6)));
+kelmscott.paraphCol = q.get('paraph') ?? 'red';
+kelmscott.darkCut = q.get('cut') ?? 'positive';
+kelmscott.fill = q.get('fill') ?? 'none';
+kelmscott.breaks = q.get('break') ?? 'all';   // all (chapters: rose, mirrored rose in turn; books: grape) | rose | grape | mirror
+kelmscott.code = q.get('code') ?? 'rule';
+kelmscott.vine = q.get('vine') ?? 'on';   // none: quotation and aside plain, the pull quote between two sprigs   // a paragraph's short last line: left open, as Morris's text pages leave it (none), or closed with the running heads' knots (knot)   // dark: the cut printed pale on the dark page (positive), or the block pale with its cut dark (negative)
+// ?line=drop (default): the initial in the line set as the Chaucer sets its small initials, two lines deep; ?line=inline:
+// in the line, as the markup has it
+if (q.get('line') !== 'inline') document.querySelectorAll('.ini.line').forEach(s => { s.classList.replace('line', 'drop'); s.dataset.lines = 2; });
+const r = rubricate(document.querySelector('.text'), { style: 'kelmscott', rich: q.get('rich') ?? .5, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
+  // a line-filler wherever a heading's or a paragraph's last line leaves the gap (this text has no chapters to say so)
+  select: { filler: 'h2, .text > p:not(.sub):not(.pull)' },
+  on: (state, t) => { document.getElementById('seed').textContent = r.state.seed;
+    document.body.dataset.timing = t ? `in view ${t.view} ms, all ${t.all} ms (grow ${t.grow}, draw ${t.draw}), ${t.parts} parts` : state === 'written' ? 'drawn' : state; } });
+window.R = r;
+if (q.has('audit')) self.__audit = () => (r.state.groups ?? []).map(g => ({ what: (g.it.el.tagName + '.' + [...g.it.el.classList].join('.')).toLowerCase(), state: g.state, speed: g.speed ?? null,
+  parts: g.parts?.length ?? 0, kinds: [...new Set((g.parts ?? []).map(p => p.as))].join(' ') }));
+</script>
+<script type="module" src="../kit/theme-toggle.js"></script>
+</body>
+</html>

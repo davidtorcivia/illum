@@ -15,7 +15,7 @@
   15% into view: the block's face laid black, the white cut into it along its stems; never scrolls); ?theme=light|dark;
   ?rich=0..1; #seed=n; ?lines=n (the drop initial's depth; Morris's own six by default); ?paraph=red|black (the hedera); ?line=drop|inline (the L: two lines deep, or in the line); ?cut=positive|negative (dark: the
   white line printed pale on the page, or the block pale with its cut dark); ?fill=none|knot (a paragraph's short line);
-  ?break=both|rose|grape|mirror (the breaks: the Water of the Wondrous Isles' column-vine feet); ?code=rule|none; ?vine=on|none (the column vine
+  ?break=all|rose|grape|mirror (the breaks: the Water of the Wondrous Isles' column-vine feet); ?code=rule|none; ?vine=on|none (the column vine
   down quotations and asides, its head and foot round the pull quote; none: plain, the pull quote between two sprigs);
   ?audit.
 -->
@@ -143,7 +143,7 @@ if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.datase
 kelmscott.paraphCol = q.get('paraph') ?? 'red';
 kelmscott.darkCut = q.get('cut') ?? 'positive';
 kelmscott.fill = q.get('fill') ?? 'none';
-kelmscott.breaks = q.get('break') ?? 'both';   // rose | grape | both (rank 1 rose, rank 2 grape) | mirror
+kelmscott.breaks = q.get('break') ?? 'all';   // all (chapters: rose, mirrored rose in turn; books: grape) | rose | grape | mirror
 kelmscott.code = q.get('code') ?? 'rule';
 kelmscott.vine = q.get('vine') ?? 'on';   // none: quotation and aside plain, the pull quote between two sprigs   // a paragraph's short last line: left open, as Morris's text pages leave it (none), or closed with the running heads' knots (knot)   // dark: the cut printed pale on the dark page (positive), or the block pale with its cut dark (negative)
 // ?line=drop (default): the initial in the line set as the Chaucer sets its small initials, two lines deep; ?line=inline:

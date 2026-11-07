@@ -17,6 +17,7 @@ the session scratchpad (kelm-raw/), not the repo.
 | The Works of Geoffrey Chaucer, Kelmscott 1896, the whole book (578 leaves, 6461×9900) | archive.org `MorrisChaucer` (leaf images at `/download/MorrisChaucer/page/nN.jpg`) | Public Domain Mark | every initial, the red and black, the page |
 | The Kelmscott Chaucer, the Boston Public Library's copy (568 leaves, 2105×3000, sharp: ~180 ppi true, against the other scan's ~150 upsampled) | archive.org `worksofgeoffreyc00chau_0` (`/download/…/page/nN.jpg`) | PD (1896) | the alphabet: 12 white-vine and 18 two-line initials |
 | The Water of the Wondrous Isles, Kelmscott 1897 (4582×6620) | archive.org `MorrisWaterWondrousIsles` | PD (1897) | the column vines: the stem, its leaf head, the rose and grape feet, the rose head |
+| Six more Kelmscott books searched for initials (page thumbnails, detected, the following word OCR'd to name the letter): Godefrey of Boloyne, Reynard the Foxe, Sidonia, Sigurd, The Sundering Flood, The Well (IA), The Glittering Plain, The Wood beyond the World | archive.org (their Kelmscott scans) | PD | the two-line series in use beyond the Chaucer (the Water's V); no white-vine D E G Q R W X Y anywhere |
 | The Chaucer's opening spread (4501×3304, a photograph) | Commons, *William Morris – The Works of Geoffrey Chaucer – Google Art Project.jpg* | PD | the picture-frame band, the woodcut line at its sharpest |
 | The Well at the World's End, Kelmscott 1896, four spreads (4000×~2750) | the Met, 354288 (DP322253–DP322256) | CC0 | the hedera, the sprig, the knot, the red heads, the Well's border |
 | Chaucer p. 483 (Houghton, 1277×1015) | Commons, *Houghton Typ 805K.96.275 … pg. 483.jpg* | PD | looked at; not traced (too small) |
@@ -99,6 +100,43 @@ thing are bad"). Both replaced by Morris's own late vine drawings, used as he co
   ink is pressed once more; in dark, the white is written in pale ink along its stems. A drop takes ~5 s, a band ~1–2 s, a
   stamp a beat; each case as it scrolls into view; the page never scrolls itself.
 
+## Round three: the whole alphabet, the breaks, the vine
+
+**Traced (Morris's own):** white-vine A (BPL n16, "A Shipman", [279,364,466,554]), I (n362, "It sufficeth", [78,344,354,661]),
+Z (n96, "Zenobia", [931,1289,1121,1473]); two-line V (Water of the Wondrous Isles n72, "Viridis", [424,3547,774,3857]).
+Found by detecting every initial block in eleven Kelmscott scans and reading the word that follows it (tesseract on the
+line beside the block; the letter is the one that makes the word). The two-line series turns up in all the later books;
+the white-vine series only in the Chaucer, and in it no D, E, G, Q, R, W, X or Y was found.
+
+**Composed by us** (tools/kcompose.py; GLYPHS m: 1; captioned "composed by us" on tests/kelmscott-letters.html). Nothing
+in them is drawn: the letter is traced from Morris (his Chaucer type's capital, ~26 px in the BPL scan: D n36 "Duc",
+E n15 "Everich", G n36 "God", W n15 "Wel", X n366 "Metre X.", Y n36 "Yemen"; or his two-line capital with its colours
+turned: Q, R); the ground is one of his white-vine blocks (D, Q on O; E, G on C; R on P; W on M; X on K; Y on V), its
+own letter cut away (the white wider than ~3 % of the height, grown back to its edge), the new letter laid in its place
+thinned 1.2 % of the height toward his strokes' weight with a black line round it, his vine showing through its counters,
+the stubs the cut leaves filled, bare black seeded with the donor's own round dots.
+
+| letter | white-vine | two-line |
+|---|---|---|
+| A B C F H I K L M N O P S T V Z | Morris | A B E F G H I K L M N O P Q R S T V W Y Morris |
+| D E G Q R W X Y | composed by us | — |
+| C D X Z (two-line) | — | the white-vine block (C, Z Morris's; D, X ours) |
+| J, U | I's and V's blocks (the Chaucer's own practice) | the same |
+
+What falls short in the composed letters: their capitals are plainer than Morris's (his are cut with black spurs and
+hairlines inside the white and grow their vine from the letter; ours stand in the vine with a black line round them, and
+some stems end at that line); D and E still read a little heavy beside his. The type capitals are small in the scan (~26 px),
+so their edge is the smoothing's, not the type's.
+
+**Breaks:** all three kept, by role (?break=all, the default): a book's break the grape foot; a chapter's the rose foot and
+the rose foot mirrored in turn (n odd: the rose, n even: the mirror). tests/kelmscott-long.html shows five.
+
+**The vine down a quotation** is now the full traced stem (n21, 4,550 source px tall, ~1,100 px at 1440 px) and goes on
+past its length through a loop of itself: rows .256 and .747 of the glyph, where the stem's outline stands at the same x
+with the same lean (found by matching the stem's left and right edges and their slope 15 rows on, across all row pairs
+900+ rows apart), so the second length joins the first with no step; a taller block repeats the loop. The vine font is
+3.3 KB (not smoothed: its line is thin against its height).
+
 ## Size: the blocks as webfonts
 
 The first build carried the traces as polygons in the module (~250 KB for 13 blocks; the whole alphabet would have been
@@ -148,11 +186,9 @@ the cutting itself (a white-vine block has ~80 separate black islands).
   continuous strokes with true over/under (occult.js's sketch / occlude) they would hold at that size.
 - **The two-line initials in the dark** are printed pale (negative) by design: flooded for the positive, their scalloped
   edge leaves their white in specks.
-- **The alphabet now.** 12 + 18 letters from the BPL scan (and B of each from the IA scan); D, X, Z have no block;
-  U and J borrow V and I. The BPL scan is ~180 ppi: a white-vine block is ~190 px tall in it, so its finest white is
+- **The alphabet now.** Every letter has a block (round three): 16 white-vine and 20 two-line by Morris, 8 white-vine
+  composed by us; U and J borrow V and I. The BPL scan is ~180 ppi: a white-vine block is ~190 px tall in it, so its finest white is
   1–1.5 px of the scan; the two-line ones are ~88 px.
-- **The vine down a quotation** is one traced length (~310 px at 1440): a longer quotation shows the vine stopping short
-  of its foot (ponytail: stack a second length of stem from the glyph's middle).
 - **The feet's cut stems** read as Morris's open tube, but they are cut by us, not by him.
 - **The two-line initials at 46 px** have their white opened by ~.4 px. The Chaucer prints them ~0.52 in tall (310 px at
   the scan's nominal 600 ppi), ~50 px at 96 dpi: the specimen sets them at about their own size, which is finer than a
