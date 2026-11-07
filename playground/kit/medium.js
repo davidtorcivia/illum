@@ -167,8 +167,8 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
 // (natural frequency `stiffness` Hz, damping ratio `damping`) and its broad edge sweeps ink onto the sheet.
 // angle: the nib edge's angle above the writing line (radians). use: how quickly a dip runs out.
 export class Pen {
-  constructor(medium, { width = 3.2, angle = .62, flex = .8, hairline = .32, use = 1, stiffness = 24, damping = .9 } = {}) {
-    Object.assign(this, { m: medium, width, angle, flex, hairline, use, stiffness, damping, charge: 1 });
+  constructor(medium, { width = 3.2, angle = .62, flex = .8, hairline = .32, use = 1, stiffness = 24, damping = .9, exact = false } = {}) {
+    Object.assign(this, { m: medium, width, angle, flex, hairline, use, stiffness, damping, exact, charge: 1 });
     this.reset();
   }
   reset() { this.pos = null; this.vel = [0, 0]; this.last = null; this.target = null; this.prev = null; this.tt = 0; this.pres = .5; this.sp = 0; this.queue = []; }
@@ -188,9 +188,13 @@ export class Pen {
     while (this.tt < until) {
       const dt = Math.min(1, until - this.tt) / 1000, f = span > 0 ? Math.min(1, Math.max(0, (this.tt - A.t) / span)) : 1;
       const h = { x: A.x + (B.x - A.x) * f, y: A.y + (B.y - A.y) * f, p: A.p + (B.p - A.p) * f };
-      this.vel[0] += (w * w * (h.x - this.pos[0]) - 2 * z * w * this.vel[0]) * dt;
-      this.vel[1] += (w * w * (h.y - this.pos[1]) - 2 * z * w * this.vel[1]) * dt;
-      this.pos[0] += this.vel[0] * dt; this.pos[1] += this.vel[1] * dt;
+      // exact: a path already designed is traced as it is (the hand's mass is for a live hand, where it makes the curve)
+      if (this.exact) { this.vel = [(h.x - this.pos[0]) / dt, (h.y - this.pos[1]) / dt]; this.pos = [h.x, h.y]; }
+      else {
+        this.vel[0] += (w * w * (h.x - this.pos[0]) - 2 * z * w * this.vel[0]) * dt;
+        this.vel[1] += (w * w * (h.y - this.pos[1]) - 2 * z * w * this.vel[1]) * dt;
+        this.pos[0] += this.vel[0] * dt; this.pos[1] += this.vel[1] * dt;
+      }
       this.pres += (h.p - this.pres) * Math.min(1, dt * 30); this.tt += dt * 1000; this.emit(dt);
     }
   }

@@ -172,11 +172,13 @@ function written(t0, t1, strokes, ink, sr, dpr, sheet) {
   Object.assign(cv.style, { position: 'absolute', left: x0 + 'px', top: y0 + 'px', width: (x1 - x0) + 'px', height: (y1 - y0) + 'px', mixBlendMode: 'multiply', pointerEvents: 'none' });
   cv.width = Math.round((x1 - x0) * dpr); cv.height = Math.round((y1 - y0) * dpr); sheet.appendChild(cv);
   const M = createMedium(cv, { dpr, paper: [255, 255, 255], ink, seed: (x0 * 31 + y0) % 97 }); media.push(cv);
-  const pen = new Pen(M, { stiffness: 70, damping: .95, flex: .3, use: .6, hairline: .55 });
+  M.wetness(0);   // a quick, dry ink on sized parchment: fine penwork keeps its edge (a wetter ink haloes a hairline)
+  // a fine quill, nearly round: the line is even, with only a slight swell from the cut (penwork is not a broad-pen hand)
+  const pen = new Pen(M, { exact: true, flex: .15, use: .6 });
   // the hand's schedule, as fractions of the part's span: along each mark, slow at its ends
   const total = strokes.reduce((a, s) => a + arclen(s.pts) + 15, 0), plan = []; let u = 0;
   for (const s of strokes) {
-    const P = s.pts, L = arclen(P); let acc = 0; plan.push({ u, dip: true, w: s.w * 1.35 });
+    const P = s.pts, L = arclen(P); let acc = 0; plan.push({ u, dip: true, w: s.w * 1.45, hair: s.w * 1.4 });
     P.forEach((q, i) => { if (i) acc += Math.hypot(q[0] - P[i - 1][0], q[1] - P[i - 1][1]); const f = L ? acc / L : 0;
       // time along the mark runs slower at its two ends (an ease), the pressure a little heavier there
       const e = f - Math.sin(2 * Math.PI * f) / (2 * Math.PI) * .6;
@@ -187,7 +189,7 @@ function written(t0, t1, strokes, ink, sr, dpr, sheet) {
   const advance = t => {   // t: ms since the part began
     const span = (part.t1 - part.t0) * 1000;
     while (k < plan.length && plan[k].u * span <= t) { const h = plan[k++], ht = h.u * span;
-      if (h.dip) { if (pen.charge < .45) pen.dip(); pen.width = h.w; } else if (h.lift) { pen.update(ht); pen.lift(); M.step(16); } else pen.hand(h.x, h.y, h.p, ht); }
+      if (h.dip) { if (pen.charge < .45) pen.dip(); pen.width = h.w; pen.hairline = h.hair; } else if (h.lift) { pen.update(ht); pen.lift(); M.step(16); } else pen.hand(h.x, h.y, h.p, ht); }
     pen.update(t); M.step(Math.min(50, Math.max(1, t - last))); last = t; M.render();
   };
   const part = { t0, t1, layer: 0, at: (g, f) => advance(f * (part.t1 - part.t0) * 1000),
