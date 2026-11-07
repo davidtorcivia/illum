@@ -49,8 +49,8 @@ By pixel runs on the full-resolution scans (a page ~4100–4500 px across, ~600 
 - **The Monas** (Dee 1564, in units of its height, 0 at the horns' tips): horns' tips at y 0, x ±0.233; the crescent's
   lower edge through y 0.21 at the middle (an arc of radius 0.24), its upper edge through y 0.12; the circle centred at
   y 0.31, radius 0.228 (double, the inner 0.213); the point at its centre; the stem from the circle to y 0.995, its two
-  lines 0.03 apart; the bar at y 0.645–0.675, x ±0.225; the arcs of Aries rising from the stem's foot to peaks at
-  x ±0.135, y 0.862 and falling to x ±0.27, y 1.0 (as wide as the bar and a little more).
+  lines 0.03 apart; the bar at y 0.645–0.675, x ±0.225; the arcs of Aries half-ellipses rising straight out of the stem's
+  foot (y 0.99) to peaks at x ±0.115, y 0.81 and falling to x ±0.224, y 0.946 (measured again for the drawn Monas).
 
 ## What makes it read as a grimoire (the checklist the style is judged by)
 
@@ -102,6 +102,13 @@ at dpr 1 it is thickened 0.06 px instead, its hairlines being at a pixel's edge 
   row of MS 4670's tables); band (two black rules, the planets' Latin names written between them in red capitals, points
   between); sigil (sigils drawn on the kamea of Saturn from words of the art: a small circle at the start, a bar at the
   end, a black rule broken round each, red points between). A heading's: a red rule ending in a crosslet.
+- The hand (third pass, after the user: the Monas "too assembled"): the Monas, the seals, the crosslets, the signs ♂ ♀ ☿
+  and the breaks' rules are drawn as a pen draws them, not constructed: few continuous strokes with a sensible ductus
+  (the Monas: the horns in one sweep closing over the first tip; the double ring as one stroke that goes round twice;
+  the stem pulled down and swung on into the right arc of Aries without lifting; the left arc; the bar across, heavy;
+  the point in red), each path bent a little off true by a slow wander, the nib swelling where the pen turns and as it
+  sets down, lifting off at the end; strokes overrun where a pen joins, and the medium merges the ink there. The
+  pentacle's own compass circles stay true (the manuscripts strike them with a compass).
 - Breaks: chapter, the seal (a double circle, the chapter's planet in red) on a lettered band, CAPVT to its left and the
   ordinal (PRIMVM …) to its right; book, Dee's Monas struck with compass and ruler from the measurements above, its point
   red, and his motto QVI NON INTELLIGIT AVT TACEAT AVT DISCAT lettered in red between two rules.

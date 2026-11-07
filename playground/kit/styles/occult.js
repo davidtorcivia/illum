@@ -31,6 +31,7 @@ const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(
 const rng = (seed, name) => mulberry(fnv(name + ':' + seed));
 const TAU = 2 * Math.PI;
 const add = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k];
+const unit = v => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
 const arclen = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
 export function resample(p, ds = .6) {
   const out = [p[0]]; let carry = 0;
@@ -57,6 +58,36 @@ function pen(pts, W, { col = 'k', seed = 0, taper = [0, 0], wob = .04 } = {}) {
 // thickening where the pen ran over its own start, as on the manuscripts
 const circle = (c, r, W, o = {}) => pen(arc(c, r, -Math.PI / 2 - .05, -Math.PI / 2 + TAU + .06), W, o);
 const rule = (a, b, W, o = {}) => pen([a, b], W, o);
+// A pen in a sure hand, not a compass: the path drawn freehand (bent a little off true by a slow wander square to it,
+// amp px at most, over a third of its length), the nib swelling where the pen slows (in the turns, and as it sets down)
+// and lifting off at the end. One continuous stroke, however many turns it makes; where it runs over itself or over
+// another stroke the ink merges, wet into wet (the medium does that).
+function sketch(pts, W, { col = 'k', seed = 0, amp = 0, swell = .22, enter = .8, leave = .7, press = null } = {}) {
+  W = Math.max(1.2, W); const P0 = resample(pts, .6), n = P0.length, L = arclen(P0), nz = noise2(seed * 13 + 5 | 0), nz2 = noise2(seed * 29 + 3 | 0), lam = Math.max(18, L * .33);
+  let s = 0; const P = P0.map((p, i) => { if (i) s += Math.hypot(p[0] - P0[i - 1][0], p[1] - P0[i - 1][1]);
+    const a = P0[Math.max(0, i - 1)], b = P0[Math.min(n - 1, i + 1)], t = unit([b[0] - a[0], b[1] - a[1]]), d = amp * 2 * (nz(s / lam + seed % 37, 3.7) - .5) * Math.min(1, s / 6, (L - s) / 6);
+    return [p[0] - t[1] * d, p[1] + t[0] * d]; });
+  // the turn at each point (over ~3 px either side): where the pen turns it slows, and the ink lands heavier
+  const k = new Float32Array(n); s = 0;
+  for (let i = 0; i < n; i++) { if (i) s += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); const j0 = Math.max(0, i - 5), j1 = Math.min(n - 1, i + 5);
+    const u = unit([P[i][0] - P[j0][0], P[i][1] - P[j0][1]]), v = unit([P[j1][0] - P[i][0], P[j1][1] - P[i][1]]), turn = i > 0 && i < n - 1 ? 1 - (u[0] * v[0] + u[1] * v[1]) : 0;
+    const f = L ? s / L : 0;
+    k[i] = (1 + swell * Math.min(1, turn * 3) + .1 * 2 * (nz2(s / 22, 1.3) - .5)) * (enter + (1 - enter) * Math.min(1, s / Math.max(4, W * 3))) * (leave + (1 - leave) * Math.min(1, (L - s) / Math.max(5, W * 4))) * (press ? press(f) : 1); }
+  return { pts: P, w: W, hair: W * .92, col, press: f => k[Math.min(n - 1, Math.round(f * (n - 1)))], rho: .6 };
+}
+// a circle drawn by hand in one stroke: from its top round and a little over its start, a shade off round (the hand's
+// circle is a little egged and flattened somewhere); turns: 2 runs on round again inside itself to rG, as a pen doubles
+// a ring without lifting (Dee's double circle)
+function handCircle(c, r, W, { col = 'k', seed = 0, turns = 1, r2 = r, amp = .012 } = {}) {
+  const rr = rng(seed, 'circle'), ph = rr() * TAU, ph2 = rr() * TAU, a0 = -Math.PI / 2 - .25 + rr() * .3, end = TAU * turns + .12, N = Math.ceil(end * Math.max(r, 4) / 1.1);
+  const pts = Array.from({ length: N + 1 }, (_, i) => { const t = i / N * end, a = a0 + t, f = Math.max(0, Math.min(1, (t - (TAU - .5)) / 1.1)), R0 = r + (r2 - r) * (turns > 1 ? f * f * (3 - 2 * f) : 0);
+    const R = R0 * (1 + amp * Math.sin(2 * a + ph) + amp * .6 * Math.sin(3 * a + ph2)); return polar(c, R, a); });
+  return sketch(pts, W, { col, seed, swell: .1, enter: .85, leave: .75 });
+}
+// a rule pulled freehand: a shade of bow, running a little past its ends, heavier where it starts
+const handRule = (a, b, W, o = {}) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), t = unit([b[0] - a[0], b[1] - a[1]]), nr = [-t[1], t[0]], bow = (o.bow ?? .004) * L * (rng(o.seed ?? 0, 'bow')() - .5) * 2;
+  const pts = Array.from({ length: 13 }, (_, i) => { const f = i / 12; return add(add(a, t, f * L), nr, bow * 4 * f * (1 - f)); });
+  return sketch(pts, W, { amp: Math.min(.6, L * .002), swell: 0, enter: .85, leave: .8, ...o }); };
 // a double rule round a box whose lines run on past each other at the corners (MS 4666 f. 55, 56): two rectangles,
 // each side its own ruler stroke, over-running by `run`
 // holes: what the ruler stops short of ({ c, r } a seal's circle, { box } a cartouche): the rule is drawn up to it and on
@@ -85,9 +116,11 @@ function clip(a, b, holes) {
 }
 // the crosslet that parts the names in a band (MS 4670 f. 54): a cross, each arm ending in a short bar, written in red
 function crosslet(c, s, W, col = 'r', seed = 0) {
-  const a = s / 2, b = s * .22, o = { col, seed, wob: 0 };
-  return [rule([c[0], c[1] - a], [c[0], c[1] + a], W, o), rule([c[0] - a, c[1]], [c[0] + a, c[1]], W, o),
-    ...[[0, -1], [0, 1], [-1, 0], [1, 0]].map(([dx, dy], k) => dx ? rule([c[0] + dx * a, c[1] - b], [c[0] + dx * a, c[1] + b], W, { ...o, seed: seed + k }) : rule([c[0] - b, c[1] + dy * a], [c[0] + b, c[1] + dy * a], W, { ...o, seed: seed + k }))];
+  // two strokes, each without lifting: the upright (its head bar, down the stem, its foot bar), then the cross-stroke (its
+  // left bar, across, its right bar); the pen runs back over half of each bar, so the ink is one at the joins
+  const a = s / 2, b = s * .24, [x, y] = c, o = { col, swell: .2, enter: .9, leave: .8 };
+  return [sketch([[x - b, y - a], [x + b, y - a], [x, y - a], [x, y + a], [x - b, y + a], [x + b, y + a]], W, { ...o, seed }),
+    sketch([[x - a, y - b], [x - a, y + b], [x - a, y], [x + a, y], [x + a, y - b], [x + a, y + b]], W, { ...o, seed: seed + 1 })];
 }
 
 // ---- the planetary signs -------------------------------------------------------------------------------------------------
@@ -114,16 +147,21 @@ function sign(name, x, base, h, col = 'r', seed = 0) {
     return { marks: [circle(c, r, W, { col, seed }), ...rays], letters: [{ dot: c, r: Math.max(1.1, h * .07), col }] }; }
   if (name === 'mars') { const c = P(.29, .71), r = h * .225, d = [Math.SQRT1_2, -Math.SQRT1_2], nn = [Math.SQRT1_2, Math.SQRT1_2];
     const tip = P(.98, .02), L = h * .34, B = h * .16, base0 = add(tip, d, -L), notch = add(base0, d, L * .22);
-    return { marks: [circle(c, r, W, { col, seed }), pen([polar(c, r, -Math.PI / 4), add(base0, d, L * .3)], W, { col, seed: seed + 1, wob: 0 })],
+    // the ring from the shaft's root round and on up the shaft in one stroke, then the head
+    const ring = arc(c, r, -Math.PI / 4, -Math.PI / 4 - TAU - .05, 0);
+    return { marks: [sketch([...ring, add(base0, d, L * .3)], W, { col, seed, swell: .25 })],
       letters: [{ polys: [[tip, add(base0, nn, B), notch, add(base0, nn, -B)]], col }] }; }
   // Venus and Mercury: the ring on a cross whose arms end in short flared bars (MS 4670's ♀ ☿), Mercury's horns a small
   // crescent standing on the ring; the Moon a crescent like a heavy C. Written with the pen: traced, their flared ends and
   // horns filled in to blots at a contents line's size
   if (name === 'venus' || name === 'mercury') { const cx = x + h * .39, top = name === 'mercury' ? .2 : 0, rr = h * (name === 'mercury' ? .13 : .15), rc = P(.39, top + .02 + rr / h + .02);
     const sy = rc[1] + rr, arm = h * .3, by = base - h * .36, bar = h * .085, o = { col, wob: 0 };
-    const marks = [circle(rc, rr, W, { col, seed }), rule([cx, sy], [cx, base - W * .4], W, { ...o, seed: seed + 1 }), rule([cx - arm, by], [cx + arm, by], W, { ...o, seed: seed + 2 }),
-      rule([cx - arm, by - bar], [cx - arm, by + bar], W, { ...o, seed: seed + 3 }), rule([cx + arm, by - bar], [cx + arm, by + bar], W, { ...o, seed: seed + 4 }), rule([cx - bar * 1.1, base - W * .4], [cx + bar * 1.1, base - W * .4], W, { ...o, seed: seed + 5 })];
-    if (name === 'mercury') marks.push(pen(arc([cx, rc[1] - rr - h * .12], h * .15, Math.PI * .95, Math.PI * .05), W, { col, seed: seed + 6, wob: 0, taper: [h * .05, h * .05] }));
+    // the ring from its foot round and on down the stem without lifting, ending in the foot's bar; then the arm, its end
+    // bars drawn into it in the same stroke
+    const fy = base - W * .4, ring = arc(rc, rr, Math.PI / 2, Math.PI / 2 + TAU, 0);
+    const marks = [sketch([...ring, [cx, sy], [cx, fy], [cx - bar * 1.1, fy], [cx + bar * 1.1, fy]], W, { ...o, seed, swell: .25 }),
+      sketch([[cx - arm, by - bar], [cx - arm, by + bar], [cx - arm, by], [cx + arm, by], [cx + arm, by - bar], [cx + arm, by + bar]], W, { ...o, seed: seed + 2, swell: .25 })];
+    if (name === 'mercury') marks.push(sketch(arc([cx, rc[1] - rr - h * .12], h * .15, Math.PI * .95, Math.PI * .05), W, { col, seed: seed + 6, enter: .55, leave: .5 }));
     return { marks, letters: [] }; }
   if (name === 'moon') { const oc = P(.42, .5), ic = P(.6, .47), ro = h * .48, ri = h * .38;
     // the outer edge from the upper tip round the left to the lower; back up the inner edge (a smaller circle set to the
@@ -311,38 +349,42 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5, k = 0) {
 // ---- breaks ----------------------------------------------------------------------------------------------------------------------
 // The seal: the compass's double circle, the planet in red at its centre (a pentacle of the Clavicules, small)
 function seal(c, R, name, W, seed = 0, { band = false } = {}) {
-  const els = [{ marks: [circle(c, R, W, { seed }), circle(c, R * (band ? .78 : .86), W, { seed: seed + 1 })] }], h = R * (band ? .9 : 1.02), w = signWidth(name) * h;
+  // the ring drawn by hand, round twice without lifting, the second turn inside the first
+  const els = [{ marks: [handCircle(c, R, W, { seed, turns: 2, r2: R * (band ? .78 : .86) })] }], h = R * (band ? .9 : 1.02), w = signWidth(name) * h;
   els.push(sign(name, c[0] - w / 2, c[1] + h / 2, h, 'r', seed + 2));
   return join(...els);
 }
-// Dee's Monas (1564, p. 25), struck as he constructed it, with compass and ruler, in units of its height (research/13):
-// the Moon's horns (two arcs between the tips), the circle (double) and its point, the cross (stem and bar each a narrow
-// double-ruled rectangle), the arcs of Aries at the foot, doubled. Top middle at [cx, top], h high.
+// Dee's Monas (1564, p. 25), drawn as a hand with a pen draws it (after the woodcut's proportions, research/13, in units
+// of its height): few strokes, each continuous, joined where a pen joins. The Moon's horns in one sweep, down the lower
+// edge from tip to tip and back along the upper, closing over the first tip; the circle in one stroke that goes round
+// twice, the second turn inside the first (the woodcut's double ring, drawn without lifting); the stem pulled down from
+// the circle to the foot and swung on out into the right arc of Aries without lifting; the left arc swung out from the
+// foot; the bar drawn across the stem, heavier; the point last, in red. The ink merges where the strokes cross and join.
 function monas(cx, top, h, W, seed = 0) {
-  const P = (x, y) => [cx + x * h, top + y * h], marks = [], g = .016;
-  // the horns: the tips at ±.233; the lower arc through .21 at the middle (radius .2343, centre -.0243), the upper
-  // through .12 (radius .286, centre -.166)
-  for (const [cy, R] of [[-.0243, .2343], [-.166, .286]]) { const a = Math.atan2(0 - cy, .233); marks.push(pen(arc(P(0, cy), R * h, Math.PI - a, a, 0).reverse(), W, { seed: seed + marks.length })); }
-  marks.push(circle(P(0, .31), .228 * h, W, { seed: seed + 3 }), circle(P(0, .31), .213 * h, W, { seed: seed + 4 }));
-  // the cross: the stem from the circle to the foot, the bar across it at .645–.675
-  const yc = .31 + .228, yb0 = .645, yb1 = .675;
-  for (const s of [-1, 1]) { marks.push(rule(P(s * g, yc), P(s * g, yb0), W, { seed: seed + 5 + s }), rule(P(s * g, yb1), P(s * g, .995), W, { seed: seed + 7 + s })); }
-  marks.push(rule(P(-.225, yb0), P(.225, yb0), W, { seed: seed + 9 }), rule(P(-.225, yb1), P(.225, yb1), W, { seed: seed + 10 }),
-    rule(P(-.225, yb0), P(-.225, yb1), W, { seed: seed + 11 }), rule(P(.225, yb0), P(.225, yb1), W, { seed: seed + 12 }));
-  // Aries: from the stem's foot up to a peak at ±.107, .87 and down to ±.215, .96: the arc through those three points, doubled
-  const circ = (a, b, c) => { const d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1])), s = q => q[0] * q[0] + q[1] * q[1];
-    const ux = (s(a) * (b[1] - c[1]) + s(b) * (c[1] - a[1]) + s(c) * (a[1] - b[1])) / d, uy = (s(a) * (c[0] - b[0]) + s(b) * (a[0] - c[0]) + s(c) * (b[0] - a[0])) / d; return [[ux, uy], Math.hypot(a[0] - ux, a[1] - uy)]; };
-  for (const s of [-1, 1]) { const [o, R] = circ([0, .995], [s * .135, .862], [s * .27, 1.0]), a0 = Math.atan2(.995 - o[1], 0 - o[0]), a1 = Math.atan2(1.0 - o[1], s * .27 - o[0]);
-    let da = a1 - a0; if (s > 0 && da < 0) da += TAU; if (s < 0 && da > 0) da -= TAU;
-    for (const [k, dr] of [[0, 0], [1, -g * 1.6]]) marks.push(pen(arc(P(o[0], o[1]), (R + dr) * h, a0 + (k ? s * .06 : 0), a0 + da, 0), W, { seed: seed + 13 + k + s })); }
-  return { marks, letters: [{ dot: P(0, .31), r: Math.max(1.3, h * .014), col: 'r' }] };
+  const P = (x, y) => [cx + x * h, top + y * h], Wm = W * 1.1, amp = h * .004, marks = [];
+  // the horns: the lower edge (radius .2343 about y -.0243) from the left tip to the right, then back along the upper
+  // (radius .286 about y -.166), over the left tip a little
+  const lo = Math.atan2(.0243, .233), up = Math.atan2(.166, .233);
+  const horns = [...arc(P(0, -.0243), .2343 * h, Math.PI - lo, lo, 0), ...arc(P(0, -.166), .286 * h, up, Math.PI - up + .03, 0)];
+  marks.push(sketch(horns, Wm, { seed, amp, swell: .35 }));
+  marks.push(handCircle(P(0, .31), .228 * h, Wm, { seed: seed + 1, turns: 2, r2: .211 * h, amp: .01 }));
+  // Aries: each arc a half-ellipse rising straight up out of the stem's foot (1.0) to a peak at ±.115, .81 and falling to
+  // ±.224, .946 (measured again on p. 25: the woodcut's arcs are taller than they are wide, not circles)
+  const aries = sd => Array.from({ length: 41 }, (_, i) => { const t = Math.PI + (Math.PI - .25) * i / 40; return P(sd * (.115 + .113 * Math.cos(t)), .99 + .18 * Math.sin(t)); });
+  // the stem from the circle down to the foot, and on without lifting into the right arc
+  const stem = resample([P(0, .538), P(0, .99)], 1), right = aries(1), fs = arclen(stem) / (arclen(stem) + arclen(right));
+  marks.push(sketch([...stem, ...right], Wm, { seed: seed + 2, amp: amp * .6, swell: .3, press: f => f < fs ? 1.45 : 1.05 }));
+  marks.push(sketch(aries(-1), Wm, { seed: seed + 3, amp: amp * .6, swell: .3, press: () => 1.05 }));
+  // the bar, drawn across the stem, heavy
+  marks.push(handRule(P(-.236, .66), P(.236, .66), Wm, { seed: seed + 4, press: () => 1.5, bow: .006 }));
+  return { marks, letters: [{ dot: P(0, .31), r: Math.max(1.4, h * .016), col: 'r' }] };
 }
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, k = null) {
   const W = LW(u);
   if (rank < 2) {   // the chapter's seal on its band: two rules each side, lettered CAPVT and the chapter's number
     const R = u * 2.3, name = PLANETS[k ?? (n % 7)], half = Math.min(measure * .46, u * 24), bh = u * 2.3, size = u * 1.1, els = [seal([cx, y], R, name, W, seed)];
     for (const s of [-1, 1]) { const a = cx + s * (R + u * .7), b = cx + s * half;
-      els.push({ marks: [rule([a, y - bh / 2], [b, y - bh / 2], W, { seed: seed + 3 + s }), rule([a, y + bh / 2], [b, y + bh / 2], W, { seed: seed + 5 + s })] }); }
+      els.push({ marks: [handRule([a, y - bh / 2], [b, y - bh / 2], W, { seed: seed + 3 + s }), handRule([a, y + bh / 2], [b, y + bh / 2], W, { seed: seed + 5 + s })] }); }
     if (rich >= .25) { const left = 'CAPVT', right = ORD[n] ?? roman(n);
       els.push({ marks: [], letters: [{ text: left, x: cx - (R + u * .7 + half) / 2, base: y + size / 2, size, col: 'r' }, { text: right, x: cx + (R + u * .7 + half) / 2, base: y + size / 2, size, col: 'r' }] }); }
     return join(...els);
@@ -350,7 +392,7 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, k = null
   // a book: the Monas, Dee's motto lettered under it on a band
   const h = u * 13.5, top = y - (h + u * 3.2) / 2, els = [monas(cx, top, h, W, seed)];
   if (rich >= .25) { const txt = 'QVI NON INTELLIGIT AVT TACEAT AVT DISCAT', size = Math.min(u * 1, measure * .9 / textWidth(txt, 1)), w = textWidth(txt, size) / 2 + u * 1.2, yb = top + h + u * 2.6;
-    els.push({ marks: [rule([cx - w, yb - size - u * .65], [cx + w, yb - size - u * .65], W, { seed: seed + 30 }), rule([cx - w, yb + u * .65], [cx + w, yb + u * .65], W, { seed: seed + 31 })],
+    els.push({ marks: [handRule([cx - w, yb - size - u * .65], [cx + w, yb - size - u * .65], W, { seed: seed + 30 }), handRule([cx + w, yb + u * .65], [cx - w, yb + u * .65], W, { seed: seed + 31 })],
       letters: [{ text: txt, x: cx, base: yb, size, col: 'r' }] }); }
   return join(...els);
 }
