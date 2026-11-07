@@ -15,7 +15,8 @@
 // The style object follows tests/tarot.html's signatures, each returning { marks, letters }:
 //   paraph(x, base, u, seed, rich, k?)   the chapter's planet (k: 0..6 in the week's order, Sun first)
 //   filler(x0, x1, yTop, yBase, kind, seed, rich, k?)   kind: 'signs' | 'band' | 'sigil' | 'rule' (a heading's)
-//   breakMark(cx, y, measure, rank, seed, rich, u, n?)   rank 1: the chapter's seal on its lettered band; rank 2: the Monas
+//   breakMark(cx, y, measure, rank, seed, rich, u, n?, room?)   rank 1: the chapter's seal on its lettered band; rank 2: the Monas
+//     (room: [top, bottom], the page's room for it: a Monas that would not fit is drawn smaller, then without its motto)
 //   initial(o) -> { marks, letters, width }   (o: ch, G: { box }, big, rich, seed, set: 'band' | 'ring', u, n, title)
 //   frames.{ quote, figure, code, pull, aside, nav }(args), palette.{ light, dark }
 // Marks: { pts (page px), w (the nib, px), hair, col, press?, rho: 0 }. Nothing here touches the DOM except glyph(),
@@ -398,10 +399,10 @@ function monas(cx, top, h, W, seed = 0) {
   marks.push(handRule(P(-.236, .66), P(.236, .66), Wm, { seed: seed + 4, press: () => 1.5, bow: .006 }));
   return { marks, letters: [{ dot: P(0, .31), r: Math.max(1.4, h * .016), col: 'r' }] };
 }
-function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, k = null) {
+function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, room = null) {
   const W = LW(u);
   if (rank < 2) {   // the chapter's seal on its band: two rules each side, lettered CAPVT and the chapter's number
-    const R = u * 2.3, name = PLANETS[k ?? (n % 7)], half = Math.min(measure * .46, u * 24), bh = u * 2.3, size = u * 1.1, els = [seal([cx, y], R, name, W, seed)];
+    const R = u * 2.3, name = PLANETS[n % 7], half = Math.min(measure * .46, u * 24), bh = u * 2.3, size = u * 1.1, els = [seal([cx, y], R, name, W, seed)];
     for (const s of [-1, 1]) { const a = cx + s * (R + u * .7), b = cx + s * half;
       els.push({ marks: [handRule([a, y - bh / 2], [b, y - bh / 2], W, { seed: seed + 3 + s }), handRule([a, y + bh / 2], [b, y + bh / 2], W, { seed: seed + 5 + s })] }); }
     if (rich >= .25) { const left = 'CAPVT', right = ORD[n] ?? roman(n);
@@ -409,8 +410,11 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, k = null
     return join(...els);
   }
   // a book: the Monas, Dee's motto lettered under it on a band
-  const h = u * 13.5, top = y - (h + u * 3.2) / 2, els = [monas(cx, top, h, W, seed)];
-  if (rich >= .25) { const txt = 'QVI NON INTELLIGIT AVT TACEAT AVT DISCAT', size = Math.min(u * 1, measure * .9 / textWidth(txt, 1)), w = textWidth(txt, size) / 2 + u * 1.2, yb = top + h + u * 2.6;
+  // (in a room too low for it, smaller, kept a little clear of what is above and below; under seven x-heights, the motto left
+  // out and the figure alone in the room)
+  const free = room ? room[1] - room[0] - u * 1.2 : Infinity, band = u * 3.4, motto = rich >= .25 && free - band >= u * 7;
+  const h = Math.min(u * 13.5, motto ? free - band : free), top = y - (h + (motto ? u * 3.2 : 0)) / 2, els = [monas(cx, top, h, W, seed)];
+  if (motto) { const txt = 'QVI NON INTELLIGIT AVT TACEAT AVT DISCAT', size = Math.min(u * 1, measure * .9 / textWidth(txt, 1)), w = textWidth(txt, size) / 2 + u * 1.2, yb = top + h + u * 2.6;
     els.push({ marks: [handRule([cx - w, yb - size - u * .65], [cx + w, yb - size - u * .65], W, { seed: seed + 30 }), handRule([cx + w, yb + u * .65], [cx - w, yb + u * .65], W, { seed: seed + 31 })],
       letters: [{ text: txt, x: cx, base: yb, size, col: 'r' }] }); }
   return join(...els);
@@ -458,9 +462,11 @@ initial.line = ch => textWidth(String(ch).normalize('NFD')[0].toUpperCase(), 1);
 // ---- frames -------------------------------------------------------------------------------------------------------------------
 // The figure's furniture in the Clavicules: the red double rule round the leaf with its rules running past the corners
 // (MS 4666); the seal; the ruled table of the planetary hours (MS 4670); the lettering band.
+// a box grown just clear of its words (lines: the browser's line boxes) where they run closer than d to its sides
+const clear = (B, lines, d) => !lines?.length ? B : [Math.min(B[0], Math.min(...lines.map(l => l.left)) - d), B[1], Math.max(B[2], Math.max(...lines.map(l => l.right)) + d), B[3]];
 const frames = {
   // a quotation: the red double rule round it
-  quote: ({ box, u, seed, rich = .5 }) => { const W = LW(u), B = [box[0], box[1] - u * 1.4, box[2], box[3] + u * 1.2];
+  quote: ({ box, u, seed, rich = .5, lines }) => { const W = LW(u), B = clear([box[0], box[1] - u * 1.4, box[2], box[3] + u * 1.2], lines, u * 1.05 + W);
     return { marks: doubleRule(B, u * .45, W, u * .9, { col: 'r', seed }) }; },
   // a figure: the double rule round it, and in its corners the four seals of the planets that rule the chapter's first hours
   figure: ({ box, cap, u, seed, rich = .5, n = 1, limit = null }) => { const W = LW(u), R = u * 1.6, g = u * .45, B = [box[0] - u * 2, box[1] - u * 2, box[2] + u * 2, (cap ?? box[3]) + u * 1.6];
@@ -473,9 +479,11 @@ const frames = {
     return join(...els); },
   // code: the table of the planetary hours across its head (MS 4670 f. 63): twelve cells, numbered, the hour's planet in each,
   // the whole ruled in green; a green rule round the code beneath
-  code: ({ box, u, seed, rich = .5, n = 1 }) => { const W = LW(u), B = box, els = [{ marks: [pen([[B[0], B[1]], [B[2], B[1]], [B[2], B[3]], [B[0], B[3]], [B[0], B[1] - W * .4]], W, { col: 'g', seed })] }];
-    if (rich >= .25) { const cols = (B[2] - B[0]) / (u * 3.2) >= 12 ? 12 : 6,   // (a day's twelve hours, or the first six of them)
-       cw = (B[2] - B[0] - u * 1.2) / cols, rh = Math.min(u * 4, cw * .72), top = B[1] + u * .6, day = CHALDEAN.indexOf(PLANETS[n % 7]);
+  code: ({ box, u, seed, rich = .5, n = 1, lines }) => { const W = LW(u), B = box, els = [{ marks: [pen([[B[0], B[1]], [B[2], B[1]], [B[2], B[3]], [B[0], B[3]], [B[0], B[1] - W * .4]], W, { col: 'g', seed })] }];
+    const cols = (B[2] - B[0]) / (u * 3.2) >= 12 ? 12 : 6,   // (a day's twelve hours, or the first six of them)
+      cw = (B[2] - B[0] - u * 1.2) / cols, rh = Math.min(u * 4, cw * .72);
+    // (only where the box leaves room for it above the code)
+    if (rich >= .25 && !(lines?.length && lines[0].top < B[1] + u * 1.2 + rh * 2)) { const top = B[1] + u * .6, day = CHALDEAN.indexOf(PLANETS[n % 7]);
       const ys = [top, top + rh, top + rh * 2], g = [];
       for (const y of ys) g.push(rule([B[0] + u * .6, y], [B[2] - u * .6, y], W, { col: 'g', seed: seed + y }));
       for (let i = 0; i <= cols; i++) { const x = B[0] + u * .6 + i * (B[2] - B[0] - u * 1.2) / cols; g.push(rule([x, top], [x, top + rh * 2], W, { col: 'g', seed: seed + 50 + i })); }
@@ -492,7 +500,7 @@ const frames = {
       els.push(seal([cx, y], R, name, W, seed + 20 + k)); });
     return join(...els); },
   // an aside: the red double rule round the note, NOTA lettered in a cartouche that breaks its head, a seal at its foot
-  aside: ({ box, u, seed, rich = .5, n = 1, title = 'NOTA' }) => { const W = LW(u), B = box, cx = (B[0] + B[2]) / 2, size = u * 1.25, tw = textWidth(title, size) / 2 + u * 1.2;
+  aside: ({ box, u, seed, rich = .5, n = 1, title = 'NOTA', lines }) => { const W = LW(u), B = clear(box, lines, u * 1.05 + W), cx = (B[0] + B[2]) / 2, size = u * 1.25, tw = textWidth(title, size) / 2 + u * 1.2;
     const sealC = [cx, B[3] - u * .22], sR = u * 1.7;
     const els = [{ marks: doubleRule(B, u * .45, W, u * .9, { col: 'r', seed }, [{ box: [cx - tw - u * .45, B[1] - u * 1.65, cx + tw + u * .45, B[1] + u * 2.05] }, ...(rich >= .5 ? [{ c: sealC, r: sR + u * .45 }] : [])]) }];
     // the cartouche: the head's rules broken and a small box round the word
@@ -520,7 +528,32 @@ export const palette = {
   dark: { k: [226, 214, 196], r: [232, 112, 84], g: [116, 182, 152] },
 };
 
-export const occult = { label: 'Occult', minGap: 2,
+// ---- in the one library (kit/illum.js) ---------------------------------------------------------------------------------------
+// The registry's paraph is given the chapter's number n (0 before the first): the chapter's planet, the week's order.
+const chapterParaph = (x, base, u, seed, rich, n) => paraph(x, base, u, seed, rich, typeof n === 'number' ? n % 7 : null);
+// A case made ready to lay: its lettering and signs as coverage, its lines in runs of one ink and one nib
+const print = (made, { dpr = 1 }) => printOf(made, { res: dpr >= 1.5 ? 2 : 1 });
+// A case on a hand's clock (seconds), still or written alike: the construction first (compass and ruler, black, then green,
+// then red), then the writing into it, laid over the lines (a big letter or a band at a hand's pace, a sign or a word
+// quickly). The case takes at most `cap` (a drop initial 3.6 s; the contents .9 s; a paraph, filler, line initial or pull
+// quote 1.2 s; the rest 2.2 s).
+function timeline(pr, kind) {
+  const own = []; let u = 0;
+  for (const r of pr.runs) { const L = r.strokes.reduce((a, s) => a + s.L, 0), d = Math.max(.05, L / 320 + r.strokes.length * .03); own.push({ t0: u, t1: u + d, run: r }); u += d; }
+  for (const L of pr.letters) { const sz = Math.max(L.w, L.h) / L.res, d = sz > 60 ? (L.order ? 2.2 : 2.4) : sz > 30 ? .9 : .45; own.push({ t0: u, t1: u + d, letter: L, over: true }); u += d + .06; }
+  return { own, u, cap: kind === 'drop' ? 3.6 : kind === 'nav' ? .9 : ['paraph', 'filler', 'initial', 'pull'].includes(kind) ? 1.2 : 2.2 };
+}
+initial.load = () => loadFace();
+initial.margin = .42;   // the gap to the words, in line heights
+initial.fills = true;   // the pentacle's square is the float: its box is the float as the page laid it
+// the contents' rule stands a little further out in the margin than the library's default, and only where there is room
+const nav = a => frames.nav({ ...a, x: a.box[0] - a.u * 4.2, side: a.box[0] > 60 });
+
+export const occult = { label: 'Occult', minGap: 2, theme: { rubric: 'rgb(160 64 40)', rubricDark: 'rgb(222 120 92)' },
   setup: () => ({ kinds: FILLERS }), kinds: (v, rich) => rich < .25 ? ['signs'] : rich < .5 ? ['signs', 'band'] : FILLERS,
-  paraph, filler, breakMark, initial, frames, palette, FILLERS, PLANETS, glyph, loadFace, printOf, sigilFor, sigilSafe, sigilCells, monas };
+  fillAt: { gap: .9, head: 4, rise: 1.05 },   // a filler starts .9 x-heights after the words, a heading's only if 4 are left
+  hurry: [4, 1, 1.5, 1.6], steady: ['drop'],   // as you read, a hand behind quickens (a second at the least), never on the drop initial
+  inks: ['k', 'g', 'r'],   // a still strikes every figure's lines in black, then the green, then the red, as a copyist did
+  paraph: chapterParaph, filler, breakMark, initial, frames: { ...frames, nav }, palette, print, timeline,
+  FILLERS, PLANETS, glyph, loadFace, printOf, sigilFor, sigilSafe, sigilCells, monas, signs: { paraph } };
 export default occult;

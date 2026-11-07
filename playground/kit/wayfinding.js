@@ -805,57 +805,8 @@ function sigil(x0, y0, W, H, r, col) {
   }
   return [];
 }
-STYLES.occult = { label: 'Occult', pair: ['red', 'black'], alternate: true, minGap: 1.5, theme: { rubric: 'rgb(160 26 20)', rubricDark: 'rgb(228 92 76)' },
-  ink: { red: { solid: [172, 30, 22], hair: [176, 40, 30] }, black: { solid: [30, 24, 20], hair: [36, 30, 26] } },
-  inkDark: { red: { solid: [230, 92, 74], hair: [226, 100, 84] }, black: { solid: [224, 214, 198], hair: [214, 204, 188] } },
-  setup: seed => { const r = stream(seed, 'occult'); return { kinds: pickKinds(r, ['signs', 'sigils'], 1), p: .9 + r() * .3, favour: SIGNS.filter(() => r() < .6), book: r() < .5 ? 'ouro' : 'monas' }; },
-  kinds: (v, rich) => rich < .25 ? ['signs'] : rich >= .5 ? ['signs', 'sigils'] : v.kinds,
-  paraph(x, base, u, seed, rich, v) { const r = stream(seed, 'op'), pool = v.favour.length > 2 ? v.favour : SIGNS, k = pool[(r() * pool.length) | 0], c = [x + u * .7, base - u * .62];
-    const out = glyph(k, c, u * .78, 'a', .75);
-    if (rich >= .5) out.push(bead([c[0] + u * .95, c[1] - u * .55], .7, 'b'), bead([c[0] + u * .95, c[1] + u * .25], .7, 'b'));
-    return out; },
-  filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
-    const r = stream(seed, 'of'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
-    if (kind === 'signs') {   // signs strung on a ruled line, each standing on it
-      const { n, p } = fitN(x1 - x0, h * 2.1 * v.p), y = yBase - h * .05; out.push(line([[x0, y], [x1, y]], 'b', .45, { start: 'taper' }));
-      for (let k = 0; k < n; k++) out.push(...restOn(glyph(SIGNS[(r() * SIGNS.length) | 0], [x0 + (k + .5) * p, mid - h * .1], h * .45, k % 2 && rich >= .5 ? 'b' : 'a', .5), y));
-    } else {   // sigils, each on its own kamea, joined by a ruled hairline
-      const { n, p } = fitN(x1 - x0, h * 2.4 * v.p); out.push(line([[x0, mid], [x1, mid]], 'b', .35, { start: 'taper', end: 'taper' }));
-      for (let k = 0; k < n; k++) out.push(...sigil(x0 + k * p + p * .18, yTop + h * .05, p * .64, h * .9, r, 'a'));
-    }
-    return out; },
-  breakMark(cx, y, measure, rank, seed, rich, u, v) {
-    const r = stream(seed, 'ob'), out = [];
-    if (rank < 2) {   // a magic circle: rings (two or three), a band of lettering between them (ticks, points, small signs,
-      // or little sigil-letters), and at its heart a seal (a sigil, a sign, or a triangle with a sign in it); each its own
-      const R = u * (2.2 + r() * .5), rings = 2 + (r() < .45 ? 1 : 0), band = ['ticks', 'signs', 'letters'][(r() * 3) | 0], heart = ['sigil', 'sign', 'triangle'][(r() * 3) | 0];
-      for (let k = 0; k < rings; k++) out.push(hair(arc([cx, y], R * (1 - k * .2), r() * 6, r() * 6 + 2 * Math.PI + .02, 56), k ? 'b' : 'a', { w: k ? .45 : .6, start: 'cut', end: 'cut' }));
-      const bR = R * .9 - (rings > 2 ? R * .1 : 0), n = Math.round((rich >= .5 ? 14 : 10) * (band === 'signs' ? .6 : 1));
-      for (let k = 0; k < n; k++) { const a = k / n * 2 * Math.PI + r() * .08, c = [cx + Math.cos(a) * bR, y + Math.sin(a) * bR], t = [-Math.sin(a), Math.cos(a)];
-        if (band === 'signs') out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], c, u * .26, k % 2 ? 'a' : 'b', .45));
-        else if (band === 'letters') { const L = u * .2, pts = [[c[0] - t[0] * L, c[1] - t[1] * L], [c[0] + Math.cos(a) * L * (r() - .5) * 2, c[1] + Math.sin(a) * L * (r() - .5) * 2], [c[0] + t[0] * L, c[1] + t[1] * L]]; out.push(line(pts, 'a', .45)); }
-        else out.push(k % 3 === 0 ? { ...bead(c, .75, 'a'), free: true } : line([[c[0] - Math.cos(a) * u * .16, c[1] - Math.sin(a) * u * .16], [c[0] + Math.cos(a) * u * .16, c[1] + Math.sin(a) * u * .16]], 'a', .5)); }
-      const iR = R * (rings > 2 ? .5 : .62);
-      if (heart === 'sigil') out.push(...sigil(cx - iR * .7, y - iR * .7, iR * 1.4, iR * 1.4, r, 'a'));
-      else if (heart === 'sign') out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [cx, y], iR * .8, 'a', .7));
-      else { out.push(line([[cx, y - iR * .85], [cx + iR * .75, y + iR * .45], [cx - iR * .75, y + iR * .45], [cx, y - iR * .85]], 'b', .55)); out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [cx, y + iR * .08], iR * .38, 'a', .5)); }
-      if (rich >= .25) for (const s of [-1, 1]) out.push(line([[cx + s * (R + u * .5), y], [cx + s * (R + u * (3 + r() * 2)), y]], 'b', .45, { start: s > 0 ? 'cut' : 'taper', end: s > 0 ? 'taper' : 'cut' }));
-      return out; }
-    const W = Math.min(measure * .5, u * 22);
-    if (v.book === 'ouro') {   // the ouroboros: a body swelling and thinning round the circle, its head taking its tail
-      const R = u * 1.9, body = arc([cx, y], R, -Math.PI / 2 + .35, Math.PI * 1.5 - .05, 60);
-      out.push({ col: 'a', broad: 0, w: u * .42, load: 1.05, dry: .1, swell: .1, start: 'taper', end: 'cut', pts: body });
-      const hd = [cx + Math.cos(-Math.PI / 2 + .2) * R, y + Math.sin(-Math.PI / 2 + .2) * R];
-      out.push(hair(arc(hd, u * .38, 0, 2 * Math.PI, 18), 'a', { w: .6, start: 'cut', end: 'cut' }), bead([hd[0] + u * .12, hd[1] - u * .1], .55, 'b'));
-      out.push(...glyph('sun', [cx, y], u * .7, 'b', .55));
-    } else {   // Dee's Monas: the moon's horns over the sun, the cross below, the twin arcs of Aries at the foot
-      const c = [cx, y - u * .2]; out.push(...glyph('sun', c, u * .9, 'a', .7), hair(arc([cx, c[1] - u * 1.05], u * .62, Math.PI * .1, Math.PI * .9, 14), 'a', { w: .7, start: 'taper', end: 'taper' }));
-      out.push(line([[cx, c[1] + u * .6], [cx, c[1] + u * 2.2]], 'a', .7), line([[cx - u * .55, c[1] + u * 1.2], [cx + u * .55, c[1] + u * 1.2]], 'a', .7));
-      for (const s of [-1, 1]) out.push(hair(arc([cx + s * u * .32, c[1] + u * 2.45], u * .32, s > 0 ? Math.PI : 0, s > 0 ? Math.PI * 2 : -Math.PI, 10).filter(q => q[1] >= c[1] + u * 2.2), 'a', { w: .6, start: 'cut', end: 'taper' }));
-    }
-    if (rich >= .25) for (const s of [-1, 1]) { const a = cx + s * u * 2.8, b = cx + s * W / 2; out.push(line([[a, y], [b, y]], 'b', .45, { start: 'cut', end: 'taper' }));
-      if (rich >= .5) for (let k = 1; k <= 2; k++) out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [a + s * (b - a) * k / 3, y - u * .45], u * .32, 'a', .45)); }
-    return out; } };
+// (the style's place in the registry's list: Occult is kit/styles/occult.js, a written style, which kit/illum.js puts here)
+STYLES.occult = null;
 
 
 // ==== batch two: Kelmscott, copperplate, Art Nouveau, botanical field notes ==================================================

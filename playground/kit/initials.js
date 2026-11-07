@@ -9,9 +9,9 @@
 // Marks are the registry's: strokes { pts, col, w, start, end, load?, dry?, broad?, swell?, nib?, press?, ink?, seed? }
 // and points { dot, p, r, col, ink? }; col 'a' | 'b' (the style's pair: 'a' the first), 'g' gold, 'k' black, 'f' flesh.
 // A style without an initial lays its letter flat in its first colour, with nothing round it.
-import { stream, PIGMENTS } from './marks.js';
+import { PIGMENTS } from './marks.js';
 import { flourish, drawn } from './penwork.js';
-import { STYLES, arc, hair, bead, line, glyph, SIGNS, cpStroke, cpOval, cubic } from './wayfinding.js';
+import { STYLES, bead, line, cpStroke, cpOval, cubic } from './wayfinding.js';
 const SLANT = 55 * Math.PI / 180;
 
 const bbox = G => G.box;
@@ -52,22 +52,6 @@ function cyber({ G, lh, big, rich, room, bottom }) {
   return { letter: { M: G, col: 'a', ghost: { col: 'b', off: big ? [1.6, -1.1] : [1, -.7] } }, marks: out };
 }
 
-// ---- Occult: the letter in red set on a magic circle as the chapter break draws one: the rings behind the letter, the
-// band of signs between them, and out on the margin side the seal (a sign in its own ring) on a line from the circle
-function occult({ G, lh, big, rich, seed, room }) {
-  const r = stream(seed, 'oini'), [x0, y0, x1, y1] = bbox(G), H = y1 - y0, W = x1 - x0, c = [(x0 + x1) / 2, (y0 + y1) / 2], ground = [], out = [];
-  if (!big) { out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [x0 - Math.min(room * .5, lh * .4), y0 + H * .3], lh * .18, 'b', .5)); return { letter: { M: G, col: 'a' }, marks: out }; }
-  const R = Math.max(H * .58, W * .64), rings = 2 + (r() < .45 ? 1 : 0);
-  for (let k = 0; k < rings; k++) ground.push(hair(arc(c, R * (1 - k * .16), r() * 6, r() * 6 + 2 * Math.PI + .02, 64), k ? 'b' : 'a', { w: k ? .5 : .75, start: 'cut', end: 'cut' }));
-  const bR = R * (rings > 2 ? .84 : .92), n = rich >= .5 ? 11 : 8;   // the band: signs round the ring, where the letter leaves them to be seen
-  for (let k = 0; k < n; k++) { const a = Math.PI * .5 + k / n * 2 * Math.PI; ground.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], [c[0] + Math.cos(a) * bR, c[1] + Math.sin(a) * bR], R * .06, k % 2 ? 'a' : 'b', .45)); }
-  const sR = Math.min(lh * .42, (room - (R - (c[0] - x0)) - 6) / 2.6);
-  if (sR > lh * .2) { const sc = [c[0] - R - sR * 1.7, c[1]];
-    out.push(line([[c[0] - R, c[1]], [sc[0] + sR, c[1]]], 'b', .45), hair(arc(sc, sR, 0, 2 * Math.PI + .02, 24), 'a', { w: .6, start: 'cut', end: 'cut' }), ...glyph(SIGNS[(r() * SIGNS.length) | 0], sc, sR * .55, 'b', .5)); }
-  return { letter: { M: G, col: 'a' }, ground, marks: out };
-}
-occult.wider = [6, 6, 7, 8, 10];   // the circle's rim needs a little more room on the text side
-
 // ---- Copperplate: the letter in ink, and the writing master's capital flourish round it: one oval on the slant that
 // embraces the letter (it runs behind it, showing in its counters and round its left side), entered by a hairline from
 // the foot in the margin and closed by a shaded downstroke; a second, smaller oval interlaced in the margin when there is
@@ -97,6 +81,5 @@ function swiss({ G, lh, big, rich, room }) {
 
 Object.assign(STYLES.gothic, { initial: gothic });
 Object.assign(STYLES.cyber, { initial: cyber });
-Object.assign(STYLES.occult, { initial: occult });
 Object.assign(STYLES.copperplate, { initial: copperplate });
 Object.assign(STYLES.swiss, { initial: swiss });

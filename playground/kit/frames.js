@@ -110,7 +110,7 @@ export function navFrame({ box: [x0, y0, x1, y1], entries, x, u, g = 2.4, seed, 
 // ==== the registry's frames ======================================================================================================
 // Every style frames the same six boxes, with the same arguments as the functions above (a pull quote also gets its
 // `lines`); Gothic's are those functions. Each other style frames in its own tradition's idiom.
-import { STYLES, line, glyph, SIGNS, cpStroke, cpOval, beauty } from './wayfinding.js';
+import { STYLES, line, cpStroke, cpOval, beauty } from './wayfinding.js';
 const pad = ([x0, y0, x1, y1], d, dy = d) => [x0 - d, y0 - dy, x1 + d, y1 + dy];
 const shiftY = (m, d) => m.map(s => s.dot ? { ...s, p: [s.p[0], s.p[1] + d] } : { ...s, pts: s.pts.map(([x, y]) => [x, y + d]) });
 const ysOf = m => m.flatMap(s => s.dot ? [s.p[1] - s.r, s.p[1] + s.r] : s.pts.map(p => p[1]));
@@ -147,29 +147,6 @@ STYLES.cyber.frames = {
   aside: ({ box, u, rich = .5 }) => hud(box, u, 'NOTE', rich, [0, 3]),
   nav: ({ box, entries, x, u, rich = .5, side = true }) => { const B = [side ? x - u * .4 : box[0] - u * .5, box[1] - u * .6, box[2] + u * .6, box[3] + u * .6], out = hud(B, u, 'TOC', rich, [0, 3]);
     if (side) entries.forEach((e, k) => { const y = e.base - u * .45; out.push(line([[x + u * .25, y - u * .25], [x + u * .55, y], [x + u * .25, y + u * .25]], k % 2 ? 'b' : 'a', .6)); }); return out; },
-};
-
-// ---- Occult: the grimoire's diagram: a double rule, and at its corners the seals (a ring, a sign in it); between the
-// rules, on a richer page, the band of signs; a quotation and the contents get the rule down their side with a seal at
-// each end
-const seal = (c, R, k, col) => [hair(arc(c, R, 0, 2 * Math.PI + .02, 24), col, { w: .55, start: 'cut', end: 'cut' }), hair(arc(c, R * .78, 0, 2 * Math.PI + .02, 20), col, { w: .4, start: 'cut', end: 'cut' }), ...glyph(SIGNS[k % SIGNS.length], c, R * .5, col === 'a' ? 'b' : 'a', .45)];
-function grimoire(B, u, seed, rich, sides = [1, 1, 1, 1]) {   // sides: head, right, foot, left
-  const r = stream(seed, 'grim'), out = [], d = u * .55, R = u * .75, C = [[B[0], B[1]], [B[2], B[1]], [B[2], B[3]], [B[0], B[3]]];
-  for (let s = 0; s < 4; s++) { if (!sides[s]) continue; const p = C[s], q = C[(s + 1) % 4], t = [Math.sign(q[0] - p[0]), Math.sign(q[1] - p[1])], n = [-t[1], t[0]];
-    const a = [p[0] + t[0] * R, p[1] + t[1] * R], b = [q[0] - t[0] * R, q[1] - t[1] * R];
-    for (const o of [0, d]) out.push(line([[a[0] - n[0] * o, a[1] - n[1] * o], [b[0] - n[0] * o, b[1] - n[1] * o]], 'b', o ? .4 : .55));
-    if (rich >= .5) { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), m = Math.floor(L / (u * 2.4)); for (let k = 1; k < m; k++) { const c = [a[0] + (b[0] - a[0]) * k / m - n[0] * d / 2, a[1] + (b[1] - a[1]) * k / m - n[1] * d / 2];
-        out.push(...glyph(SIGNS[(r() * SIGNS.length) | 0], c, d * .36, 'a', .4)); } } }
-  C.forEach((c, k) => { if (sides[k] || sides[(k + 3) % 4]) out.push(...seal(c, R, (seed + k) % 9, 'a')); });
-  return out; }
-STYLES.occult.frames = {
-  quote: ({ x, lines, u, seed, rich = .5 }) => grimoire([x, lines[0].top, x + 1, lines.at(-1).base + u * .4], u, seed, rich, [0, 0, 0, 1]),
-  figure: ({ box, u, seed, rich = .5 }) => grimoire(pad(box, u * 1.1), u, seed, rich),
-  code: ({ box, u, seed, rich = .5 }) => grimoire(pad(box, -u * .5), u, seed, rich),
-  pull: breaks('occult'),
-  aside: ({ box, u, seed, rich = .5 }) => grimoire([box[0], box[1], box[2] + u * .3, box[3]], u, seed, rich, [1, 0, 0, 1]),
-  nav: ({ box, entries, x, u, seed, rich = .5, side = true }) => { if (!side) return grimoire(pad(box, u * .7, u * 1.1), u, seed, rich, [1, 0, 1, 0]);
-    const out = grimoire([x, box[1] - u * 1.2, x + 1, box[3] + u * 1.2], u, seed, rich, [0, 0, 0, 1]); entries.forEach((e, k) => out.push(...glyph(SIGNS[k % SIGNS.length], [x + u * 1, e.base - u * .45], u * .32, k % 2 ? 'b' : 'a', .45))); return out; },
 };
 
 // ---- Copperplate: no ruled line: at the corners the writing master's flourish, two ovals on the slant interlaced, and
