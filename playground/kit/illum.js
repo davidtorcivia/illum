@@ -3,7 +3,7 @@
 // boxes), each is made by its style in the one registry (STYLES in kit/wayfinding.js, with kit/initials.js and
 // kit/frames.js), and the whole is written as one score, in reading order, by one hand.
 //
-//   const r = rubricate(root, { style, rich, scale, theme, draw, ink, seed, host, select, on });
+//   const r = rubricate(root, { style, rich, scale, theme, draw, ink, seed, host, select, on, initial, frame });
 //   r.redraw(opts); r.destroy();
 //
 //   root    the text (an article); host: the positioned box the ink layers go in (default root.offsetParent)
@@ -18,6 +18,8 @@
 //           fills, points and the painted letter stay with kit/marks.js) | 'pen' (the stamped pen throughout; also
 //           what 'medium' falls back to without WebGL2)
 //   seed    default: a hash of the text. on(state, info): 'drawn' (still: { grow, draw } ms), 'reading', 'written'
+//   initial, frame   a written style's options for its initials and its frames (Astrology's { set, title }, { form }); an
+//           element's own data-* (data-set, data-title, data-form) override them
 //   view    'specimen' (the style as a pattern book) | 'sweep' (every style's paraph over thirty seeds); the text hidden
 //
 // Host markup: `.ini` (an initial in the line), `.ini.drop[data-lines]` (a drop initial); `section.book` and
@@ -37,6 +39,7 @@ import './frames.js';
 import blackletter from './styles/blackletter.js';
 import tarot from './styles/tarot.js';
 import occult from './styles/occult.js';
+import astrology from './styles/astrology.js';
 
 // The written styles (kit/styles/*.js) join the registry. A written style's marks are in the writer's own terms, at page
 // size: strokes { pts (page px), w (the nib's edge), col (a key of its palette, 'k' | 'r'), hair, angle?, press?, rho? },
@@ -58,8 +61,12 @@ import occult from './styles/occult.js';
 // laid after the lines, not under them. Its `steady` kinds are never hurried as you read (Occult's drop initial); its
 // `inks` (an order of its colours) lay a still's lines ink by ink down the whole of what is drawn, as a copyist struck
 // every figure in black before taking up the red.
-// (Order matters: the registry's style list keeps Occult and Tarot where they stood, before Blackletter.)
-Object.assign(STYLES, { occult, tarot, blackletter });
+// A drop initial is as deep as its host's data-lines, else its style's initial.lines (Astrology's figure: 6), else 3. A
+// written style's frame is given its element's data-* (a figure's data-form) and rubricate's `frame` options before its
+// measure. A print is told whether the case is written as you watch (animate): a still may lay small lettering of one ink
+// as one pour per cluster (Astrology's), written each is its own.
+// (Order matters: the registry's style list keeps Occult, Astrology and Tarot where they stood, before Blackletter.)
+Object.assign(STYLES, { occult, astrology, tarot, blackletter });
 const isWritten = S => !!S?.palette;
 // a written part's output as { marks, fills?, letters?, letter? }: given as its marks alone, or wrapped once more
 const asMade = m => Array.isArray(m) ? { marks: m } : m.marks && !Array.isArray(m.marks) ? { ...m, ...m.marks } : m;
@@ -84,9 +91,9 @@ export const levelOf = rich => Math.max(0, Math.min(4, Math.round(+rich * 4)));
 export function setInitials(root, { style, rich = .5, select = SELECT, initial: io = {} } = {}) {
   const M = metric(), styleOf = s => STYLES[s.closest('[data-style]')?.dataset.style] ?? STYLES[style];
   for (const s of root.querySelectorAll(select.drop)) {
-    const p = s.closest('p') ?? s.parentElement, cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight);
-    const bodyCap = fs * M.cap, base = (lh - (M.asc + M.desc) * fs) / 2 + M.asc * fs, n = +s.dataset.lines || 3, F = ((n - 1) * lh + bodyCap) / M.cap, top = (n - 1) * lh + base - F * ((1 - M.asc - M.desc) / 2 + M.asc);
-    const S = styleOf(s), lv = levelOf(s.closest('[data-rich]')?.dataset.rich ?? rich);
+    const p = s.closest('p') ?? s.parentElement, cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), S = styleOf(s);
+    const bodyCap = fs * M.cap, base = (lh - (M.asc + M.desc) * fs) / 2 + M.asc * fs, n = +s.dataset.lines || S.initial?.lines || 3, F = ((n - 1) * lh + bodyCap) / M.cap, top = (n - 1) * lh + base - F * ((1 - M.asc - M.desc) / 2 + M.asc);
+    const lv = levelOf(s.closest('[data-rich]')?.dataset.rich ?? rich);
     if (S.initial?.width) { Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', display: 'block', width: (S.initial.width(s.textContent, io) * (F * M.cap)) + 'px',
       marginRight: Math.round(lh * (S.initial.margin ?? .38) + (S.initial.wider?.[lv] ?? 0)) + 'px', marginLeft: '0' }); continue; }
     Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', marginRight: Math.round(lh * .42 + (S.initial?.wider?.[lv] ?? 0)) + 'px', marginLeft: '-1px', display: '', width: '' });
@@ -200,6 +207,11 @@ function walk(root, sheet, c) {
     const made = S.initial ? S.initial(args) : { letter: { M: G, col: 'a' }, marks: [] };
     out.push({ el: span, kind: big ? 'drop' : 'initial', style: key, a: S.pair[0], seed: args.seed, y: span.getBoundingClientRect().top - o.top, ...made });
   });
+  // an initial in the line begins its word: the rest of that word (its own) is the one text its letter may touch (the audit)
+  root.querySelectorAll(sel.initial).forEach(span => { if (span.matches(sel.drop)) return; const it = out.find(i => i.el === span), tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    tw.currentNode = span; let n; do n = tw.nextNode(); while (n && span.contains(n));
+    const end = n ? n.data.search(/\s|$/) : 0; if (!it || !end) return; const rg = document.createRange(); rg.setStart(n, 0); rg.setEnd(n, end); const r = rg.getBoundingClientRect();
+    it.own = [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top]; });
   // the words, to keep clear of
   const TEXT = [], words = []; root.querySelectorAll(sel.text).forEach(el => { const L = boxes(el, o, sel); TEXT.push(...L); words.push(...L); });
   const touches = (x, y, R) => words.some(b => x + R > b.l - 1.5 && x - R < b.r + 1.5 && y + R > b.t + .5 && y - R < b.b - .5);
@@ -209,17 +221,18 @@ function walk(root, sheet, c) {
   // larger, it grows only as far as it stays off the words
   // (args: the frame's measure, w: for a written style, which sets its contents' rule further out and reads its lines exactly)
   const frame = (el, kind, args) => { const key = styleAt(el), f = STYLES[key].frames?.[kind], S = scaleAt(el); if (!f) return;
-    if (W8(el)) { const a = args(u, g, richAt(el), true); return later(el, kind, top(el), () => ({ marks: f(a) })); }
+    if (W8(el)) { const a = { ...c.frame, ...el.dataset, ...args(u, g, richAt(el), true) }; return later(el, kind, top(el), () => ({ marks: f(a) })); }
     let k = Math.max(1, S), m; while (m = thick(f(args(u * k, g * k, richAt(el))), S), k > 1 && m.some(hits)) k = Math.max(1, k - .25);
     out.push({ el, kind, style: key, y: el.getBoundingClientRect().top - o.top, marks: m }); };
   root.querySelectorAll(sel.nav).forEach((nav, k) => { const list = nav.querySelector('ol, ul') ?? nav, nb = rel(list, o), side = nb[0] > 46;
     frame(nav, 'nav', (u, g, rich, w) => ({ box: nb, entries: [...nav.querySelectorAll('li')].map(li => linesOf(li, o, w)[0]), x: nb[0] - u * (w ? 3.2 : 2.2), u, g, seed: s(1 + k), rich, side })); });
-  // (and for a written style: the quotation's box and its footer's top, the figure's caption's foot and the page's edges,
-  // the chapter's number (a pull quote's too), an aside's and code's lines)
+  // (and for a written style: the quotation's box and its footer's top, the figure's caption's foot, the page's edges and
+  // the room its margins leave it [top, bottom], the chapter's number (a pull quote's too), an aside's and code's lines)
   root.querySelectorAll(sel.quote).forEach((bq, k) => { const b = rel(bq, o), ft = bq.querySelector('footer');
     frame(bq, 'quote', (u, g, rich, w) => ({ x: b[0] + u * .9, lines: linesOf(bq, o, w), u, g, seed: s(10 + k), rich, ...w && { box: b, foot: ft && rel(ft, o)[1] } })); });
   root.querySelectorAll(sel.figure).forEach((fg, k) => frame(fg, 'figure', (u, g, rich, w) => { const cap = fg.querySelector('figcaption');
-    return { box: rel(fg.querySelector('svg, img, canvas') ?? fg, o), u, g, seed: s(20 + k), rich, ...w && { cap: cap && rel(cap, o)[3], n: chapterOf(fg) || 1, limit: [0, o.width] } }; }));
+    const fr = rel(fg, o), cs = getComputedStyle(fg);
+    return { box: rel(fg.querySelector('svg, img, canvas') ?? fg, o), u, g, seed: s(20 + k), rich, ...w && { cap: cap && rel(cap, o)[3], n: chapterOf(fg) || 1, limit: [0, o.width], room: [fr[1] - parseFloat(cs.marginTop), fr[3] + parseFloat(cs.marginBottom)] } }; }));
   root.querySelectorAll(sel.aside).forEach((a, k) => frame(a, 'aside', (u, g, rich, w) => ({ box: rel(a, o), u, g, seed: s(30 + k), rich, ...w && { n: chapterOf(a) || 1, lines: linesOf(a, o, true) } })));
   root.querySelectorAll(sel.pull).forEach((p, k) => { const L = linesOf(p, o, W8(p)), m = [text.left - o.left, 0, text.right - o.left];
     frame(p, 'pull', (u, _, rich, w) => ({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 2.2, yBot: L.at(-1).base + u * 2.6, measure: m[2] - m[0], lines: L, u, seed: s(40 + k), rich, ...w && { n: chapterOf(p) } })); });
@@ -318,8 +331,8 @@ function walk(root, sheet, c) {
 // A written part kept inside [top, bottom] (page px): if what it made (its line, its stencils, its lettering) runs out of
 // that room it is moved, whole, to the room's middle (or its top, if it is taller than the room); else left where it is
 // (a letter: a line of text on its base, a pen's point, a shape's polygons, a traced sign's box; see kit/styles/occult.js)
-const letterYs = t => t.dot ? [t.dot[1] - t.r, t.dot[1] + t.r] : t.polys ? t.polys.flat().map(p => p[1]) : t.shape ? [t.y, t.y + t.h] : [t.base - t.size, t.base];
-function moveLetter(t, dy) { if (t.dot) t.dot = [t.dot[0], t.dot[1] + dy]; else if (t.polys) t.polys = t.polys.map(P => P.map(([x, y]) => [x, y + dy])); else if (t.shape) t.y += dy; else t.base += dy; }
+const letterYs = t => t.dot ? [t.dot[1] - t.r, t.dot[1] + t.r] : t.polys ? t.polys.flat().map(p => p[1]) : t.shape ? [t.y, t.y + t.h] : t.c ? [t.c[1] - t.size, t.c[1] + t.size] : [t.base - t.size, t.base];
+function moveLetter(t, dy) { if (t.dot) t.dot = [t.dot[0], t.dot[1] + dy]; else if (t.polys) t.polys = t.polys.map(P => P.map(([x, y]) => [x, y + dy])); else if (t.shape) t.y += dy; else if (t.c) t.c = [t.c[0], t.c[1] + dy]; else t.base += dy; }
 function fitIn(m, [r0, r1]) {
   const marks = m.marks.flat(3), ys = [...marks.flatMap(k => k.pts.map(p => p[1] - k.w / 2).concat(k.pts.map(p => p[1] + k.w / 2))),
     ...(m.fills ?? []).flatMap(f => [...f.polys.flat(), ...f.lines.flatMap(l => l.pts)].map(p => p[1])), ...(m.letters ?? []).flatMap(letterYs)];
@@ -408,13 +421,13 @@ function score(items, c) {
     const later = [], quill = new Map();
     const mark = (s, i, list) => {
       const INK = inkOf(s), solid = s.ink ? (DARK ? lift(s.ink) : s.ink) : INK.solid;
-      if (s.dot) { drawn.push({ mi: it.i ?? idx, type: it.kind, dot: s.p, r: s.r, free: s.free, plate: s.plate | 0 });
+      if (s.dot) { drawn.push({ mi: it.i ?? idx, type: it.kind, dot: s.p, r: s.r, free: s.free, plate: s.plate | 0, own: it.own });
         const make = t => ({ t0: t, t1: t + .03, at: () => {}, done: g => blended(g, BLEND, () => dot(g, s.p, s.r, solid, PAPER, .95, DARK)) });
         if (W) later.push(make); else { parts.push(make(clock)); clock += .03; } return; }
       // a wayfinding mark (made at unit size) is refined and its free ends lifted; a frame or an initial is drawn as made
       const pts = it.line ? refine(s.pts) : s.pts, ends = it.line ? freeEnds(s, list) : s, w = s.w * (s.broad ? 1 : 1.1);
       const seed = it.line ? (SEED + mi * 131 + i * 7) >>> 0 : it.letter ? s.seed ?? (SEED + idx * 131 + i * 7) >>> 0 : (SEED + i * 13) >>> 0;
-      drawn.push({ mi: it.i ?? idx, type: it.kind, pts, w, ends: [pts[0], pts.at(-1)], cap: [ends.start, ends.end], plate: s.plate | 0, free: s.free, solid: (s.load ?? .85) >= 1 || s.broad >= .5 || !!s.press });
+      drawn.push({ mi: it.i ?? idx, type: it.kind, own: it.own, pts, w, ends: [pts[0], pts.at(-1)], cap: [ends.start, ends.end], plate: s.plate | 0, free: s.free, solid: (s.load ?? .85) >= 1 || s.broad >= .5 || !!s.press });
       const ink = s.ink ? solid : s.broad ? INK.solid : INK.hair;
       const hand = handOf(s);
       if (hand) { const k = `${ink}|${hand}|${hand === 'broad' ? s.broad : ''}`, laid = hand === 'broad';
@@ -470,9 +483,9 @@ function scoreWritten(items, c, animate) {
   const { DARK } = c, parts = [], groups = [], drawn = []; let t = .1;
   for (const it of items) {
     const S = STYLES[it.style], P = S.palette[DARK ? 'dark' : 'light'], marks = (it.marks ?? []).flat(3), own = [], g0 = t, from = parts.length; let run = null, u = 0;
-    for (const m of marks) drawn.push({ mi: it.i, type: it.kind, pts: m.pts, w: m.w, ends: [m.pts[0], m.pts.at(-1)], cap: ['cut', 'cut'], plate: 0, solid: true });
+    for (const m of marks) drawn.push({ mi: it.i, type: it.kind, own: it.own, pts: m.pts, w: m.w, ends: [m.pts[0], m.pts.at(-1)], cap: ['cut', 'cut'], plate: 0, solid: true });
     // (and its lettering and signs, for the audit, as the outline of where their ink lies)
-    for (const L of it.letters ?? []) { const b = inkBox(L); if (b) drawn.push({ mi: it.i, type: it.kind, pts: [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]], [b[0], b[1]]], w: 1, ends: [], cap: ['cut', 'cut'], plate: 0, solid: true, free: true }); }
+    for (const L of it.letters ?? []) for (const b of inkBoxes(L)) drawn.push({ mi: it.i, type: it.kind, own: it.own, pts: [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]], [b[0], b[1]]], w: 1, ends: [], cap: ['cut', 'cut'], plate: 0, solid: true, free: true });
     if (S.timeline) { const tl = S.timeline(it, it.kind, animate), k = Math.min(1, tl.cap / Math.max(tl.u, .01));
       it.y0 ??= Math.min(...marks.map(m => m.pts[0][1]));
       for (const e of tl.own) parts.push({ ...piece(e, t + e.t0 * k, t + e.t1 * k, it, P, c, animate), under: !e.run && !e.over, over: !!e.over });
@@ -494,9 +507,18 @@ function scoreWritten(items, c, animate) {
   return { parts, groups, drawn, end: t };
 }
 // a coverage mask's ink (more than half covered) as a box in page px, or null
-function inkBox({ M, w, h, x0, y0, res }) { let a = w, b = h, c = -1, d = -1;
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (M[j * w + i] > .5) { if (i < a) a = i; if (i > c) c = i; if (j < b) b = j; if (j > d) d = j; }
-  return c < 0 ? null : [x0 + a / res, y0 + b / res, x0 + (c + 1) / res, y0 + (d + 1) / res]; }
+// and as the boxes of its parts: cut wherever a band of rows or of columns at least `gap` px wide has no ink (a cluster
+// of small lettering laid as one pour is seen as its words and signs, not as the box round them all)
+function inkBoxes({ M, w, h, x0, y0, res }, gap = 3) {
+  const out = [], G = Math.max(1, Math.round(gap * res)), ink = (i, j) => M[j * w + i] > .5;
+  const cut = (a, b, c, d) => {   // [a, c) columns, [b, d) rows: trimmed to its ink, then split at the first empty band
+    const rows = [], cols = []; for (let j = b; j < d; j++) for (let i = a; i < c; i++) if (ink(i, j)) { rows[j - b] = cols[i - a] = 1; }
+    const r0 = rows.indexOf(1), c0 = cols.indexOf(1); if (r0 < 0) return; const r1 = rows.lastIndexOf(1) + 1, c1 = cols.lastIndexOf(1) + 1;
+    const band = (occ, s0, s1) => { let run = 0; for (let k = s0; k < s1; k++) { if (occ[k]) { if (run >= G) return k - run; run = 0; } else run++; } return -1; };
+    const sr = band(rows, r0, r1); if (sr >= 0) { cut(a, b + r0, c, b + sr); cut(a, b + sr, c, b + r1); return; }
+    const sc = band(cols, c0, c1); if (sc >= 0) { cut(a + c0, b + r0, a + sc, b + r1); cut(a + sc, b + r0, a + c1, b + r1); return; }
+    out.push([x0 + (a + c0) / res, y0 + (b + r0) / res, x0 + (a + c1) / res, y0 + (b + r1) / res]); };
+  cut(0, 0, w, h); return out; }
 // one entry of a written case's clock made a part: a run of the line (the medium's pen, or the stamped pen without it); a
 // letter (laid by inkLetter, the red first, or written by letterWriter); a pour (laid, or swept in beneath: sweepIn)
 function piece(e, t0, t1, it, P, c, animate) {
@@ -566,7 +588,7 @@ export function rubricate(root, opts = {}) {
     if (mode === 'still') live.width = live.height = 0;   // nothing is shown part-written: no page-sized live layer
     for (const c of mode === 'still' ? [base] : [base, live]) { c.width = Math.round(sr.width * dpr); c.height = Math.round(sr.height * dpr); c.style.width = sr.width + 'px'; c.style.height = sr.height + 'px'; c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); }
     const wk = `${dpr}|${DARK}|${o.ink}`; if (pre?.wk === wk) W = pre; else { W?.destroy(); pre?.destroy(); W = o.ink !== 'pen' && supported() ? createWriter(host, base.getContext('2d'), { dpr, dark: DARK }) : null; } pre = null;
-    const c = { SEED, sel, style: key, rich, scale, gram, setups, kind: o.kind, mode: tm, own, DARK, PAPER, dpr, W, initial: o.initial ?? {}, hand: { open: null }, g: base.getContext('2d'), host, base };
+    const c = { SEED, sel, style: key, rich, scale, gram, setups, kind: o.kind, mode: tm, own, DARK, PAPER, dpr, W, initial: o.initial ?? {}, frame: o.frame ?? {}, hand: { open: null }, g: base.getContext('2d'), host, base };
     const t0 = performance.now(), w = o.view === 'specimen' ? { items: specimen(c), words: [], dropped: {} } : walk(root, host, c);
     w.items.forEach((it, i) => { it.i = i; });
     // a hand about to write: the medium made now, not in the first frame of writing. (A written style's still is laid
@@ -578,10 +600,10 @@ export function rubricate(root, opts = {}) {
   }
   // the parts of these cases in reading order: the registry's from the page's one score, a written style's made and
   // scored now
-  const made = (list, c) => { for (const it of list) if (it.written && !it.marks) { Object.assign(it, asMade(it.make()));
-    const S = STYLES[it.style]; if (S.print) Object.assign(it, S.print(it, { dpr: c.dpr, kind: it.kind, u: c.u, y: it.y, seed: c.SEED })); } return list; };
+  const made = (list, c, animate) => { for (const it of list) if (it.written && !it.marks) { Object.assign(it, asMade(it.make()));
+    const S = STYLES[it.style]; if (S.print) Object.assign(it, S.print(it, { dpr: c.dpr, kind: it.kind, u: c.u, y: it.y, seed: c.SEED, animate })); } return list; };
   function partsOf(k, list, animate) {
-    const set = new Set(list), wr = scoreWritten(made(list.filter(it => it.written), k.c), k.c, animate); state.drawn.push(...wr.drawn);
+    const set = new Set(list), wr = scoreWritten(made(list.filter(it => it.written), k.c, animate), k.c, animate); state.drawn.push(...wr.drawn);
     return [...k.reg.parts.filter(p => set.has(p.it)), ...wr.parts].sort((a, b) => a.it.i - b.it.i);
   }
   async function render(m) {
@@ -629,7 +651,7 @@ export function rubricate(root, opts = {}) {
   // rest wait again.
   function read(k, base, live, clear) {
     const byIt = new Map(k.reg.groups.map(gr => [gr.it, gr])), queue = [], active = [];
-    const groups = k.items.map(it => byIt.get(it) ?? { it, y: it.y, type: it.kind, make(animate = true) { made([it], k.c); const w = scoreWritten([it], k.c, animate); state.drawn.push(...w.drawn); this.y0 = it.y0; return w.groups[0].parts; } });
+    const groups = k.items.map(it => byIt.get(it) ?? { it, y: it.y, type: it.kind, make(animate = true) { made([it], k.c, animate); const w = scoreWritten([it], k.c, animate); state.drawn.push(...w.drawn); this.y0 = it.y0; return w.groups[0].parts; } });
     groups.forEach((gr, i) => { if (readDone.has(i)) { (gr.parts ??= gr.make(false)).forEach(p => p.done(base)); gr.state = 'done'; return; }
       const n = document.createElement('i'); n.setAttribute('aria-hidden', 'true'); n.dataset.g = i;
       Object.assign(n.style, { position: 'absolute', left: '0', top: Math.max(0, gr.y - 4) + 'px', width: '1px', height: '8px', pointerEvents: 'none' });

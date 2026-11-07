@@ -11,10 +11,11 @@
 //   letters: lettering (IM FELL Double Pica, the Oxford types of the 1670s, OFL) and the signs printed as the period cut
 //     them, traced (tools/upright.py, tools/traceshape.py) from the Clavis volvelle (the zodiac) and Lilly's ephemeris
 //     head (the planets), as coverage laid or written by the ink engine (kit/inkletter.js).
-// The style object has occult.js's signatures (tests/astrology.html lays it as tests/occult.html lays occult):
+// A written style of the one library (kit/illum.js: rubricate(root, { style: 'astrology' }), as tests/astrology.html); its
+// registry paraph, filler and break take the chapter's number (see the end of this file). Its own forms (signs.*):
 //   paraph(x, base, u, seed, rich, k?)   the chapter's sign (k: 0..11, Aries first)
 //   filler(x0, x1, yTop, yBase, kind, seed, rich, k?)   kind: 'aspects' | 'signs' | 'degrees' | 'rule' (a heading's)
-//   breakMark(cx, y, measure, rank, seed, rich, u, n?)   rank 1: a small volvelle on its rules; rank 2: the volvelle of aspects
+//   breakMark(cx, y, measure, rank, seed, rich, u, n?, k?)   rank 1: a small volvelle on its rules; rank 2: the volvelle of aspects
 //   initial(o) -> { marks, letters, width }   (o: ch, G: { box }, big, rich, seed, set: 'square' | 'volvelle', u, n)
 //   frames.{ quote, figure, code, pull, aside, nav }(args), palette.{ light, dark }
 import { noise2 } from '../marks.js';
@@ -454,7 +455,8 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5, k = 0) {
 }
 
 // ---- breaks --------------------------------------------------------------------------------------------------------------------
-function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, k = null) {
+// (room: [top, bottom] the page leaves a book's break: the volvelle drawn smaller to stand in it)
+function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, k = null, room = null) {
   const W = LW(u);
   if (rank < 2) {   // a small volvelle with the chapter's sign, on its ruled band: CAP. and the number one side, the sign's name the other
     const R = u * 2.5, name = ZODIAC[(k ?? n) % 12], half = Math.min(measure * .46, u * 24), bh = u * 2.2, size = u * 1.05, els = [smallVolvelle([cx, y], R, name, W, seed)];
@@ -462,7 +464,7 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, k = null
     if (rich >= .25) els.push({ marks: [], letters: [{ text: 'CAP. ' + roman(n) + '.', x: cx - (R + u * .7 + half) / 2, base: y + size / 2, size, col: 'r' }, { text: LATIN[name], x: cx + (R + u * .7 + half) / 2, base: y + size / 2, size, col: 'r' }] });
     return join(...els);
   }
-  const R = Math.min(u * 9.2, measure * .46);
+  const R = Math.min(u * 9.2, measure * .46, room ? (room[1] - room[0]) / 2 - W : Infinity);
   return aspectVolvelle([cx, y], R, W, seed, { start: (k ?? 0) % 12, rich });
 }
 
@@ -498,10 +500,13 @@ initial.line = ch => textWidth(String(ch).normalize('NFD')[0].toUpperCase(), 1);
 // ---- frames -------------------------------------------------------------------------------------------------------------------
 // The tables' rules: a thick rule and a thin beside it at the head and the foot (Lilly's ephemeris, "JANUARY hath xxxi.
 // dayes"), a single rule down the sides.
+// a box grown just clear of its words (lines: the browser's line boxes) where they run closer than d to its sides (on a
+// page that leaves the room, as tests/astrology.html does, the box as it is)
+const clear = (B, lines, d) => !lines?.length ? B : [Math.min(B[0], Math.min(...lines.map(l => l.left)) - d), B[1], Math.max(B[2], Math.max(...lines.map(l => l.right)) + d), B[3]];
 const headRules = (x0, x1, y, W, seed, dir = 1) => [rule([x0, y], [x1, y], W * 1.9, { seed, press: () => 1.1 }), rule([x0, y + dir * W * 3.2], [x1, y + dir * W * 3.2], W, { seed: seed + 1 })];
 const frames = {
   // a quotation: the table's ruling round it, thick-and-thin at the head and foot
-  quote: ({ box, u, seed }) => { const W = LW(u), B = [box[0], box[1] - u * 1.6, box[2], box[3] + u * 1.4];
+  quote: ({ box, u, seed, lines }) => { const W = LW(u), B = clear([box[0], box[1] - u * 1.6, box[2], box[3] + u * 1.4], lines, u * 1.05 + W);
     return { marks: [...headRules(B[0], B[2], B[1], W, seed), ...headRules(B[0], B[2], B[3], W, seed + 3, -1), rule([B[0], B[1]], [B[0], B[3]], W, { seed: seed + 6 }), rule([B[2], B[1]], [B[2], B[3]], W, { seed: seed + 7 })] }; },
   // a figure: set in the middle of a figure of heaven unrolled to its box: the twelve houses a band round it (three to a
   // side, the corners ruled in to the figure's), each house's sign and degree written along the band, the first house on
@@ -511,10 +516,12 @@ const frames = {
 // The figure in an octagon as Apian frames his volvelles (Astronomicum Caesareum, 1540): a double rule cut at the corners,
 // the band between its rules checkered as his degree rings are, broken at the head and the foot by a small ring holding
 // the chapter's sign and the sign opposite (the ring struck over the band: the band's cells and rules stop at it).
-function octagonFrame({ box, cap, u, seed, rich = .5, n = 1, limit = null }) {
+// (room: [top, bottom] the page leaves the figure, its margins: the band drawn in nearer, head and foot, where they are short)
+function octagonFrame({ box, cap, u, seed, rich = .5, n = 1, limit = null, room = null }) {
   const W = LW(u), I = [box[0] - u * .8, box[1] - u * .8, box[2] + u * .8, (cap ?? box[3]) + u * .8], bh = Math.max(5.5, u * .72), g = u * 2.6;
-  const gs = limit ? Math.max(bh + u * .5, Math.min(g, I[0] - limit[0] - 3, limit[1] - I[2] - 3)) : g;
-  const O = [I[0] - gs, I[1] - g, I[2] + gs, I[3] + g], cut = Math.max(u, Math.min(u * 3.4, gs + g - (bh + u * .6) * 1.42));
+  const gs = limit ? Math.max(bh + u * .5, Math.min(g, I[0] - limit[0] - 3, limit[1] - I[2] - 3)) : g, over = rich >= .25 ? bh * 2 + W : 0;   // (the ring's reach beyond the band)
+  const gt = room ? Math.max(bh + u * .5, Math.min(g, I[1] - room[0] - over - 3)) : g, gb = room ? Math.max(bh + u * .5, Math.min(g, room[1] - I[3] - over - 3)) : g;
+  const O = [I[0] - gs, I[1] - gt, I[2] + gs, I[3] + gb], cut = Math.max(u, Math.min(u * 3.4, gs + Math.min(gt, gb) - (bh + u * .6) * 1.42));
   const oct = (B, c) => [[B[0] + c, B[1]], [B[2] - c, B[1]], [B[2], B[1] + c], [B[2], B[3] - c], [B[2] - c, B[3]], [B[0] + c, B[3]], [B[0], B[3] - c], [B[0], B[1] + c]];
   const P = oct(O, cut), Q = oct([O[0] + bh, O[1] + bh, O[2] - bh, O[3] - bh], cut - bh * (2 - Math.SQRT2)), cx = (O[0] + O[2]) / 2, rr = bh * 2.5;
   const holes = rich >= .25 ? [{ c: [cx, O[1] + bh / 2], r: rr + W * .5 + 1 }, { c: [cx, O[3] - bh / 2], r: rr + W * .5 + 1 }] : [];
@@ -552,9 +559,10 @@ const housesFrame = housesFrameDef.houses;
 Object.assign(frames, {
   // code: the ephemeris's head over it (the planets in red over the signs they stand in, a double rule beneath, the
   // columns ruled), the table ruled round
-  code: ({ box, u, seed, rich = .5, n = 1 }) => { const W = LW(u), B = box, els = [], marks = [];
+  // (the head only where the page leaves it room above the code's lines)
+  code: ({ box, u, seed, rich = .5, n = 1, lines }) => { const W = LW(u), B = clear(box, lines, u * 1.05 + W), els = [], marks = [];
     marks.push(...headRules(B[0], B[2], B[1], W, seed), rule([B[0], B[3]], [B[2], B[3]], W, { seed: seed + 2 }), rule([B[0], B[1]], [B[0], B[3]], W, { seed: seed + 3 }), rule([B[2], B[1]], [B[2], B[3]], W, { seed: seed + 4 }));
-    if (rich >= .25) {
+    if (rich >= .25 && !(lines?.length && lines[0].top < B[1] + u * (1.4 + 3.3 + 2.3 + .55 + (rich >= .5 ? 4.2 : 0) + .6))) {
       // Lilly's columns: the day (its number and its letter), then the planets slowest first, each headed M (its motion)
       // and D or A (its latitude, north or south) over its sign, over the sign it stands in; two days' rows of degrees
       // and minutes, a rule under them; the motions as the planets keep them (the Moon 13° a day, Saturn a few minutes)
@@ -587,7 +595,9 @@ Object.assign(frames, {
       if (gap) els.push(sign(ZODIAC[(n + (s > 0 ? 6 : 0)) % 12], [cx, yy], u * 1.5, { col: 'r', seed: seed + 12 + (s > 0) })); }
     return join(...els); },
   // an aside: a ruled box, its head a band lettered NOTA in red between two rules, the chapter's sign at its foot
-  aside: ({ box, u, seed, rich = .5, n = 1, title = 'NOTA' }) => { const W = LW(u), B = box, size = u * 1.25, hb = B[1] + u * 3.2, els = [];
+  // (where the page leaves no room for the band above the words, the ruled box alone)
+  aside: ({ box, u, seed, rich = .5, n = 1, title = 'NOTA', lines }) => { const W = LW(u), B = clear(box, lines, u * 1.05 + W), size = u * 1.25, hb = B[1] + u * 3.2, els = [];
+    if (lines?.length && lines[0].top < hb + u * .4) return { marks: [...headRules(B[0], B[2], B[1], W, seed), rule([B[0], B[1]], [B[0], B[3]], W, { seed: seed + 3 }), rule([B[2], B[1]], [B[2], B[3]], W, { seed: seed + 4 }), rule([B[0], B[3]], [B[2], B[3]], W, { seed: seed + 5 })], letters: [] };
     els.push({ marks: [...headRules(B[0], B[2], B[1], W, seed), rule([B[0], hb], [B[2], hb], W, { seed: seed + 2 }), rule([B[0], B[1]], [B[0], B[3]], W, { seed: seed + 3 }), rule([B[2], B[1]], [B[2], B[3]], W, { seed: seed + 4 }), rule([B[0], B[3]], [B[2], B[3]], W, { seed: seed + 5 })],
       letters: [{ text: title, x: (B[0] + B[2]) / 2, base: (B[1] + W * 3.2 + hb) / 2 + size / 2, size, col: 'r' }] });
     if (rich >= .5) { const name = ASPECTS[n % 5]; for (const s of [-1, 1]) els.push(sign(name, [(B[0] + B[2]) / 2 + s * (textWidth(title, size) / 2 + u * 2), (B[1] + W * 3.2 + hb) / 2], u * 1.1, { col: 'r', seed: seed + 8 + s })); }
@@ -611,7 +621,39 @@ export const palette = {
   dark: { k: [226, 214, 194], r: [236, 120, 86] },
 };
 
-export const astrology = { label: 'Astrology', minGap: 2,
+// ---- in the one library (kit/illum.js) ---------------------------------------------------------------------------------------
+// rubricate(root, { style: 'astrology' }) lays tests/astrology.html. The registry gives a paraph and a filler the chapter's
+// number n (0 before the first): chapter n's sign is the zodiac's n-th, Aries the first, what comes before it Pisces (a
+// heading's rule takes the heading's own n); a break its number among its rank (a small volvelle the chapter's sign), and
+// the room the page leaves it (a book's volvelle drawn to stand in it).
+const chapterParaph = (x, base, u, seed, rich, n) => paraph(x, base, u, seed, rich, typeof n === 'number' ? (n + 11) % 12 : null);
+const chapterFiller = (x0, x1, yTop, yBase, kind, seed, rich, n = 0) => filler(x0, x1, yTop, yBase, kind, seed, rich, kind === 'rule' ? n : (n + 11) % 12);
+const numberedBreak = (cx, y, measure, rank, seed, rich, u, n = 1, room) => breakMark(cx, y, measure, rank, seed, rich, u, n, rank < 2 ? n - 1 : 0, room);
+// the contents' table stands further out in the margin, beside the list where the margin has 60 px; a pull quote's arcs
+// close round its lines (data-form on a figure, or rubricate's frame: { form }, chooses its frame: 'octagon' | 'houses')
+const nav = a => frames.nav({ ...a, x: a.box[0] - a.u * 5.6, side: a.box[0] > 60 });
+const pull = a => frames.pull({ ...a, yTop: a.lines[0].top - a.u * 1.6, yBot: a.lines.at(-1).base + a.u * 2.2, n: (a.n + 11) % 12 });
+// A case made ready to lay: its lettering and signs as coverage, its lines in runs of one ink and one nib. In a still the
+// small lettering of one ink is poured per cluster (a figure's dozens of cusps in a few pours); written, each in its turn.
+const print = (made, { dpr = 1, animate = false }) => printOf(made, { res: dpr >= 1.5 ? 2 : 1, merge: !animate });
+// A case on a hand's clock (seconds): the ruling (black, then red), then the writing into it, laid over the lines (a large
+// letter at a hand's pace, a sign or figures quickly, each begun before the last is done). The case takes at most `cap`
+// (a drop figure 4.2 s, a break 4, the contents 1.2, a paraph, filler, line initial or pull quote 1.4, the rest 2.6).
+function timeline(pr, kind) {
+  const own = []; let u = 0;
+  for (const r of pr.runs) { const L = r.strokes.reduce((a, s) => a + s.L, 0), d = Math.max(.05, L / 320 + r.strokes.length * .03); own.push({ t0: u, t1: u + d, run: r }); u += d; }
+  for (const L of pr.letters) { const sz = Math.max(L.w, L.h) / L.res, d = sz > 60 ? 1.6 : sz > 30 ? .6 : .3; own.push({ t0: u, t1: u + d, letter: L, over: true }); u += d * .7 + .03; }
+  return { own, u, cap: kind === 'drop' ? 4.2 : kind === 'chapter' || kind === 'book' ? 4 : kind === 'nav' ? 1.2 : ['paraph', 'filler', 'initial', 'pull'].includes(kind) ? 1.4 : 2.6 };
+}
+initial.load = () => loadFace();
+initial.margin = .42;   // the gap to the words, in line heights
+initial.fills = true;   // the figure is the float: its box is the float as the page laid it
+
+export const astrology = { label: 'Astrology', minGap: 2, theme: { rubric: 'rgb(160 64 40)', rubricDark: 'rgb(222 120 92)' },
   setup: () => ({ kinds: FILLERS }), kinds: (v, rich) => rich < .25 ? ['aspects'] : rich < .5 ? ['aspects', 'signs'] : FILLERS,
-  paraph, filler, breakMark, initial, frames, palette, FILLERS, ZODIAC, PLANETS, ASPECTS, glyph, loadFace, printOf, sign, squareChart, aspectVolvelle };
+  fillAt: { gap: .9, head: 4, rise: 1.05 },   // a filler starts .9 x-heights after the words, a heading's only if 4 are left
+  hurry: [4, 1, 1.5, 1.6], steady: ['drop'],   // as you read, a hand behind quickens (a second at the least), never on the figure
+  inks: ['k', 'r'],   // a still rules every figure in black before taking up the red, then writes into them
+  paraph: chapterParaph, filler: chapterFiller, breakMark: numberedBreak, initial, frames: { ...frames, nav, pull }, palette, print, timeline,
+  FILLERS, ZODIAC, PLANETS, ASPECTS, glyph, loadFace, printOf, sign, squareChart, aspectVolvelle, signs: { paraph, filler, breakMark } };
 export default astrology;

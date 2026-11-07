@@ -1070,84 +1070,8 @@ function specimen(kind, c, s, a, rich, r, bare = false) {
   return out;
 }
 
-// ==== astrology =================================================================================================================
-// the signs of the zodiac as a pen draws them, in a cell of half-height s about c
-// a sign drawn smaller than a few pixels is a mark, not a construction: its parts are not held to the joins audit
-const small = list => list.map(m => ({ ...m, free: true }));
-function zodiac(k, c, s, col, w = .6) {
-  const [x, y] = c, o = { w, start: 'cut', end: 'cut' }, H = (pts, oo) => hair(pts, col, { ...o, ...oo }), A = (cc, R, a0, a1, n = 14) => arc(cc, R, a0, a1, n);
-  switch (k) {
-    case 0: return [H([...A([x - s * .3, y - s * .35], s * .3, 0, -Math.PI * 1.1).reverse(), [x, y - s * .35], [x, y + s * .6]]), H(A([x + s * .3, y - s * .35], s * .3, Math.PI, Math.PI * 2.1), { start: 'cut' })];   // aries
-    case 1: return [H(A([x, y + s * .22], s * .4, 0, 2 * Math.PI, 24)), H(A([x, y - s * .55], s * .42, Math.PI * .12, Math.PI * .88), { start: 'taper', end: 'taper' })];   // taurus
-    case 2: return [H([[x - s * .25, y - s * .45], [x - s * .25, y + s * .45]]), H([[x + s * .25, y - s * .45], [x + s * .25, y + s * .45]]), H(A([x, y - s * .9], s * .6, Math.PI * .3, Math.PI * .7)), H(A([x, y + s * .9], s * .6, -Math.PI * .3, -Math.PI * .7))];   // gemini
-    case 3: return [H([...A([x - s * .28, y - s * .12], s * .16, 0, 2 * Math.PI, 14), [x + s * .1, y - s * .45], [x + s * .5, y - s * .3]], { end: 'taper' }), H([...A([x + s * .28, y + s * .12], s * .16, Math.PI, Math.PI * 3, 14), [x - s * .1, y + s * .45], [x - s * .5, y + s * .3]], { end: 'taper' })];   // cancer
-    case 4: return [H([...A([x - s * .25, y + s * .25], s * .2, 0, 2 * Math.PI, 14), ...A([x + s * .05, y - s * .15], s * .32, Math.PI * 1.1, Math.PI * 2.1, 16), [x + s * .3, y + s * .45], [x + s * .5, y + s * .4]], { end: 'taper' })];   // leo
-    case 5: case 7: { const pts = [[x - s * .55, y - s * .25]]; for (let i = 0; i < 3; i++) { const cx = x - s * .4 + i * s * .3; pts.push(...A([cx, y - s * .2], s * .15, Math.PI, 2 * Math.PI, 8), [cx + s * .15, y + s * .45]); }
-      const out = [H(pts)]; if (k === 5) out.push(H([[x + s * .5, y - s * .1], [x + s * .3, y + s * .3], ...A([x + s * .2, y + s * .5], s * .14, 0, Math.PI * 1.75, 12)], { end: 'taper' }));   // the loop closes on the tail
-      else out.push(H([[x + s * .5, y + s * .45], [x + s * .7, y + s * .15]]), H([[x + s * .55, y + s * .12], [x + s * .7, y + s * .15], [x + s * .68, y + s * .3]])); return out; }   // virgo, scorpio
-    case 6: return [H([[x - s * .55, y + s * .4], [x + s * .55, y + s * .4]]), H([[x - s * .55, y + s * .1], [x - s * .2, y + s * .1], ...A([x, y - s * .05], s * .22, Math.PI * .85, Math.PI * 2.15, 14), [x + s * .2, y + s * .1], [x + s * .55, y + s * .1]])];   // libra
-    case 8: return [H([[x - s * .45, y + s * .5], [x + s * .45, y - s * .45]]), H([[x + s * .05, y - s * .45], [x + s * .45, y - s * .45], [x + s * .45, y - s * .05]]), H([[x - s * .3, y - s * .05], [x + s * .05, y + s * .3]])];   // sagittarius
-    case 9: return [H([[x - s * .5, y - s * .35], [x - s * .2, y + s * .4], [x + s * .05, y - s * .3], [x + s * .2, y + s * .3], ...A([x + s * .32, y + s * .3], s * .16, Math.PI, Math.PI * 2.8, 12), [x + s * .05, y + s * .55]], { end: 'taper' })];   // capricorn
-    case 10: return [-1, 1].map(d => H(Array.from({ length: 25 }, (_, i) => [x - s * .55 + i / 24 * s * 1.1, y + d * s * .2 + Math.sin(i / 24 * Math.PI * 3) * s * .12]), { start: 'taper', end: 'taper' }));   // aquarius: waves, never zigzags
-    default: return [H(A([x - s * .65, y], s * .5, -Math.PI * .4, Math.PI * .4), { start: 'taper', end: 'taper' }), H(A([x + s * .65, y], s * .5, Math.PI * .6, Math.PI * 1.4), { start: 'taper', end: 'taper' }), H([[x - s * .4, y], [x + s * .4, y]])];   // pisces
-  }
-}
-const aspect = (k, c, s, col) => { const [x, y] = c, o = { w: .55, start: 'cut', end: 'cut' };
-  if (k === 0) return [hair(arc([x - s * .1, y + s * .1], s * .32, 0, 2 * Math.PI, 18), col, o), line([[x + s * .12, y - s * .12], [x + s * .5, y - s * .5]], col, .55)];   // conjunction
-  if (k === 1) return [hair(arc([x - s * .35, y + s * .35], s * .2, 0, 2 * Math.PI, 14), col, o), hair(arc([x + s * .35, y - s * .35], s * .2, 0, 2 * Math.PI, 14), col, o), line([[x - s * .2, y + s * .2], [x + s * .2, y - s * .2]], col, .55)];   // opposition
-  if (k === 2) return [line([[x, y - s * .45], [x + s * .45, y + s * .35], [x - s * .45, y + s * .35], [x, y - s * .45]], col, .55)];   // trine
-  if (k === 3) return [line([[x - s * .38, y - s * .38], [x + s * .38, y - s * .38], [x + s * .38, y + s * .38], [x - s * .38, y + s * .38], [x - s * .38, y - s * .38]], col, .55)];   // square
-  return [0, 1, 2].map(i => { const a = i * Math.PI / 3 + Math.PI / 2; return line([[x - Math.cos(a) * s * .45, y - Math.sin(a) * s * .45], [x + Math.cos(a) * s * .45, y + Math.sin(a) * s * .45]], col, .55); });   // sextile
-};
-// a moon in phase k of 8: its outline, the terminator, and the dark side hatched
-const moon = (k, c, R, col) => { const out = [hair(arc(c, R, 0, 2 * Math.PI, 24), col, { w: .5, start: 'cut', end: 'cut' })], f = Math.cos(k / 8 * 2 * Math.PI), side = k < 4 ? 1 : -1;
-  if (k === 4) return [bead(c, R, 'g'), ...out];
-  out.push(hair(Array.from({ length: 17 }, (_, i) => { const a = -Math.PI / 2 + i / 16 * Math.PI; return [c[0] + side * f * R * Math.cos(a) * -1, c[1] + R * Math.sin(a)]; }), col, { w: .4, start: 'cut', end: 'cut' }));
-  for (let i = -2; i <= 2; i++) { const yy = c[1] + i * R * .35, half = Math.sqrt(Math.max(0, R * R - (yy - c[1]) ** 2)); out.push(line([[c[0] - side * half * .92, yy], [c[0] - side * half * (f * side > 0 ? .1 : .9) * Math.abs(f), yy]], col, .3)); }
-  return out; };
-Object.assign(STYLES, {
-  // ---- Astrology (the printed ephemerides and almanacs; Renaissance nativities, round and square, as in Regiomontanus's
-  // tables and the square charts of the sixteenth century): navy and gold; a sign of the zodiac for each paragraph,
-  // aspects on a ruled line or the moon's phases closing a line, a house wheel between chapters, a chart between books
-  astrology: { label: 'Astrology', pair: ['navy', 'gold'], alternate: false, minGap: 1.6, theme: { rubric: 'rgb(32 48 106)', rubricDark: 'rgb(150 174 236)' },
-    ink: { navy: { solid: [28, 44, 100], hair: [34, 50, 108] }, gold: { solid: [178, 136, 48], hair: [172, 130, 46] } },
-    inkDark: { navy: { solid: [140, 166, 236], hair: [134, 160, 230] }, gold: { solid: [216, 174, 88], hair: [210, 168, 84] } },
-    setup: seed => { const r = stream(seed, 'astro'); return { kinds: pickKinds(r, ['aspects', 'phases', 'ecliptic'], 2), first: (r() * 12) | 0, chart: r() < .5 ? 'round' : 'square', wheel: r() < .5 }; },
-    kinds: (v, rich) => rich < .25 ? ['aspects'] : v.kinds,
-    paraph(x, base, u, seed, rich, v) { const r = stream(seed, 'ap'), k = (v.first + ((r() * 12) | 0)) % 12, out = zodiac(k, [x + u * .8, base - u * .62], u * .86, 'a', .72);
-      if (rich >= .5) out.push(hair(arc([x + u * 1.6, base - u * 1.25], u * .14, 0, 2 * Math.PI, 10), 'b', { w: .45, start: 'cut', end: 'cut' }));   // a degree sign
-      return out; },
-    filler(x0, x1, yTop, yBase, kind, seed, rich, v) {
-      const r = stream(seed, 'af'), h = yBase - yTop, mid = (yTop + yBase) / 2, out = [];
-      if (kind === 'phases') { const { n, p } = fitN(x1 - x0, h * 1.5); const k0 = (r() * 8) | 0; for (let k = 0; k < n; k++) out.push(...moon((k0 + k) % 8, [x0 + (k + .5) * p, mid], h * .4, 'a')); }
-      else if (kind === 'aspects') { const y = yBase - h * .02, { n, p } = fitN(x1 - x0, h * 1.9); out.push(line([[x0, y], [x1, y]], 'b', .4, { start: 'taper', end: 'taper' }));
-        for (let k = 0; k < n; k++) out.push(...aspect((k + ((r() * 5) | 0)) % 5, [x0 + (k + .5) * p, mid - h * .1], h * .6, k % 2 && rich >= .5 ? 'b' : 'a')); }
-      else { const y = mid + h * .1, { n, p } = fitN(x1 - x0, h * .45); out.push(line([[x0, y], [x1, y]], 'a', .45));   // the ecliptic: degrees ruled, a sign every thirty
-        for (let k = 0; k <= n; k++) out.push(line([[x0 + k * p, y], [x0 + k * p, y - h * (k % 6 === 0 ? .3 : .15)]], 'a', .35));
-        for (let k = 3; k < n; k += 6) out.push(...small(zodiac((v.first + k / 6 | 0) % 12, [x0 + k * p, y + h * .45], h * .32, 'b', .4))); }
-      return out; },
-    breakMark(cx, y, measure, rank, seed, rich, u, v) {
-      const r = stream(seed, 'ab'), out = [];
-      if (rank < 2) { if (v.wheel) { const R = u * 1.6; out.push(hair(arc([cx, y], R, 0, 2 * Math.PI, 40), 'a', { w: .55, start: 'cut', end: 'cut' }), hair(arc([cx, y], R * .45, 0, 2 * Math.PI, 24), 'a', { w: .45, start: 'cut', end: 'cut' }));
-          for (let k = 0; k < 12; k++) { const a = k / 12 * 2 * Math.PI; out.push(line([[cx + Math.cos(a) * R * .45, y + Math.sin(a) * R * .45], [cx + Math.cos(a) * R, y + Math.sin(a) * R]], 'a', .35)); }
-          out.push(bead([cx, y], u * .12, 'b')); }
-        else for (let k = 0; k < 5; k++) out.push(...moon(k * 2 % 8, [cx + (k - 2) * u * 1.3, y], u * .5, 'a'));
-        return out; }
-      const R = u * 3.2;
-      if (v.chart === 'round') {   // the wheel: two rings, twelve houses, the signs in their band, a few planets within
-        for (const f of [1, .78, .32]) out.push(hair(arc([cx, y], R * f, 0, 2 * Math.PI, 64), 'a', { w: f === 1 ? .6 : .45, start: 'cut', end: 'cut' }));
-        for (let k = 0; k < 12; k++) { const a = k / 12 * 2 * Math.PI - Math.PI / 2; out.push(line([[cx + Math.cos(a) * R * .32, y + Math.sin(a) * R * .32], [cx + Math.cos(a) * R, y + Math.sin(a) * R]], 'a', .35));
-          if (rich >= .25) { const b = a + Math.PI / 12; out.push(...small(zodiac((k + v.first) % 12, [cx + Math.cos(b) * R * .89, y + Math.sin(b) * R * .89], u * .22, 'b', .35))); } }
-      } else {   // the square chart: an outer square, a square within, the diamond between them, twelve houses
-        const S = R * .95, s2 = S / 2; out.push(line([[cx - S, y - S], [cx + S, y - S], [cx + S, y + S], [cx - S, y + S], [cx - S, y - S]], 'a', .6), line([[cx - s2, y - s2], [cx + s2, y - s2], [cx + s2, y + s2], [cx - s2, y + s2], [cx - s2, y - s2]], 'a', .5));
-        out.push(line([[cx, y - S], [cx + S, y], [cx, y + S], [cx - S, y], [cx, y - S]], 'a', .45));
-        for (const [a, b] of [[[cx - S, y - S], [cx - s2, y - s2]], [[cx + S, y - S], [cx + s2, y - s2]], [[cx + S, y + S], [cx + s2, y + s2]], [[cx - S, y + S], [cx - s2, y + s2]]]) out.push(line([a, b], 'a', .4));
-        if (rich >= .25) for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 - Math.PI / 2; out.push(...small(zodiac((v.first + k * 3) % 12, [cx + Math.cos(a) * S * .72, y + Math.sin(a) * S * .72], u * .26, 'b', .38))); }
-      }
-      for (let k = 0; k < (rich >= .5 ? 3 : 2); k++) out.push(...glyph(['sun', 'moon', 'mars', 'venus', 'saturn'][(r() * 5) | 0], [cx + (r() - .5) * R * .35, y + (r() - .5) * R * .35], u * .22, 'b', .4));
-      if (rich >= .25) for (const s of [-1, 1]) out.push(line([[cx + s * (R + u * .6), y], [cx + s * Math.min(measure * .3, R + u * 6), y]], 'b', .45, { start: s > 0 ? 'cut' : 'taper', end: s > 0 ? 'taper' : 'cut' }));
-      return out; } },
-});
+// (the style's place in the registry's list: Astrology is kit/styles/astrology.js, a written style, which kit/illum.js puts here)
+STYLES.astrology = null;
 
 // the vocabulary, for the initials and frames that grow from the same hands (kit/initials.js, kit/frames.js)
 export { line, poly, glyph, restOn, SIGNS, sigil, cpStroke, cpOval, beauty, slantOval, cubic, fitN, spindle, leaf, lash, lashStroke, bud, pressed };

@@ -1,5 +1,5 @@
 // The audit of a rubricated page (06's, lifted): from the strokes as they were drawn (rubricate(...).state), count
-//   text   points of ornament inside a word's box,
+//   text   points of ornament inside a word's box (an initial in the line excepted against its own word, which it begins),
 //   cross  pixels where marks of two different ornaments overlap,
 //   self   pixels where two strokes of one ornament run over each other away from their ends: a doubling. Join-aware:
 //          where the two meet at an angle (a crossing, an interlace, a T standing on a line) the overlap is the join
@@ -16,7 +16,8 @@ export function audit({ drawn, words, scale = 1, dropped = {}, sr }, { where: ke
       const a = samples[Math.max(0, k - 2)], b = samples[Math.min(samples.length - 1, k + 2)], th = Math.atan2(b[1] - a[1], b[0] - a[0]);
       // the ink at a sample lies across the stroke, not in a disc round it (a wide stroke's cut end is square)
       const across = d.dot ? null : [-1, -.5, 0, .5, 1].map(f => [x - Math.sin(th) * R * f, y + Math.cos(th) * R * f]);
-      { const hitR = words.find(r => across ? across.some(([qx, qy]) => qx > r.l && qx < r.r && qy > r.t + 2 && qy < r.b - 2) : x + R > r.l && x - R < r.r && y + R > r.t + 2 && y - R < r.b - 2); if (hitR) { bump(d.type, 'text'); if ((res.where ??= []).length < 6) res.where.push([d.type, Math.round(x), Math.round(y), Math.round(hitR.l), Math.round(hitR.t), Math.round(hitR.r), Math.round(hitR.b)]); } }
+      // (an initial in the line touches its own word, the rest of the word it begins, by design)
+      if (!(d.own && x > d.own[0] - R - 1 && x < d.own[2] + R + 1 && y > d.own[1] - R && y < d.own[3] + R)) { const hitR = words.find(r => across ? across.some(([qx, qy]) => qx > r.l && qx < r.r && qy > r.t + 2 && qy < r.b - 2) : x + R > r.l && x - R < r.r && y + R > r.t + 2 && y - R < r.b - 2); if (hitR) { bump(d.type, 'text'); if ((res.where ??= []).length < 6) res.where.push([d.type, Math.round(x), Math.round(y), Math.round(hitR.l), Math.round(hitR.t), Math.round(hitR.r), Math.round(hitR.b)]); } }
       for (let j = Math.floor(y - R); j <= Math.ceil(y + R); j++) for (let i = Math.floor(x - R); i <= Math.ceil(x + R); i++) {
         if (i < 0 || j < 0 || i >= W || j >= H || Math.hypot(i + .5 - x, j + .5 - y) > R + .25) continue; const c = j * W + i;
         if (!own[c]) { own[c] = d.mi + 1; st[c] = si + 1; ang[c] = th; continue; }

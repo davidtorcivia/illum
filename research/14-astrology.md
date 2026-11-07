@@ -107,7 +107,14 @@ test, as polygons).
   day column.
 - Palette: light k [56 42 32], r [178 62 36]; dark k [226 214 194], r [236 120 86].
 - ?draw: per case the black (ruling, then the planets' pens), then the red, then the lettering, as each case's line comes
-  15 % into view; never scrolls (the reader is tests/occult.html's of before rubricate(): the style is not in the registry).
+  15 % into view; never scrolls.
+- In the one library (kit/illum.js): rubricate(root, { style: 'astrology' }) lays the specimen pixel for pixel (tests/
+  astrology.html is a thin page on it). What the library learned for it: initial.lines (a style's own drop depth, under the
+  host's data-lines), a written frame given its element's data-* and rubricate's `frame` options (data-form / { form }),
+  print told whether a case is written as you watch (a still pours small lettering per cluster). Where a page leaves less
+  room than the specimen (cases.html), the quotation, aside and code boxes step clear of their words, the aside drops its
+  NOTA band and the code its ephemeris head, the octagon's band draws in to the figure's margins, and a book's volvelle
+  is drawn to stand in its break.
 
 What falls short (at the 4× gate): the figure is still sparer than Lilly's (five planets, not seven, and no aspects or
 part of fortune in the houses); the cusp writing beside the line, not on it as Lilly prints it; the planets are a pen's
