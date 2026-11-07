@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Type · illum</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try { var t = localStorage.getItem('illum-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/faces-all.css">
+<style>
+  main { padding: 2.2rem 40px 0; max-width: 1240px; }
+  h1 { font: 400 var(--s4)/1.1 var(--display); margin: 0 0 .3em; }
+  .lede { max-width: 33rem; margin: 0 0 2.5rem; }
+  .opt { display: grid; grid-template-columns: minmax(0, 36rem) minmax(0, 20rem); gap: 1rem 3rem; padding: 2.2rem 0 2.6rem; border-top: 1px solid var(--rule); }
+  .opt > header { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: .2em 1em; }
+  .opt > header h2 { font: italic 400 var(--s1)/1.2 var(--text); margin: 0; }
+  .opt > header p { margin: 0; color: var(--quiet); font-size: var(--s-1); }
+  .sample h3 { font-weight: 400; font-size: var(--s4); line-height: 1.05; margin: 0 0 .1em; }
+  .sample h4 { font-weight: 400; font-size: var(--s2); line-height: 1.2; margin: 1.1em 0 .3em; }
+  .sample p { margin: 0 0 .6em; font-size: 1rem; line-height: 1.55; hyphens: auto; }
+  .sample .cap { font-style: italic; color: var(--quiet); font-size: var(--s-1); }
+  .sample pre { font-size: .8rem; line-height: 1.5; margin: 1em 0 0; white-space: pre-wrap; }
+  .why p { margin: 0 0 .7em; font-size: var(--s-1); line-height: 1.5; }
+  .why .chosen { font-style: italic; }
+  /* the three pairings */
+  .a .sample { font-family: "Junicode"; } .a h3, .a h4 { font-family: "Fell Great Primer"; } .a pre { font-family: "Courier Prime"; }
+  .b .sample { font-family: "Source Serif 4"; font-optical-sizing: auto; } .b h3, .b h4 { font-family: "Source Serif 4"; font-weight: 500; } .b pre { font-family: "Plex Mono"; }
+  .c .sample { font-family: "EB Garamond 12"; } .c h3, .c h4 { font-family: "Fell Great Primer"; } .c pre { font-family: "Plex Mono"; }
+  .why, .why p { font-family: var(--text); }
+  @media (max-width: 760px) { main { padding: 1.4rem 16px 0; } .opt { grid-template-columns: 1fr; gap: .8rem; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the text</a>
+<header class="mast">
+  <a class="name" href="./">illum</a>
+  <nav aria-label="Site"><ul>
+    <li><a href="styles/blackletter.html">Blackletter</a></li><li><a href="styles/tarot.html">Tarot</a></li><li><a href="styles/occult.html">Occult</a></li><li><a href="styles/astrology.html">Astrology</a></li><li><a href="styles/draft.html">Draft</a></li>
+    <li class="gap"><a href="use.html">Use</a></li><li><a href="principles.html">Principles</a></li><li><a href="engine.html">Engine</a></li>
+  </ul></nav>
+  <button class="theme" type="button">Dark</button>
+</header>
+<main id="main">
+  <h1>Type</h1>
+  <p class="lede">Three pairings for the site’s own text, headings and code, set with the same words. The site is set in A. The rubricated texts keep EB Garamond whichever is chosen, since the ornament is measured against it. Every face here, and every face the styles draw letters from, is under the SIL Open Font License 1.1; the licence files are in the site’s <code>faces</code> and <code>fonts</code> folders.</p>
+
+  <section class="opt a" aria-labelledby="a">
+    <header><h2 id="a">A. Oxford</h2><p>Junicode 2 · IM Fell Great Primer · Courier Prime</p></header>
+    <div class="sample">
+      <h3>Christian Astrology</h3>
+      <p>William Lilly printed his square figure of the heavens in London in 1647. The middle square, he wrote, “is to write the day, yeer, and hour”. <span class="sc">MS 4670</span> in the Wellcome Collection was copied about 1725; its planetary signs are drawn in red, 230 pixels high in a cell of 330.</p>
+      <p><i>The Tarot de Marseille of Nicolas Conver, 1760, in the Bibliothèque nationale de France.</i></p>
+      <h4>Using it</h4>
+      <p class="cap">Figure 3. The Kelmscott Chaucer, 1896, with 87 woodcuts after Edward Burne-Jones.</p>
+<pre>rubricate(article, { style: 'tarot', rich: 0.5 });</pre>
+    </div>
+    <div class="why">
+      <p>Junicode is Peter S. Baker’s face for medievalists, modelled on the Pica Roman that Oxford University bought in 1692 and used for George Hickes’s <i>Thesaurus</i> of the northern languages (1703–05). The Fell types came to the same press some twenty years before, so text and headings share a press and an era.</p>
+      <p>Junicode has true small caps (<span class="sc">MS 4670</span>), old-style figures (1647, 1725) and a weight axis. Beside the specimens’ EB Garamond it is related without being the same.</p>
+      <p>Courier Prime is a typewriter face with its serifs intact, nearer to a printer’s or a scholar’s desk than to a programmer’s editor.</p>
+      <p class="chosen">The recommendation, and what the site is built in.</p>
+    </div>
+  </section>
+
+  <section class="opt b" aria-labelledby="b">
+    <header><h2 id="b">B. Fournier</h2><p>Source Serif 4 · Source Serif 4 Display · IBM Plex Mono</p></header>
+    <div class="sample">
+      <h3>Christian Astrology</h3>
+      <p>William Lilly printed his square figure of the heavens in London in 1647. The middle square, he wrote, “is to write the day, yeer, and hour”. <span class="sc">MS 4670</span> in the Wellcome Collection was copied about 1725; its planetary signs are drawn in red, 230 pixels high in a cell of 330.</p>
+      <p><i>The Tarot de Marseille of Nicolas Conver, 1760, in the Bibliothèque nationale de France.</i></p>
+      <h4>Using it</h4>
+      <p class="cap">Figure 3. The Kelmscott Chaucer, 1896, with 87 woodcuts after Edward Burne-Jones.</p>
+<pre>rubricate(article, { style: 'tarot', rich: 0.5 });</pre>
+    </div>
+    <div class="why">
+      <p>Frank Grießhammer’s Source Serif follows the types of Pierre-Simon Fournier (Paris, 1740s). Version 4 has an optical size axis, so the headings use the cut drawn for large sizes and the text the one drawn for reading.</p>
+      <p>The clearest of the three on a screen, and the plainest. It would suit a library’s documentation anywhere; that is also its weakness here.</p>
+    </div>
+  </section>
+
+  <section class="opt c" aria-labelledby="c">
+    <header><h2 id="c">C. Garamond</h2><p>EB Garamond · IM Fell Great Primer · IBM Plex Mono</p></header>
+    <div class="sample">
+      <h3>Christian Astrology</h3>
+      <p>William Lilly printed his square figure of the heavens in London in 1647. The middle square, he wrote, “is to write the day, yeer, and hour”. <span class="sc">MS 4670</span> in the Wellcome Collection was copied about 1725; its planetary signs are drawn in red, 230 pixels high in a cell of 330.</p>
+      <p><i>The Tarot de Marseille of Nicolas Conver, 1760, in the Bibliothèque nationale de France.</i></p>
+      <h4>Using it</h4>
+      <p class="cap">Figure 3. The Kelmscott Chaucer, 1896, with 87 woodcuts after Edward Burne-Jones.</p>
+<pre>rubricate(article, { style: 'tarot', rich: 0.5 });</pre>
+    </div>
+    <div class="why">
+      <p>Georg Duffner’s revival of the Garamond types shown in the Egenolff-Berner specimen, Frankfurt, 1592. Full small caps, old-style figures and historical ligatures.</p>
+      <p>It is the specimens’ own face. The site and the work would speak with one voice, and the site would not stand apart from what it shows.</p>
+    </div>
+  </section>
+</main>
+<p class="colophon">Faces subset to Latin-1 and punctuation with fontTools. Roman, italic, headings and code together: A 277 KB, B 358 KB, C 238 KB.</p>
+<script type="module" src="js/site.js"></script>
+</body>
+</html>

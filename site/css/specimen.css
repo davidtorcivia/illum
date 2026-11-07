@@ -1,0 +1,94 @@
+/* A rubricated text on this site: the specimen pages' type and boxes (playground/tests/*.html), one rule set per style.
+   The frames are drawn in their boxes' padding, so each style asks for its own room; the values are the test pages'.
+   The text is EB Garamond, as in the specimens: illum measures its marks against that face. */
+@font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
+
+.sheet { position: relative; max-width: 900px; padding: 110px 100px 120px 200px; box-sizing: border-box; font: 400 20px/1.6 "EB Garamond", Garamond, serif;
+  --paper: rgb(244 238 226); --rubric: rgb(160 64 40); }
+:root[data-theme="dark"] .sheet { --paper: rgb(28 25 22); --rubric: rgb(222 120 92); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sheet { --paper: rgb(28 25 22); --rubric: rgb(222 120 92); } }
+.sheet > canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+.sheet .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; font-variant-numeric: normal; }
+.sheet h1 { font: 500 1em/1.6 "EB Garamond", serif; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .15em; }
+.sheet .sub { font-style: italic; margin: 0 0 2.4em; }
+.sheet h2 { font: 500 1em/1.6 "EB Garamond", serif; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
+.sheet p { margin: 0; }
+.sheet p.par { text-indent: 1.8em; }
+.sheet hr { border: 0; height: 3.4em; margin: .4em 0; }
+.sheet hr[data-rank="2"] { height: 9em; margin: 1em 0 0; }
+.sheet a { text-decoration-color: currentColor; text-decoration-thickness: .5px; text-underline-offset: .18em; }
+.sheet nav.toc { margin: 0 0 2.4em; font-style: italic; }
+.sheet nav.toc ol { list-style: none; margin: 0; padding: 0; }
+.sheet blockquote { margin: 3em 0 1.6em; padding: 0 1.3em 0 1.4em; }
+.sheet blockquote p { margin: 0 0 .3em; }
+.sheet blockquote footer { font-style: italic; font-size: .9em; text-align: right; margin-top: .9em; }
+.sheet figure { margin: 4.4em auto 2em; max-width: 24em; }
+.sheet figure svg { display: block; width: 100%; height: auto; }
+.sheet figure svg g { stroke: var(--ink); }
+.sheet figcaption { font-style: italic; font-size: .9em; margin-top: 1.6em; text-align: left; hyphens: manual; }
+.sheet pre { margin: 1.8em 0; padding: 3.5em 2.7em; font: 15px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; hyphens: none; }
+.sheet .pull { margin: 3em 1.5em; font-size: 1.35em; line-height: 1.4; font-style: italic; text-align: center; hyphens: manual; }
+.sheet aside.note { margin: 2.6em 0 2.4em 2em; padding: 3.4em 1.4em 4em; font-size: .9em; }
+.sheet aside.note p { margin: 0 0 .6em; }
+/* the initial is text; its ink is on the canvas behind it */
+.sheet .ini { color: transparent; }
+.sheet .ini.drop { float: left; line-height: 1; }
+.sheet .ini.line { display: inline-block; font-size: 1.8em; line-height: 0; margin-right: .12em; }
+
+/* Blackletter */
+.sheet[data-style="blackletter"] { --rubric: rgb(170 44 28); }
+:root[data-theme="dark"] .sheet[data-style="blackletter"] { --rubric: rgb(232 110 86); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sheet[data-style="blackletter"] { --rubric: rgb(232 110 86); } }
+[data-style="blackletter"] p.par { text-indent: 1.6em; }
+[data-style="blackletter"] hr { height: 3.2em; }
+[data-style="blackletter"] hr[data-rank="2"] { height: 4.6em; margin: .4em 0; }
+[data-style="blackletter"] blockquote { margin: 1.4em 0; padding: 0 0 0 2.4em; }
+[data-style="blackletter"] blockquote footer { margin-top: 0; }
+[data-style="blackletter"] figure { margin: 2.8em auto 2em; }
+[data-style="blackletter"] pre { padding: 1.3em 1.6em; }
+[data-style="blackletter"] .pull { margin: 2.8em 1.5em; }
+[data-style="blackletter"] aside.note { margin: 2em 0 2em 2.5em; padding: 1em 0 .2em 1.4em; }
+[data-style="blackletter"] .ini { font-weight: 600; }
+[data-style="blackletter"] .ini.line { margin-right: .1em; }
+
+/* Occult */
+[data-style="occult"] pre { padding: 6.6em 2.7em 2.2em; }
+[data-style="occult"] aside.note { padding: 2.8em 1.4em 3em; }
+
+/* Astrology */
+[data-style="astrology"] figure { margin: 4.4em auto; }
+[data-style="astrology"] pre { padding: 8.2em 2.7em 2.2em; }
+[data-style="astrology"] aside.note { padding: 3.6em 1.4em 1.6em; }
+
+/* Draft */
+.sheet[data-style="draft"] { --rubric: rgb(150 52 36); }
+[data-style="draft"] hr { height: 4.2em; }
+[data-style="draft"] hr[data-rank="2"] { height: 7.4em; margin: 1.4em 0 0; }
+[data-style="draft"] nav.toc ol { padding: 1.7em 0 .5em 3.9em; }
+[data-style="draft"] blockquote { margin: 2.2em 0 1.8em; padding: 2.4em 2.6em 7.8em; }
+[data-style="draft"] blockquote footer { text-align: left; margin-top: .6em; }
+[data-style="draft"] figure { margin: 3em auto 2.4em; }
+[data-style="draft"] figcaption { margin-top: 4.6em; }
+[data-style="draft"] pre { padding: 2.3em 1em .5em 4.2em; line-height: 24px; }
+[data-style="draft"] .pull { margin: 3.2em 0 2.4em 2.2em; text-align: left; }
+[data-style="draft"] aside.note { margin: 2.8em 0 2.4em 1em; padding: 1.3em 1.4em .7em; }
+
+@media (max-width: 640px) {
+  .sheet { padding: 56px 16px 72px 48px; font-size: 18px; line-height: 1.55; }
+  .sheet .text { text-align: left; }
+  .sheet blockquote { padding: 0 .9em 0 1em; }
+  .sheet pre { padding: 3.5em 2.3em; font-size: 13.5px; }
+  .sheet .pull { margin: 2.8em .4em; }
+  .sheet aside.note { margin-left: 0; }
+  [data-style="blackletter"] blockquote { padding: 0 0 0 2em; }
+  [data-style="blackletter"] pre { padding: 1.2em 1.1em; }
+  [data-style="blackletter"] .pull { margin: 2.6em .4em; }
+  [data-style="blackletter"] aside.note { margin-left: .8em; }
+  [data-style="occult"] pre { padding: 6em 2.3em 2em; }
+  [data-style="astrology"] pre { padding: 9.6em 2.3em 2em; }
+  [data-style="draft"] blockquote { padding: 2.2em 2em 8.4em; margin-left: -1.4em; margin-right: -.4em; }
+  [data-style="draft"] pre { padding: 2.3em .6em .5em 3.2em; font-size: 13px; margin-left: -.8em; }
+  [data-style="draft"] .pull { margin: 3em 0 2.4em 1.8em; }
+  [data-style="draft"] nav.toc ol { padding-left: 3.2em; }
+}

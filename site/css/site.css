@@ -1,0 +1,128 @@
+/* illum site: type, colour and the page furniture shared by every page.
+   Faces (SIL OFL 1.1, subset to Latin-1 and punctuation, licences in ../faces/):
+   Junicode 2 (Peter S. Baker) for text; IM Fell Great Primer (Igino Marini) for headings; Courier Prime for code. */
+@font-face { font-family: "Junicode"; src: url(../faces/junicode-roman.woff2) format("woff2"); font-weight: 300 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Junicode"; src: url(../faces/junicode-italic.woff2) format("woff2"); font-weight: 300 700; font-style: italic; font-display: swap; }
+@font-face { font-family: "Fell Great Primer"; src: url(../faces/fell-greatprimer-roman.woff2) format("woff2"); font-display: swap; }
+@font-face { font-family: "Fell Great Primer"; src: url(../faces/fell-greatprimer-italic.woff2) format("woff2"); font-style: italic; font-display: swap; }
+@font-face { font-family: "Courier Prime"; src: url(../faces/courierprime-roman.woff2) format("woff2"); font-display: swap; }
+@font-face { font-family: "Courier Prime"; src: url(../faces/courierprime-italic.woff2) format("woff2"); font-style: italic; font-display: swap; }
+
+/* Colour. The paper and the inks are the ones the specimens were tuned on; the site itself uses only ink (the reds belong
+   to the ornament and to the rubrics inside the specimens). Dark is a page at night, warm, not an inverted print. */
+:root {
+  --paper: rgb(245 240 230); --ink: rgb(40 32 26); --quiet: rgb(92 80 70); --rule: rgb(40 32 26 / .3); --rubric: rgb(160 52 34);
+  --text: "Junicode", "EB Garamond", Georgia, serif; --display: "Fell Great Primer", "Junicode", Georgia, serif;
+  --mono: "Courier Prime", "Courier New", monospace;
+  --s-1: .84rem; --s0: 1rem; --s1: 1.25rem; --s2: 1.56rem; --s3: 1.95rem; --s4: 2.75rem;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: rgb(28 25 22); --ink: rgb(228 218 202); --quiet: rgb(176 164 148); --rule: rgb(228 218 202 / .28); --rubric: rgb(230 118 90); color-scheme: dark; } }
+:root[data-theme="dark"] { --paper: rgb(28 25 22); --ink: rgb(228 218 202); --quiet: rgb(176 164 148); --rule: rgb(228 218 202 / .28); --rubric: rgb(230 118 90); color-scheme: dark; }
+
+html { background: var(--paper); font-size: 20px; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 1rem/1.55 var(--text);
+  font-kerning: normal; font-variant-ligatures: common-ligatures; font-variant-numeric: oldstyle-nums proportional-nums;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+a { color: inherit; text-decoration-thickness: .06em; text-underline-offset: .16em; text-decoration-color: var(--rule); }
+a:hover { text-decoration-color: currentColor; }
+:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+code, pre, kbd { font-family: var(--mono); font-variant-ligatures: none; }
+code { font-size: .9em; }
+.sc { font-variant-caps: all-small-caps; letter-spacing: .04em; }
+.skip { position: absolute; left: -999px; }
+.skip:focus { left: 16px; top: 8px; z-index: 10; background: var(--paper); padding: .2em .4em; }
+
+/* the masthead: the name, the places, the switch. One line on a desk, two on a phone */
+.mast { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2em 1.6em; padding: 22px 40px 0; }
+.mast .name { font: 1.7rem/1 var(--display); text-decoration: none; margin-right: .4em; }
+.mast nav ul { display: flex; flex-wrap: wrap; gap: .1em 1.05em; margin: 0; padding: 0; list-style: none; }
+.mast nav a { text-decoration: none; font-variant-caps: all-small-caps; letter-spacing: .05em; font-size: 1.05rem; }
+.mast nav a:hover, .mast nav a[aria-current] { text-decoration: underline; text-decoration-color: currentColor; }
+.mast nav .gap { margin-left: .9em; }
+.theme { margin-left: auto; font: italic 1rem var(--text); color: inherit; background: none; border: 0; padding: .3em 0; cursor: pointer; }
+.theme:hover { text-decoration: underline; }
+
+/* the foot of every page */
+.colophon { max-width: 34rem; margin: 0 0 0 40px; padding: 3rem 0 3rem; font-size: var(--s-1); line-height: 1.5; color: var(--quiet); font-style: italic; }
+
+@media (max-width: 640px) {
+  html { font-size: 18px; }
+  .mast { padding: 14px 16px 0; gap: .1em 1em; }
+  .mast nav { order: 3; width: 100%; }
+  .mast nav ul { gap: 0 .85em; }
+  .mast nav .gap { margin-left: 0; }
+  .colophon { margin: 0 16px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+/* a page with a rubricated text: the text on the left as a specimen sheet, the margin on the right holding the title,
+   the caption and the controls (a gloss beside the text). On a phone the margin comes first, above the text */
+.stage { display: grid; grid-template-columns: minmax(0, 900px) minmax(16rem, 19rem); column-gap: 2rem; align-items: start; padding-right: 40px; }
+.stage > .sheet { grid-column: 1; grid-row: 1; }
+.margin { grid-column: 2; grid-row: 1; position: sticky; top: 0; max-height: 100vh; overflow-y: auto; box-sizing: border-box; padding: 104px 0 2rem; }
+.margin h1 { font: 400 var(--s4)/1 var(--display); margin: 0 0 .35em; }
+.margin .caption { margin: 0 0 1em; font-size: var(--s0); line-height: 1.5; }
+.margin .aside { margin: 0 0 1.4rem; font-size: var(--s-1); color: var(--quiet); font-style: italic; }
+.margin .also { font-size: var(--s-1); margin: 1.4rem 0 0; }
+
+.controls { font-size: var(--s-1); line-height: 1.4; }
+.controls fieldset { border: 0; margin: 0 0 .9rem; padding: 0; min-width: 0; }
+.controls legend, .controls .row > label:first-child { font-style: italic; padding: 0; color: var(--quiet); }
+.controls fieldset label { display: inline-flex; align-items: center; gap: .3em; margin: .2em 1.1em .2em 0; cursor: pointer; }
+.controls .row { display: grid; grid-template-columns: 5.6em 1fr auto; align-items: center; gap: .6em; margin: 0 0 .7rem; }
+.controls .row.wide { grid-template-columns: 5.6em 1fr; }
+.controls output { min-width: 3.4em; font-variant-numeric: oldstyle-nums tabular-nums; }
+.controls input[type=radio] { accent-color: var(--ink); margin: 0; width: 1em; height: 1em; }
+.controls input[type=number], .controls input[type=text] { font: inherit; color: inherit; background: transparent; border: 0; border-bottom: 1px solid var(--rule); padding: .15em 0; width: 100%; min-width: 0; font-variant-numeric: lining-nums tabular-nums; }
+.controls input[type=number]:focus, .controls input[type=text]:focus { border-bottom-color: currentColor; outline: none; }
+.controls input[type=number]:focus-visible, .controls input[type=text]:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.controls button { font: italic 1em var(--text); color: inherit; background: none; border: 1px solid var(--rule); padding: .2em .6em; cursor: pointer; min-height: 2em; }
+.controls button:hover { border-color: currentColor; }
+/* a slider as a thin rule with a ring on it */
+.controls input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 1.6em; margin: 0; background: transparent; color: inherit; cursor: pointer; }
+.controls input[type=range]::-webkit-slider-runnable-track { height: 1px; background: currentColor; }
+.controls input[type=range]::-moz-range-track { height: 1px; background: currentColor; }
+.controls input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: .9em; height: .9em; margin-top: calc(-.45em + .5px); border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
+.controls input[type=range]::-moz-range-thumb { width: .9em; height: .9em; border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
+.controls .still-note { margin: .3em 0 0; font-style: italic; color: var(--quiet); }
+
+/* the notes and sources under a specimen: in the text's column */
+.notes { max-width: 36rem; margin: 0 0 0 200px; padding: 1rem 0 0; }
+.notes h2 { font: 400 var(--s2)/1.2 var(--display); margin: 1.6em 0 .5em; }
+.notes dl { margin: 0; }
+.notes dt { font-style: italic; margin: .9em 0 0; }
+.notes dd { margin: 0; }
+.notes ul.sources { list-style: none; padding: 0; margin: 0; }
+.notes ul.sources li { margin: 0 0 .75em; padding-left: 1.2em; text-indent: -1.2em; }
+.notes .small { font-size: var(--s-1); color: var(--quiet); }
+
+@media (max-width: 1180px) {
+  .stage { display: block; padding: 0; }
+  .margin { position: static; max-height: none; overflow: visible; padding: 2rem 40px 0; max-width: 36rem; }
+  .margin h1 { font-size: var(--s4); }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; column-gap: 2rem; }
+  .notes { margin-left: 40px; }
+}
+@media (max-width: 640px) {
+  .margin { padding: 1.4rem 16px 0; }
+  .controls { display: block; }
+  .notes { margin: 0 16px; }
+}
+.margin .gloss { margin: 0 0 1.2rem; font-style: italic; }
+.controls fieldset.styles label { display: flex; margin: .25em 0; }
+@media (max-width: 1180px) { .home .controls { display: block; } .controls fieldset.styles label { display: inline-flex; margin-right: 1.1em; } }
+.stage.solo { grid-template-columns: minmax(0, 900px); }
+.sheet .sources { font-size: .8em; line-height: 1.5; font-style: italic; text-align: left; hyphens: manual; }
+/* documentation inside a rubricated text */
+.sheet table { width: 100%; border-collapse: collapse; margin: 1em 0 1.2em; font-size: .85em; line-height: 1.45; text-align: left; hyphens: manual; }
+.sheet th { font-weight: 400; font-style: italic; text-align: left; padding: 0 .8em .3em 0; border-bottom: 1px solid var(--rule); }
+.sheet td { vertical-align: top; padding: .45em .8em .45em 0; border-bottom: 1px solid var(--rule); }
+.sheet td:first-child { white-space: nowrap; }
+.sheet p code, .sheet td code { font-size: .82em; overflow-wrap: anywhere; }
+.sheet td:first-child code { overflow-wrap: normal; }
+/* the controls fold away on a phone, so the first screen reaches the text; on a desk the summary is not shown */
+.ctl > summary { cursor: pointer; font-style: italic; color: var(--quiet); font-size: var(--s-1); padding: .4em 0; }
+.ctl[open] > summary { margin-bottom: .6rem; }
+@media (min-width: 1181px) { .ctl > summary { display: none; } }

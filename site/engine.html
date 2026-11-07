@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The ink engine · illum</title>
+<meta name="description" content="How illum's marks are written: a simulated pen and ink in the browser, and the penwork initial that came first.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try { var t = localStorage.getItem('illum-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="stylesheet" href="css/site.css">
+<style>
+  .prose { max-width: 34rem; margin: 0 0 0 200px; padding: 110px 0 0; hyphens: auto; }
+  .prose h1 { font: 400 var(--s4)/1.05 var(--display); margin: 0 0 .5em; }
+  .prose h2 { font: 400 var(--s2)/1.2 var(--display); margin: 2em 0 .5em; }
+  .prose p { margin: 0 0 .9em; }
+  .prose .first { font-size: var(--s1); line-height: 1.45; }
+  .forerunner { margin: 1.4rem 0 0; }
+  .forerunner iframe { display: block; width: 100%; max-width: 1100px; height: 1080px; border: 0; background: var(--paper); }
+  .forerunner p { max-width: 34rem; margin: 0 0 .6em 200px; font-size: var(--s-1); color: var(--quiet); }
+  @media (max-width: 1180px) { .prose { margin-left: 40px; } .forerunner p { margin-left: 40px; } }
+  @media (max-width: 640px) { .prose { margin: 0 16px; padding-top: 2rem; } .forerunner p { margin: 0 16px .6em; } .forerunner iframe { height: 1240px; } }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the text</a>
+<header class="mast">
+  <a class="name" href="./">illum</a>
+  <nav aria-label="Site"><ul>
+    <li><a href="styles/blackletter.html">Blackletter</a></li><li><a href="styles/tarot.html">Tarot</a></li><li><a href="styles/occult.html">Occult</a></li><li><a href="styles/astrology.html">Astrology</a></li><li><a href="styles/draft.html">Draft</a></li>
+    <li class="gap"><a href="use.html">Use</a></li><li><a href="principles.html">Principles</a></li><li><a href="engine.html" aria-current="page">Engine</a></li>
+  </ul></nav>
+  <button class="theme" type="button">Dark</button>
+</header>
+<main id="main">
+  <article class="prose">
+    <h1>The ink engine</h1>
+    <p class="first">Every mark on this site is written by a simulated pen into a simulated sheet, in the reader’s browser, with WebGL2.</p>
+    <p>The pen follows the hand through a damped spring, as a held pen does, so a curve has a real hand’s slight lag and overshoot. The nib’s edge lays ink over exactly the area it sweeps, and a broad nib makes its thick and thin strokes by its angle. Ink flows with time: it lands heavier where the pen slows, at a touch-down or a turn, and finer in a quick stroke. As the pen’s charge runs down, the ink catches only the high points of the paper and the line breaks dry. Within one stroke the ink is one deposit. Where a stroke crosses an earlier one the ink lies on ink and is darker.</p>
+    <p>A typeface capital is laid into the same medium as a single pour, so its edge has the same feathering as the pen’s lines round it. Tarot’s stencil colours go in the same way, beneath the line.</p>
+    <p>A long page is written through one working window that moves down it. When the next mark falls outside the window, the ink in it is dried and pressed into a flat layer, and the window moves on.</p>
+    <h2 id="forerunner">The forerunner</h2>
+    <p>The penwork initial below was the first piece the engine wrote, after the Lombard initials of a North Italian psalter leaf of the early fifteenth century (The Metropolitan Museum of Art, <a href="https://www.metmuseum.org/art/collection/search/466773">466773</a>). It is still being reworked and is not yet one of the styles. The slider at its foot sets how much penwork the scribe was paid for.</p>
+  </article>
+  <figure class="forerunner">
+    <iframe src="lab/03-penwork-initial.html" title="Penwork initial, a working study" loading="lazy"></iframe>
+    <figcaption><p><a href="lab/03-penwork-initial.html">Open it on its own page</a></p></figcaption>
+  </figure>
+</main>
+<footer class="colophon">Set in Junicode and IM Fell Great Primer. Made by David Torcivia, 2026. <a href="type.html">Type</a>.</footer>
+<script type="module">
+import { theme } from './js/site.js';
+const f = document.querySelector('.forerunner iframe'), set = () => { const u = new URL(f.src, location.href); u.searchParams.set('theme', theme()); f.src = u.pathname + u.search; };
+set(); addEventListener('themechange', set);
+</script>
+</body>
+</html>

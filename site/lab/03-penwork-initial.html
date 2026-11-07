@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Penwork initial</title>
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(176 58 36); color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: rgb(29 26 23); --ink: rgb(226 218 204); --rubric: rgb(232 112 88); color-scheme: dark; } }
+  :root[data-theme="dark"] { --paper: rgb(29 26 23); --ink: rgb(226 218 204); --rubric: rgb(232 112 88); color-scheme: dark; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
+  .sheet { position: relative; max-width: 900px; margin: 0 auto; padding: 120px 100px 120px 200px; box-sizing: border-box; }
+  .sheet canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .15em; }
+  .sub { font-style: italic; margin: 0 0 2.1em; }
+  p { margin: 0; } p + p:not(.sub + p) { text-indent: 1.5em; }
+  .text p.later { text-indent: 0; }
+  /* the letter is text; its paint is on the canvas behind. Sizes are set from the font's metrics once it has loaded */
+  .ini { color: transparent; font-weight: 600; }
+  .ini.drop { float: left; line-height: 1; }
+  .ini.line { font-size: 1.5em; line-height: 0; margin-right: .04em; }
+  .ghost .ini { color: rgb(255 0 160 / .45); }
+  .colophon a { color: inherit; }
+  .colophon { max-width: 900px; margin: 0 auto; padding: 0 100px 60px 200px; box-sizing: border-box; font-size: 14px; font-style: italic; opacity: .6; }
+  /* the richness control: a thin rule with a small ring on it, as quiet as the line it sits in */
+  .rich { display: inline-flex; align-items: center; gap: .45em; white-space: nowrap; }
+  .rich input { -webkit-appearance: none; appearance: none; width: 6.5em; height: 1.1em; margin: 0; background: transparent; color: inherit; cursor: pointer; }
+  .rich input::-webkit-slider-runnable-track { height: 1px; background: currentColor; }
+  .rich input::-moz-range-track { height: 1px; background: currentColor; }
+  .rich input::-webkit-slider-thumb { -webkit-appearance: none; width: .62em; height: .62em; margin-top: calc(-.31em + .5px); border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
+  .rich input::-moz-range-thumb { width: .62em; height: .62em; border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
+  .rich input:focus-visible { outline: 1px dotted currentColor; outline-offset: 3px; }
+  .rich output { min-width: 3.2em; }
+  @media (max-width: 640px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .sheet { padding: 64px 20px 80px 44px; }
+    .text { text-align: left; }
+    .colophon { padding: 0 20px 40px 44px; }
+  }
+</style>
+</head>
+<body>
+<main class="sheet">
+  <article class="text">
+    <h1>Changefulness</h1>
+    <p class="sub">John Ruskin, The Stones of Venice, 1853</p>
+    <p><span class="ini drop" data-lines="3">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture. And this we suppose to be all the pleasure that architecture was ever intended to give us. The idea of reading a building as we would read Milton or Dante, and getting the same kind of delight out of the stones as out of the stanzas, never enters our minds for a moment.</p>
+    <p>Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art, for the production of which either rules or models can be given. Exactly so far as architecture works on known rules, and from given models, it is not an art, but a manufacture.</p>
+    <p class="later"><span class="ini line" data-lines="1">L</span>et us then understand at once, that change or variety is as much a necessity to the human heart and brain in buildings as in books; that there is no merit, though there is some occasional use, in monotony; and that we must no more expect to derive either pleasure or profit from an architecture whose ornaments are of one pattern, and whose pillars are of one proportion, than we should out of a universe in which the clouds were all of one shape, and the trees all of one size.</p>
+  </article>
+</main>
+<p class="colophon">Initials flourished by illum, penwork, seed <span id="seed"></span>. Text from Project Gutenberg. <a href="#" id="redraw">Watch them drawn</a>.
+  <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the penwork is"> richer <span>(<output id="richName" for="rich"></output>)</span></label></p>
+
+<script type="module">
+import { fnv } from '../kit/marks.js';
+import { levelOf, BUDGETS } from '../kit/penwork.js';
+import { rubricate } from '../kit/illum.js';
+
+const q = new URLSearchParams(location.search), art = document.querySelector('.text');
+if (q.has('ghost')) document.body.classList.add('ghost');
+if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
+const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(art.textContent.replace(/\s+/g, ' ').trim()) % 1e7);
+document.getElementById('seed').textContent = SEED;
+// how rich the penwork is, 0..1 (?rich=, or data-rich on an initial); it rounds to one of five budgets in kit/penwork.js
+let RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0));
+// the initials, sized to the lines and flourished; the penwork written in ink (?ink=pen: the stamped pen)
+const r = rubricate(art, { style: 'gothic', rich: RICH, seed: SEED, ink: q.get('ink') ?? 'medium', draw: q.get('draw') === 'read' ? 'read' : q.has('draw') ? 'now' : 'still',
+  on: (state, t) => { document.body.dataset.timing = t ? `grow ${t.grow} ms, draw ${t.draw} ms` : state === 'written' ? 'drawn' : state; } });
+document.getElementById('redraw').addEventListener('click', e => { e.preventDefault(); r.redraw({ draw: 'now' }); });
+// the richness control: re-lays the initials (a text-side panel widens the gap to the words) and redraws at once
+const richIn = document.getElementById('rich'), richName = document.getElementById('richName');
+const showRich = () => { richIn.value = RICH; richName.value = BUDGETS[levelOf(RICH)].name; };
+showRich();
+richIn.addEventListener('input', () => { RICH = +richIn.value; showRich(); r.redraw({ rich: RICH });
+  const u = new URL(location.href); u.searchParams.set('rich', RICH); history.replaceState(null, '', u); });
+addEventListener('hashchange', () => location.reload());
+</script>
+</body>
+</html>

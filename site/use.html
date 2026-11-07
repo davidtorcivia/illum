@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Use · illum</title>
+<meta name="description" content="How to use rubricate: the markup it reads, the call, its options, and what it costs.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>try { var t = localStorage.getItem('illum-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="preload" href="fonts/EBGaramond-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="modulepreload" href="kit/illum.js">
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/specimen.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the text</a>
+<header class="mast">
+  <a class="name" href="./">illum</a>
+  <nav aria-label="Site"><ul>
+    <li><a href="styles/blackletter.html">Blackletter</a></li><li><a href="styles/tarot.html">Tarot</a></li><li><a href="styles/occult.html">Occult</a></li><li><a href="styles/astrology.html">Astrology</a></li><li><a href="styles/draft.html">Draft</a></li>
+    <li class="gap"><a href="use.html" aria-current="page">Use</a></li><li><a href="principles.html">Principles</a></li><li><a href="engine.html">Engine</a></li>
+  </ul></nav>
+  <button class="theme" type="button">Dark</button>
+</header>
+<div class="stage solo">
+  <main class="sheet doc" data-style="draft" id="main">
+    <article class="text">
+      <h1>Use</h1>
+      <p class="sub">Written in Draft, the style taken from engineering drawings</p>
+      <nav class="toc" aria-label="On this page">
+        <ol>
+          <li><a href="#markup">Markup</a></li>
+          <li><a href="#call">The call</a></li>
+          <li><a href="#options">Options</a></li>
+          <li><a href="#host">The host page</a></li>
+          <li><a href="#cost">What it costs</a></li>
+        </ol>
+      </nav>
+      <p><span class="ini drop">T</span>he library is a set of JavaScript modules with no dependencies. It is not yet published as a package. To use it now, copy the <code>kit</code> and <code>fonts</code> folders from this site into yours, keeping them side by side, and import <code>rubricate</code>.</p>
+
+      <h2 id="markup">Markup</h2>
+      <p>Write the text as you would without illum. rubricate reads ordinary elements and a few classes.</p>
+      <table>
+        <thead><tr><th scope="col">It draws</th><th scope="col">where it finds</th></tr></thead>
+        <tbody>
+          <tr><td>a drop initial</td><td><code>&lt;span class="ini drop" data-lines="4"&gt;</code> round the first letter</td></tr>
+          <tr><td>an initial in the line</td><td><code>&lt;span class="ini"&gt;</code></td></tr>
+          <tr><td>a paraph</td><td><code>&lt;p class="par"&gt;</code></td></tr>
+          <tr><td>a line-filler</td><td>the free end of a last line, in the elements named by <code>select.filler</code></td></tr>
+          <tr><td>a break</td><td><code>&lt;hr&gt;</code>, or <code>&lt;hr data-rank="2"&gt;</code> between books</td></tr>
+          <tr><td>a frame</td><td><code>blockquote</code>, <code>figure</code>, <code>pre</code>, <code>.pull</code>, <code>aside</code>, <code>nav</code></td></tr>
+        </tbody>
+      </table>
+      <p class="par">The initial’s letter stays in the text and is read once by a screen reader. Make it <code>color: transparent</code>, and give a drop initial <code>float: left</code>; the ink is drawn behind it.</p>
+
+      <h2 id="call">The call</h2>
+<pre><code>import { rubricate } from './kit/illum.js';
+
+const r = rubricate(document.<wbr>querySelector('article'), {
+  style: 'astrology',
+  rich: 0.5,
+  draw: 'read',
+  initial: { title: 'Anno Dom: 1853' },
+});
+
+r.redraw({ seed: 7 });
+r.destroy();</code></pre>
+      <p class="par"><code>r.redraw(options)</code> draws again with the new options. <code>r.destroy()</code> removes the ornament and leaves the text as it was.</p>
+
+      <h2 id="options">Options</h2>
+      <table>
+        <thead><tr><th scope="col">option</th><th scope="col">values</th></tr></thead>
+        <tbody>
+          <tr><td><code>style</code></td><td><code>'blackletter'</code>, <code>'tarot'</code>, <code>'occult'</code>, <code>'astrology'</code>, <code>'draft'</code></td></tr>
+          <tr><td><code>rich</code></td><td>0 to 1, in five steps: plain, modest, usual, fine, lavish. Default 0.5. Only Blackletter has marks above usual so far.</td></tr>
+          <tr><td><code>seed</code></td><td>a whole number. Default: a hash of the text, so the same text is always drawn the same way.</td></tr>
+          <tr><td><code>draw</code></td><td><code>'still'</code> (default); <code>'read'</code>, each mark written as its line comes into view; <code>'now'</code>, the whole page written in order.</td></tr>
+          <tr><td><code>theme</code></td><td><code>'auto'</code> (default), <code>'light'</code> or <code>'dark'</code>.</td></tr>
+          <tr><td><code>initial</code></td><td>the style’s drop initial: <code>{ set, title }</code> for Tarot, Occult and Astrology, <code>{ set }</code> for Draft.</td></tr>
+          <tr><td><code>frame</code></td><td>Astrology’s figure frame: <code>{ form: 'octagon' }</code> or <code>'houses'</code>.</td></tr>
+          <tr><td><code>select</code></td><td>selectors that replace the defaults, such as <code>{ filler: 'h2, p' }</code>.</td></tr>
+          <tr><td><code>on</code></td><td>a function, called with <code>'drawn'</code>, <code>'reading'</code> or <code>'written'</code>.</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="host">The host page</h2>
+      <p>The page sets three CSS custom properties and illum reads them: <code>--paper</code> for the ground, <code>--ink</code> for the text, <code>--rubric</code> for the headings. Each style brings its own inks for light and dark grounds. It never paints the page’s ground or its text. With <code>theme: 'auto'</code> it follows <code>data-theme</code> on the <code>&lt;html&gt;</code> element, or else the reader’s system setting.</p>
+      <p class="par">The element that holds the text must be positioned. The ornament is drawn on two canvases inside it, marked <code>aria-hidden</code>. Frames are drawn in the padding of their boxes, so a quotation or a block of code needs room round it, and each style needs a different amount. This site’s <a href="css/specimen.css">specimen stylesheet</a> has working values for all five.</p>
+
+      <h2 id="cost">What it costs</h2>
+      <p>The modules come to 667 KB, or 226 KB compressed with gzip, and a page loads all five styles. The faces a style draws its letters from are loaded only when that style is used. The ink engine needs WebGL2; without it a simpler pen draws the same marks. When the reader’s system asks for reduced motion, nothing is written as they watch. illum makes no network requests beyond its own files.</p>
+      <hr data-rank="2">
+    </article>
+  </main>
+</div>
+<footer class="colophon">Set in Junicode and IM Fell Great Primer; the rubricated text in EB Garamond, the code in Courier Prime. Ornament by illum, draft, seed <span class="seed-shown"></span>. Made by David Torcivia, 2026. <a href="type.html">Type</a>.</footer>
+<script type="module" src="js/site.js"></script>
+<script type="module">
+import { mount } from './js/specimen.js';
+const shown = document.querySelector('.seed-shown');
+mount(document.querySelector('.sheet'), { style: 'draft', onSeed: s => { shown.textContent = s; } });
+</script>
+</body>
+</html>

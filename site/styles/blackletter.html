@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blackletter · illum</title>
+<meta name="description" content="Black and red, as in German books printed and written in the fifteenth century. The drop initial is a Fraktur capital from the typeface UnifrakturMaguntia, written by the ink engine with its strokes split and red run in between them, as the writing master Johann Neudörffer did in his copybook of 1538.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<script>try { var t = localStorage.getItem('illum-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="preload" href="../fonts/EBGaramond-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="modulepreload" href="../kit/illum.js">
+<link rel="stylesheet" href="../css/site.css">
+<link rel="stylesheet" href="../css/specimen.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to the specimen</a>
+<header class="mast">
+  <a class="name" href="../">illum</a>
+  <nav aria-label="Site"><ul>
+    <li><a href="blackletter.html" aria-current="page">Blackletter</a></li><li><a href="tarot.html">Tarot</a></li><li><a href="occult.html">Occult</a></li><li><a href="astrology.html">Astrology</a></li><li><a href="draft.html">Draft</a></li>
+    <li class="gap"><a href="../use.html">Use</a></li><li><a href="../principles.html">Principles</a></li><li><a href="../engine.html">Engine</a></li>
+  </ul></nav>
+  <button class="theme" type="button">Dark</button>
+</header>
+<div class="stage">
+  <aside class="margin" aria-labelledby="title">
+    <h1 id="title">Blackletter</h1>
+    <p class="caption">Black and red, as in German books printed and written in the fifteenth century. The drop initial is a Fraktur capital from the typeface UnifrakturMaguntia, written by the ink engine with its strokes split and red run in between them, as the writing master Johann Neudörffer did in his copybook of 1538.</p>
+    <p class="aside">The same passage is set in all five styles, so they can be compared: Ruskin on Gothic workmanship, with a few notes on how medieval pages were arranged.</p>
+    <details class="ctl" open><summary>Controls</summary>
+    <form class="controls" aria-label="Controls for the specimen">
+      <fieldset><legend>Show</legend><label><input type="radio" name="draw" value="still"> Still</label><label><input type="radio" name="draw" value="read"> Written as you read</label>
+        <p class="still-note" hidden>Your system asks for reduced motion, so the ornament is shown still.</p></fieldset>
+      <div class="row"><label for="rich">Richness</label><input type="range" id="rich" name="rich" min="0" max="4" step="1"><output for="rich"></output></div>
+      <div class="row"><label for="size">Type size</label><input type="range" id="size" name="size" min="15" max="26" step="1"><output for="size"></output></div>
+      <div class="row"><label for="seed">Seed</label><input type="number" id="seed" name="seed" min="0" step="1" inputmode="numeric"><button type="button" data-reroll>Another</button></div>
+      
+    </form></details>
+    <p class="also"><a href="#marks">What each mark is</a> · <a href="#sources">Sources</a></p>
+  </aside>
+  <main class="sheet" data-style="blackletter" id="main">
+  <article class="text">
+    <h1>Changefulness</h1>
+    <p class="sub">John Ruskin, The Stones of Venice, 1853</p>
+    <nav class="toc" aria-label="Contents">
+      <ol>
+        <li><a href="#map">The page as a map</a></li>
+        <li><a href="#measure">The measure of the page</a></li>
+        <li><a href="#rank">Rank, not decoration</a></li>
+        <li><a href="#grown">Grown from the page</a></li>
+      </ol>
+    </nav>
+    <p><span class="ini drop" data-lines="4">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture. And this we suppose to be all the pleasure that architecture was ever intended to give us. The idea of reading a building as we would read Milton or Dante, and getting the same kind of delight out of the stones as out of the stanzas, never enters our minds for a moment.</p>
+    <p class="par">Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art, for the production of which either rules or models can be given. Exactly so far as architecture works on known rules, and from given models, it is not an art, but a manufacture.</p>
+    <p><span class="ini line" data-lines="1">L</span>et us then understand at once, that change or variety is as much a necessity to the human heart and brain in buildings as in books; that there is no merit, though there is some occasional use, in monotony; and that we must no more expect to derive either pleasure or profit from an architecture whose ornaments are of one pattern, and whose pillars are of one proportion, than we should out of a universe in which the clouds were all of one shape, and the trees all of one size.</p>
+    <hr>
+
+    <h2 id="map">The page as a map</h2>
+    <p>A medieval book had no page numbers, no index and no search. Its readers found their way by its ornament: the large initial that opened a book, the smaller one at a chapter, the paraph at a paragraph, the filler that closed a short line. Every mark said where you were and how much it mattered.</p>
+    <p class="par">The same marks can be grown on a web page from the page’s own structure, so that the ornament is the information architecture, not a costume over it. That asks something of the maker that Ruskin asked of the builders of his day.</p>
+    <blockquote>
+      <p>You must either make a tool of the creature, or a man of him. You cannot make both. Men were not intended to work with the accuracy of tools, to be precise and perfect in all their actions. If you will have that precision out of them, and make their fingers measure degrees like cog-wheels, and their arms strike curves like compasses, you must unhumanize them.</p>
+      <footer>John Ruskin, <cite>The Stones of Venice</cite>, 1853</footer>
+    </blockquote>
+    <p>A program cannot be a man, but it can refuse to be a cog-wheel: it can let every line it draws keep a little of the hand’s irregularity.</p>
+
+    <h2 id="measure">The measure of the page</h2>
+    <p>The scribe’s page was ruled before a word was written. In the books that look most at rest, the text block sits in the page as the page sits in the spread, and the margins grow from the gutter outward.</p>
+    <figure>
+      <svg viewBox="0 0 420 320" role="img" aria-label="Two facing pages of proportion two to three, with the diagonals of each page and of the spread; on each page a text block whose corners lie on those diagonals.">
+        <g fill="none" stroke-linecap="round">
+          <path d="M10 10 L410 310 M410 10 L10 310 M210 10 L10 310 M210 10 L410 310" stroke-opacity=".4" stroke-width=".5"/>
+          <rect x="10" y="10" width="200" height="300" stroke-width=".7"/><rect x="210" y="10" width="200" height="300" stroke-width=".7"/>
+          <rect x="54.4" y="43.3" width="133.3" height="200" stroke-width=".9" fill="currentColor" fill-opacity=".08"/>
+          <rect x="232.2" y="43.3" width="133.3" height="200" stroke-width=".9" fill="currentColor" fill-opacity=".08"/>
+        </g>
+      </svg>
+      <figcaption>The spread, after Van de Graaf: each page two by three, the text block in the same proportion with its corners on the diagonals.</figcaption>
+    </figure>
+    <p class="par">A web page has no fixed page, but it has a measure, and the measure can be honoured in the same way: the ornament sits in the margins the text leaves.</p>
+    <aside class="note">
+      <p><b>The pilcrow.</b> The scribe left a gap at the head of a paragraph for the rubricator to paint a ¶ in red. When the rubricator ran out of time the gap stayed empty, and the empty gap became the paragraph indent.</p>
+    </aside>
+
+    <h2 id="rank">Rank, not decoration</h2>
+    <p>Ornament that marks everything marks nothing. In the book the ladder was strict: a painted initial opened a book, a penwork initial a chapter, a paraph a paragraph.</p>
+    <p class="pull">Our most invisible typographic convention is an ornament that was never painted.</p>
+    <p class="par">On the web the ranks are already in the markup: headings, sections, quotations, figures, code, asides, navigation.</p>
+
+    <h2 id="grown">Grown from the page</h2>
+    <p>Each frame on this page is measured from its box when the page is laid out, and written again when it changes.</p>
+<pre><code>// a frame for every box, grown from its own box
+for (const el of boxes(document))
+  draw(frameFor(el, measure(el), { rich, seed }));</code></pre>
+    <p class="par">Nothing here covers or crowds a word. Take the frames away and the page is complete; put them back and it is a place.</p>
+    <hr data-rank="2">
+  </article>
+  </main>
+</div>
+<section class="notes" id="marks" aria-labelledby="marks-h">
+  <h2 id="marks-h">What each mark is</h2>
+  <dl>
+        <dt>Drop initial</dt><dd>The Fraktur capital, split into straps with red laid between them, a broad-nib bar across the stem, hairline loops thrown into the margin, and a trefoil knot.</dd>
+        <dt>Line initial</dt><dd>The same capital in the line, with a red stroke beside its stem.</dd>
+        <dt>Paraph</dt><dd>A red capitulum, a C made of three broad strokes.</dd>
+        <dt>Fillers</dt><dd>A red rule ending in a lozenge; a row of lozenges in black and red; the twisted cord of the Constance breviary.</dd>
+        <dt>Chapter break</dt><dd>Solomon’s knot in strapwork, with red rules and points either side.</dd>
+        <dt>Book break</dt><dd>A braided band of two straps.</dd>
+        <dt>Frames</dt><dd>A red bar edged in black round the figure, its ruling running past the corners as in a Rouen book of hours; thick and thin red rules down the side of a quotation; a strap with a hairline wound round it beside the contents.</dd>
+  </dl>
+</section>
+<section class="notes" id="sources" aria-labelledby="sources-h">
+  <h2 id="sources-h">Sources</h2>
+  <ul class="sources">
+      <li>Johann Neudörffer the Elder, <i>Eine gute Ordnung</i>, Nuremberg, 1538–41. The Metropolitan Museum of Art, 354468. <a href="https://www.metmuseum.org/art/collection/search/354468">metmuseum.org</a></li>
+      <li>Winter Breviary, Constance, 1476–78. The Metropolitan Museum of Art, 910582. <a href="https://www.metmuseum.org/art/collection/search/910582">metmuseum.org</a></li>
+      <li>Missal, German, 1472. The Metropolitan Museum of Art, 469038. <a href="https://www.metmuseum.org/art/collection/search/469038">metmuseum.org</a></li>
+      <li>Peter Schöffer, <i>Gart der Gesundheit</i>, Mainz, 1485. The Metropolitan Museum of Art, 343820. <a href="https://www.metmuseum.org/art/collection/search/343820">metmuseum.org</a></li>
+      <li>Leaf from an antiphonary, Germany, about 1480. The Cleveland Museum of Art, 2014.25.b. <a href="https://www.clevelandart.org/art/2014.25.b">clevelandart.org</a></li>
+      <li>Leaf from a book of hours, Rouen, about 1510. The Cleveland Museum of Art, 2001.79.b. <a href="https://www.clevelandart.org/art/2001.79.b">clevelandart.org</a></li>
+      <li>Marco Antonio Rossi, cadel alphabet, 1598. Wikimedia Commons.</li>
+      <li>Gutenberg Bible, Mainz, about 1455. Library of Congress, via Wikimedia Commons.</li>
+      <li>UnifrakturMaguntia, by j. ‘mach’ wust, after Peter Wiegel. SIL Open Font License.</li>
+  </ul>
+  <p class="small">The specimen text is from John Ruskin, <i>The Stones of Venice</i>, volume II, chapter VI, “The Nature of Gothic”, 1853, Project Gutenberg 30755.</p>
+</section>
+<footer class="colophon">Set in Junicode and IM Fell Great Primer; the specimen in EB Garamond. Ornament by illum, blackletter, seed <span class="seed-shown"></span>. Made by David Torcivia, 2026. <a href="../type.html">Type</a>.</footer>
+<script type="module" src="../js/site.js"></script>
+<script type="module">
+import { mount } from '../js/specimen.js';
+const form = document.querySelector('.controls'); if (innerWidth <= 1180) form.closest('details').open = false; const shown = document.querySelector('.seed-shown');
+mount(document.querySelector('.sheet'), { style: 'blackletter', form, onSeed: s => { form.elements.seed.value = s; shown.textContent = s; } });
+</script>
+</body>
+</html>
