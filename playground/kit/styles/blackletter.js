@@ -39,13 +39,16 @@
 //     the black coverage (w × h cells at res per px, its top-left at x0, y0 page px) and, where the heavy strokes are
 //     split, the red laid between their halves (same grid; it runs a little under the black). The host lays it first,
 //     with the ink engine: inkLetter(bake, { ...letter, M: letter.red }, palette.r), then inkLetter(bake, letter,
-//     palette.k) over it, and then writes the marks (the bars, the staff, the cloud, the points) over both.
+//     palette.k) over it, and then writes the marks (the bars, the staff, the cloud, the points) over both. (inkLetter and
+//     letterWriter live in kit/inkletter.js, re-exported here; kit/illum.js does all this for a page: initial.load()
+//     awaits the face, initial.width(ch, { face, form }) sizes the float.)
 //   form 'cadel': the procedural cadel (the letter itself built as strapwork bundles; letter: null, all marks). Kept
 //     for study; five procedurally built letters were rejected, the typeface letter replaced it as the default.
 // touch(): the rubricator's red stroke through a capital of the host's text. The host's text is never marked unasked:
 // the page calls it only when the reader asks for it (the specimen's ?capitals).
 
-import { createMedium } from '../medium.js';
+import { dist, warmInk, inkLetter, letterWriter } from '../inkletter.js';
+export { warmInk, inkLetter, letterWriter };
 import { noise2 } from '../marks.js';
 
 const fnv = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
@@ -615,33 +618,6 @@ function glyphMask(ch, F, H, x0, base, res = 2) {
 }
 const sm = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
 
-// The letter read from its coverage: Di, how deep each cell lies inside the ink (px), Do, how far each cell of paper lies
-// from it (px), and hw, the half-width of its heaviest strokes (the 97th percentile of the depth, so a junction's
-// swelling does not count)
-// Distance (cells) from every cell to the nearest cell where feat is set: two sweeps carrying the offset to the nearest
-// set cell (8SSEDT, Danielsson 1980; exact but for rare configurations, a fraction of a cell off)
-function dist(feat, w, h, nearest = null) {
-  const n = w * h, X = new Int16Array(n), Y = new Int16Array(n), D = new Int32Array(n);
-  for (let q = 0; q < n; q++) if (!feat[q]) { X[q] = 4000; D[q] = 16e6; }
-  let x = 0, y = 0, d = 0, o = 0;
-  // (the neighbour checks written out: this runs before the engine has optimised anything, on the page's first letter)
-  for (let j = 0; j < h; j++) { const r = j * w;
-    for (let i = 0; i < w; i++) { const q = r + i; if (!D[q]) continue;
-      if (i > 0) { o = q - 1; x = X[o] + 1; y = Y[o]; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } }
-      if (j > 0) { o = q - w; x = X[o]; y = Y[o] + 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; }
-        if (i > 0) { o = q - w - 1; x = X[o] + 1; y = Y[o] + 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } }
-        if (i < w - 1) { o = q - w + 1; x = X[o] - 1; y = Y[o] + 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } } } }
-    for (let i = w - 2; i >= 0; i--) { const q = r + i; if (!D[q]) continue; o = q + 1; x = X[o] - 1; y = Y[o]; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } } }
-  for (let j = h - 1; j >= 0; j--) { const r = j * w;
-    for (let i = w - 1; i >= 0; i--) { const q = r + i; if (!D[q]) continue;
-      if (i < w - 1) { o = q + 1; x = X[o] - 1; y = Y[o]; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } }
-      if (j < h - 1) { o = q + w; x = X[o]; y = Y[o] - 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; }
-        if (i < w - 1) { o = q + w + 1; x = X[o] - 1; y = Y[o] - 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } }
-        if (i > 0) { o = q + w - 1; x = X[o] + 1; y = Y[o] - 1; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } } } }
-    for (let i = 1; i < w; i++) { const q = r + i; if (!D[q]) continue; o = q - 1; x = X[o] + 1; y = Y[o]; d = x * x + y * y; if (d < D[q]) { X[q] = x; Y[q] = y; D[q] = d; } } }
-  if (nearest) for (let q = 0; q < n; q++) nearest[q] = q - Y[q] * w - X[q];   // (the offset runs from the feature to the cell)
-  const out = new Float32Array(n); for (let q = 0; q < n; q++) out[q] = Math.sqrt(D[q]); return out;
-}
 // The glyph made to read as written, and read, in one pass (kit/penwork.js drawn() and its reading, fused). Its edge is
 // moved in and out slowly (amp px at a 25 px wavelength, .18 px at 5 px), so the strokes swell and thin as a pen's
 // would; only the cells within reach of the moved edge are recomputed, the rest are ink or paper as they were. Read off
@@ -813,150 +789,6 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
   const marks = strands.length ? interlace(strands, Math.max(1, H * .008)).map(m => m.wm ? { ...m, press: pressOf(m.pts, m.wm) } : m) : [];
   return { letter: L, marks: [...marks, ...over], width };
 }
-// ---- laying the letter with the ink engine -----------------------------------------------------------------------------
-// The glyph's coverage poured into the medium (kit/medium.js) as one deposit, in one pass: the coverage, a little more
-// ink near its rim (the pooling of a broad stroke's borders) with a slow mottle, and a little dryness at the rim, are
-// drawn straight into the medium's stroke layer (as the nib's sweep would have laid them, MAX-blended); then the medium
-// levels it, lets it creep into the paper's fibre at the edge, and dries it. The result is pressed into `bake` (a 2D
-// context in page px at dpr) as the writer presses its windows. One medium serves every letter on the page.
-let shared = null;
-function mediumFor(w, h, dpr) {
-  if (shared && shared.cv.width >= w && shared.cv.height >= h && shared.dpr === dpr && !shared.gl.isContextLost()) return shared;
-  shared?.gl.getExtension('WEBGL_lose_context')?.loseContext();
-  const cv = document.createElement('canvas'); cv.width = Math.max(w, 640); cv.height = Math.max(h, 640);
-  const Md = createMedium(cv, { dpr, paper: [255, 255, 255] }), gl = Md.gl; Md.settings.over = true;
-  return shared = { cv, Md, gl, dpr };
-}
-// make the shared medium now (loadFace does, while the font is on its way)
-export function warmInk(dpr = Math.min(2, globalThis.devicePixelRatio || 1)) { try { mediumFor(1, 1, dpr); } catch {} }
-// If the ink engine is unavailable or fails (no WebGL2, a lost context), the letter is still laid, flat in its colour:
-// a drop cap must never come out blank.
-export function inkLetter(bake, L, rgb, opts = {}) {
-  try { inkLetterMedium(bake, L, rgb, opts); }
-  catch (e) { console.warn('illum: ink engine unavailable, the letter is laid flat', e); flatLetter(bake, L, rgb); }
-}
-function flatLetter(bake, { M, w, h, x0, y0, res }, rgb) {
-  const c = new OffscreenCanvas(w, h), g = c.getContext('2d'), im = g.createImageData(w, h);
-  for (let i = 0; i < w * h; i++) { im.data[i * 4] = rgb[0]; im.data[i * 4 + 1] = rgb[1]; im.data[i * 4 + 2] = rgb[2]; im.data[i * 4 + 3] = Math.round(Math.min(1, M[i]) * 255); }
-  g.putImageData(im, 0, 0); bake.drawImage(c, x0, y0, w / res, h / res);
-}
-// the deposit, per cell: coverage; ink (halved, to fit a byte), a little more near the rim with a slow mottle; dryness
-function deposit(L, dry) {
-  const { M, w, h, res } = L, Bl = boxBlur(boxBlur(M, w, h, Math.round(1.6 * res)), w, h, Math.round(1.6 * res)), mot = noise2(97), D = new Uint8Array(w * h * 4);
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, m = M[q]; if (m <= .01) continue;
-    const rim = Math.max(0, 1 - Bl[q]) * 1.6, ink = 1 + .38 * rim * rim + .14 * (mot((L.x0 + i / res) / 9, (L.y0 + j / res) / 9) - .5);
-    D[q * 4] = Math.round(Math.min(1, m) * 255); D[q * 4 + 1] = Math.round(Math.min(1, ink / 2) * 255); D[q * 4 + 2] = Math.round(Math.min(1, dry * rim * rim) * 255); }
-  return D;
-}
-// where the letter's medium window sits: its page origin (px) and size (device px)
-const windowOf = (L, dpr, pad = 5) => { const ox = Math.floor(L.x0 * dpr) / dpr - pad, oy = Math.floor(L.y0 * dpr) / dpr - pad;
-  return { ox, oy, cw: Math.ceil((L.w / L.res + pad * 2) * dpr), ch: Math.ceil((L.h / L.res + pad * 2) * dpr), rect: [pad * dpr + (L.x0 - Math.floor(L.x0 * dpr) / dpr) * dpr, pad * dpr + (L.y0 - Math.floor(L.y0 * dpr) / dpr) * dpr, L.w / L.res * dpr, L.h / L.res * dpr] }; };
-function inkLetterMedium(bake, L, rgb, { dpr = 2, wet = L.wet ?? .1, dry = L.dry ?? .22 } = {}) {
-  active?.done();   // a letter being written is finished first: they share the medium
-  const { ox, oy, cw, ch, rect } = windowOf(L, dpr), { cv, Md } = mediumFor(cw, ch, dpr);
-  Md.clear(); Md.wetness(wet); Md.settings.ink = rgb; Md.makePaper([ox * dpr, oy * dpr]);
-  Md.pour(deposit(L, dry), L.w, L.h, rect);
-  for (let k = 0; k < 24; k++) Md.step(16);
-  Md.finish(); Md.render();
-  bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = 'source-over'; bake.drawImage(cv, 0, 0, cw, ch, Math.round(ox * dpr), Math.round(oy * dpr), cw, ch); bake.restore();
-}
-
-// ---- writing the letter --------------------------------------------------------------------------------------------------
-// The order a hand writes the letter in. Its skeleton (Zhang & Suen's thinning, 1984, at one cell a px) is walked as a pen
-// would: from its top left, on along the way it is going (the least turn at a fork), and where a stroke ends the pen is
-// lifted back to the last fork it left unfinished. Each cell of the letter takes the time of the nearest point of the
-// skeleton, so the ink arrives along the strokes, square across them, as under a nib. T: 0..1 per cell; order: the ink
-// cells sorted by it.
-function letterOrder(L) {
-  if (L.order) return L.order;
-  const { M, w, h, res } = L, k = Math.max(1, Math.round(res)), sw = Math.ceil(w / k) + 2, sh = Math.ceil(h / k) + 2, B = new Uint8Array(sw * sh);
-  const R = L.red, inkAt = q => R ? Math.max(M[q], R[q]) : M[q];   // the whole letter, black and red: its strokes, not the halves of the split
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (inkAt(j * w + i) > .5) B[(Math.floor(j / k) + 1) * sw + Math.floor(i / k) + 1]++;
-  for (let q = 0; q < B.length; q++) B[q] = B[q] * 2 >= k * k ? 1 : 0;
-  for (let changed = true; changed;) { changed = false;
-    for (const pass of [0, 1]) { const del = [];
-      for (let j = 1; j < sh - 1; j++) for (let i = 1; i < sw - 1; i++) { const q = j * sw + i; if (!B[q]) continue;
-        const P = [B[q - sw], B[q - sw + 1], B[q + 1], B[q + sw + 1], B[q + sw], B[q + sw - 1], B[q - 1], B[q - sw - 1]], n = P.reduce((a, v) => a + v, 0);
-        if (n < 2 || n > 6) continue; let a = 0; for (let t = 0; t < 8; t++) a += !P[t] && P[(t + 1) % 8];
-        if (a !== 1) continue;
-        if (pass ? P[0] * P[2] * P[6] || P[0] * P[4] * P[6] : P[0] * P[2] * P[4] || P[2] * P[4] * P[6]) continue;
-        del.push(q); }
-      for (const q of del) B[q] = 0; if (del.length) changed = true; } }
-  // the walk
-  const N8 = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]], Ts = new Float32Array(sw * sh).fill(-1), lift = 6;
-  const nbs = q => N8.map(([dx, dy]) => q + dy * sw + dx).filter(o => B[o] && Ts[o] < 0);
-  // a branch from o (leaving cur) that ends within a few cells, without forking: its cells, else null
-  const spur = (o, from) => { const seen = [o]; let prev = from, at = o;
-    for (let n = 0; n < 6; n++) { const nx = N8.map(([dx, dy]) => at + dy * sw + dx).filter(x => B[x] && x !== prev && !seen.includes(x) && Ts[x] < 0);
-      if (!nx.length) return seen; if (nx.length > 1) return null; prev = at; at = nx[0]; seen.push(at); }
-    return null; };
-  let s = 0;
-  for (;;) { let start = -1, best = Infinity;   // a new stroke: the top-left-most end of what is left (a cell with one neighbour), else any
-    for (let q = 0; q < B.length; q++) if (B[q] && Ts[q] < 0) { const i = q % sw, j = q / sw | 0, ends = N8.filter(([dx, dy]) => B[q + dy * sw + dx]).length <= 1, v = i + j * 1.3 - (ends ? 1e4 : 0); if (v < best) { best = v; start = q; } }
-    if (start < 0) break; if (s) s += lift;
-    let cur = start, d = null; const forks = []; Ts[cur] = s;
-    for (;;) { const c = nbs(cur);
-      if (!c.length) { let back = -1; while (forks.length) { const f = forks.pop(); if (nbs(f).length) { back = f; break; } } if (back < 0) break; s += lift; cur = back; d = null; continue; }
-      // on along the way it is going, and down where it may (the stem before the bowls)
-      const dir = o => [(o % sw) - (cur % sw), (o / sw | 0) - (cur / sw | 0)];
-      const pick = c.reduce((a, o) => { const v = dir(o), l = Math.hypot(...v), sc = (d ? -(v[0] * d[0] + v[1] * d[1]) / l : 0) - .8 * v[1] / l; return !a || sc < a.sc ? { o, sc } : a; }, null).o;
-      // the cells beside the one taken are the same stroke (a thinned line's stair); a short spur off it is part of it too
-      for (const o of c) if (o !== pick) { const dx = Math.abs((o % sw) - (pick % sw)), dy = Math.abs((o / sw | 0) - (pick / sw | 0));
-        if (dx <= 1 && dy <= 1) Ts[o] = s; else { const sp = spur(o, cur); if (sp) for (const x of sp) Ts[x] = s; } }
-      if (nbs(cur).length) forks.push(cur);
-      const v = dir(pick), l = Math.hypot(...v); s += l; d = [v[0] / l, v[1] / l]; cur = pick; Ts[cur] = s; } }
-  // each cell the time of its nearest skeleton cell
-  const feat = new Uint8Array(w * h), map = new Int32Array(w * h).fill(-1);
-  for (let q = 0; q < B.length; q++) if (B[q]) { const i = Math.min(w - 1, ((q % sw) - 1) * k + (k >> 1)), j = Math.min(h - 1, (((q / sw) | 0) - 1) * k + (k >> 1)); if (i >= 0 && j >= 0) { feat[j * w + i] = 1; map[j * w + i] = q; } }
-  // nearest along the ink, not across the paper (a stroke's tip must not take the time of the stroke beside it): every
-  // skeleton cell floods the ink at once, a cell belongs to whichever reaches it first (Dijkstra by buckets, steps 10, 14)
-  const own = new Int32Array(w * h).fill(-1), cost = new Int32Array(w * h).fill(1 << 30), Q = [];
-  const push = (q, c, f) => { if (c >= cost[q]) return; cost[q] = c; own[q] = f; (Q[c] ??= []).push(q); };
-  for (let q = 0; q < w * h; q++) if (feat[q]) push(q, 0, map[q]);
-  const step = [[1, 0, 10], [-1, 0, 10], [0, 1, 10], [0, -1, 10], [1, 1, 14], [1, -1, 14], [-1, 1, 14], [-1, -1, 14]];
-  for (let c = 0; c < Q.length; c++) { const b = Q[c]; if (!b) continue; Q[c] = null;
-    for (const q of b) { if (cost[q] !== c) continue; const i = q % w, j = q / w | 0;
-      for (const [dx, dy, sc] of step) { const x = i + dx, y = j + dy; if (x < 0 || y < 0 || x >= w || y >= h) continue; const o = y * w + x; if (inkAt(o) > .01) push(o, c + sc, own[q]); } } }
-  const near = new Int32Array(w * h); dist(feat, w, h, near);   // (what the flood cannot reach, a fleck apart: the nearest across the paper)
-  const T = new Float32Array(w * h), total = Math.max(1, s), ink = [];
-  for (let q = 0; q < w * h; q++) { if (inkAt(q) <= .01) continue; const f = own[q] >= 0 ? own[q] : map[near[q]]; T[q] = f >= 0 ? Math.max(0, Ts[f]) / total : 1; if (M[q] > .01) ink.push(q); }
-  ink.sort((a, b) => T[a] - T[b]);
-  return L.order = { T, order: Int32Array.from(ink) };
-}
-
-// A letter written as you watch: the black poured into the medium along the order, slice by slice into the same wet ink
-// (so it merges with no seam), the medium's window shown live over the page; then the red, poured beneath it (the window
-// slipped under the page's ink layer while it flows, then laid under the black with destination-over). at(f) f in 0..1
-// of the whole; done() finishes at once.
-let active = null;
-export function letterWriter(bake, L, { k, r }, { dpr = 2, host, below, wet = L.wet ?? .1, dry = L.dry ?? .22, split = .72 } = {}) {
-  const { order } = letterOrder(L), n = order.length, phases = [{ M: L.M, rgb: k, f0: 0, f1: L.red ? split : 1, op: 'source-over' }];
-  if (L.red) { const T = letterOrder(L).T, red = []; for (let q = 0; q < L.w * L.h; q++) if (L.red[q] > .01) red.push(q); red.sort((a, b) => T[a] - T[b]);
-    phases.push({ M: L.red, rgb: r, f0: split, f1: 1, op: 'destination-over', order: Int32Array.from(red) }); }
-  phases[0].order = order;
-  const { ox, oy, cw, ch, rect } = windowOf(L, dpr); let ph = -1, at = 0, D = null, F = null, last = 0, cv = null, Md = null;
-  const open = i => { const P = phases[i]; ({ cv, Md } = mediumFor(cw, ch, dpr)); Md.clear(); Md.wetness(wet); Md.settings.ink = P.rgb; Md.makePaper([ox * dpr, oy * dpr]);
-    D = deposit({ ...L, M: P.M }, dry); F = new Uint8Array(D.length); at = 0; last = performance.now(); ph = i;
-    Object.assign(cv.style, { position: 'absolute', left: ox + 'px', top: oy + 'px', width: cv.width / dpr + 'px', height: cv.height / dpr + 'px', pointerEvents: 'none' }); cv.setAttribute('aria-hidden', 'true');
-    // the black over the page; the red under the page's ink layer, so it flows in beneath the black
-    if (P.op === 'destination-over' && below) below.before(cv); else host.append(cv); };
-  const pourTo = u => { const P = phases[ph], o = P.order, upto = Math.min(o.length, Math.ceil(u * o.length)); if (upto <= at) return false;
-    for (let x = at; x < upto; x++) { const q = o[x] * 4; F[q] = D[q]; F[q + 1] = D[q + 1]; F[q + 2] = D[q + 2]; }
-    Md.pour(F, L.w, L.h, rect); for (let x = at; x < upto; x++) { const q = o[x] * 4; F[q] = F[q + 1] = F[q + 2] = 0; } at = upto; return true; };
-  const close = () => { const P = phases[ph]; pourTo(1); for (let i = 0; i < 24; i++) Md.step(16); Md.finish(); Md.render();
-    bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = P.op; bake.drawImage(cv, 0, 0, cw, ch, Math.round(ox * dpr), Math.round(oy * dpr), cw, ch); bake.restore();
-    cv.remove(); Md.clear(); };
-  // the front moves at a hand's pace through each phase: a little slower at the start and the end
-  const ease = u => u - Math.sin(2 * Math.PI * u) / (2 * Math.PI) * .35;
-  const self = {
-    at(f) { if (ph >= phases.length) return; if (active && active !== self) active.done(); active = self;
-      for (;;) { if (ph < 0) open(0); const P = phases[ph]; if (f < P.f1 || ph === phases.length - 1) break; close(); if (ph + 1 < phases.length) open(ph + 1); else { ph = phases.length; break; } }
-      if (ph >= phases.length) return; const P = phases[ph], u = Math.max(0, Math.min(1, (f - P.f0) / (P.f1 - P.f0)));
-      pourTo(ease(u)); const now = performance.now(); Md.step(Math.min(50, Math.max(1, now - last))); last = now; Md.render(); },
-    done() { if (ph >= phases.length) return; if (active && active !== self) active.done(); active = self;
-      if (ph < 0) open(0); for (;;) { close(); if (ph + 1 < phases.length) open(ph + 1); else break; } ph = phases.length; if (active === self) active = null; } };
-  return self;
-}
 
 function boxBlur2(A, B, w, h, r) {
   const k = 2 * r + 1, ta = new Float32Array(Math.max(w, h)), tb = new Float32Array(Math.max(w, h));
@@ -967,20 +799,15 @@ function boxBlur2(A, B, w, h, r) {
     for (let y = 0; y < h; y++) { ta[y] = sa / k; tb[y] = sb / k; const p = Math.min(h - 1, y + r + 1) * w + x, m = Math.max(0, y - r) * w + x; sa += A[p] - A[m]; sb += B[p] - B[m]; }
     for (let y = 0; y < h; y++) { A[y * w + x] = ta[y]; B[y * w + x] = tb[y]; } }
 }
-function boxBlur(A, w, h, r) {
-  if (r < 1) return A; const T = new Float32Array(w * h), O = new Float32Array(w * h), k = 2 * r + 1;
-  for (let y = 0; y < h; y++) { let s = 0; for (let x = -r; x <= r; x++) s += A[y * w + Math.min(w - 1, Math.max(0, x))];
-    for (let x = 0; x < w; x++) { T[y * w + x] = s / k; s += A[y * w + Math.min(w - 1, x + r + 1)] - A[y * w + Math.max(0, x - r)]; } }
-  for (let x = 0; x < w; x++) { let s = 0; for (let y = -r; y <= r; y++) s += T[Math.min(h - 1, Math.max(0, y)) * w + x];
-    for (let y = 0; y < h; y++) { O[y * w + x] = s / k; s += T[Math.min(h - 1, y + r + 1) * w + x] - T[Math.max(0, y - r) * w + x]; } }
-  return O;
-}
 
 // the initial: the typeface's capital with the rubricator's ornament (form 'face', the default), or the procedural cadel
 // of strapwork bundles (form 'cadel')
 function initial(o) { return (o.form ?? FORM) === 'cadel' ? cadel(o) : typeInitial(o); }
 initial.wider = [0, 0, 0, 2, 4];
-initial.width = (ch, face = FACE, form = FORM) => form === 'cadel' ? cadel.width(ch) : faceWidth(String(ch).normalize('NFD')[0].toUpperCase(), face);
+initial.width = (ch, face = FACE, form = FORM) => { if (face && typeof face === 'object') ({ face = FACE, form = FORM } = face);   // (ch, { face, form }) as kit/illum.js asks
+  return form === 'cadel' ? cadel.width(ch) : faceWidth(String(ch).normalize('NFD')[0].toUpperCase(), face); };
+// what the host awaits before it measures or makes an initial (kit/illum.js: the style's `initial` options)
+initial.load = ({ face, form = FORM } = {}) => form === 'cadel' ? null : loadFace(face);
 
 
 // ---- the rubricator's small marks ----------------------------------------------------------------------------------------------
