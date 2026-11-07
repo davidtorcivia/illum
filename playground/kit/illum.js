@@ -34,6 +34,7 @@ import { pen, dot, paintField, PIGMENTS, fnv, stream } from './marks.js';
 import { STYLES, paletteOf, grammar, lift } from './wayfinding.js';
 import { createWriter, supported } from './writer.js';
 import { inkLetter, letterWriter, settle, warmInk, sweepIn } from './inkletter.js';
+import { libraryHash, fingerprint, lookup, paint, remember, hashText } from './cache.js';
 import './initials.js';
 import './frames.js';
 import blackletter from './styles/blackletter.js';
@@ -582,9 +583,24 @@ export function rubricate(root, opts = {}) {
   const themeMode = () => o.theme !== 'auto' ? o.theme : document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   // a written style's medium made (its shaders compiled) while the fonts load, as it was approved: its window first at the
   // page's head (the first drawing takes it if nothing has changed; any later one makes its own)
-  let pre = null; try { const dpr = Math.min(2, devicePixelRatio || 1), DARK = themeMode() === 'dark';
+  // (made only once the page is known not to be drawn from the store: kit/cache.js)
+  let pre = null, warmed = false; const warm = () => { if (warmed) return; warmed = true; try { const dpr = Math.min(2, devicePixelRatio || 1), DARK = themeMode() === 'dark';
     if (isWritten(STYLES[o.style]) && o.ink !== 'pen' && supported()) { pre = createWriter(host, base.getContext('2d'), { dpr, dark: DARK }); pre.wk = `${dpr}|${DARK}|${o.ink}`; pre.warm(); }
-    if (isWritten(STYLES[o.style])) warmInk(dpr); } catch {}   // (and the letters' and pours' medium)
+    if (isWritten(STYLES[o.style])) warmInk(dpr); } catch {} };   // (and the letters' and pours' medium)
+  // The still remembered (kit/cache.js): its key is the library's code and faces, the text, the options, the theme, the host's
+  // colours and the density; a record is used only where the text falls exactly where it fell when it was drawn. Off with
+  // { cache: false } or ?nocache in the page's address (and under ?audit, which needs the marks themselves).
+  const cacheOn = () => o.cache !== false && !o.view && typeof indexedDB !== 'undefined' && !/[?&](nocache|audit)\b/.test(location.search);
+  const keyOf = async () => { const { on, host: _h, cache, baked, ...rest } = o, cs = getComputedStyle(root), dpr = Math.min(2, devicePixelRatio || 1);
+    return [await libraryHash(import.meta.url), hashText(text), JSON.stringify(rest, (k, v) => typeof v === 'function' ? String(v) : v), themeMode(), dpr,
+      ...['--paper', '--ink', '--rubric'].map(v => cs.getPropertyValue(v).trim())].join('|'); };
+  const inis = () => [...root.querySelectorAll({ ...SELECT, ...o.select }.initial)];
+  const setStyles = (els, list) => els.forEach((e, i) => list[i] == null ? e.removeAttribute('style') : e.setAttribute('style', list[i]));
+  // a record laid if the text falls where it fell (its initials set first, as they were when it was drawn); else nothing changed
+  const fits = rec => { const els = inis(); if (els.length !== rec.ini.length) return false; const prev = els.map(e => e.getAttribute('style')), orn = root.style.getPropertyValue('--orn');
+    setStyles(els, rec.ini); root.style.setProperty('--orn', rec.orn); root.style.visibility = '';
+    if (fingerprint(root, host) === rec.fp) return true;
+    setStyles(els, prev); if (orn) root.style.setProperty('--orn', orn); else root.style.removeProperty('--orn'); return false; };
   // what the page's styles need before anything is measured: a typeface initial's face (its initial.load)
   const ready = () => Promise.all([...new Set([o.style, ...[...root.querySelectorAll('[data-style]')].map(e => e.dataset.style)])].map(k => STYLES[k]?.initial?.load?.(o.initial ?? {}))).catch(e => console.warn('illum:', e));
 
@@ -620,12 +636,20 @@ export function rubricate(root, opts = {}) {
   }
   async function render(m) {
     cancelAnimationFrame(raf); io?.disconnect(); sentinels.forEach(n => n.remove()); sentinels = []; settle(); const tok = ++gen;
+    const t00 = performance.now(), cacheable = cacheOn() && (still.matches || m === 'still');
+    const key = cacheable ? await keyOf().catch(() => null) : null, rec = key ? await lookup(key, o.baked ?? root.dataset.baked) : null;
+    if (!alive || tok !== gen) return;
+    if (rec && fits(rec)) { first = false; mode = 'still'; W?.destroy(); W = null; pre?.destroy(); pre = null; live.width = live.height = 0;
+      await paint(rec, base, host); if (!alive || tok !== gen) return;
+      const ms = Math.round(performance.now() - t00); state = { seed: rec.seed, cached: true, items: [], sr: host.getBoundingClientRect() };
+      o.on?.('drawn', { grow: 0, draw: ms, view: ms, all: ms, parts: 0, cached: true }); return; }
+    warm();
     await ready();
     if (first) { first = false; await new Promise(r => requestAnimationFrame(() => setTimeout(r))); }   // the text is painted before any ornament
     if (!alive || tok !== gen) return;
     if (o.view === 'sweep') return sweep();
     mode = still.matches ? 'still' : m;
-    const t0 = performance.now(), k = compose(), g = base.getContext('2d'), lv = live.getContext('2d');
+    const t0 = performance.now(), k = compose(), g = base.getContext('2d'), lv = live.getContext('2d'), fp = key && mode === 'still' ? fingerprint(root, host) : null;
     const clear = () => { lv.save(); lv.setTransform(1, 0, 0, 1, 0, 0); lv.clearRect(0, 0, live.width, live.height); lv.restore(); };
     if (mode === 'read') return read(k, g, lv, clear);
     if (mode === 'now') {
@@ -653,6 +677,10 @@ export function rubricate(root, opts = {}) {
     draw(k.items.filter(it => it.y >= fold)); state.draw = performance.now() - t0 - state.grow;
     const w = W; (self.requestIdleCallback ?? setTimeout)(() => { if (W === w) { W?.destroy(); W = null; } });   // the medium let go once all is written
     o.on?.('drawn', { grow: Math.round(state.grow), draw: Math.round(state.draw), view: Math.round(view), all: Math.round(performance.now() - t0), parts: n });
+    // kept for next time, if the text still falls where it fell while it was drawn
+    if (fp) (self.requestIdleCallback ?? setTimeout)(() => { if (!alive || tok !== gen || fingerprint(root, host) !== fp) return;
+      const sr = parseFloat(base.style.width), sh = parseFloat(base.style.height);
+      remember(key, { fp, ini: inis().map(e => e.getAttribute('style')), orn: root.style.getPropertyValue('--orn'), seed: state.seed, w: sr, h: sh }, base).then(() => { state.stored = true; }, e => console.warn('illum: not remembered', e)); });
   }
   // As you read: each ornament is its own small score, unwritten until its line comes up into the reading window (an
   // IntersectionObserver on a sentinel at that line, firing 15% into the viewport from the bottom); a written style's

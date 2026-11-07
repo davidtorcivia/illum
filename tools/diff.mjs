@@ -5,7 +5,7 @@
 //   node tools/diff.mjs http://127.0.0.1:8003 http://127.0.0.1:8000 'playground/07-frames.html' 'playground/06-wayfinding.html?style=draft'
 // env: W=1440,390 (viewport widths)  THEMES=light,dark (prefers-color-scheme)  DPR=1  OUT=dir (writes a.png, b.png and
 // diff.png per case: differing pixels red over a faded b)  SETTLE=ms (wait after the page says it has drawn)
-// CLIP=selector (compare that element only, e.g. '.sheet' when the colophons differ)
+// CLIP=selector (compare that element only, e.g. '.sheet' when the colophons differ)  PRIME=1|ms, BAKED=url (see below)
 import { launch, open, load } from './chrome.mjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 const [A, B, ...paths] = process.argv.slice(2);
@@ -14,7 +14,11 @@ if (out) mkdirSync(out, { recursive: true });
 const b = await launch(); let bad = 0;
 for (const path of paths) for (const width of widths) for (const theme of themes) {
   const shots = [];
+  // PRIME=1: B is loaded once first and given time to remember its drawing (kit/cache.js), so B's shot is drawn from the store
+  if (process.env.PRIME) { const p = await open(b, { width, height: 1000, dpr, dark: theme === 'dark' }); await load(p, `${B}/${path}`); await new Promise(r => setTimeout(r, +process.env.PRIME > 1 ? +process.env.PRIME : 3000)); await p.close(); }
   for (const base of [A, B]) { const p = await open(b, { width, height: 1000, dpr, dark: theme === 'dark' });
+    // BAKED=url: B's text (.text) given data-baked, so B is drawn from a shipped bake (tools/bake.mjs)
+    if (process.env.BAKED && base === B) await p.evaluateOnNewDocument(u => addEventListener('DOMContentLoaded', () => { const t = document.querySelector('.text'); if (t) t.dataset.baked = u; }), process.env.BAKED);
     const t = await load(p, `${base}/${path}`); await new Promise(r => setTimeout(r, +(process.env.SETTLE ?? 300)));
     shots.push({ png: await (process.env.CLIP ? await p.$(process.env.CLIP) : p).screenshot({ fullPage: !process.env.CLIP, encoding: 'base64' }), t }); await p.close(); }
   const p = await open(b), r = await p.evaluate(async (a, c) => {

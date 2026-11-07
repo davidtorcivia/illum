@@ -8,13 +8,15 @@
 //   lt      main-thread long tasks: count, total, worst; tbt: sum of their time past 50 ms
 //   gl      WebGL2 contexts made; ms spent synchronously in shader compile + link + status checks
 //   bytes   transferred (and requests): fonts, modules, other
-// usage: node tools/perf.mjs <url> [url...]   env: W=1440 H=900 DPR=1 CPU=1 RUNS=1 WARM=1 PROFILE=out.json
+// usage: node tools/perf.mjs <url> [url...]   env: W=1440 H=900 DPR=1 CPU=1 RUNS=1 WARM=1 PROFILE=out.json SETTLE=ms
+//   BAKED=url: the page's text (.text) given data-baked (a shipped bake, tools/bake.mjs), as a page would set it
 import { launch } from './chrome.mjs';
 import { writeFileSync } from 'node:fs';
 const urls = process.argv.slice(2), W = +(process.env.W ?? 1440), H = +(process.env.H ?? 900), DPR = +(process.env.DPR ?? 1), CPU = +(process.env.CPU ?? 1);
 const RUNS = +(process.env.RUNS ?? 1), WARM = process.env.WARM !== '0';
 
-const PROBE = () => {
+const PROBE = baked => {
+  if (baked) addEventListener('DOMContentLoaded', () => { const t = document.querySelector('.text'); if (t) t.dataset.baked = baked; });
   const P = window.__perf = { lt: [], orn: 0, atf: 0, all: 0, gl: 0, glms: 0, ctx: 0, ricN: 0 };
   new PerformanceObserver(l => { for (const e of l.getEntries()) P.lt.push([e.startTime, e.duration]); }).observe({ type: 'longtask', buffered: true });
   const ric = self.requestIdleCallback; self.requestIdleCallback = function (...a) { if (!P.atf) P.atf = performance.now(); P.ricN++; return ric.apply(this, a); };
@@ -46,7 +48,7 @@ async function once(b, url) {
   const net = new Map(); cdp.on('Network.responseReceived', e => net.set(e.requestId, { url: e.response.url, type: e.type }));
   cdp.on('Network.loadingFinished', e => { const r = net.get(e.requestId); if (r) r.bytes = e.encodedDataLength; });
   p.on('pageerror', e => console.log('pageerror:', e.message));
-  await p.evaluateOnNewDocument(PROBE);
+  await p.evaluateOnNewDocument(PROBE, process.env.BAKED ?? '');
   if (process.env.PROFILE) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 100 }); await cdp.send('Profiler.start'); }
   const res = [];
   for (let pass = 0; pass < (WARM ? 2 : 1); pass++) {
