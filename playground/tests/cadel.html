@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cadels</title>
 <!--
-  The blackletter cadel capitals of kit/styles/blackletter.js, alone on the sheet: ?ch=B (one or more letters; default
-  the alphabet), ?h=letter height px, ?level=0..4, ?cols=n, ?theme=dark, #seed=n. For judging the drop initial beside
-  its sources at the same size.
+  The blackletter drop capitals of kit/styles/blackletter.js, alone on the sheet: ?ch=B (one or more letters; default
+  the alphabet), ?h=letter height px, ?level=0..4, ?cols=n, ?theme=dark, #seed=n; ?face=cook|maguntia|grenze
+  (the typeface the letter is taken from), ?form=cadel (the older procedural cadel instead).
+  For judging the drop initial beside its sources at the same size.
 -->
 <style>
   :root { --paper: rgb(244 238 226); color-scheme: light; }
@@ -22,23 +23,25 @@
 <main class="sheet"><canvas id="bake" aria-hidden="true"></canvas></main>
 <script type="module">
 import { createWriter, supported } from '../kit/writer.js';
-import S from '../kit/styles/blackletter.js';
+import S, { loadFace, inkLetter } from '../kit/styles/blackletter.js';
 const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark';
 if (dark) document.documentElement.dataset.theme = 'dark';
 const loops = q.has('loops') ? +q.get('loops') : undefined, chars = [...(q.get('ch') ?? 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')], H = +(q.get('h') ?? 120), level = +(q.get('level') ?? 4);
+const face = q.get('face') ?? undefined, form = q.get('form') ?? undefined; if (form !== 'cadel') await loadFace(face);
 const cols = +(q.get('cols') ?? Math.min(chars.length, Math.max(1, Math.floor((innerWidth - 40) / (H * 1.9))))), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 1);
 const cw = H * 1.9, ch = H * 1.9, sheet = document.querySelector('.sheet'), bk = document.getElementById('bake');
-const Wp = Math.max(innerWidth, cols * cw + 40), Hp = Math.ceil(chars.length / cols) * ch + 40;
+const Wp = Math.max(innerWidth, cols * cw + 40), Hp = Math.ceil(chars.length / cols) * ch + 40 + H;   // the staff runs below the last row
 sheet.style.width = Wp + 'px'; sheet.style.height = Hp + 'px';
 const marks = chars.map((c, i) => { const x0 = 20 + (i % cols) * cw + H * .55, y0 = 20 + Math.floor(i / cols) * ch + H * .6;
-  return S.initial({ ch: c, G: { box: [x0, y0, x0 + H, y0 + H] }, keep: [], big: true, level, seed: seed + i, room: H * .5, bottom: 1e9, loops }).marks; });
+  return S.initial({ ch: c, G: { box: [x0, y0, x0 + H, y0 + H] }, keep: [], big: true, level, seed: seed + i, room: H * .5, bottom: 1e9, loops, face, form }); });
 await document.fonts.ready;
 if (!supported()) document.body.dataset.timing = 'no webgl2';
 else {
   const dpr = Math.min(2, devicePixelRatio || 1); bk.width = Wp * dpr; bk.height = Hp * dpr; bk.style.width = Wp + 'px'; bk.style.height = Hp + 'px';
   const g = bk.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const P = S.palette[dark ? 'dark' : 'light'], W = createWriter(sheet, g, { dpr, dark }); let t = 0, n = 0;
-  for (const ms of marks) { let run = null; const flush = () => { if (run) { W.part(t, t + 1, run.strokes, P[run.col], { width: run.w, hair: run.hair }).done(); t += 1; n++; } run = null; };
+  for (const { letter } of marks) if (letter?.M) { inkLetter(g, letter, P.k, { dpr }); if (letter.red) inkLetter(g, { ...letter, M: letter.red }, P.r, { dpr }); }
+  for (const { marks: ms } of marks) { let run = null; const flush = () => { if (run) { W.part(t, t + 1, run.strokes, P[run.col], { width: run.w, hair: run.hair }).done(); t += 1; n++; } run = null; };
     for (const m of ms) { if (!run || run.col !== m.col || Math.abs(run.w - m.w) > .01 || Math.abs(run.hair - m.hair) > .01) { flush(); run = { col: m.col, w: m.w, hair: m.hair, strokes: [] }; }
       run.strokes.push({ pts: m.pts, angle: m.angle, press: m.press, rho: m.rho }); }
     flush(); }

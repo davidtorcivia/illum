@@ -25,17 +25,29 @@
 // base, u, seed).
 //
 // The initial's contract (it differs from the registry's other styles, which set the host's glyph):
-//   initial({ ch, G: { box: [x0, capTop, x1, baseline] }, keep, big, level, seed, room, bottom })
-//     -> { letter: null, marks, width }
-//   ch: the letter (required; A–Z, accents stripped; any other character returns { letter: ch, marks: [], width }
-//   so the host shows its own glyph). The letter itself is written as marks: the host sets its glyph transparent.
-//   box: the cap height of the drop, from its left edge; width: what to float (initial.width(ch) * cap height, the same
-//   before layout; initial.wider[level] px more for the richer levels). keep: rects of the host's words, which no mark
-//   may touch; room: px of margin to the left of the box the cloud may use; bottom: the page's foot. big: the drop
-//   (false: the small capital in the line, one stroke, touched with red). level 0..4: how rich. loops: (a test hook)
-//   the number of great loops, overriding the level's.
+//   initial({ ch, G: { box: [x0, capTop, x1, baseline] }, keep, big, level, seed, room, bottom, face?, form? })
+//     -> { letter, marks, width }
+//   ch: the letter (required; A–Z, accents stripped; any other character returns { letter: ch, marks: [], width } so the
+//   host shows its own glyph). The host sets its own glyph transparent either way. box: the cap height of the drop, from
+//   its left edge (the drop's top on the first line's cap height, its foot on the n-th line's baseline); width: what to
+//   float, known before layout as initial.width(ch, face, form) * cap height (initial.wider[level] px more on the text
+//   side for the richer levels). keep: rects of the host's words, which no mark may touch; room: px of margin to the
+//   left of the box the ornament may use; bottom: the page's foot. big: the drop (false: the capital in the line,
+//   touched with red). level 0..4: how rich.
+//   form 'face' (the default): the letter is a blackletter typeface's capital (face: a key of FACES, default FACE). The
+//     host must `await loadFace(face)` before it measures or makes an initial. letter = { M, w, h, x0, y0, res, red? }:
+//     the black coverage (w × h cells at res per px, its top-left at x0, y0 page px) and, where the heavy strokes are
+//     split, the red laid between their halves (same grid). The host lays it first, with the ink engine:
+//     inkLetter(bake, letter, palette.k), then inkLetter(bake, { ...letter, M: letter.red }, palette.r), and then
+//     writes the marks (the bars, the staff, the cloud, the points) over it.
+//   form 'cadel': the procedural cadel (the letter itself built as strapwork bundles; letter: null, all marks). Kept
+//     for study; five procedurally built letters were rejected, the typeface letter replaced it as the default.
 // touch(): the rubricator's red stroke through a capital of the host's text. The host's text is never marked unasked:
 // the page calls it only when the reader asks for it (the specimen's ?capitals).
+
+import { drawn, edt } from '../penwork.js';
+import { createMedium } from '../medium.js';
+import { noise2 } from '../marks.js';
 
 const fnv = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
 const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -483,7 +495,7 @@ const hits = (pts, keep, edge, bottom, pad = 2) => pts.some(([x, y]) => x < edge
 // initial({ ch, G: { box: [x0, top, x1, base] }, keep: word rects to stay clear of, big, level 0..4, seed, room: margin
 // px to the left of the box, bottom }) -> { letter: null, marks, width }: the letter written as marks (black, then red,
 // then what binds over the red), and the width to float.
-function initial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, room = 100, bottom = 1e9, loops: nLoops }) {
+function cadel({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, room = 100, bottom = 1e9, loops: nLoops }) {
   ch = String(ch).normalize('NFD')[0].toUpperCase(); const [x0, y0, , y1] = G.box, H = y1 - y0, near = H * 3; keep = keep.filter(k => k[2] > x0 - room - near && k[0] < x0 + near && k[3] > y0 - near && k[1] < y1 + near);
   const X = ([x, y]) => [x0 + x * H, y0 + y * H], edge = x0 - room;
   if (!(ch in CAPS)) return { letter: ch, marks: [], width: .8 * H };   // not a Latin letter: the host's own glyph stands
@@ -548,8 +560,236 @@ function initial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, room
   if (!big) red.push(stroke([X([.40, .30]), X([.38, .78])], W * .7, 'r', .4));   // in the line: the capital touched with red
   return { letter: null, marks: [...black, ...red, ...over], width: D.w * H };
 }
+cadel.width = ch => CAPS[String(ch).normalize('NFD')[0].toUpperCase()]?.w ?? .8;
+
+// ---- the initial from a typeface (the default) ---------------------------------------------------------------------------
+// The letter is a real blackletter capital, set from a well-drawn face; procedure does only what a rubricator did to a
+// letter already written: its heavy strokes split, each into two pen strokes with red laid between (as thick as the
+// nib lays across the edge they follow), three bars bound across its heaviest straight stroke, a red point in its
+// counters, the staff (a hairline out into the margin and down it, ending in a curl with a red point), and on a richer
+// page loops thrown from the points of its strokes and a cross of red points. The glyph's coverage is made to read as
+// written (its edge moved in and out slowly, kit/penwork.js drawn()) and is laid by the ink engine (inkLetter: the
+// medium's own deposit, flow and paper), so its edge carries the ink's feathering and its rim the ink's pooling, as
+// the strokes round it do.
+//
+// The faces (playground/fonts, SIL OFL 1.1, from google/fonts). Cook is the default; Maguntia and Grenze Gotisch are the
+// candidates shown beside it in tests/faces.html (fonts/cand, to be removed once one is chosen). Rejected: Texturina
+// (roman capitals), Pirata One, New Rocker, Fruktur, Germania One (display letters, not written ones); Offenbacher
+// Schwabacher CAT (its OpenType code is not under a free licence, per its author) and Strassburg Fraktur (no correct
+// licence file; its flourished capitals are too small in the body at drop size).
+export const FACES = {
+  cook: { family: 'UnifrakturCook', file: 'UnifrakturCook-Bold.woff2', weight: 700, name: 'UnifrakturCook (after Koch Fette Deutsche Schrift)' },
+  maguntia: { family: 'UnifrakturMaguntia', file: 'cand/UnifrakturMaguntia-Book.woff2', weight: 400, name: 'UnifrakturMaguntia (after Mainzer Fraktur)' },
+  grenze: { family: 'Grenze Gotisch', file: 'cand/GrenzeGotisch.woff2', weight: 800, name: 'Grenze Gotisch 800' },
+};
+export const FACE = 'cook', FORM = 'face';
+const fontDir = new URL('../../fonts/', import.meta.url);
+// the face must be loaded before an initial is measured or made (nothing in the host's DOM need use it)
+export async function loadFace(name = FACE) {
+  const F = FACES[name] ?? FACES[FACE]; if (F.ready) return F;
+  const ff = new FontFace(F.family, `url(${new URL(F.file, fontDir)})`, { weight: String(F.weight) });
+  await ff.load(); document.fonts.add(ff); F.ready = true; return F;
+}
+const faceOf = name => FACES[name] ?? FACES[FACE];
+// the glyph's ink box at 100 px: left and right of the pen position, above and below the baseline
+const inkOf = (ch, F) => { const m0 = F.m ??= {}; if (m0[ch]) return m0[ch];
+  const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = `${F.weight} 100px "${F.family}"`; const m = c.measureText(ch);
+  const r = { l: m.actualBoundingBoxLeft, r: m.actualBoundingBoxRight, a: m.actualBoundingBoxAscent, d: m.actualBoundingBoxDescent };
+  if (F.ready) m0[ch] = r; return r; };
+// what the host floats, in cap heights: the glyph's ink, ink top on the cap line and the baseline on the baseline
+const faceWidth = (ch, face) => { const m = inkOf(ch, faceOf(face)); return m.a > 0 ? (m.l + m.r) / m.a : .8; };
+
+// the glyph as coverage at res cells per px; its ink top on y = base - H, its ink's left edge on x0
+function glyphMask(ch, F, H, x0, base, res = 4) {
+  const m = inkOf(ch, F), s = H / m.a, pad = 3, gx = Math.floor(x0 - pad), gy = Math.floor(base - H - pad);
+  const w = Math.ceil(x0 + (m.l + m.r) * s + pad - gx) * res, h = Math.ceil(base + m.d * s + pad - gy) * res;
+  const c = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
+  c.setTransform(res, 0, 0, res, -gx * res, -gy * res); c.font = `${F.weight} ${100 * s}px "${F.family}"`; c.fillStyle = '#000'; c.fillText(ch, x0 + m.l * s, base);
+  const d = c.getImageData(0, 0, w, h).data, M = new Float32Array(w * h); for (let i = 0; i < w * h; i++) M[i] = d[i * 4 + 3] / 255;
+  return { M, w, h, x0: gx, y0: gy, res, ink: [x0, base - H, x0 + (m.l + m.r) * s, base + m.d * s] };
+}
+const sm = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+
+// The letter read from its coverage: Di, how deep each cell lies inside the ink (px), Do, how far each cell of paper lies
+// from it (px), and hw, the half-width of its heaviest strokes (the 97th percentile of the depth, so a junction's
+// swelling does not count)
+function anatomy(L) {
+  const { M, w, h, res } = L, ink = new Uint8Array(w * h), paper = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) { ink[i] = M[i] > .5; paper[i] = !ink[i]; }
+  const Di = edt(paper, w, h), Do = edt(ink, w, h); for (let i = 0; i < w * h; i++) { Di[i] /= res; Do[i] /= res; }
+  const deep = []; for (let i = 0; i < w * h; i += 3) if (Di[i] > 1) deep.push(Di[i]); deep.sort((a, b) => a - b);
+  return { Di, Do, hw: deep[Math.floor(deep.length * .97)] ?? 1 };
+}
+// The heaviest straight stroke (where the bars bind): of the cells near the deepest, the one whose neighbourhood of deep
+// cells is most nearly a line (its principal axis), a little below the middle of the letter preferred. { p, t, d }
+function spine(L, A, H, ink) {
+  const { w, h, res } = L, { Di, hw } = A, R = Math.round(hw * 2.6 * res), st = Math.max(1, Math.round(res / 2)); let best = null;
+  for (let j = 0; j < h; j += st * 2) for (let i = 0; i < w; i += st * 2) { const d = Di[j * w + i]; if (d < hw * .82) continue;
+    let n = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+    for (let y = Math.max(0, j - R); y < Math.min(h, j + R); y += st) for (let x = Math.max(0, i - R); x < Math.min(w, i + R); x += st)
+      if (Di[y * w + x] > hw * .55 && (x - i) ** 2 + (y - j) ** 2 < R * R) { n++; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; }
+    if (n < 4) continue; const mx = sx / n, my = sy / n, a = sxx / n - mx * mx, c = syy / n - my * my, b = sxy / n - mx * my, tr = (a + c) / 2, q = Math.sqrt(((a - c) / 2) ** 2 + b * b);
+    const l1 = tr + q, l2 = Math.max(1e-6, tr - q), th = .5 * Math.atan2(2 * b, a - c), py = L.y0 + j / res, f = (py - ink[1]) / H;
+    const score = Math.min(8, l1 / l2) + 5 * Math.abs(Math.sin(th)) - 6 * Math.abs(f - .62);
+    if (!best || score > best.score) best = { score, p: [L.x0 + (i + .5) / res, py], t: [Math.cos(th), Math.sin(th)], d }; }
+  if (best && best.t[1] < 0) best.t = [-best.t[0], -best.t[1]];
+  return best;
+}
+// cells of a mask changed by f(x, y, i) -> the new value (page px), inside box
+function each(L, box, f) { const { w, h, res } = L, [i0, j0, i1, j1] = [(box[0] - L.x0) * res, (box[1] - L.y0) * res, (box[2] - L.x0) * res, (box[3] - L.y0) * res].map(Math.round);
+  for (let j = Math.max(0, j0); j < Math.min(h, j1); j++) for (let i = Math.max(0, i0); i < Math.min(w, i1); i++) f(L.x0 + (i + .5) / res, L.y0 + (j + .5) / res, j * w + i); }
+
+// the counters: paper the letter closes round on all four sides, the widest first, each its centre and its room (px)
+function countersOf(L, A, ink, H, n) {
+  const { M, w, res } = L, out = [], st = Math.max(1, Math.round(res * H * .012)), on = (i, j) => M[j * w + i] > .4;
+  const [ix0, iy0, ix1, iy1] = [(ink[0] - L.x0) * res, (ink[1] - L.y0) * res, (ink[2] - L.x0) * res, (ink[3] - L.y0) * res].map(Math.round);
+  const shut = (i, j) => [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => { for (let k = 1; ; k++) { const x = i + dx * k, y = j + dy * k; if (x < ix0 || x >= ix1 || y < iy0 || y >= iy1) return false; if (on(x, y)) return true; } });
+  for (let j = iy0 + st; j < iy1 - st; j += st) for (let i = ix0 + st; i < ix1 - st; i += st) { const d = A.Do[j * w + i];
+    if (d >= H * .045 && shut(i, j)) out.push({ p: [L.x0 + (i + .5) / res, L.y0 + (j + .5) / res], d }); }
+  out.sort((a, b) => b.d - a.d); const pick = [];
+  for (const c of out) { if (pick.length >= n) break; if (pick.every(q => Math.hypot(q.p[0] - c.p[0], q.p[1] - c.p[1]) > H * .25)) pick.push(c); }
+  return pick;
+}
+const cross4 = (p, s) => { const d = s * 1.25; return [[0, -d], [0, d], [-d, 0], [d, 0]].map(([dx, dy]) => lozenge([p[0] + dx, p[1] + dy], s, 'r')); };
+
+// the points of the strokes: places on the letter's edge with little ink round them (a stroke ending in a point or a
+// hairline), the most pointed first, each with the way it points (from the ink's centre there through it)
+function tipsOf(L, A, H) {
+  const { M, w, h, res } = L, R = Math.max(2, Math.round(A.hw * 1.6 * res)), st = Math.max(1, Math.round(res * .75)), out = [];
+  for (let j = R; j < h - R; j += st) for (let i = R; i < w - R; i += st) { const q = j * w + i; if (M[q] <= .5 || A.Di[q] > .6) continue;
+    let n = 0, sx = 0, sy = 0, all = 0; for (let y = -R; y <= R; y += st) for (let x = -R; x <= R; x += st) { if (x * x + y * y > R * R) continue; all++; if (M[q + y * w + x] > .5) { n++; sx += x; sy += y; } }
+    const f = n / all; if (f > .26) continue; const t = unit([-sx / n, -sy / n]); out.push({ p: [L.x0 + (i + .5) / res, L.y0 + (j + .5) / res], t, f }); }
+  out.sort((a, b) => a.f - b.f); const pick = [];
+  for (const c of out) if (pick.every(q => Math.hypot(q.p[0] - c.p[0], q.p[1] - c.p[1]) > H * .12)) pick.push(c);
+  return pick;
+}
+// per level: the heavy strokes split with red between their halves, the three bars, red points in the counters, loops
+// into the margin, crosses
+const FBUDGET = [{ touch: true }, { split: true }, { split: true, bars: true, pts: 1, staff: true }, { split: true, bars: true, pts: 2, staff: true, cloud: 1 }, { split: true, bars: true, pts: 3, staff: true, cloud: 3, crosses: true }];
+
+function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, room = 100, bottom = 1e9, face = FACE }) {
+  ch = String(ch).normalize('NFD')[0].toUpperCase(); const [x0, y0, , y1] = G.box, H = y1 - y0, edge = x0 - room, F = faceOf(face);
+  if (!/[A-Z]/.test(ch)) return { letter: ch, marks: [], width: .8 * H };
+  const raw = glyphMask(ch, F, H, x0, y1), L = { ...drawn(raw, seed, big ? .45 : .2), ink: raw.ink }, width = raw.ink[2] - raw.ink[0];
+  const b = big ? FBUDGET[level] : { touch: true }, r = rng(seed, 'face'), A = anatomy(L), sp = spine(L, A, H, raw.ink), over = [], strands = [];
+  keep = keep.filter(k => k[2] > x0 - room - H && k[0] < x0 + width + H && k[3] > y0 - H && k[1] < y1 + H * 2);
+  // the rubricator's touch: one red stroke down the heaviest stroke
+  if (sp) {   // the spine's point moved onto the stroke's middle (the deepest cell across it)
+    const n = [-sp.t[1], sp.t[0]], depth = ([x, y]) => { const i = Math.round((x - L.x0) * L.res), j = Math.round((y - L.y0) * L.res); return i >= 0 && j >= 0 && i < L.w && j < L.h ? A.Di[j * L.w + i] : 0; };
+    let bp = sp.p, bd = depth(bp); for (let v = -A.hw * 1.6; v <= A.hw * 1.6; v += .25) { const q = [sp.p[0] + n[0] * v, sp.p[1] + n[1] * v], d = depth(q); if (d > bd) { bd = d; bp = q; } }
+    sp.p = bp; }
+  if (b.touch && sp) { const s = H * (big ? .28 : .3); over.push(stroke([[sp.p[0] - sp.t[0] * s, sp.p[1] - sp.t[1] * s], [sp.p[0] + sp.t[0] * s, sp.p[1] + sp.t[1] * s]], Math.max(1, sp.d * .45), 'r', .45)); }
+  if (!big) {   // in the line: the touch down the column with the most ink through the letter's middle
+    const { M, w, h, res } = L, j0 = Math.round((y0 + H * .25 - L.y0) * res), j1 = Math.round((y1 - H * .2 - L.y0) * res); let bi = 0, bn = -1;
+    for (let i = 0; i < w; i++) { let n = 0; for (let j = Math.max(0, j0); j < Math.min(h, j1); j++) n += M[j * w + i] > .5; if (n > bn) { bn = n; bi = i; } }
+    const x = L.x0 + (bi + .5) / res;
+    return { letter: { ...L, wet: .03, dry: 0 }, marks: [stroke([[x + H * .02, y0 + H * .22], [x - H * .02, y1 - H * .14]], Math.max(1, H * .08), 'r', .45)], width };   // small: a quicker, drier ink, or it closes the counters
+  }   // small: a quicker, drier ink, or it closes the counters
+  // the heavy strokes split: paper down the middle of every stroke as heavy as the heaviest, so each is written as two
+  // black strokes with a hair of paper and the red between them (Neudörffer's doubled strokes with colour laid between,
+  // Met 354468; Rossi's channels, 1598). The split follows the letter, closing to a point where a stroke thins.
+  if (b.split) {
+    // each half is a pen stroke along the letter's edge, so it is as thick as the nib lays across that edge's direction:
+    // broad where the edge runs square to the nib, a hair where it runs along it
+    // (the direction read from the depth's slope a little in from the edge, and smoothed, so the split runs clean)
+    const { w, h, res } = L, Di = A.Di, hair = Math.max(.65, A.hw * .13), R = new Float32Array(L.M.length), X = new Float32Array(L.M.length), Wt = new Float32Array(L.M.length);
+    for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) { const q = j * w + i, d = Di[q]; if (d <= .5 || d > A.hw * .6) continue;
+      const gx = Di[q + 1] - Di[q - 1], gy = Di[q + w] - Di[q - w], gl = Math.hypot(gx, gy); if (gl < .1) continue;
+      X[q] = Math.abs(E[0] * gx / gl + E[1] * gy / gl); Wt[q] = 1; }
+    const rb = Math.max(1, Math.round(A.hw * .9 * res)), Xb = boxBlur(boxBlur(X, w, h, rb), w, h, rb), Wb = boxBlur(boxBlur(Wt, w, h, rb), w, h, rb);
+    for (let q = 0; q < R.length; q++) { const d = Di[q]; if (d <= A.hw * .45) continue;
+      const k = A.hw * (.5 + .34 * (Wb[q] > .01 ? Xb[q] / Wb[q] : .5));
+      L.M[q] *= 1 - sm(k - .4, k + .4, d); R[q] = sm(k + hair - .4, k + hair + .4, d); }
+    L.red = R;
+  }
+  // three bars bound across the heaviest straight stroke, below its middle; the stroke cut through where they bind it
+  if (b.bars && sp) {
+    const [t, n] = [sp.t, [-sp.t[1], sp.t[0]]], tb = Math.max(.9, A.hw * .24), p = tb * 2.3, gap = tb * .8, span = A.hw * 1.35, ov = A.hw * .45, c = sp.p;
+    each(L, [c[0] - span * 2, c[1] - span * 2, c[0] + span * 2, c[1] + span * 2], (x, y, i) => { const u = (x - c[0]) * t[0] + (y - c[1]) * t[1], v = (x - c[0]) * n[0] + (y - c[1]) * n[1];
+      if (Math.abs(v) > span * 1.4) return; const f = sm(-.4, .4, Math.abs(u) - (p + tb / 2 + gap)); L.M[i] *= f; if (L.red) L.red[i] *= f; });
+    const ang = Math.atan2(-t[1], t[0]);
+    for (let q = -1; q <= 1; q++) { const pts = [], wm = [];
+      for (let u = -1; u <= 1.001; u += .1) { const v = u * (A.hw + ov), bow = tb * .7 * (1 - u * u); pts.push([c[0] + n[0] * v + t[0] * (q * p + bow), c[1] + n[1] * v + t[1] * (q * p + bow)]); wm.push(Math.max(.2, 1 - u ** 8)); }
+      over.push({ ...stroke(pts, tb, 'k', .4), angle: ang, press: pressOf(pts, wm) }); }
+  }
+  // the staff: a hairline sprung from the letter's outermost point on the margin side, out into the margin and down it
+  // past the letter's foot, ending in a curl with a red point in its eye (03's staff; Neudörffer's hairlines); on the
+  // richest page loops thrown from the points of its strokes as well
+  let staff = null;
+  if (b.staff) {
+    const { M, w, h, res } = L, hwl = Math.max(.9, H * .009); let lp = null;
+    for (let j = 0; j < h; j += 2) for (let i = 0; i < w; i += 2) if (M[j * w + i] > .5) { const x = L.x0 + i / res, y = L.y0 + j / res, sc = -x - Math.max(0, y - y0 - H * .55) * 3; if (!lp || sc > lp.sc) lp = { sc, p: [x, y] }; }
+    for (let a = Math.min(x0 - edge - 6, H * .3); lp && a > H * .1; a *= .82) {
+      const p = lp.p, dn = H * (.55 + .25 * r()), cr = H * (.07 + .02 * r());
+      const c0 = through([p, [p[0] - a * .55, p[1] + H * .12], [x0 - a, y1 - H * .05], [x0 - a * .92, y1 + dn * .55], [x0 - a * .62, y1 + dn]], .5);
+      const q = c0.at(-1), d = unit([q[0] - c0.at(-5)[0], q[1] - c0.at(-5)[1]]), cu = curlOf(q, Math.atan2(d[1], d[0]), cr, -1), c = [...c0, ...cu.slice(1)];
+      if (hits(c, keep, edge, bottom)) continue;
+      const S2 = arc(c), Lc = S2.at(-1); strands.push({ ...hairline(c, hwl * 2.2), alt: 'own', z: -1 });
+      strands.at(-1).parts[0].wm = S2.map(v => Math.max(.25, Math.min(1, v / (H * .08), (Lc - v) / (H * .05))));
+      const tail = cu.slice(Math.round(cu.length * .45)), eye = tail.reduce((m, v) => [m[0] + v[0] / tail.length, m[1] + v[1] / tail.length], [0, 0]);
+      over.push(lozenge(eye, Math.max(1.4, cr * .3), 'r'));
+      staff = { a, dn };
+      break;
+    }
+  }
+  // the cloud: from the points where the letter's strokes end (the pen's thin edge running on), loops as large as the
+  // room allows, bulging away from the letter, coming back across it (Neudörffer's title cadel, Met 354468)
+  if (b.cloud) { const used = [], cx = (raw.ink[0] + raw.ink[2]) / 2, cy = (raw.ink[1] + raw.ink[3]) / 2;
+    for (const e of tipsOf(L, A, H)) { if (used.length >= b.cloud) break; if (e.p[0] > cx + width * .15 && e.p[1] > y0 + H * .2) continue;   // not out over the words
+      if (used.some(u => Math.hypot(u[0] - e.p[0], u[1] - e.p[1]) < H * .3)) continue; let got = null;
+      for (const dh of [0, -.4, .4, -.8, .8]) { for (const s of [1, -1]) { for (let f = 1; f > .65 && !got; f *= .88) {
+        const lp = loopOf(e.p, Math.atan2(e.t[1], e.t[0]) + dh, H * (.15 + .06 * r()) * f, s, [.85 + r() * .3, r() * .5, r()], rng(seed + used.length, 'cloud'));
+        const m = lp[Math.floor(lp.length * .35)]; if ((m[0] - cx) * e.t[0] + (m[1] - cy) * e.t[1] < 0) continue;   // it bulges outward
+        const onInk = lp.filter(([x, y]) => { const i = Math.round((x - L.x0) * L.res), j = Math.round((y - L.y0) * L.res); return i >= 0 && j >= 0 && i < L.w && j < L.h && L.M[j * L.w + i] > .3; }).length / lp.length;
+        if (onInk < .2 && !hits(lp, keep, edge, bottom)) got = lp; } if (got) break; } if (got) break; }
+      if (got) { used.push(e.p); strands.push({ ...hairline(got, Math.max(.9, H * .009) * 1.7), alt: 'own', z: -2 }); if (got.eye) over.push(lozenge(got.eye, Math.max(1.4, H * .014), used.length % 2 ? 'r' : 'k')); } } }
+  // a cross of four red points hung between the staff and the words, below the letter
+  if (b.crosses && staff) { const p = [x0 - staff.a * .42, y1 + staff.dn * .38], s = Math.max(1.3, H * .017), cr = cross4(p, s); if (!cr.some(m => hits(m.pts, keep, edge, bottom))) over.push(...cr); }
+  // a red point in each counter the letter closes (a cross of four in the widest, on the richest page)
+  for (const [k, c] of countersOf(L, A, raw.ink, H, b.pts ?? 0).entries()) over.push(...(b.crosses && k === 0 ? cross4(c.p, Math.min(c.d * .3, H * .016)) : [lozenge(c.p, Math.min(c.d * .7, H * .042), 'r')]));
+  const marks = strands.length ? interlace(strands, Math.max(1, H * .008)).map(m => m.wm ? { ...m, press: pressOf(m.pts, m.wm) } : m) : [];
+  return { letter: L, marks: [...marks, ...over], width };
+}
+// ---- laying the letter with the ink engine -----------------------------------------------------------------------------
+// The glyph's coverage poured into the medium (kit/medium.js) as one deposit: each row of the letter swept as a strip of
+// the nib's edge, a little more ink where the coverage is near its rim (the pooling of a broad stroke's borders) and a
+// slow mottle; then the medium levels it, lets it creep into the paper's fibre at the edge, and dries it. The result is
+// pressed into `bake` (a 2D context in page px at dpr) as the writer presses its windows.
+export function inkLetter(bake, L, rgb, { dpr = 2, wet = L.wet ?? .2, dry = L.dry ?? .22 } = {}) {
+  const pad = 5, ox = Math.floor(L.x0 * dpr) / dpr - pad, oy = Math.floor(L.y0 * dpr) / dpr - pad;
+  const cv = document.createElement('canvas'); cv.width = Math.ceil((L.w / L.res + pad * 2) * dpr); cv.height = Math.ceil((L.h / L.res + pad * 2) * dpr);
+  const Md = createMedium(cv, { dpr, paper: [255, 255, 255], ink: rgb }); Md.wetness(wet); Md.settings.over = true; Md.settings.ink = rgb; Md.makePaper([ox * dpr, oy * dpr]);
+  const { M, w, h, res } = L, Bl = boxBlur(boxBlur(M, w, h, Math.round(1.6 * res)), w, h, Math.round(1.6 * res)), mot = noise2(97);
+  const dev = (x, y) => [(L.x0 + x / res - ox) * dpr, (L.y0 + y / res - oy) * dpr], rowStep = Math.max(1, Math.round(res / (2 * dpr))), hh = .6, seg = 6, th = .6;
+  const rimAt = (i, j) => Math.max(0, 1 - Bl[j * w + Math.max(0, Math.min(w - 1, Math.round(i)))]) * 1.6;
+  const inkAt = (i, j) => { const rim = rimAt(i, j), px = L.x0 + i / res, py = L.y0 + j / res; return 1.0 + .38 * rim * rim + .14 * (mot(px / 9, py / 9) - .5); };
+  for (let j = 0; j < h; j += rowStep) { let a = null;
+    for (let i = 0; i <= w; i++) { const v = i < w ? M[j * w + i] : 0, u = i ? M[j * w + i - 1] : 0;
+      if (v > th && u <= th) a = i - 1 + (th - u) / (v - u || 1);
+      else if (v <= th && u > th && a !== null) { const e = i - 1 + (th - u) / (v - u || 1), [xa, y] = dev(a + .5, j + .5), [xe] = dev(e + .5, 0);
+        const x0 = xa + .5, x1 = Math.max(x0 + .01, xe - .5), n = Math.max(1, Math.ceil((x1 - x0) / seg));
+        for (let k = 0; k < n; k++) { const s0 = x0 + (x1 - x0) * k / n, s1 = x0 + (x1 - x0) * (k + 1) / n, i0 = a + (e - a) * k / n, i1 = a + (e - a) * (k + 1) / n;
+          Md.sweep([[s0, y - hh], [s0, y + hh], [s1, y + hh], [s1, y - hh]], [s0, y], [s1, y], inkAt(i0, j), inkAt(i1, j), dry * Math.max(rimAt(i0, j), rimAt(i1, j)) ** 2); }
+        a = null; } } }
+  for (let k = 0; k < 24; k++) Md.step(16);
+  Md.finish(); Md.render();
+  bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = 'source-over'; bake.drawImage(cv, Math.round(ox * dpr), Math.round(oy * dpr)); bake.restore();
+  cv.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
+}
+function boxBlur(A, w, h, r) {
+  if (r < 1) return A; const T = new Float32Array(w * h), O = new Float32Array(w * h), k = 2 * r + 1;
+  for (let y = 0; y < h; y++) { let s = 0; for (let x = -r; x <= r; x++) s += A[y * w + Math.min(w - 1, Math.max(0, x))];
+    for (let x = 0; x < w; x++) { T[y * w + x] = s / k; s += A[y * w + Math.min(w - 1, x + r + 1)] - A[y * w + Math.max(0, x - r)]; } }
+  for (let x = 0; x < w; x++) { let s = 0; for (let y = -r; y <= r; y++) s += T[Math.min(h - 1, Math.max(0, y)) * w + x];
+    for (let y = 0; y < h; y++) { O[y * w + x] = s / k; s += T[Math.min(h - 1, y + r + 1) * w + x] - T[Math.max(0, y - r) * w + x]; } }
+  return O;
+}
+
+// the initial: the typeface's capital with the rubricator's ornament (form 'face', the default), or the procedural cadel
+// of strapwork bundles (form 'cadel')
+function initial(o) { return (o.form ?? FORM) === 'cadel' ? cadel(o) : typeInitial(o); }
 initial.wider = [0, 0, 0, 2, 4];
-initial.width = ch => CAPS[String(ch).normalize('NFD')[0].toUpperCase()]?.w ?? .8;
+initial.width = (ch, face = FACE, form = FORM) => form === 'cadel' ? cadel.width(ch) : faceWidth(String(ch).normalize('NFD')[0].toUpperCase(), face);
 
 
 // ---- the rubricator's small marks ----------------------------------------------------------------------------------------------

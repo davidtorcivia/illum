@@ -17,7 +17,7 @@ import S from '../kit/styles/blackletter.js';
 import { LETTERS } from '../kit/styles/blackletter.js';
 assert.equal(LETTERS.length, 26, 'A–Z each have a skeleton');
 for (const ch of LETTERS) for (let level = 0; level <= 4; level++) for (const H of [40, 60, 90, 150]) for (const seed of [1, 7, 12345]) for (const big of [true, false]) {
-  const { marks, width } = S.initial({ ch, G: { box: [200, 100, 200 + H, 100 + H] }, level, seed, big, room: 150 });
+  const { marks, width } = S.initial({ ch, G: { box: [200, 100, 200 + H, 100 + H] }, level, seed, big, room: 150, form: 'cadel' });
   assert.ok(marks.length > 0 && width > 0, `${ch} ${level} ${H} ${seed}`);
   for (const m of marks) assert.ok(m.pts.every(p => Number.isFinite(p[0]) && Number.isFinite(p[1])), `NaN in ${ch} ${level} ${H} ${seed}`);
 }

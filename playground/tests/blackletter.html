@@ -10,6 +10,9 @@
   a chapter and a book break, and the six frames. Text: Ruskin, The Stones of Venice II (1853), ch. VI, Project
   Gutenberg #30755 (as 03), and the notes of 07. ?draw writes it as you watch; ?theme=dark; ?rich=0..1; #seed=n;
   ?capitals touches the first capital of each sentence with red (off by default: the host's text is not marked unasked).
+  The drop initial's letter is a blackletter typeface's capital (?face=cook|maguntia|grenze; tests/faces.html compares
+  them), laid by the ink engine, with the rubricator's ornament round and through it; ?form=cadel draws the older
+  procedural cadel of strapwork bundles instead.
   The cadels alone, A–Z: tests/cadel.html.
 -->
 <style>
@@ -128,7 +131,7 @@ for (const el of boxes(document))
 
 <script type="module">
 import { createWriter, supported } from '../kit/writer.js';
-import S from '../kit/styles/blackletter.js';
+import S, { loadFace, inkLetter } from '../kit/styles/blackletter.js';
 
 const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark';
 if (dark) document.documentElement.dataset.theme = 'dark';
@@ -137,6 +140,8 @@ const art = document.querySelector('.text'), sheet = document.querySelector('.sh
 const fnv = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
 const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? fnv(art.textContent.replace(/\s+/g, ' ').trim()) % 1e7);
 const RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0)), LEVEL = Math.round(RICH * 4), CAPS = q.has('capitals');
+// the drop initial: the typeface its letter is taken from (?face=, default the style's), or the procedural cadel (?form=cadel)
+const FACE = q.get('face') ?? undefined, FORM = q.get('form') ?? undefined, widthOf = ch => S.initial.width(ch, FACE, FORM);
 document.getElementById('seed').textContent = SEED;
 
 // ---- measuring ---------------------------------------------------------------------------------------------------------
@@ -151,17 +156,17 @@ function setInitials() {
     const cs = getComputedStyle(s.parentElement), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = +s.dataset.lines || 3;
     const base = (lh - (MET.asc + MET.desc) * fs) / 2 + MET.asc * fs, F = ((n - 1) * lh + fs * MET.cap) / MET.cap, top = (n - 1) * lh + base - F * ((1 - MET.asc - MET.desc) / 2 + MET.asc);
     const H = F * MET.cap;
-    Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', display: 'block', width: (S.initial.width(s.textContent) * H) + 'px',
+    Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', display: 'block', width: (widthOf(s.textContent) * H) + 'px',
       marginRight: Math.round(lh * .38 + S.initial.wider[LEVEL]) + 'px', marginLeft: '0' });
   }
   // a line initial: as wide as its blackletter capital
-  for (const s of art.querySelectorAll('.ini.line')) s.style.width = (S.initial.width(s.textContent) * parseFloat(getComputedStyle(s).fontSize) * MET.cap) + 'px';
+  for (const s of art.querySelectorAll('.ini.line')) s.style.width = (widthOf(s.textContent) * parseFloat(getComputedStyle(s).fontSize) * MET.cap) + 'px';
 }
 // the letter's ink box: from the cap line to the baseline, from its left edge
 function boxOf(span, o) {
   const F = parseFloat(getComputedStyle(span).fontSize), rg = document.createRange(); rg.selectNodeContents(span); const rc = rg.getClientRects()[0];
   const base = rc.top - o.top + MET.asc * F + (rc.height - (MET.asc + MET.desc) * F) / 2;
-  return [rc.left - o.left, base - MET.cap * F, rc.left - o.left + S.initial.width(span.textContent) * MET.cap * F, base];
+  return [rc.left - o.left, base - MET.cap * F, rc.left - o.left + widthOf(span.textContent) * MET.cap * F, base];
 }
 function wordRects(o, pad) {
   const out = [], tw = document.createTreeWalker(art, NodeFilter.SHOW_TEXT);
@@ -182,7 +187,8 @@ function compose() {
   const o = sheet.getBoundingClientRect(), fs = parseFloat(getComputedStyle(art).fontSize), u = fs * MET.x, keep = wordRects(o, 3), edge = 10, items = [];
   const s = k => (SEED + k * 7919) >>> 0, at = el => el.getBoundingClientRect().top;
   art.querySelectorAll('.ini').forEach((span, k) => { const big = span.classList.contains('drop'), box = boxOf(span, o);
-    items.push({ el: span, y: at(span), marks: S.initial({ ch: span.textContent, G: { box }, keep, big, level: LEVEL, rich: RICH, seed: s(k), room: box[0] - edge, bottom: o.height - 30 }).marks }); });
+    const ini = S.initial({ ch: span.textContent, G: { box }, keep, big, level: LEVEL, rich: RICH, seed: s(k), room: box[0] - edge, bottom: o.height - 30, face: FACE, form: FORM });
+    items.push({ el: span, y: at(span), marks: ini.marks, letter: ini.letter?.M ? ini.letter : null }); });
   const m = rel(art, o), measure = m[2] - m[0], kinds = S.kinds(S.setup(SEED), RICH);
   // paraphs, in the gap the scribe left at the head of a paragraph
   art.querySelectorAll('p.par').forEach((p, k) => { const L = linesOf(p, o)[0], ind = parseFloat(getComputedStyle(p).textIndent), w = u * 1.65;
@@ -229,6 +235,8 @@ function score(items) {
       run.strokes.push({ pts: m.pts, L, angle: m.angle, press: m.press }); }
     flush();
     const cap = it.el.classList?.contains('drop') ? 6 : it.marks.length <= 1 ? .3 : 1.2, k = Math.min(1, cap / Math.max(u, .01));
+    // a letter from the typeface is laid first, in the ink, before the rubricator's marks round it
+    if (it.letter) { parts.push({ t0: t, t1: t + .6, letter: it.letter }); t += .6; }
     for (const p of own) parts.push({ ...p, t0: t + p.t0 * k, t1: t + p.t1 * k });
     t += u * k + .12;
   }
@@ -242,7 +250,9 @@ function render(animate) {
   bk.width = Math.round(o.width * dpr); bk.height = Math.round(o.height * dpr); bk.style.width = o.width + 'px'; bk.style.height = o.height + 'px';
   const g = bk.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const P = S.palette[dark ? 'dark' : 'light'], W = createWriter(sheet, g, { dpr, dark });
-  const parts = score(items).map(p => ({ ...p, part: W.part(p.t0, p.t1, p.strokes.map(s => ({ pts: s.pts, angle: s.angle, press: s.press })), P[p.col], { width: p.w, hair: p.hair }) }));
+  const lay = L => { inkLetter(g, L, P.k, { dpr }); if (L.red) inkLetter(g, { ...L, M: L.red }, P.r, { dpr }); };
+  const parts = score(items).map(p => ({ ...p, part: p.letter ? { bbox: [0, p.letter.y0], at() {}, done() { lay(p.letter); } }
+    : W.part(p.t0, p.t1, p.strokes.map(s => ({ pts: s.pts, angle: s.angle, press: s.press })), P[p.col], { width: p.w, hair: p.hair }) }));
   document.body.dataset.score = (parts.at(-1)?.t1 ?? 0).toFixed(1) + ' s';
   if (!animate) { parts.forEach(p => p.part.done()); W.flush(); W.destroy?.();
     document.body.dataset.timing = `compose ${(t1 - t0) | 0} ms, write ${(performance.now() - t1) | 0} ms, ${parts.length} parts`; return; }
@@ -255,7 +265,7 @@ function render(animate) {
   raf = requestAnimationFrame(tick);
 }
 
-await document.fonts.ready; MET = M();
+await document.fonts.ready; MET = M(); if (FORM !== 'cadel') await loadFace(FACE);
 if (!supported()) document.body.dataset.timing = 'no webgl2';
 else render(q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches);
 </script>
