@@ -18,6 +18,33 @@
   <nav aria-label="Site"><ul><li><a href="see.html" aria-current="page">see</a></li><li><a href="use.html">use</a></li></ul></nav>
 </header>
 <h1 class="vh">See</h1>
+<!-- the viewer: the style (opens the catalogue; steps to the next and the last), still or written, and the rest under Adjust -->
+<div class="viewer" id="viewer">
+  <div class="v-style">
+    <button type="button" class="step" data-step="-1" aria-label="The previous style">‹</button>
+    <button type="button" class="current" id="current" aria-haspopup="dialog" aria-controls="catalogue"><span class="vh">Style: </span><span id="current-name">Blackletter</span></button>
+    <button type="button" class="step" data-step="1" aria-label="The next style">›</button>
+  </div>
+  <fieldset class="seg show"><legend class="vh">Show</legend>
+    <label><input type="radio" name="draw" value="still" form="adjust"><span>Still</span></label>
+    <label><input type="radio" name="draw" value="read" form="adjust"><span>Written</span></label>
+  </fieldset>
+  <button type="button" class="more" id="more" aria-expanded="false" aria-controls="adjust">Adjust</button>
+  <form class="panel" id="adjust" aria-label="Adjust" hidden>
+    <fieldset class="seg" id="rich"><legend>Richness</legend></fieldset>
+    <div class="size"><label for="size">Size</label><input type="range" id="size" min="15" max="26" step="1"><output for="size" id="sizeOut"></output></div>
+    <div id="own"></div>
+    <div class="line"><span class="lab">Seed</span> <span id="seed"></span> <button type="button" id="again">New seed</button></div>
+    <div class="line"><span class="lab">Ground</span> <button type="button" class="theme">Dark</button></div>
+  </form>
+</div>
+
+<dialog class="catalogue" id="catalogue" aria-labelledby="cat-h">
+  <form method="dialog" id="cat-form">
+    <div class="cat-head"><h2 id="cat-h">Styles</h2><button type="submit" value="close" class="close">Close</button></div>
+    <div id="cat-list"></div>
+  </form>
+</dialog>
 <main class="sheet" data-style="blackletter" id="main">
   <article class="text">
     <h1>Changefulness</h1>
@@ -79,31 +106,6 @@ for (const el of boxes(document))
 <p class="credit" id="credit">After German books of the fifteenth century, among them Johann Neudörffer’s <i>Eine gute Ordnung</i>, 1538, and the Winter Breviary of Constance, 1476–78. The Metropolitan Museum of Art. <a href="sources.html#blackletter">Sources</a></p>
 <footer class="colophon">illum, by David Torcivia, 2026.</footer>
 
-<!-- the instrument: fixed to the foot of the window, so the specimen keeps the whole width -->
-<form class="tester" aria-label="Viewer" id="tester">
-  <div class="panel" id="adjust" hidden>
-    <fieldset class="seg" id="rich"><legend>Richness</legend></fieldset>
-    <div class="size"><label for="size">Size</label><input type="range" id="size" min="15" max="26" step="1"><output for="size" id="sizeOut"></output></div>
-    <div id="own"></div>
-    <p class="seedline">Seed <span id="seed"></span></p>
-  </div>
-  <fieldset class="seg styles"><legend class="vh">Style</legend>
-    <label><input type="radio" name="style" value="blackletter"><span>Blackletter</span></label>
-    <label><input type="radio" name="style" value="tarot"><span>Tarot</span></label>
-    <label><input type="radio" name="style" value="occult"><span>Occult</span></label>
-    <label><input type="radio" name="style" value="astrology"><span>Astrology</span></label>
-    <label><input type="radio" name="style" value="draft"><span>Draft</span></label>
-  </fieldset>
-  <div class="tools">
-    <fieldset class="seg"><legend class="vh">Show</legend>
-      <label><input type="radio" name="draw" value="still"><span>Still</span></label>
-      <label><input type="radio" name="draw" value="read"><span>Written</span></label>
-    </fieldset>
-    <button type="button" id="again">New seed</button>
-    <button type="button" class="theme">Dark</button>
-    <button type="button" id="more" aria-expanded="false" aria-controls="adjust">Adjust</button>
-  </div>
-</form>
 <script type="module" src="js/site.js"></script>
 <script type="module" src="js/see.js"></script>
 </body>

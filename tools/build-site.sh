@@ -4,7 +4,7 @@
 #   tools/build-site.sh
 #
 # What it copies (from playground/, which stays the source of truth; never edit the copies):
-#   playground/kit/{illum,marks,wayfinding,initials,frames,penwork,writer,medium,inkletter,cache}.js  -> site/kit/
+#   playground/kit/{illum,registry,all,marks,wayfinding,initials,frames,penwork,writer,medium,inkletter,cache}.js  -> site/kit/
 #   playground/kit/styles/*.js                                                               -> site/kit/styles/
 #   playground/fonts/ (the faces the styles load at run time, with their OFL texts)           -> site/fonts/
 # The styles find their faces at new URL('../../fonts/', import.meta.url), so kit/ and fonts/ must stay siblings.
@@ -19,11 +19,23 @@ src=$here/playground site=$here/site
 
 rm -rf "$site/kit" "$site/fonts"
 mkdir -p "$site/kit/styles" "$site/fonts"
-for m in illum marks wayfinding initials frames penwork writer medium inkletter cache; do cp "$src/kit/$m.js" "$site/kit/"; done
+for m in illum registry all marks wayfinding initials frames penwork writer medium inkletter cache; do cp "$src/kit/$m.js" "$site/kit/"; done
 cp "$src"/kit/styles/*.js "$site/kit/styles/"
 cp "$src"/fonts/*.woff2 "$src"/fonts/*.txt "$site/fonts/"
 # the library's hash (kit/cache.js keys every remembered or baked ornament by it): every module and face as shipped, so a
 # reader's browser need not read them all to know whether what it remembers is still current
 echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
+
+# the ornament baked (tools/bake.mjs), so a first visit is drawn from it rather than by the ink engine: every page at 1440
+# and 390, light and dark, dpr 1 and 2, served from site/ itself on a spare port; into site/kit/bake.json and site/kit/bake/,
+# which rubricate reads by default. NOBAKE=1 skips it (the pages then draw live, as before).
+if [ -z "${NOBAKE:-}" ]; then
+  port=${BAKE_PORT:-8790}
+  python3 -m http.server "$port" --bind 127.0.0.1 --directory "$site" >/dev/null 2>&1 & srv=$!
+  trap 'kill $srv 2>/dev/null' EXIT; sleep 1
+  pages=$(cd "$site" && find . -name '*.html' | sed "s#^\./#http://127.0.0.1:$port/#" | sort)
+  node "$here/tools/bake.mjs" "$site/kit/bake.json" $pages
+  kill $srv; trap - EXIT
+fi
 
 echo "site: $(du -sh "$site" | cut -f1) in $(find "$site" -type f | wc -l) files"

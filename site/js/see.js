@@ -1,54 +1,67 @@
-// See: the five styles on one text, and the instrument at the foot of the window that changes how it is shown.
+// See: one text in any of the styles. The viewer names the current style (it opens the catalogue; ‹ › step through the
+// list), shows still or written, and keeps the rest under Adjust. The catalogue is built from js/catalogue.js.
 import { mount, RICH } from './specimen.js';
+import { CATALOGUE, FAMILIES, byKey } from './catalogue.js';
 
-const CREDIT = {
-  blackletter: ['After German books of the fifteenth century, among them Johann Neudörffer’s <i>Eine gute Ordnung</i>, 1538, and the Winter Breviary of Constance, 1476–78. The Metropolitan Museum of Art.', 4],
-  tarot: ['After the Tarot de Marseille of Nicolas Conver, 1760. Bibliothèque nationale de France.', 2],
-  occult: ['After French copies of the <i>Clavicules de Salomon</i>, Wellcome MS 4670 and MS 4666, and John Dee’s <i>Monas hieroglyphica</i>, 1564. Wellcome Collection.', 2],
-  astrology: ['After William Lilly’s <i>Christian Astrology</i>, 1647, and the volvelle of the <i>Clavis astrologiae elimata</i>. Wellcome Collection.', 2],
-  draft: ['After the Apollo guidance drawings of the MIT Instrumentation Laboratory, 1963–66. National Archives.', 2],
-};
-// each style's own choices for its drop initial and frames: [key, label, [[value, label]...] | default text]
-const OWN = {
-  tarot: [['set', 'Initial', [['contour', 'Red letter'], ['solid', 'Black letter']]], ['title', 'Card title', 'Le Livre']],
-  occult: [['set', 'Initial', [['ring', 'Solid ring'], ['band', 'Lettered band']]], ['title', 'Ring', 'ALPHA ET OMEGA PRINCIPIVM ET FINIS']],
-  astrology: [['set', 'Initial', [['square', 'Square figure'], ['volvelle', 'Volvelle']]], ['figure', 'Figure', [['octagon', 'Octagon'], ['houses', 'Houses']]], ['title', 'Middle square', 'Anno Dom: 1853']],
-  draft: [['set', 'Initial', [['part', 'In section'], ['views', 'Two views'], ['leroy', 'Lettering']]]],
-};
-
-const f = document.getElementById('tester'), $ = id => document.getElementById(id), esc = s => s.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+const $ = id => document.getElementById(id), esc = s => String(s).replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+const viewer = $('viewer'), dlg = $('catalogue'), panel = $('adjust'), more = $('more');
 const q = new URLSearchParams(location.search), asked = q.get('style');
-const seg = (name, opts, cur) => opts.map(([v, t]) => `<label><input type="radio" name="${name}" value="${v}"${v === cur ? ' checked' : ''}><span>${t}</span></label>`).join('');
+const seg = (name, opts, cur) => opts.map(([v, t]) => `<label><input type="radio" name="${name}" value="${esc(v)}"${v === cur ? ' checked' : ''}><span>${esc(t)}</span></label>`).join('');
 
-let v;
-// what changes with the style: the credit, the richness it has, its own choices
+// the catalogue: every style as its swatch, its name and a line of provenance, by family; one radio group, so the
+// arrow keys walk it and the choice shows behind the dialog at once
+$('cat-list').innerHTML = FAMILIES.map(([fam, label]) => { const in_ = CATALOGUE.filter(s => s.family === fam); if (!in_.length) return '';
+  return `<section class="fam" aria-labelledby="fam-${fam}"><h3 id="fam-${fam}">${label}</h3><div class="swatches" role="radiogroup" aria-labelledby="fam-${fam}">` +
+    in_.map(s => `<label class="sw"><input type="radio" name="pick" value="${s.key}">` +
+      `<span class="img"><img class="l" src="swatches/${s.key}-light.webp" alt="" width="120" height="120" loading="lazy" decoding="async">` +
+      `<img class="d" src="swatches/${s.key}-dark.webp" alt="" width="120" height="120" loading="lazy" decoding="async"></span>` +
+      `<span class="nm">${s.name}</span><span class="ln">${s.line}</span></label>`).join('') + '</div></section>'; }).join('');
+
+// what changes with the style: its name, the credit, the richness it has, its own choices
 function dress(st) {
-  const [credit, top] = CREDIT[st.style];
-  $('credit').innerHTML = `${credit} <a href="sources.html#${st.style}">Sources</a>`;
-  const lv = Math.min(top, Math.round(st.rich * 4));
-  $('rich').innerHTML = '<legend>Richness</legend>' + seg('rich', RICH.slice(0, top + 1).map((t, i) => [String(i), t]), String(lv));
-  $('own').innerHTML = (OWN[st.style] ?? []).map(([k, label, o]) => Array.isArray(o)
+  const S = byKey[st.style];
+  $('current-name').textContent = S.name; document.title = `${S.name} · See · illum`;
+  $('credit').innerHTML = `${S.credit} <a href="sources.html#${S.key}">Sources</a>`;
+  $('rich').innerHTML = '<legend>Richness</legend>' + seg('rich', RICH.slice(0, S.rich + 1).map((t, i) => [String(i), t]), String(Math.min(S.rich, Math.round(st.rich * 4))));
+  $('own').innerHTML = (S.own ?? []).map(([k, label, o]) => Array.isArray(o)
     ? `<fieldset class="seg"><legend>${label}</legend>${seg(k, o, st[k] ?? o[0][0])}</fieldset>`
     : `<div class="text"><label for="o-${k}">${label}</label><input type="text" id="o-${k}" name="${k}" value="${esc(st[k] ?? o)}" autocomplete="off" spellcheck="false"></div>`).join('');
-  f.elements.style.value = st.style; f.elements.draw.value = st.draw;
+  viewer.querySelectorAll('input[name=draw]').forEach(i => i.checked = i.value === st.draw);
+  dlg.querySelectorAll('input[name=pick]').forEach(i => i.checked = i.value === st.style);
 }
-
-v = mount(document.querySelector('.sheet'), { style: CREDIT[asked] ? asked : 'blackletter', styleParam: true,
+const v = mount(document.querySelector('.sheet'), { style: byKey[asked] ? asked : CATALOGUE[0].key, styleParam: true,
   onStart: dress, onSeed: s => { $('seed').textContent = s; } });
+const go = key => key !== v.state.style && v.update({ style: key, set: undefined, title: undefined, figure: undefined });
+const step = d => { const i = CATALOGUE.findIndex(s => s.key === v.state.style); go(CATALOGUE[(i + d + CATALOGUE.length) % CATALOGUE.length].key); };
 
-f.addEventListener('submit', e => e.preventDefault());
-f.addEventListener('change', e => { const t = e.target, n = t.name;
-  if (n === 'style') v.update({ style: t.value, set: undefined, title: undefined, figure: undefined });
-  else if (n === 'draw') v.update({ draw: t.value });
+// the viewer and Adjust
+viewer.addEventListener('change', e => { const t = e.target, n = t.name;
+  if (n === 'draw') v.update({ draw: t.value });
   else if (n === 'rich') v.update({ rich: +t.value / 4 });
   else if (n === 'set' || n === 'figure' || n === 'title') v.update({ [n]: t.value });
-  else if (t.id === 'size') v.update({ size: +t.value });
-});
+  else if (t.id === 'size') v.update({ size: +t.value }); });
+panel.addEventListener('submit', e => e.preventDefault());
+viewer.querySelectorAll('.step').forEach(b => b.addEventListener('click', () => step(+b.dataset.step)));
 const size = $('size'), say = () => $('sizeOut').value = size.value + ' px';
 size.value = v.state.size ?? Math.round(parseFloat(getComputedStyle(document.querySelector('.sheet')).fontSize)); say();
 size.addEventListener('input', say);
-if (matchMedia('(prefers-reduced-motion: reduce)').matches) { const w = f.querySelector('input[name=draw][value=read]'); w.disabled = true; w.closest('label').title = 'Your system asks for reduced motion'; }
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) { const w = viewer.querySelector('input[name=draw][value=read]'); w.disabled = true; w.closest('label').title = 'Your system asks for reduced motion'; }
 $('again').addEventListener('click', () => v.update({ seed: 1 + Math.floor(Math.random() * 9999998) }));
-const more = $('more'), panel = $('adjust');
-more.addEventListener('click', () => { const open = panel.hidden; panel.hidden = !open; more.setAttribute('aria-expanded', open); });
-addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) { panel.hidden = true; more.setAttribute('aria-expanded', false); more.focus(); } });
+const fold = open => { panel.hidden = !open; more.setAttribute('aria-expanded', open); };
+more.addEventListener('click', () => fold(panel.hidden));
+
+// the catalogue: a modal dialog (focus kept inside, Escape closes); choosing a style shows it at once, a click or
+// Enter closes it
+$('current').addEventListener('click', () => { fold(false); dlg.showModal(); (dlg.querySelector('input[name=pick]:checked') ?? dlg.querySelector('input'))?.focus(); });
+dlg.addEventListener('change', e => e.target.name === 'pick' && go(e.target.value));
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); else if (e.target.closest('label.sw') && e.detail) setTimeout(() => dlg.close(), 120); });
+dlg.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.name === 'pick') { e.preventDefault(); dlg.close(); } });
+dlg.addEventListener('close', () => $('current').focus());
+
+// stepping without the catalogue: ← → on a desk (not while typing), a sideways swipe across the specimen on a phone
+addEventListener('keydown', e => { if (dlg.open || e.altKey || e.ctrlKey || e.metaKey || /input|textarea|select/i.test(e.target.tagName)) return;
+  if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1); else if (e.key === 'Escape' && !panel.hidden) { fold(false); more.focus(); } });
+let t0 = null; const sheet = document.querySelector('.sheet');
+sheet.addEventListener('touchstart', e => { const t = e.touches[0]; t0 = e.touches.length === 1 ? [t.clientX, t.clientY, performance.now()] : null; }, { passive: true });
+sheet.addEventListener('touchend', e => { if (!t0) return; const t = e.changedTouches[0], dx = t.clientX - t0[0], dy = t.clientY - t0[1], dt = performance.now() - t0[2]; t0 = null;
+  if (Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy) && dt < 600) step(dx < 0 ? 1 : -1); }, { passive: true });

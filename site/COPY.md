@@ -11,8 +11,8 @@ Checked against research/18-tells.md: vocabulary grep, dashes, exclamations, and
 
 ## On every page
 
-**Top line:** illum · see · use · [theme switch, "dark" / "light", in the Fell like the rest of the line; on See it is in
-the viewer instead]
+**Top line:** illum · see · use · [theme switch, "dark" / "light", in the Fell like the rest of the line; on See it is under
+Adjust]
 
 **Foot:** illum, by David Torcivia, 2026. [Home: ] Sources [Use: ] Seed [n].
 
@@ -50,16 +50,28 @@ always gets the same ornament.
 
 ## See (see.html)
 
-[The Ruskin specimen, the whole width, in the chosen style. A bar fixed to the foot of the window is the viewer.]
+[The Ruskin specimen in the chosen style. Over it, a running head that stays at the top as the reader scrolls, with one
+rule under it.]
 
-**The bar:** Blackletter Tarot Occult Astrology Draft · Still / Written · New seed · Dark [or Light] · Adjust
+**Running head:** ‹ [the style's name] › · Still / Written · Adjust
+[‹ › step to the previous and next style; so do ← → on a keyboard and a sideways swipe across the specimen on a phone.
+The name opens the catalogue. Screen readers hear "Style: Tarot", "The previous style", "The next style".]
 
-**Adjust** [folds open above the bar]: Richness: plain modest usual [fine lavish, Blackletter only] · Size [slider, px]
-· Seed [n] · and the style's own:
+**Adjust** [folds open under the running head]: Richness: plain modest usual [fine lavish, Blackletter only] · Size
+[slider, px] · Seed [n] New seed · Ground: Dark [or Light] · and the style's own:
 - Tarot: Initial: Red letter / Black letter; Card title [Le Livre]
 - Occult: Initial: Solid ring / Lettered band; Ring [ALPHA ET OMEGA PRINCIPIVM ET FINIS]
 - Astrology: Initial: Square figure / Volvelle; Figure: Octagon / Houses; Middle square [Anno Dom: 1853]
 - Draft: Initial: In section / Two views / Lettering
+
+**The catalogue** [a dialog; a sheet from the foot on a phone]: **Styles** · Close
+Grouped under Manuscript, Print, Esoteric, Technical, Modern (a group with no styles is not shown). Each style is its
+drop initial, its name and one line:
+- Blackletter: German books, fifteenth century
+- Tarot: Tarot de Marseille, 1760
+- Occult: Clavicules de Salomon, about 1725
+- Astrology: Lilly, Christian Astrology, 1647
+- Draft: Apollo drawings, MIT, 1963–66
 
 **One line of credit under the specimen, ending in a link to its sources:**
 - Blackletter: After German books of the fifteenth century, among them Johann Neudörffer's *Eine gute Ordnung*,

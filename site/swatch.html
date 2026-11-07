@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>Swatch · illum</title>
+<!-- what tools/swatches.mjs photographs for the catalogue: a style's drop initial alone (the words beside it are there
+     for the float to sit in, and are not shown) -->
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/specimen.css">
+<style>.sheet .text p { color: transparent; } .sheet { padding-top: 120px; }</style>
+</head>
+<body>
+<main class="sheet" data-style="blackletter"><article class="text">
+  <p class="bare"><span class="ini drop" data-lines="4">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture.</p>
+</article></main>
+<script type="module">
+import { mount } from './js/specimen.js';
+const k = new URLSearchParams(location.search).get('style') ?? 'blackletter';
+mount(document.querySelector('.sheet'), { style: k });
+</script>
+</body>
+</html>
