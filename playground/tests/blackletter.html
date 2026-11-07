@@ -8,7 +8,8 @@
   Blackletter: a specimen of kit/styles/blackletter.js (research/11-blackletter.md). The whole rubricator's pass over
   one text, written by the ink engine (kit/writer.js): the cadel drop initial and a line initial, paraphs, line-fillers,
   a chapter and a book break, and the six frames. Text: Ruskin, The Stones of Venice II (1853), ch. VI, Project
-  Gutenberg #30755 (as 03), and the notes of 07. ?draw writes it as you watch; ?theme=dark; ?rich=0..1; #seed=n;
+  Gutenberg #30755 (as 03), and the notes of 07. ?draw writes it as you read (each ornament when its line comes 15% into view; the drop initial's letter written
+  along its strokes, its red flowing in under the black); ?theme=dark; ?rich=0..1; #seed=n;
   ?capitals touches the first capital of each sentence with red (off by default: the host's text is not marked unasked).
   The drop initial's letter is a blackletter typeface's capital (?face=cook|maguntia|grenze; tests/faces.html compares
   them), laid by the ink engine, with the rubricator's ornament round and through it; ?form=cadel draws the older
@@ -131,7 +132,7 @@ for (const el of boxes(document))
 
 <script type="module">
 import { createWriter, supported } from '../kit/writer.js';
-import S, { loadFace, inkLetter } from '../kit/styles/blackletter.js';
+import S, { loadFace, inkLetter, letterWriter } from '../kit/styles/blackletter.js';
 
 const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark';
 if (dark) document.documentElement.dataset.theme = 'dark';
@@ -184,7 +185,9 @@ const rel = (el, o) => { const r = el.getBoundingClientRect(); return [r.left - 
 
 // ---- the rubricator's pass: every case, in reading order, as marks --------------------------------------------------------
 function compose() {
-  const o = sheet.getBoundingClientRect(), fs = parseFloat(getComputedStyle(art).fontSize), u = fs * MET.x, keep = wordRects(o, 3), edge = 10, items = [];
+  // the sheet's origin, kept current: a case is made when its turn comes, and the reader may have scrolled by then
+  const r0 = sheet.getBoundingClientRect(), o = { left: r0.left, top: r0.top, width: r0.width, height: r0.height }, fs = parseFloat(getComputedStyle(art).fontSize), u = fs * MET.x, keep = wordRects(o, 3), edge = 10, items = [];
+  ORIGIN = o;
   const s = k => (SEED + k * 7919) >>> 0, at = el => el.getBoundingClientRect().top;
   art.querySelectorAll('.ini').forEach((span, k) => { const big = span.classList.contains('drop'), box = boxOf(span, o);
     items.push({ el: span, y: at(span), make: () => { const ini = S.initial({ ch: span.textContent, G: { box }, keep, big, level: LEVEL, rich: RICH, seed: s(k), room: box[0] - edge, bottom: o.height - 30, face: FACE, form: FORM, res: Math.min(2, devicePixelRatio || 1) });
@@ -237,7 +240,7 @@ function score(items) {
     const cap = it.el.classList?.contains('drop') ? 6 : it.marks.length <= 1 ? .3 : 1.2, k = Math.min(1, cap / Math.max(u, .01));
     // a letter from the typeface is laid first, in the ink, before the rubricator's marks round it
     it.y0 = it.letter ? it.letter.y0 : Math.min(...it.marks.map(m => m.pts[0][1]));
-    if (it.letter) { parts.push({ t0: t, t1: t + .6, letter: it.letter, item: it }); t += .6; }
+    if (it.letter) { const d = it.el.classList?.contains('drop') ? (it.letter.red ? 2.6 : 1.9) : .7; parts.push({ t0: t, t1: t + d, letter: it.letter, item: it }); t += d + .15; }
     for (const p of own) parts.push({ ...p, t0: t + p.t0 * k, t1: t + p.t1 * k, item: it });
     t += u * k + .12;
   }
@@ -258,16 +261,15 @@ function batched(sc) {
   return out;
 }
 
-let raf = 0;
+let ORIGIN = null;
 async function render(animate) {
-  cancelAnimationFrame(raf); sheet.querySelectorAll('canvas:not(#bake)').forEach(c => c.remove());
   const t0 = performance.now(); setInitials(); const { o, items } = compose(), dpr = Math.min(2, devicePixelRatio || 1);
   bk.width = Math.round(o.width * dpr); bk.height = Math.round(o.height * dpr); bk.style.width = o.width + 'px'; bk.style.height = o.height + 'px';
   const g = bk.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const P = S.palette[dark ? 'dark' : 'light'], W = writer;
   const lay = L => { if (L.red) inkLetter(g, { ...L, M: L.red }, P.r, { dpr }); inkLetter(g, L, P.k, { dpr }); };   // the red first, the black over it
-  const made = list => { for (const it of list) Object.assign(it, it.make()); return list; };
-  const partsOf = sc => sc.map(p => ({ ...p, part: p.letter ? { bbox: [0, p.letter.y0], at() {}, done() { lay(p.letter); } }
+  const made = list => { const r = sheet.getBoundingClientRect(); ORIGIN.left = r.left; ORIGIN.top = r.top; for (const it of list) Object.assign(it, it.make()); return list; };
+  const partsOf = sc => sc.map(p => ({ ...p, part: p.letter ? (animate ? letterWriter(g, p.letter, P, { dpr, host: sheet, below: bk }) : { at() {}, done() { lay(p.letter); } })
     : W.part(p.t0, p.t1, p.strokes.map(s => ({ pts: s.pts, angle: s.angle, press: s.press })), P[p.col], { width: p.w, hair: p.hair }) }));
   if (!animate) {
     // still: what is in view is made and written first, the rest in the next idle moment. The parts go in an order that
@@ -282,14 +284,49 @@ async function render(animate) {
     write(later); (self.requestIdleCallback ?? setTimeout)(() => W.destroy?.());
     document.body.dataset.drawnAt = performance.now() | 0;
     document.body.dataset.timing = `in view ${first | 0} ms, all ${(performance.now() - t0) | 0} ms (compose ${T.compose | 0}, write ${T.write | 0}), ${T.parts} parts`; return; }
-  const parts = partsOf(score(made(items))); document.body.dataset.score = (parts.at(-1)?.t1 ?? 0).toFixed(1) + ' s';
-  const start = performance.now(); let i = 0;
-  const tick = () => { const now = (performance.now() - start) / 1000;
-    while (i < parts.length && now >= parts[i].t1) parts[i++].part.done();
-    if (i < parts.length && now > parts[i].t0) { parts[i].part.at((now - parts[i].t0) / (parts[i].t1 - parts[i].t0));
-      const y = parts[i].part.bbox[1]; if (y > scrollY + innerHeight * .75 || y < scrollY) scrollTo({ top: y - innerHeight * .35, behavior: 'smooth' }); }
-    if (i < parts.length) raf = requestAnimationFrame(tick); else { W.flush(); document.body.dataset.timing = 'drawn'; } };
-  raf = requestAnimationFrame(tick);
+  return read(items, partsOf, made);
+}
+
+// As you read (?draw): each case is written when its line comes 15% up into the window, in reading order, by one hand;
+// what is in view when the page opens is written in order from the top. The page never scrolls itself. A case scrolled
+// past before its turn is written fast, or laid down at once if it is far above; nothing runs while nothing is written.
+function read(items, partsOf, made) {
+  const groups = items.map(it => ({ it, state: 'waiting' })), queue = [], active = [];
+  let running = false, first = true;
+  // when the hand is free: the end of the last case it has in hand
+  const handFree = now => active.reduce((a, g) => g.speed ? Math.max(a, g.start + g.len * g.speed * 1000 + 150) : a, now);
+  const begin = (gr, now) => {
+    made([gr.it]); gr.parts = partsOf(score([gr.it]).map(p => ({ ...p, t0: p.t0 - .1, t1: p.t1 - .1 })));
+    const r = sheet.getBoundingClientRect(), y = r.top + gr.it.y0, far = y < -innerHeight, past = y < -40;
+    const len = Math.max(...gr.parts.map(p => p.t1)), free = handFree(now), behind = (free - now) / 1000; gr.len = len;
+    // what the reader has already passed is laid down at once (no one would see it written); what is in view, at a
+    // hand's pace, quicker if the hand is behind
+    gr.speed = far || past ? 0 : !gr.initial && behind > 3 ? Math.min(1, .3 / len) : !gr.initial && behind > 1.2 ? Math.min(1, .6 / len) : 1;
+    gr.start = gr.speed ? free : now;   // one pen: a case starts when the last is done
+    gr.fin = new Uint8Array(gr.parts.length); gr.state = 'writing'; active.push(gr); };
+  const tick = () => { const now = performance.now();
+    // a case still waiting its turn that the reader has left behind is hurried, or laid down at once if far behind
+    const top = sheet.getBoundingClientRect().top; let moved = false;
+    for (const gr of active) { if (!gr.speed) continue; const y = top + gr.it.y0;
+      // one being written that the reader has scrolled well away from: its hand quickens to finish in a moment
+      if (gr.start <= now) { if (y < -innerHeight * .5) { const t = (now - gr.start) / 1000 / gr.speed, sp = Math.min(gr.speed, .3 / Math.max(.05, gr.len - t)); if (sp < gr.speed) { gr.start = now - t * 1000 * sp; gr.speed = sp; moved = true; } } continue; }
+      if (y < -innerHeight * .5) { gr.speed = 0; moved = true; } else if (y < 0 && gr.speed === 1) { gr.speed = Math.min(1, .3 / gr.len); moved = true; } }
+    if (moved) { let at = handFree(now) && now; for (const gr of active) if (gr.speed) { if (gr.start > at) gr.start = at; at = Math.max(at, gr.start + gr.len * gr.speed * 1000 + 150); } }
+    while (queue.length) begin(queue.shift(), now);
+    for (let k = 0; k < active.length; k++) { const gr = active[k], t = gr.speed ? (now - gr.start) / 1000 / gr.speed : 1e9; if (t < 0) continue;
+      gr.parts.forEach((p, i) => { if (gr.fin[i]) return; if (t >= p.t1) { p.part.done(); gr.fin[i] = 1; } else if (t > p.t0) p.part.at((t - p.t0) / (p.t1 - p.t0)); });
+      if (gr.fin.every(Boolean)) { gr.state = 'done'; active.splice(k--, 1); } }
+    if (active.length || queue.length) requestAnimationFrame(tick);
+    else { running = false; writer.flush(); if (groups.every(g => g.state === 'done')) document.body.dataset.timing = 'drawn'; } };
+  const kick = () => { if (!running) { running = true; requestAnimationFrame(tick); } };
+  // a marker at each case's line; anything above the reading line counts as reached, so a fast scroll leaves no hole
+  const mk = groups.map((gr, i) => { const n = document.createElement('i'); n.setAttribute('aria-hidden', 'true'); n.dataset.g = i;
+    Object.assign(n.style, { position: 'absolute', left: '0', top: Math.max(0, gr.it.y - sheet.getBoundingClientRect().top - 4) + 'px', width: '1px', height: '8px', pointerEvents: 'none' }); sheet.append(n); return n; });
+  const io = new IntersectionObserver(es => { es.filter(e => e.isIntersecting).map(e => groups[+e.target.dataset.g]).sort((a, b) => a.it.y - b.it.y)
+      .forEach(gr => { if (gr.state === 'waiting') { gr.state = 'queued'; gr.initial = first; queue.push(gr); } }); first = false;
+    es.forEach(e => e.isIntersecting && io.unobserve(e.target)); if (queue.length) kick(); }, { rootMargin: '100000px 0px -15% 0px' });
+  mk.forEach(n => io.observe(n)); document.body.dataset.timing = 'reading';
+
 }
 
 // the writer made (its medium's shaders compiled) while the fonts load
