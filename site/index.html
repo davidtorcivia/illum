@@ -15,15 +15,7 @@
 <body>
 <header class="mast">
   <a class="name" href="./" aria-current="page">illum</a>
-  <form class="switch" aria-label="Style of this page" data-home="blackletter">
-    <fieldset><legend class="vh">Style</legend>
-      <label><input type="radio" name="style" value="blackletter"><span>Blackletter</span></label>
-      <label><input type="radio" name="style" value="tarot"><span>Tarot</span></label>
-      <label><input type="radio" name="style" value="occult"><span>Occult</span></label>
-      <label><input type="radio" name="style" value="astrology"><span>Astrology</span></label>
-      <label><input type="radio" name="style" value="draft"><span>Draft</span></label>
-    </fieldset>
-  </form>
+  <nav aria-label="Site"><ul><li><a href="see.html">see</a></li><li><a href="use.html">use</a></li></ul></nav>
   <button class="theme" type="button">Dark</button>
 </header>
 <div class="stage solo">
@@ -33,11 +25,11 @@
       <p class="sub">Ornament for web pages, written by a simulated pen</p>
       <nav class="toc" aria-label="The styles">
         <ol>
-          <li><a href="styles/blackletter.html">Blackletter, from German books of the fifteenth century</a></li>
-          <li><a href="styles/tarot.html">Tarot, from the Tarot de Marseille of Nicolas Conver, 1760</a></li>
-          <li><a href="styles/occult.html">Occult, from French copies of the Key of Solomon</a></li>
-          <li><a href="styles/astrology.html">Astrology, from William Lilly’s Christian Astrology, 1647</a></li>
-          <li><a href="styles/draft.html">Draft, from the Apollo drawings of the MIT Instrumentation Lab</a></li>
+          <li><a href="see.html?style=blackletter">Blackletter, from German books of the fifteenth century</a></li>
+          <li><a href="see.html?style=tarot">Tarot, from the Tarot de Marseille of Nicolas Conver, 1760</a></li>
+          <li><a href="see.html?style=occult">Occult, from French copies of the Key of Solomon</a></li>
+          <li><a href="see.html?style=astrology">Astrology, from William Lilly’s Christian Astrology, 1647</a></li>
+          <li><a href="see.html?style=draft">Draft, from the Apollo drawings of the MIT Instrumentation Lab</a></li>
         </ol>
       </nav>
       <p><span class="ini drop" data-lines="4">O</span>nce a scribe had finished a book, a rubricator went over it with red ink and a finer pen. illum does the same for a web page. It finds the openings, paragraphs, breaks and quotations in the page’s markup, and a simulated pen writes a mark for each in ink.</p>
@@ -51,12 +43,11 @@
     </article>
   </main>
 </div>
-<footer class="colophon">illum, by David Torcivia, 2026. <a href="use.html">Use</a> · <a href="sources.html">Sources</a></footer>
+<footer class="colophon">illum, by David Torcivia, 2026. <a href="sources.html">Sources</a></footer>
 <script type="module" src="js/site.js"></script>
 <script type="module">
-import { mount, STYLE } from './js/specimen.js';
-const form = document.querySelector('.switch'), asked = new URLSearchParams(location.search).get('style');
-mount(document.querySelector('.sheet'), { style: STYLE[asked] ? asked : form.dataset.home, form });
+import { mount } from './js/specimen.js';
+mount(document.querySelector('.sheet'), { style: 'blackletter' });
 </script>
 </body>
 </html>

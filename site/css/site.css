@@ -29,55 +29,25 @@ a:hover { text-decoration-color: currentColor; }
 code, pre { font-family: var(--mono); font-variant-ligatures: none; }
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-/* one quiet line: the name, the styles, Use, the switch */
-.mast { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2em 1.4em; padding: 22px 40px 0; }
-.mast .name { font: 1.7rem/1 var(--display); text-decoration: none; margin-right: .3em; }
-.mast ul { display: flex; flex-wrap: wrap; gap: .1em 1.05em; margin: 0; padding: 0; list-style: none; }
-.mast nav a, .switch span { text-decoration: none; font-variant-caps: all-small-caps; letter-spacing: .05em; font-size: 1.05rem; color: var(--quiet); }
-.mast nav a:hover, .mast nav a[aria-current], .switch label:hover span, .switch input:checked + span { color: var(--ink); text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: .2em; }
-.mast nav .gap { margin-left: .9em; }
-/* home: the style names are a switch for the text below */
-.switch fieldset { display: flex; flex-wrap: wrap; gap: .1em 1.05em; border: 0; margin: 0; padding: 0; }
-.switch label { cursor: pointer; }
-.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.switch input:focus-visible + span { outline: 2px solid currentColor; outline-offset: 3px; }
-.theme { margin-left: auto; font: italic 1rem var(--text); color: var(--quiet); background: none; border: 0; padding: .3em 0; cursor: pointer; }
-.theme:hover { color: var(--ink); }
+/* one quiet line: the name, see, use, the switch, all in the Fell */
+.mast { display: flex; align-items: baseline; gap: 1.3rem; padding: 20px 40px 0; }
+.mast .name { font: 1.7rem/1 var(--display); text-decoration: none; margin-right: auto; }
+.mast ul { display: flex; gap: 1.3rem; margin: 0; padding: 0; list-style: none; }
+.mast nav a { font: 1.2rem/1 var(--display); text-decoration: none; color: var(--quiet); }
+.mast nav a:hover, .mast nav a[aria-current] { color: var(--ink); }
+.mast .theme { font: italic 1.2rem/1 var(--display); text-transform: lowercase; color: var(--quiet); background: none; border: 0; padding: .3em 0; cursor: pointer; }
+.mast .theme:hover { color: var(--ink); }
 
-/* the specimen, and a narrow margin beside it */
-.stage { display: grid; grid-template-columns: minmax(0, 900px) minmax(14rem, 17rem); column-gap: 2rem; align-items: start; padding-right: 40px; }
-.stage.solo { grid-template-columns: minmax(0, 900px); }
-.stage > .sheet { grid-column: 1; grid-row: 1; }
-.margin { grid-column: 2; grid-row: 1; position: sticky; top: 0; padding: 104px 0 2rem; }
-.margin h1 { font: 400 var(--s4)/1 var(--display); margin: 0 0 .5em; }
+/* a rubricated text, centred; its links (the contents list) are ornament, not underlined */
+.stage { display: block; }
+.stage > .sheet, body.see > .sheet { margin: 0 auto; }
 .sheet a { text-decoration: none; }
 .sheet a:hover { text-decoration: underline; }
 
-.controls { font-size: var(--s-1); line-height: 1.4; }
-.controls fieldset { border: 0; margin: 0 0 .6rem; padding: 0; min-width: 0; }
-.controls legend { font-style: italic; color: var(--quiet); padding: 0; }
-.controls fieldset label { display: inline-flex; align-items: center; gap: .3em; margin: .2em 1.1em .2em 0; cursor: pointer; }
-.controls input[type=radio] { accent-color: var(--ink); margin: 0; width: 1em; height: 1em; }
-.controls .still-note { margin: .3em 0 0; font-style: italic; color: var(--quiet); }
-.controls .again { margin: 0 0 .6rem; }
-.controls button { font: italic 1em var(--text); color: inherit; background: none; border: 0; padding: .3em 0; cursor: pointer; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: .2em; }
-.controls button:hover { text-decoration-color: currentColor; }
-.controls details > summary { cursor: pointer; font-style: italic; color: var(--quiet); padding: .3em 0; }
-.controls details[open] > summary { margin-bottom: .5rem; }
-.controls .row { display: grid; grid-template-columns: 5.6em 1fr auto; align-items: center; gap: .6em; margin: 0 0 .6rem; }
-.controls .row.wide { grid-template-columns: 5.6em 1fr; }
-.controls .row > label { font-style: italic; color: var(--quiet); }
-.controls output { min-width: 3.4em; }
-.controls input[type=number], .controls input[type=text] { font: inherit; color: inherit; background: transparent; border: 0; border-bottom: 1px solid var(--rule); padding: .15em 0; width: 100%; min-width: 0; font-variant-numeric: lining-nums tabular-nums; }
-.controls input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 1.6em; margin: 0; background: transparent; color: inherit; cursor: pointer; }
-.controls input[type=range]::-webkit-slider-runnable-track { height: 1px; background: currentColor; }
-.controls input[type=range]::-moz-range-track { height: 1px; background: currentColor; }
-.controls input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: .9em; height: .9em; margin-top: calc(-.45em + .5px); border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
-.controls input[type=range]::-moz-range-thumb { width: .9em; height: .9em; border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
-
 /* one line of credit under a specimen, one line at the foot */
-.credit { max-width: 36rem; margin: 0 0 0 200px; font-size: var(--s-1); font-style: italic; color: var(--quiet); }
-.colophon { margin: 0 0 0 40px; padding: 3rem 0 2.4rem; font-size: var(--s-1); font-style: italic; color: var(--quiet); }
+.credit, .colophon { max-width: 900px; box-sizing: border-box; margin: 0 auto; padding-left: 200px; padding-right: 100px; font-size: var(--s-1); font-style: italic; color: var(--quiet); }
+.credit { margin-top: -1rem; }
+.colophon { padding-top: 2.4rem; padding-bottom: 2.4rem; }
 
 /* documentation inside a rubricated text (Use) */
 .sheet table { width: 100%; border-collapse: collapse; margin: 1em 0 1.2em; font-size: .85em; line-height: 1.45; text-align: left; hyphens: manual; }
@@ -88,33 +58,57 @@ code, pre { font-family: var(--mono); font-variant-ligatures: none; }
 .sheet p code, .sheet td code { font-size: .82em; overflow-wrap: anywhere; }
 
 /* a plain list page (Sources) */
-.list { max-width: 36rem; margin: 0 0 0 200px; padding: 90px 0 0; }
+.list { max-width: 900px; box-sizing: border-box; margin: 0 auto; padding: 90px 100px 0 200px; }
 .list h1 { font: 400 var(--s4)/1.05 var(--display); margin: 0 0 .4em; }
 .list h2 { font: 400 var(--s2)/1.2 var(--display); margin: 1.6em 0 .4em; }
 .list h2 a { text-decoration: none; }
 .list ul { list-style: none; margin: 0; padding: 0; }
 .list li { margin: 0 0 .7em; padding-left: 1.2em; text-indent: -1.2em; }
 
-@media (max-width: 1180px) {
-  .stage { display: block; padding: 0; }
-  .margin { position: static; padding: 1.6rem 40px 0; }
-  .margin h1 { margin-bottom: .3em; }
-  .controls { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 1.6rem; }
-  .controls details { flex-basis: 100%; }
-  .controls details[open] { max-width: 24rem; }
-  .credit { margin-left: 40px; }
-  .list { margin-left: 40px; }
+@media (min-width: 641px) and (max-width: 1000px) {
+  .credit, .colophon, .list { padding-left: 110px; padding-right: 64px; }
 }
 @media (max-width: 640px) {
   html { font-size: 18px; }
-  .mast { padding: 14px 16px 0; gap: .1em 1em; }
-  .mast::after { content: ''; order: 2; flex-basis: 100%; }   /* name and switch on the first line, the places on the next */
-  .theme { order: 1; }
-  .mast nav, .mast .switch { order: 3; }
-  .mast ul, .switch fieldset { gap: 0 .85em; }
-  .mast nav .gap { margin-left: 0; }
-  .margin { padding: 1.2rem 16px 0; }
-  .margin h1 { font-size: 2.2rem; }
-  .credit, .list, .colophon { margin-left: 16px; margin-right: 16px; }
+  .mast { padding: 14px 20px 0; gap: 1.1rem; }
+  .mast ul { gap: 1.1rem; }
+  .credit, .list, .colophon { padding-left: 30px; padding-right: 20px; }
   .list { padding-top: 2rem; }
+}
+
+/* See: the instrument at the foot of the window. Segments are radios; the chosen one is in ink, the others quiet */
+body.see { padding-bottom: calc(7.5rem + env(safe-area-inset-bottom)); }
+.tester { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--paper); border-top: 1px solid var(--rule);
+  padding: .35rem 20px calc(.35rem + env(safe-area-inset-bottom)); font: 1rem/1.2 var(--text); display: flex; flex-wrap: wrap; align-items: center; column-gap: 1.6rem; }
+.tester fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.tester .seg { display: flex; flex-wrap: wrap; align-items: center; column-gap: .15rem; }
+.tester .seg legend { float: left; margin-right: .6rem; font-style: italic; color: var(--quiet); font-size: var(--s-1); }
+.tester .seg label { position: relative; cursor: pointer; }
+.tester .seg input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.tester .seg span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 .5rem; color: var(--quiet); }
+.tester .seg input:checked + span { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .3em; }
+.tester .seg input:focus-visible + span { outline: 2px solid currentColor; outline-offset: -4px; }
+.tester .seg input:disabled + span { opacity: .4; cursor: not-allowed; }
+.tester .styles span { font: 1.15rem/1 var(--display); }
+.tester .tools { display: flex; align-items: center; column-gap: .9rem; margin-left: auto; }
+.tester button { font: italic 1rem var(--text); color: var(--quiet); background: none; border: 0; min-height: 44px; padding: 0 .4rem; cursor: pointer; }
+.tester button:hover, .tester button[aria-expanded=true] { color: var(--ink); }
+.tester .theme { text-transform: none; font-size: 1rem; }
+.tester .panel { flex-basis: 100%; order: -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, max-content)); gap: .2rem 2.4rem; padding: .6rem 0 .5rem; border-bottom: 1px solid var(--rule); margin-bottom: .2rem; }
+.tester .panel[hidden] { display: none; }
+.tester .size, .tester .text { display: flex; align-items: center; gap: .6rem; min-height: 44px; font-size: var(--s-1); }
+.tester .size label, .tester .text label { font-style: italic; color: var(--quiet); }
+.tester .size input { width: 9rem; accent-color: var(--ink); }
+.tester .text input { font: inherit; color: inherit; background: transparent; border: 0; border-bottom: 1px solid var(--rule); padding: .2em 0; width: 14rem; }
+.tester .seedline { margin: 0; align-self: center; font-size: var(--s-1); color: var(--quiet); font-style: italic; font-variant-numeric: lining-nums tabular-nums; }
+@media (max-width: 640px) {
+  body.see { padding-bottom: calc(6.4rem + env(safe-area-inset-bottom)); }
+  .tester { padding: .1rem 10px calc(.1rem + env(safe-area-inset-bottom)); }
+  .tester .styles { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; width: 100%; margin: 0 -10px; padding: 0 10px; }
+  .tester .styles::-webkit-scrollbar { display: none; }
+  .tester .styles span { font-size: 1rem; padding: 0 .32rem; }
+  .tester .tools { margin-left: 0; width: 100%; justify-content: space-between; column-gap: .2rem; }
+  .tester .panel { grid-template-columns: 1fr; max-height: 55vh; overflow-y: auto; }
+  .tester .size input { flex: 1; width: auto; }
+  .tester .text input { flex: 1; width: auto; }
 }

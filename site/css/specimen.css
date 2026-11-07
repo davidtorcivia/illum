@@ -4,7 +4,7 @@
 @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: swap; }
 @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: swap; }
 
-.sheet { position: relative; max-width: 900px; padding: 110px 100px 120px 200px; box-sizing: border-box; font: 400 20px/1.6 "EB Garamond", Garamond, serif;
+.sheet { position: relative; max-width: 900px; padding: 84px 100px 120px 200px; box-sizing: border-box; font: 400 20px/1.6 "EB Garamond", Garamond, serif;
   --paper: rgb(244 238 226); --rubric: rgb(160 64 40); }
 :root[data-theme="dark"] .sheet { --paper: rgb(28 25 22); --rubric: rgb(222 120 92); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sheet { --paper: rgb(28 25 22); --rubric: rgb(222 120 92); } }
@@ -74,21 +74,30 @@
 [data-style="draft"] .pull { margin: 3.2em 0 2.4em 2.2em; text-align: left; }
 [data-style="draft"] aside.note { margin: 2.8em 0 2.4em 1em; padding: 1.3em 1.4em .7em; }
 
+/* a tablet: the margins the ornament hangs in, kept but narrower, so the column sits in the middle */
+@media (min-width: 641px) and (max-width: 1000px) {
+  .sheet { padding: 72px 64px 100px 110px; }
+}
 @media (max-width: 640px) {
-  .sheet { padding: 56px 16px 72px 48px; font-size: 18px; line-height: 1.55; }
+  /* an even gutter; what hangs in the left margin (the contents' marks, a drop's flourish) is given room by indenting
+     the contents list and by a slightly wider left gutter, not by pushing the whole column right */
+  .sheet { padding: 44px 20px 64px 30px; font-size: 18px; line-height: 1.55; }
   .sheet .text { text-align: left; }
-  .sheet blockquote { padding: 0 .9em 0 1em; }
-  .sheet pre { padding: 3.5em 2.3em; font-size: 13.5px; }
-  .sheet .pull { margin: 2.8em .4em; }
+  .sheet nav.toc { margin-left: 1.1em; }
+  .sheet blockquote { padding: 0 .4em 0 1em; }
+  .sheet pre { padding: 3.5em 1.8em; font-size: 13.5px; }
+  .sheet .pull { margin: 2.8em .2em; }
   .sheet aside.note { margin-left: 0; }
   [data-style="blackletter"] blockquote { padding: 0 0 0 2em; }
   [data-style="blackletter"] pre { padding: 1.2em 1.1em; }
   [data-style="blackletter"] .pull { margin: 2.6em .4em; }
   [data-style="blackletter"] aside.note { margin-left: .8em; }
-  [data-style="occult"] pre { padding: 6em 2.3em 2em; }
-  [data-style="astrology"] pre { padding: 9.6em 2.3em 2em; }
-  [data-style="draft"] blockquote { padding: 2.2em 2em 8.4em; margin-left: -1.4em; margin-right: -.4em; }
-  [data-style="draft"] pre { padding: 2.3em .6em .5em 3.2em; font-size: 13px; margin-left: -.8em; }
-  [data-style="draft"] .pull { margin: 3em 0 2.4em 1.8em; }
+  [data-style="occult"] pre { padding: 6em 1.8em 2em; }
+  [data-style="astrology"] pre { padding: 9.6em 1.8em 2em; }
+  [data-style="draft"] nav.toc { margin-left: 0; }
   [data-style="draft"] nav.toc ol { padding-left: 3.2em; }
+  [data-style="draft"] blockquote { padding: 2.2em 1.4em 8.4em; margin-left: 0; margin-right: 0; }
+  [data-style="draft"] pre { padding: 2.3em .6em .5em 3.2em; font-size: 13px; margin-left: 0; }
+  [data-style="draft"] .pull { margin: 3em 0 2.4em 1.6em; }
+  [data-style="draft"] aside.note { margin-left: 0; }
 }

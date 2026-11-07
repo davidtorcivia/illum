@@ -5,16 +5,19 @@ import { rubricate } from '../kit/illum.js';
 // what each style's specimen page passed to rubricate (playground/tests/<style>.html)
 const FILLER = 'h2, .text > p:not(.sub):not(.pull):not(.bare)';
 export const STYLE = {
-  blackletter: { lines: 4, filler: FILLER },
-  tarot: { lines: 4, filler: FILLER },
-  occult: { lines: 4, filler: FILLER },
-  astrology: { lines: null, filler: FILLER, title: 'Anno Dom: 1853' },
-  draft: { lines: null, filler: '.text > p:not(.sub):not(.pull):not(.bare)' },
+  // lines: the drop's depth (null: the style's own); phone: its depth on a narrow screen, where a deep drop leaves the
+  // words beside it a column of two or three
+  blackletter: { lines: 4, phone: 3, filler: FILLER },
+  tarot: { lines: 4, phone: 4, filler: FILLER },
+  occult: { lines: 4, phone: 3, filler: FILLER },
+  astrology: { lines: null, phone: 5, filler: FILLER, title: 'Anno Dom: 1853' },
+  draft: { lines: null, phone: 3, filler: '.text > p:not(.sub):not(.pull):not(.bare)' },
 };
 export const RICH = ['plain', 'modest', 'usual', 'fine', 'lavish'];
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 
-export function mount(sheet, { style, form, onSeed } = {}) {
+const narrow = matchMedia('(max-width: 640px)');
+export function mount(sheet, { style, form, onSeed, onStart, styleParam = false } = {}) {
   const text = sheet.querySelector('.text'), q = new URLSearchParams(location.search);
   const state = {
     style, draw: q.has('draw') && !still.matches ? 'read' : 'still',
@@ -30,22 +33,23 @@ export function mount(sheet, { style, form, onSeed } = {}) {
       on: (st, t) => { const seed = r?.state.seed; if (seed != null) onSeed?.(seed);
         document.body.dataset.timing = t ? `in view ${t.view} ms, all ${t.all} ms` : st === 'written' ? 'drawn' : st; } }; };
   // the host markup a style's page used: a drop four lines deep, or the style's own depth
-  const prepare = () => { sheet.dataset.style = state.style; const L = STYLE[state.style].lines;
+  const prepare = () => { sheet.dataset.style = state.style; const S = STYLE[state.style], L = narrow.matches && S.phone ? S.phone : S.lines;
     text.querySelectorAll('.ini.drop').forEach(s => L ? s.dataset.lines = L : delete s.dataset.lines);
     sheet.style.fontSize = state.size ? state.size + 'px' : ''; };
-  const start = () => { r?.destroy(); prepare(); r = rubricate(text, opts()); window.R = r; };
+  const start = () => { r?.destroy(); prepare(); r = rubricate(text, opts()); window.R = r; onStart?.(state); };
   const url = () => { const u = new URL(location.href), p = u.searchParams;
     state.draw === 'read' ? p.set('draw', '') : p.delete('draw');
     state.rich !== .5 ? p.set('rich', state.rich) : p.delete('rich');
     state.size ? p.set('size', state.size) : p.delete('size');
     for (const k of ['set', 'title', 'figure']) state[k] != null && state[k] !== '' ? p.set(k, state[k]) : p.delete(k);
-    if (form?.dataset.home && state.style !== form.dataset.home) p.set('style', state.style); else p.delete('style');
+    if (styleParam || (form?.dataset.home && state.style !== form.dataset.home)) p.set('style', state.style); else p.delete('style');
     u.hash = state.seed ? `seed=${state.seed}` : ''; history.replaceState(null, '', u.toString().replace('draw=&', 'draw&').replace(/draw=$/, 'draw')); };
   const update = patch => { Object.assign(state, patch); url();
     start(); };   // (a fresh rubricate each time: redraw() keeps a written style's marks made, so rich would not change)
 
   if (form) wire(form, state, update);
   addEventListener('themechange', () => r?.redraw());
+  narrow.addEventListener('change', start);   // (the drop's depth differs on a phone)
   start();
   return { state, update, get r() { return r; } };
 }

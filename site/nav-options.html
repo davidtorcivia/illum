@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navigation options · illum</title>
+<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/faces-all.css">
+<style>
+  /* three treatments of the same line: the name, See, Use, the switch */
+  .opt { border-bottom: 1px solid var(--rule); padding: 0 0 2.2rem; margin: 0 0 1.2rem; }
+  .opt > p { margin: 0 20px; padding: .8rem 0 0; font-size: .75rem; color: var(--quiet); font-style: italic; }
+  .bar { display: flex; align-items: baseline; gap: 1.2rem; padding: 18px 20px 0; }
+  .bar .nm { font: 1.6rem/1 "Fell Great Primer"; text-decoration: none; margin-right: auto; }
+  .bar a.d { text-decoration: none; color: var(--quiet); }
+  .bar a.d[aria-current] { color: var(--ink); }
+  .bar .sw { color: var(--quiet); }
+  .page { margin: 1.4rem 20px 0; font: 18px/1.55 "EB Garamond 12"; max-width: 34rem; }
+  .page b { font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: rgb(160 64 40); font-size: 1em; }
+  /* A: the text face, italic, at text size */
+  .a .bar a.d, .a .bar .sw { font: italic 1.05rem/1 "Junicode"; }
+  .a .bar a.d[aria-current] { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .22em; }
+  /* B: IM Fell lowercase, a little larger, the current one in ink */
+  .b .bar a.d, .b .bar .sw { font: 1.2rem/1 "Fell Great Primer"; }
+  .b .bar .sw { font-style: italic; }
+  /* C: the name alone; See and Use as quiet roman words, the current one with a small point before it */
+  .c .bar a.d, .c .bar .sw { font: 1rem/1 "Junicode"; }
+  .c .bar a.d[aria-current]::before { content: "·"; margin-right: .3em; color: rgb(160 64 40); }
+  .c .bar .sw { font-style: italic; }
+</style>
+</head>
+<body>
+<section class="opt a"><div class="bar"><a class="nm" href="#">illum</a><a class="d" href="#" aria-current="page">See</a><a class="d" href="#">Use</a><span class="sw">Dark</span></div>
+  <div class="page"><b>Changefulness</b><br><i>John Ruskin, The Stones of Venice, 1853</i></div>
+  <p>A. Junicode italic at text size, the current page underlined.</p></section>
+<section class="opt b"><div class="bar"><a class="nm" href="#">illum</a><a class="d" href="#" aria-current="page">see</a><a class="d" href="#">use</a><span class="sw">dark</span></div>
+  <div class="page"><b>Changefulness</b><br><i>John Ruskin, The Stones of Venice, 1853</i></div>
+  <p>B. IM Fell Great Primer lowercase, the same face as the name; the current page in full ink.</p></section>
+<section class="opt c"><div class="bar"><a class="nm" href="#">illum</a><a class="d" href="#" aria-current="page">See</a><a class="d" href="#">Use</a><span class="sw">Dark</span></div>
+  <div class="page"><b>Changefulness</b><br><i>John Ruskin, The Stones of Venice, 1853</i></div>
+  <p>C. Junicode roman, quiet; a red point marks the current page.</p></section>
+</body>
+</html>

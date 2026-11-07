@@ -11,17 +11,16 @@ Checked against research/18-tells.md: vocabulary grep, dashes, exclamations, and
 
 ## On every page
 
-**Top line:** illum · Blackletter Tarot Occult Astrology Draft · Use · [theme switch: "Dark" / "Light", following the
-reader's system until they choose]
+**Top line:** illum · see · use · [theme switch, "dark" / "light", in the Fell like the rest of the line; on See it is in
+the viewer instead]
 
-**Foot:** illum, by David Torcivia, 2026. [on rubricated pages:] Seed [n].
+**Foot:** illum, by David Torcivia, 2026. [Home: ] Sources [Use: ] Seed [n].
 
 ---
 
 ## Home (index.html)
 
-[One rubricated text. In the top line the five style names are a switch: they rewrite this text in that style, in
-place. The text's own contents list links to the style pages.]
+[One rubricated text, in Blackletter. Its contents list links to See, one style each.]
 
 **illum**
 *Ornament for web pages, written by a simulated pen*
@@ -47,26 +46,22 @@ always gets the same ornament.
 
 [book break]
 
-**Foot:** illum, by David Torcivia, 2026. [links] Use · Sources
-
-[The home page's top line is the name, the style switch and the theme switch; Use is in its foot.]
-
 ---
 
-## Style pages (styles/*.html)
+## See (see.html)
 
-**Margin:** [the style's name] · Still / Written as you read · Another seed · Options [closed by default]
+[The Ruskin specimen, the whole width, in the chosen style. A bar fixed to the foot of the window is the viewer.]
 
-**Options:** Richness (plain to lavish for Blackletter; plain to usual for the others) · Type size · Seed · and the
-style's own:
-- Tarot: Initial, Red letter / Black letter; Card title [Le Livre]
-- Occult: Initial, Solid ring / Lettered band; Ring [ALPHA ET OMEGA PRINCIPIVM ET FINIS]
-- Astrology: Initial, Square figure / Volvelle; Figure frame, Octagon / Band of houses; Middle square [Anno Dom: 1853]
-- Draft: Initial, Part in section / Two views / Lettering layout
+**The bar:** Blackletter Tarot Occult Astrology Draft · Still / Written · New seed · Dark [or Light] · Adjust
 
-[With reduced motion: "Your system asks for reduced motion, so the ornament is shown still."]
+**Adjust** [folds open above the bar]: Richness: plain modest usual [fine lavish, Blackletter only] · Size [slider, px]
+· Seed [n] · and the style's own:
+- Tarot: Initial: Red letter / Black letter; Card title [Le Livre]
+- Occult: Initial: Solid ring / Lettered band; Ring [ALPHA ET OMEGA PRINCIPIVM ET FINIS]
+- Astrology: Initial: Square figure / Volvelle; Figure: Octagon / Houses; Middle square [Anno Dom: 1853]
+- Draft: Initial: In section / Two views / Lettering
 
-**One line of credit under each specimen, ending in a link to its sources:**
+**One line of credit under the specimen, ending in a link to its sources:**
 - Blackletter: After German books of the fifteenth century, among them Johann Neudörffer's *Eine gute Ordnung*,
   1538, and the Winter Breviary of Constance, 1476–78. The Metropolitan Museum of Art. Sources
 - Tarot: After the Tarot de Marseille of Nicolas Conver, 1760. Bibliothèque nationale de France. Sources
@@ -76,6 +71,8 @@ style's own:
   elimata*. Wellcome Collection. Sources
 - Draft: After the Apollo guidance drawings of the MIT Instrumentation Laboratory, 1963–66. National Archives.
   Sources
+
+[The old addresses styles/<style>.html send the reader on to see.html?style=<style>.]
 
 ---
 
@@ -141,5 +138,6 @@ one exists: Met, Cleveland, Gallica, Wellcome, Internet Archive, Virtual AGC.]
 ## Removed in this version
 
 The Principles and Engine pages, the penwork forerunner, the "What each mark is" notes, the long source lists under
-each specimen, the captions and notes in the margin, the long colophons. type.html (the type options sheet) stays in
-the site folder for the author, linked from nowhere.
+each specimen, the captions and notes in the margin, the long colophons. type.html (the type options sheet) and
+nav-options.html (the three navigation treatments) stay in the site folder for the author, linked from nowhere.
+Third version: the five style pages became one viewer, See; the navigation is see and use.
