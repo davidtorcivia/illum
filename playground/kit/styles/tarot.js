@@ -407,12 +407,13 @@ function place(name, [bx, by, bh], W, { mirror = false, clip = null, col = null,
 // A trump in miniature, as tall as the drop: the card's frame, the numeral band at its head with the book's number, the
 // title band at its foot left empty as the thirteenth trump's is; in the field the capital of IM FELL standing on the
 // card's ground among the deck's own things, traced from it: the hatched ground and the two tufts of Le Bateleur's feet,
-// the falling drops of Le Soleil, red, yellow and pale blue. Symmetrical, as the cards are. ?set=: 'solid' (default):
-// the letter printed black, as the cards letter their titles; 'contour': cut as an outline, its body stencilled red.
+// the falling drops of Le Soleil, red, yellow and pale blue. Symmetrical, as the cards are. set: 'contour' (default):
+// cut as an outline, its body stencilled red; 'solid': printed black, as the cards letter their titles. title: the foot
+// band's lettering (default 'Le Livre', set as LE·LIVRE; '' leaves it empty, as the thirteenth trump's).
 // G.box: [x0, capTop, x1, baseline] of the space the host floated; initial.width(ch) gives that width in cap heights.
 const CARD = { ratio: .66, band: .125, letter: .42, ground: .16 };
-// line: the initial in the line, 'contour' (default) or 'solid'; title: lettering for the foot band (empty by default)
-function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'solid', line = 'contour', title = '', u = 8, n = 1 }) {
+// line: the initial in the line, 'contour' (default) or 'solid'
+function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'contour', line = 'contour', title = 'Le Livre', u = 8, n = 1 }) {
   ch = String(ch).normalize('NFD')[0].toUpperCase(); const [x0, y0, x1, y1] = G.box, H = y1 - y0, W = Math.max(LW(u), H * .014), r = rng(seed, 'card');
   if (!/[A-Z]/.test(ch)) return { letter: ch, marks: [], fills: [], letters: [], width: x1 - x0 };
   if (!big) {   // in the line: the capital cut as a contour, its body stencilled red
