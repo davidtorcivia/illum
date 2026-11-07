@@ -148,6 +148,56 @@ with the same lean (found by matching the stem's left and right edges and their 
 900+ rows apart), so the second length joins the first with no step; a taller block repeats the loop. The vine font is
 3.3 KB (not smoothed: its line is thin against its height).
 
+## The generator (tools/kgrow.py), round six
+
+The user's direction: generate the missing white-vine capitals rather than graft them. tools/kgrow.py draws the letter as
+geometry and grows the vine, both to measurements of his sixteen blocks (white .52; vine stems .023 across; the letter–
+vine gap .023; ~16 dots; his letters' width by stroke direction, a broad nib at ~30°: \ .127, | .114, — .094, / .079), by
+space colonisation in two passes (a few long primaries off the letter and the frame, then secondaries), each step turning
+≤ 9°, stems never nearer than his gap, leaves alternately along the long stems and at the ends, buds, curls, dots.
+Seeded and deterministic (E G R X Y at seed 3: playground/fonts/kelmscott/kelmscott-grown-g*.woff2, GLYPHS gen: 1).
+`?caps=grow` (default) uses them; `?caps=graft` the grafted ones. It can make any letter given its centre-lines.
+
+Where it still looks generated (the blind sheet, test-pagesize in the round-six images): the letters are Roman capitals
+where his are gothic, and their outlines are clean geometry, without his spurs, notches and hairlines; the vine is a thin
+even net, where his is bold and dense, with big lobed leaves, flowers and berries that fill the black; there is more black
+than in his; no stem passes under another. At page size the five can be picked out.
+
+## The generator, round seven: held to his measured grammar
+
+The user's direction: keep `?caps=grow` the default and make the generator good; go past initialis, not copy it.
+Reference studied (for understanding only; none of its code is used): initialis by Azlen Elza (MIT), an endless
+drop-cap generator with a "Kelmscott" preset (white Roman letter, parametric oak/acanthus leaves, rosettes and curling
+stems that follow the largest clear circle). Its preset is coherent and finished, but generic: a typeface letter with an
+inline, thin even stems, leaves and flowers from a parameter set, more black than his.
+
+tools/kgrow.py was rewritten so that everything it draws comes from his blocks:
+- **Grammar, measured** (scratchpad py/measure2.py, skeleton runs of the white vine in the sixteen blocks): stem across
+  median .023, 80th .033, 95th .048; curvature |k| quartiles 3.2 / 8.1 / 16.8, 90th 33 (per height); a run between
+  forks median .10, 90th .21; his K and I stems waisted ~.10–.12 and flaring to ~.19–.23 into the ends.
+- **Letter:** centre-lines drawn with his stem profile (waisted, flared concave into each end), wedge serifs, notches
+  bitten from the stems and his black hairline down the thick strokes; heavier than round six.
+- **Vine:** main stems at his 95th-percentile weight (.042 → .024), one at a time into the biggest black left, rooted at
+  the letter (from behind it) or the frame; steered by a curvature process sampled from his quartiles in runs of his
+  run length with the sign flipping (his S), bent towards the open side in a channel, swung back rather than looping.
+  A main stem meeting a stroke of the letter goes on beneath it if there is room beyond (his vine passes behind the
+  letter); one meeting another stem goes over or under it, alternately, with a black break on the one beneath.
+  Shoots alternately each side every ~.09 at his median weight, curling into his 90th-percentile hook and tapering to
+  a point; on the ones with room, a piece of his own vocabulary (22 leaves, tulips, buds and flowers cut from his
+  blocks, scratchpad q/vocab-pick.npz) turned along the shoot at its own size. Then the biggest black left is filled a
+  piece at a time (a shoot from the nearest stem, else a dot or, seldom, a grape), and every outline wanders by
+  low-frequency noise of ~.0015 of the height (his cut edge).
+- White now .45–.50 (his .52; round six ~.35).
+
+Judged against him (blind sheet and the three-way 4× sheet: initialis's preset / ours / his nearest block):
+- **Beyond initialis:** the letter (his weight, flares, notches and hairline cuts, not a typeface with an inline); the
+  balance of white and black; stem weight; the vine passing behind the letter and over/under itself; the cut edge;
+  no generic oak leaves or rosettes.
+- **Not yet him (and where initialis is still more finished):** the vine reads as even tubes that wander rather than
+  his tapering, branching growth; his leaves and flowers appear too seldom and too small to read; the short shoots read
+  as thorns; the over/under breaks can read as chain links; the main stems tend to run round the frame. At page size
+  the five can still be picked out of a grid of twenty; at 4× all five. None passes the blind read yet.
+
 ## Size: the blocks as webfonts
 
 The first build carried the traces as polygons in the module (~250 KB for 13 blocks; the whole alphabet would have been
