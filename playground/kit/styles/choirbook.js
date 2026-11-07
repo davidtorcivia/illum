@@ -15,9 +15,9 @@
 //   open scallops.
 // - the pearled contour (Met 467763, gradual, c. 1310–15; 469041): where no panel stands against the letter, a string
 //   of fine points follows its outline a gap away (lavish).
-// - the parted body (467763's K, 466790's L): a hair of parchment left down the middle of the letter's heaviest
-//   strokes, so the blue reads as laid in two strokes either side of it (lavish; ?body=1 at any budget, for study). It is
-//   written by the quill in the paper's own colour over the dry paint, a hairline, never a tint.
+// - the filigree (467763's K and X, 466790's L): a channel of the other colour down the stem, pointed at both ends, a
+//   hair of parchment reserved round it; in the curved members a white vine with curls and points (the parchment left
+//   bare, so the page's own colour in light and dark). Drop initials, usual budget up; ?filigree=0|1 overrides.
 // - a small cross of points in the margin (467763), on the finer budgets.
 // - the stave (every leaf): four red rules, the square notes in black, the finalis, as the chapter break.
 // The letter stays a real face (EB Garamond 600): five procedurally built letters were rejected, and no free Lombardic
@@ -43,13 +43,13 @@ const isDark = () => { try { const t = document.documentElement.dataset.theme; r
 // ---- budgets -------------------------------------------------------------------------------------------------------------------
 // What the flourisher was paid (03's five, deepened). crown: 0 the bare panel, 1 03's low arch, 2 the dome with its eye
 // and curled ends (466773); text: a crowned panel on the text side too; pend: the share of pendants among the scallops
-// on a bundle's outer edge; pearls, body, cross: see above.
+// on a bundle's outer edge; column: a wide counter's hairlines as one column with an eye either side; pearls, filigree, cross: see above.
 export const BUDGETS = [
-  { name: 'plain', counterEyes: 1, counterRules: false, bay: false, crown: 0, text: false, top: false, base: false, panelScallops: false, pend: 0, staffLines: 1, runs: null, staffEyes: 0, hooks: 0, contourEyes: 0, spray: false, accent: 0, pearls: false, body: false, cross: false },
-  { name: 'modest', counterEyes: 9, counterRules: true, bay: false, crown: 1, text: false, top: false, base: false, panelScallops: true, pend: 0, staffLines: 1, runs: .6, staffEyes: 0, hooks: 0, contourEyes: 0, spray: false, accent: 0, pearls: false, body: false, cross: false },
-  { name: 'usual', counterEyes: 9, counterRules: true, bay: true, crown: 2, text: true, top: true, base: true, panelScallops: true, pend: .34, staffLines: 2, runs: .42, staffEyes: .2, hooks: 0, contourEyes: 0, spray: false, accent: 0, pearls: false, body: false, cross: false },
-  { name: 'fine', counterEyes: 9, counterRules: true, bay: true, crown: 2, text: true, top: true, base: true, panelScallops: true, pend: .4, staffLines: 2, runs: .3, staffEyes: .24, hooks: .2, contourEyes: .16, spray: false, accent: 0, pearls: false, body: false, cross: true, bud: true },
-  { name: 'lavish', counterEyes: 9, counterRules: true, bay: true, crown: 2, text: true, top: true, base: true, panelScallops: true, pend: .45, staffLines: 3, runs: -1, staffEyes: .28, hooks: .3, contourEyes: .3, spray: true, accent: .4, pearls: true, body: true, cross: true, bud: true },
+  { name: 'plain', counterEyes: 1, counterRules: false, bay: false, crown: 0, text: false, top: false, base: false, panelScallops: false, pend: 0, staffLines: 1, runs: null, staffEyes: 0, hooks: 0, contourEyes: 0, spray: false, accent: 0, pearls: false, cross: false },
+  { name: 'modest', counterEyes: 9, counterRules: true, bay: false, crown: 1, text: false, top: false, base: false, panelScallops: true, pend: 0, staffLines: 1, runs: .6, staffEyes: 0, hooks: 0, contourEyes: 0, spray: false, accent: 0, pearls: false, cross: false },
+  { name: 'usual', column: true, filigree: true, counterEyes: 9, counterRules: true, bay: true, crown: 2, text: true, top: true, base: true, panelScallops: true, pend: .34, staffLines: 2, runs: .42, staffEyes: .2, hooks: 0, contourEyes: 0, spray: false, accent: 0, pearls: false, cross: false },
+  { name: 'fine', column: true, filigree: true, counterEyes: 9, counterRules: true, bay: true, crown: 2, text: true, top: true, base: true, panelScallops: true, pend: .4, staffLines: 2, runs: .3, staffEyes: .24, hooks: .2, contourEyes: .16, spray: false, accent: 0, pearls: false, cross: true, bud: true },
+  { name: 'lavish', column: true, filigree: true, counterEyes: 9, counterRules: true, bay: true, crown: 2, text: true, top: true, base: true, panelScallops: true, pend: .45, staffLines: 3, runs: -1, staffEyes: .28, hooks: .3, contourEyes: .3, spray: true, accent: .4, pearls: true, cross: true, bud: true },
 ];
 
 // ---- the clearance (03's): distance from each cell to the nearest thing on the page, stamped as marks are accepted ---------
@@ -62,14 +62,14 @@ function clearance(x0, y0, w, h, blocked, cap) {
   return { get, stamp, C };
 }
 
-// ---- the parted body: the ridges of the letter's heaviest strokes, as polylines (page px) -------------------------------------
+// ---- the ridges of the letter's heavy strokes (the filigree's members), as polylines (page px) -------------------------------------
 // Ridge cells: deep in the ink (more than .62 of the heaviest stroke's half-width) and the deepest across the stroke
 // (a maximum of the depth along x or along y); walked into lines, nearest first, the short ones dropped.
-function ridges(L, minLen) {
+function ridges(L, minLen, frac = .5) {
   const { M, w, h, x0, y0, res } = L, paper = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) paper[i] = M[i] <= .5;
   const D = edt(paper, w, h); let hw = 0; for (let i = 0; i < w * h; i++) if (D[i] > hw) hw = D[i];
   const pts = [];
-  for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) { const k = j * w + i, d = D[k]; if (d < hw * .5) continue;
+  for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) { const k = j * w + i, d = D[k]; if (d < hw * frac) continue;
     if ((d >= D[k - 1] && d >= D[k + 1]) || (d >= D[k - w] && d >= D[k + w])) pts.push([i, j]); }
   const used = new Uint8Array(pts.length), grid = new Map(), key = (i, j) => (i >> 2) + ',' + (j >> 2);
   pts.forEach((p, n) => { const k = key(...p); grid.has(k) || grid.set(k, []); grid.get(k).push(n); });
@@ -91,11 +91,75 @@ function ridges(L, minLen) {
     return q.slice(3, -3); });
 }
 
+// ---- the filigree (467763's K and X, at 4×) ---------------------------------------------------------------------------------
+// How it is made in the sources: the letter's body is not one flat blue. Down its straight stem runs a channel of the other
+// colour, pointed at both ends, a hair of bare parchment left between it and the blue (the painter laid round it); in
+// its curved members the blue is worked with white: two lines following the stroke a little in from its edges and a
+// scroll running between them, touching one side and then the other, small points in the bays it leaves. The white is
+// the parchment left bare, so it is the page's own colour in light and in dark (a reserve, cut from the paint here); its
+// lines are about a hundred-and-fiftieth of the letter's height, the scroll's period some four of the stroke's half-
+// widths. It stops short where the stroke thins: nothing is worked in a member narrower than ~6 px, so on a phone it
+// thins out by itself to the channel and a single scroll. Returns the paint's mask with the reserve cut, and the
+// channel's strokes (a broad nib, laid after the paint).
+const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const taperOf = L => f => .08 + .92 * Math.pow(1 - sm(1 - Math.min(.35, 34 / L), 1, f), 1.2);   // the broad nib's lift (kit/illum.js swell)
+export function filigree(L, seed, rgb) {
+  const { M, w, h, x0, y0, res } = L, paper = new Uint8Array(w * h); let r0 = h, r1 = 0;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; paper[k] = M[k] <= .5; if (!paper[k]) { r0 = Math.min(r0, j); r1 = Math.max(r1, j); } }
+  const D = edt(paper, w, h), H = (r1 - r0) / res, r = stream(seed, 'filigree'), cut = new Float32Array(w * h), marks = [];
+  const depth = ([x, y]) => { const i = Math.floor((x - x0) * res), j = Math.floor((y - y0) * res); return i < 0 || j < 0 || i >= w || j >= h ? 0 : D[j * w + i] / res; };
+  // the reserve: a stroke of bare parchment wd px wide (its edge eased over a quarter of a pixel), or a point
+  const lay = (pts, wd) => { const R = wd / 2 + 1 / res; for (const [px, py] of resample(pts, .2)) { const ci = (px - x0) * res, cj = (py - y0) * res, Rr = R * res;
+    for (let j = Math.max(0, Math.floor(cj - Rr)); j <= Math.min(h - 1, Math.ceil(cj + Rr)); j++) for (let i = Math.max(0, Math.floor(ci - Rr)); i <= Math.min(w - 1, Math.ceil(ci + Rr)); i++) {
+      const d = Math.hypot(i + .5 - ci, j + .5 - cj) / res, v = Math.min(1, Math.max(0, (wd / 2 - d) * 3.2 + .5)), k = j * w + i; if (v > cut[k]) cut[k] = v; } } };
+  const point = (c, rad) => lay([c, [c[0] + .01, c[1]]], rad * 2);
+  const lw = Math.max(.55, H * .0068), chans = [];
+  const segD = (p, { a, b }) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy))); return Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dy * t); };   // a white line's width (467763: ~1/150 of the letter)
+  // (the stem first, so the white work knows where its channel runs)
+  const upright = P => { const L2 = arclen(P); return Math.abs(P.at(-1)[1] - P[0][1]) / L2 * L2; };
+  for (const P0 of ridges(L, H * .16, .36).sort((a, b) => upright(b) - upright(a))) {
+    const P = resample(P0, .5), dep = P.map(depth), Lp = arclen(P), md = dep.reduce((a, b) => a + b, 0) / dep.length;
+    const straight = Math.hypot(P.at(-1)[0] - P[0][0], P.at(-1)[1] - P[0][1]) / Lp;
+    // (the channel only in the stem: the longest member that runs straight and upright)
+    if (straight > .97 && Lp >= H * .45 && Math.abs(P.at(-1)[1] - P[0][1]) > Lp * .9 && md >= 3.4) {
+      // the channel: from the middle outward both ways, a broad nib laid square across the stroke, lifting to a point
+      // (one stroke, straight down the stem, set down to a point and lifted to a point; the reserve follows its width)
+      const chw = Math.min(md * .62, H * .06), gap = Math.max(.65, lw * 1.15), a = P[0], b = P.at(-1), t = [(b[0] - a[0]) / Lp, (b[1] - a[1]) / Lp];
+      const st = resample([a, b], .5), Ls = arclen(st), wf = f => (.4 + .6 * sm(0, Math.min(.15, 9 / Ls), f)) * taperOf(Ls)(f);
+      st.forEach((q, i) => point(q, chw * wf(i / (st.length - 1)) / 2 + gap));
+      marks.push({ pts: st, kind: 'channel', w: chw, nib: -Math.atan2(t[0], t[1]) }); chans.push({ a, b, half: chw / 2 + gap });
+      continue; }
+    // (cut back where it comes near the channel: the junction with the stem is left plain blue)
+    for (const Q of (() => { const segs = [[]]; P.forEach(q => { if (chans.some(c => segD(q, c) < c.half + 3)) { if (segs.at(-1).length) segs.push([]); } else segs.at(-1).push(q); }); return segs; })()) {
+    if (Q.length < 4) continue; const P = Q, dep = P.map(depth), Lp = arclen(P), md = dep.reduce((a, b) => a + b, 0) / dep.length;
+    if (md < 3.1 || Lp < H * .14) continue;
+    // the white work in a curved member: a vine down its middle, waving gently with the stroke, a point either side of it
+    // in turn, and the vine's ends turned into a small curl where the stroke still has room (466790's L, 467763's bowls)
+    const S = [0]; for (let i = 1; i < P.length; i++) S.push(S[i - 1] + .5);
+    const nrm = i => { const t = tangentAt(P, i); return [-t[1], t[0]]; }, lam = Math.max(7, md * 5), ph = r() * Math.PI * 2, vw = Math.max(.72, H * .0092);
+    const vine = [], keepI = [];
+    P.forEach((q, i) => { if (dep[i] < 3) return; const n = nrm(i), o = Math.max(0, dep[i] - 2.6 - vw) * .45 * Math.sin(2 * Math.PI * S[i] / lam + ph); vine.push([q[0] + n[0] * o, q[1] + n[1] * o]); keepI.push(i); });
+    if (vine.length < 8) continue;
+    lay(vine, vw);
+    // the curls: off each end, turning toward the stroke's inside, small enough to stay in the paint
+    for (const [e, back] of [[vine[0], vine[Math.min(6, vine.length - 1)]], [vine.at(-1), vine.at(-Math.min(7, vine.length))]]) {
+      const de = depth(e), cr = Math.min(1.9, de - vw - .9); if (cr < 1.05) { point(e, vw * .9); continue; }
+      const hd = Math.atan2(e[1] - back[1], e[0] - back[0]); for (const sg of [1, -1]) { const c = tendril(e, hd, cr * 2 * Math.PI * .85, 1 / cr * sg * .6, 1 / cr * sg * 1.5, 1.3, .25);
+        if (c.every(q => depth(q) > vw * .5 + .7)) { lay(c, vw * .9); break; } } }
+    // points: either side of the vine in turn, a little over a stroke's width apart
+    for (let k = 1, side = 1; k < keepI.length - 1; k++) { const i = keepI[k]; if ((S[i] - S[keepI[0]]) % Math.max(5, md * 2.2) > .5 || dep[i] < 4) continue;
+      const n = nrm(i), o = side * (dep[i] * .52), c = [vine[k][0] + n[0] * o, vine[k][1] + n[1] * o]; if (depth(c) > vw + .9) point(c, Math.max(.7, H * .0085)); side = -side; }
+    }
+  }
+  const out = new Float32Array(w * h); for (let k = 0; k < w * h; k++) out[k] = M[k] * (1 - cut[k]);
+  return { M: { ...L, M: out }, marks };
+}
+
 // ---- the flourish ----------------------------------------------------------------------------------------------------------------
 // 03's (kit/penwork.js flourish), deepened: the same order of work and the same clearance, with the columns' capitals,
-// the text-side panel, pendants, the pearled contour, the cross, and the parted body. Arguments as 03's, and tp: the
+// the text-side panel, pendants, the pearled contour, the cross. The filigree is laid by filigree() above. Arguments as 03's, and tp: the
 // text-side panel [x0, y0, x1, y1] or null.
-export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap = true, seed = 1, level = 2, right = g, tp = null, body = null }) {
+export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap = true, seed = 1, level = 2, right = g, tp = null }) {
   const r = stream(seed, 'penwork'), out = [], B = BUDGETS[level];
   const { M, w: gw, h: gh, x0: gx, y0: gy, res } = glyph, ink = new Uint8Array(gw * gh);
   for (let i = 0; i < gw * gh; i++) ink[i] = M[i] > .5;
@@ -133,15 +197,24 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
   };
 
   // 1. eyes in the counters, and the bay
-  const comps = [];
+  const comps = [], cid = new Map();
   { const seen = new Set(); for (let y = Math.ceil(box[1]); y < box[3]; y++) for (let x = Math.ceil(box[0]); x < box[2]; x++) { if (!encl(x, y)) continue;
       const key = Math.round((x - gx) * res) + ',' + Math.round((y - gy) * res); if (seen.has(key)) continue;
-      let best = null; const st = [[x, y]], mark = new Set([x + ',' + y]);
-      while (st.length) { const [u, v] = st.pop(); const c = c0(u, v); if (!best || c > best.c) best = { c, p: [u, v] };
+      let best = null; const st = [[x, y]], mark = new Set([x + ',' + y]); let ex0 = x, ex1 = x;
+      while (st.length) { const [u, v] = st.pop(); const c = c0(u, v); if (!best || c > best.c) best = { c, p: [u, v] }; ex0 = Math.min(ex0, u); ex1 = Math.max(ex1, u);
         for (const [du, dv] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = u + du, b = v + dv, k2 = a + ',' + b; if (!mark.has(k2) && encl(a, b)) { mark.add(k2); st.push([a, b]); } } }
       for (const k2 of mark) { const [a, b] = k2.split(',').map(Number); seen.add(Math.round((a - gx) * res) + ',' + Math.round((b - gy) * res)); }
-      comps.push(best); } }
-  for (const b of B.counterEyes >= comps.length ? comps : [...comps].sort((u, v) => v.c - u.c).slice(0, B.counterEyes)) { const R = Math.min(g * 2.2, (b.c - g * .8) / 1.7); if (R >= g * .8) eye([b.p[0] + (r() - .5) * .4, b.p[1] + (r() - .5) * .4], R); }
+      for (const k2 of mark) cid.set(k2, comps.length); best.x0 = ex0; best.x1 = ex1; comps.push(best); } }
+  // (466773: where a counter is wide enough, its hairlines stand as one column down its middle, an eye either side of
+  // it; a narrower counter is ruled across with an eye at its widest, as 03)
+  for (const b of B.counterEyes >= comps.length ? comps : [...comps].sort((u, v) => v.c - u.c).slice(0, B.counterEyes)) {
+    const wd = b.x1 - b.x0, cxm = (b.x0 + b.x1) / 2;
+    if (B.column && wd >= g * 6.5) { const half = g * (wd >= g * 9 ? 1.7 : 1.25); b.band = [cxm - half, cxm + half];
+      const Rs = Math.min(g * 1.6, ((wd / 2 - half) - g * 1.1) / 2.1);
+      if (Rs >= g * .55) for (const sd of [-1, 1]) { const ec = [cxm + sd * (half + g * .75 + Rs * 1.05), b.p[1] + (r() - .5) * g * .6];
+        if (encl(ec[0], ec[1]) && c0(...ec) >= Rs + g * .45) eye(ec, Rs, Rs >= g * 1.1); }
+      continue; }
+    const R = Math.min(g * 2.2, (b.c - g * .8) / 1.7); if (R >= g * .8) eye([b.p[0] + (r() - .5) * .4, b.p[1] + (r() - .5) * .4], R); }
   let bay = null;
   { const R = Math.min(g * 2.2, (px1 - px0) * .14), bw = 2 * R * 1.45 + g * .8;
     if (B.bay && px1 - px0 > bw + g * 5 && R >= g * 1.1) { bay = [px1 - bw, px1]; const ec = [(bay[0] + bay[1]) / 2 + (r() - .5) * .5, (py0 + py1) / 2 + (r() - .5) * g];
@@ -167,13 +240,19 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
   const crown = (cx0, cx1, base, kind) => {
     const span = cx1 - cx0, mid = (cx0 + cx1) / 2; if (span < g * 3) return false;
     const rise = kind === 2 ? Math.min(span * (.4 + r() * .06), g * 6.5) : span * (.22 + r() * .06), P = [];
-    for (let k = 0; k <= 28; k++) { const u = k / 28; P.push([cx0 + span * u, base - rise * Math.pow(Math.sin(Math.PI * u), kind === 2 ? .8 : 1) - (r() - .5) * .15]); }
+    // (466773's capitals are drawn freehand: the dome a little lopsided and lumpy, never a compass's arc)
+    const lump = noise1(seed ^ (cx0 * 7 | 0)), lean = (r() - .5) * .16;
+    for (let k = 0; k <= 28; k++) { const u = k / 28, su = Math.pow(Math.sin(Math.PI * u), kind === 2 ? .8 : 1), uu = Math.min(1, Math.max(0, u + lean * su));
+      P.push([cx0 + span * uu, base - rise * su * (kind === 2 ? 1 + .14 * (lump(u * 3.2) - .5) * 2 : 1) - (r() - .5) * .15]); }
     if (!room(P.slice(3, -3), g * .5)) return false;
     accept(P, 'cap', { w: .5, start: 'cut', end: 'cut' });
     if (kind === 2) {
       const R = Math.min(rise * .3, span * .2); if (R >= g * .65) eye([mid + (r() - .5) * .4, base - rise * .44], R, false);
       const ab = drift([[cx0 + g * .25, base + g * .05], [cx1 - g * .25, base + (r() - .5) * .3]], .12, seed + 31 + (cx0 | 0), 30);
       if (room(ab.slice(2, -2), g * .4)) accept(ab, 'abacus', { w: .46, start: 'cut', end: 'cut' });
+      // studs: small loops set round the dome's back, each with its point (two or three, as the room allows)
+      for (const u of [.2, .8, ...(B.bud ? [] : [.5])]) { const i = Math.round(u * 28), q = P[i], t = tangentAt(P, i), n = [t[1], -t[0]], sr = g * (.5 + r() * .12), sc = [q[0] + n[0] * sr * 1.02, q[1] + n[1] * sr * 1.02], sp = ring(sc, sr, r, .12, Math.atan2(-n[1], -n[0]), 1.05);
+        if (room(sp.slice(8, -8), g * .12)) { accept(sp, 'stud', { w: .45, start: 'cut', end: 'cut' }); out.push({ kind: 'dot', p: sc, r: .55 }); } }
       if (B.bud) { const bc = [mid + (r() - .5) * .3, base - rise - g * .95], br = g * .55, bp = ring(bc, br, r, .1, Math.PI / 2, 1.02);
         if (room(bp, g * .3)) { accept(bp, 'bud', { w: .45, start: 'cut', end: 'cut' }); out.push({ kind: 'dot', p: bc, r: .6 }); } }
     } else {
@@ -202,7 +281,8 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
   const inTP = (x, y) => tp && B.text && x > tp[0] && x < tp[2] && y > tp[1] && y < tp[3];
   const inBox = (x, y) => B.counterRules && x > box[0] && x < box[2] + right && y > box[1] - g * .3 && y < box[3];
   const inBay = (x, y) => bay && x > bay[0] && x < bay[1] + g && y > py0 - g && y < py1 + g;
-  const open = (x, y) => (inPanel(x, y) || inBox(x, y) || inTP(x, y)) && !inBay(x, y) && !onLetter(x, y) && !inWords(x, y) && c1(x, y) >= g * .62;
+  const inBand = (x, y) => { if (!encl(x, y)) return true; const b = comps[cid.get(Math.round(x) + ',' + Math.round(y))]; return !b?.band || (x > b.band[0] && x < b.band[1]); };
+  const open = (x, y) => (inPanel(x, y) || inBox(x, y) || inTP(x, y)) && !inBay(x, y) && !onLetter(x, y) && !inWords(x, y) && inBand(x, y) && c1(x, y) >= g * .62;
   const spacing = noise1(seed ^ 0x71), lineRows = [], xEnd = Math.max(box[2] + right, tp && B.text ? tp[2] : 0), yA = Math.min(py0, box[1], tp?.[1] ?? 1e9) - g;
   for (let x0 = sx + g * .95, k = 0; x0 < xEnd; x0 += g * (.82 + .38 * spacing(x0 / 7)), k++) {
     const x = x0 + (r() - .5) * g * .12; let y0 = -1;
@@ -254,8 +334,6 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
       if (d < g * .95) continue; if (got.some(q => Math.hypot(q[0] - x, q[1] - y) < step)) continue; got.push([x, y]); }
     for (const p of got) out.push({ kind: 'dot', p, r: .55 + r() * .08 }); }
 
-  // 8. the parted body: a hair of parchment down the middle of the heaviest strokes, ending in a point at each end
-  if (body ?? B.body) for (const L of ridges(glyph, (box[3] - box[1]) * .3)) out.push({ pts: drift(L, .12, seed + 51, 20), kind: 'body', w: .44, start: 'taper', end: 'taper', rho: 1.1 });
   return out;
 }
 
@@ -275,7 +353,7 @@ function pooled(L, seed) {
     out[k] = M[k] * Math.min(1, .8 + .2 * Math.exp(-d / 1.3) + .07 * (n(i / res / 6, j / res / 6) - .5)); }
   return { ...L, M: out };
 }
-export function initial({ G, keep, lh, big, level: li, seed, room: margin, bottom, body = null }) {
+export function initial({ G, keep, lh, big, level: li, seed, room: margin, bottom, filigree: filig = null }) {
   const pig = big ? 'azurite' : 'minium', ink = INKS[pig], [lx0, ly0, lx1, ly1] = G.box, Hl = ly1 - ly0, dark = isDark();
   const gap = big ? 2.6 : 2.1, roomL = Math.max(0, margin - gap * 3);
   const panel = big ? [lx0 - Math.min(GEOM.panelW[li] * Hl, roomL), ly0 - GEOM.rise[li] * Hl, lx0 - gap * .7, ly1]
@@ -284,13 +362,16 @@ export function initial({ G, keep, lh, big, level: li, seed, room: margin, botto
   const right = big && li >= 2 ? lh * .42 + GEOM.wider[li] : gap;
   const tp = big && li >= 2 ? [lx1 + gap * .4, ly0 - GEOM.rise[li] * Hl * .6, lx1 + right - gap * .6, ly1] : null;
   const L = drawn(G, seed, big ? .8 : .45);
-  const q = new URLSearchParams(globalThis.location?.search ?? ''), bd = body ?? (q.has('body') ? q.get('body') !== '0' : null);
-  const marks = flourish({ glyph: L, panel, keep, staff, g: gap, seed, level: li, right, tp, body: big ? bd : false });
-  const paperInk = [255, 255, 255];   // the parted body: the quill's ink made the paper's own colour on a light page
-  return { letter: dark ? { M: pooled(L, seed), pigment: big ? 'cbAzureDark' : 'cbMiniumDark' } : { M: L, pigment: pig },
-    marks: marks.map((s, i) => s.kind === 'dot'
+  const q = new URLSearchParams(globalThis.location?.search ?? ''), fq = filig ?? (q.has('filigree') ? q.get('filigree') !== '0' : null);
+  const marks = flourish({ glyph: L, panel, keep, staff, g: gap, seed, level: li, right, tp });
+  // the filigree, in a drop initial (the line initial is too small to be worked): its reserve cut from the paint, its
+  // channel laid in the other colour (minium in azurite) after the paint and before the penwork
+  const F = big && (fq ?? BUDGETS[li].filigree) ? filigree(L, seed) : { M: L, marks: [] }, chInk = PIGMENTS[big ? 'minium' : 'azurite'].rgb;
+  const channel = F.marks.map((s, i) => ({ pts: s.pts, col: 'b', ink: chInk, seed: seed + 7 * i, w: s.w, broad: .9, nib: s.nib, load: 1, dry: .12, swell: 0, start: 'taper', end: 'taper' }));
+  return { letter: dark ? { M: pooled(F.M, seed), pigment: big ? 'cbAzureDark' : 'cbMiniumDark' } : { M: F.M, pigment: pig },
+    marks: [...channel, ...marks.map((s, i) => s.kind === 'dot'
       ? { dot: true, p: s.p, r: s.r, col: s.accent ? 'a' : 'b', ink: s.accent ? PIGMENTS[pig].rgb : ink }
-      : { pts: s.pts, col: 'b', ink: s.kind === 'body' ? paperInk : ink, seed: seed + i * 13, w: s.w * 1.15, rho: s.rho, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 }) };
+      : { pts: s.pts, col: 'b', ink, seed: seed + i * 13, w: s.w * 1.15, rho: s.rho, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 })] };
 }
 initial.wider = GEOM.wider;
 

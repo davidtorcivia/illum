@@ -59,6 +59,23 @@ red/blue hairline runs with scallops or points — the 06 fillers plus a pendant
 - Frames: quotation = the column of 466773 (bundle down the gutter, crowned, pendants); figure, code, aside, contents =
   07's (approved); pull quote = the stave above and below.
 
+## 4b. The filigree (second pass, the user's call: "keep the staff, add a true filigree")
+
+Read at 4× in 467763's K and X: the letter's body is worked, not flat. Down the straight stem a channel of the other colour
+(red in blue), pointed at both ends, with a hair of bare parchment reserved between it and the blue; in the broad members
+white work: double lines following the stroke, S-scrolls ending in spirals, trefoils of points (each with a red dot), all
+of it parchment left bare by the painter (it has the parchment's grain; the white lines are ~1/150 of the letter's height,
+a scroll's period about four half-widths of its member). The K is a block Lombard (stem ≈ a quarter of the letter's
+width); our Garamond B's members are 10–13 px at a desktop drop, so the panel scrolls do not fit. Built:
+- the stem's channel: a broad-nib stroke in minium, laid after the paint and before the penwork, set down and lifted to a
+  point; the reserve round it cut from the paint's mask to the stroke's own width profile plus ~0.65 px.
+- each curved member: a white vine down its middle waving gently with it, curls at its ends where the member still has
+  room (else a point), points either side in turn. Cut from the paint (a reserve): the page's colour, light and dark.
+- it thins itself: nothing is worked where a member's half-width is under ~3 px, the curl only where ~2 px of paint
+  remains round it, so on a phone it comes down to a shorter channel and plainer vines.
+- the counters, when wide enough, keep their hairlines as one central column with an eye beside it (466773); the domes
+  are drawn lumpy and leaning, studded with small loops with points.
+
 ## 5. The letter
 
 No OFL Lombardic face is good enough. Checked: Metamorphous, MedievalSharp, Lancelot, Almendra Display, Jacquard 24,
@@ -70,4 +87,4 @@ port. EB Garamond 600 painted stays (approved; humanist precedent).
 
 The capitals are cleaner and more geometric than 466773's lumpy, loop-studded domes; bundles in the counters are still 03's
 full ruling, not the source's central column flanked by eyes; the parted body is a parchment hair, not red-filled; no
-rosettes of concentric rings yet; no zigzag motif.
+rosettes of concentric rings yet; no zigzag motif. The filigree is far sparser than the K's (a narrow roman letter has no panels to fill): no double-line scrolls, no trefoils, no red points in the white.
