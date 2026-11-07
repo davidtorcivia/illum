@@ -55,10 +55,15 @@ export const LW = u => Math.max(1.35, Math.min(2.3, u * .17));   // the card's l
 function cut(pts, W, o0 = {}) {
   W = Math.max(1.2, W);   // nothing finer than this: a line under a pixel only aliases
   const P0 = resample(pts, .6), L0 = arclen(P0);
-  // a long cut is printed whole, but the pen that writes it would run dry: it is written in lengths a dip carries
-  if (L0 > 140 && !o0.part) { const k = Math.ceil(L0 / 120), per = Math.ceil(P0.length / k), out = [];
-    for (let i = 0; i < k; i++) out.push(cut(P0.slice(Math.max(0, i * per - 1), Math.min(P0.length, (i + 1) * per + 1)), W, { ...o0, part: true, seed: (o0.seed ?? 0) + i * 31, taper: [i === 0 ? o0.taper?.[0] ?? 0 : 0, i === k - 1 ? o0.taper?.[1] ?? 0 : 0] }));
-    return out; }
+  // a long cut is printed whole, but the pen that writes it would run dry: it is written in lengths a dip carries, broken
+  // where the cut turns a corner (where a cutter's knife stops anyway) and otherwise only every ~480 px
+  if (!o0.part && L0 > 120) { const cuts = [0];
+    for (let i = 3; i < P0.length - 3; i++) { const a = unit([P0[i][0] - P0[i - 3][0], P0[i][1] - P0[i - 3][1]]), b = unit([P0[i + 3][0] - P0[i][0], P0[i + 3][1] - P0[i][1]]);
+      if (a[0] * b[0] + a[1] * b[1] < .5 && i - cuts.at(-1) > 6) cuts.push(i); }
+    cuts.push(P0.length - 1); const pieces = [];
+    for (let k = 0; k + 1 < cuts.length; k++) { const seg = P0.slice(cuts[k], cuts[k + 1] + 1), n = Math.ceil(arclen(seg) / 480), per = Math.ceil((seg.length - 1) / n);
+      for (let i = 0; i < n; i++) pieces.push(seg.slice(i * per, Math.min(seg.length, (i + 1) * per + 1))); }
+    if (pieces.length > 1) return pieces.filter(q => q.length > 1).map((q, i, A) => cut(q, W, { ...o0, part: true, seed: (o0.seed ?? 0) + i * 31, taper: [i === 0 ? o0.taper?.[0] ?? 0 : 0, i === A.length - 1 ? o0.taper?.[1] ?? 0 : 0] })); }
   const { taper = [0, 0], wob = .1, seed = 0 } = o0, P = P0, L = L0, n = noise2(seed * 7 + 11 | 0), o = (seed * .37) % 50;
   const press = f => { const s = f * L; let k = 1 + wob * 2 * (n(s / 8 + o, o) - .5);
     if (taper[0]) k *= .3 + .7 * Math.min(1, s / taper[0]) ** .7; if (taper[1]) k *= .3 + .7 * Math.min(1, (L - s) / taper[1]) ** .7; return k; };
@@ -101,37 +106,50 @@ function cup(c, s, W, seed = 0) {
     for (const f of [-.35, .35]) marks.push(cut([[x + f * fr * .5 * 2 * .5, ft], [x + f * fr * 1.3, b]], W * .7, { seed: seed + 9 + f * 4 })); }
   return { marks, fills: [fill('y', [bowlP, footP]), fill('r', [ring([x, ly + s * .006], lr * .9, s * .065)])] };
 }
+// the bell: the flared end of a baton and the pommel of a sword pip, printed solid (c013, c087): from a neck, its sides
+// curving out slowly then fast to a broad mouth hollowed in a shallow arc; a sword's swept to one side like a fish's tail
+// (sweep: the mouth's tilt, in mouth-widths). On a large one the grain of the wood is cut through the black in two or
+// three light streaks. at: the neck's middle; t: the way out; returns { marks, fills }
+function bell(at, t, len, neck, mouth, W, seed = 0, { sweep = 0 } = {}) {
+  const n = [-t[1], t[0]], P = (s, v) => add(add(at, t, s), n, v), hw = f => neck / 2 + (mouth - neck) / 2 * f ** 2.6, k = 16;
+  const side = sd => Array.from({ length: k + 1 }, (_, i) => { const f = i / k; return P(len * f + sd * sweep * mouth * f ** 3, sd * hw(f)); });
+  const mouthArc = Array.from({ length: 9 }, (_, i) => { const v = 1 - i / 4, f = 1 - Math.min(.07, mouth * .05 / len) * (1 - v * v); return P(len * f - v * sweep * mouth, v * mouth / 2); });
+  const poly = [...side(1), ...mouthArc.slice(1, -1), ...side(-1).reverse()];
+  const fills = [fill('k', [poly])];
+  if (len > 9) fills[0].holes = [.3, -.15].map((v, i) => ({ pts: [P(len * .35, v * mouth * .6 * .4), P(len * .85, v * mouth * .9)], w: Math.max(.7, len * .035) }));
+  return { marks: [cut([...poly, poly[0]], W * .8, { seed })], fills };
+}
 // sword (épée): a straight blade from the point to the cross-guard, its ridge cut down the middle, the guard's arms
 // curling at their ends, the grip, the pommel (the ace's sword, c085). Laid from its grip c toward angle `ang` (0: the
 // point up). L: point to pommel; b: the blade's half-breadth; g: the guard's half-span
 function sword(c, L, W, seed = 0, ang = 0, { b = L * .07, g = L * .22 } = {}) {
-  const [x, y] = c, gy = y - L * .1, tip = [x, y - L * .82], P = pts => ang ? rotAll(pts, c, ang) : pts;
+  // from the point down: the blade to an oval guard, the grip, a bar across, the bell (the pip cards' hilt, c087)
+  const [x, y] = c, gy = y - L * .12, tip = [x, y - L * .82], P = pts => ang ? rotAll(pts, c, ang) : pts, Pt = p => P([p])[0];
   const blade = [[x - b, gy], [x - b, tip[1] + b * 2.2], tip, [x + b, tip[1] + b * 2.2], [x + b, gy]];
-  const gw = Math.max(W * 1.6, b * .9), guard = [...arc([x - g + gw * .6, gy + gw * 1.1], gw * .7, gw * .7, Math.PI * .5, Math.PI * 1.6, 8).reverse(), [x - g * .6, gy - gw * .2], [x + g * .6, gy - gw * .2], ...arc([x + g - gw * .6, gy + gw * 1.1], gw * .7, gw * .7, -Math.PI * .6, Math.PI * .5, 8)];
-  const grip = [[x - b * .8, gy + gw * .5], [x - b * .8, y + L * .08], [x + b * .8, y + L * .08], [x + b * .8, gy + gw * .5]];
-  const marks = [cut(P(blade), W, { seed }), cut(P([[x, gy - gw], [x, tip[1] + b * 3]]), W * .7, { seed: seed + 1, taper: [0, b * 2.5] }),
-    cut(P(guard), W * 1.3, { seed: seed + 2, taper: [gw, gw] }), cut(P(grip), W * .9, { seed: seed + 3 }),
-    cut(P(ring([x, y + L * .13], b * 1.05, L * .05)), W * .8, { seed: seed + 4 })];
-  return { marks, fills: [fill('k', [P(ring([x, y + L * .13], b * 1.05, L * .05))]), fill('p', [P(blade)]), fill('r', [P(grip)]), fill('y', [P([[x - g * .75, gy - gw * .5], [x + g * .75, gy - gw * .5], [x + g * .75, gy + gw * .6], [x - g * .75, gy + gw * .6]])])] };
+  const ov = ring([x, gy + b * .2], g * .62, Math.max(b * .75, W * 1.2), Math.PI);
+  const by = y + L * .05, bar = [[x - g * .5, by], [x + g * .5, by], [x + g * .5, by + b * .9], [x - g * .5, by + b * .9], [x - g * .5, by]];
+  const grip = [[x - b * .7, gy + b * .9], [x - b * .7, by], [x + b * .7, by], [x + b * .7, gy + b * .9]];
+  // (a small one cut as a woodcutter cuts small: the blade, the bar and the bell; the ridge and the oval guard left out)
+  const small = L < 32, marks = [cut(P(blade), W, { seed }), cut(P(grip), W * .85, { seed: seed + 3 }), cut(P(bar), W * .85, { seed: seed + 5 })];
+  if (!small) marks.push(cut(P([[x, gy - b * .6], [x, tip[1] + b * 3]]), W * .7, { seed: seed + 1, taper: [0, b * 2.5] }), cut(P(ov), W * .9, { seed: seed + 2 }));
+  const dn = unit([Pt([x, y + 1])[0] - Pt([x, y])[0], Pt([x, y + 1])[1] - Pt([x, y])[1]]);
+  const bl = bell(Pt([x, by + b * .9]), dn, g * 1.5, b * 1.1, g * 1.3, W, seed + 4, { sweep: .22 });
+  return { marks: [...marks, ...bl.marks], fills: [...bl.fills, fill('p', [P(blade), P(grip)]), fill('y', small ? [P(bar)] : [P(ov), P(bar)])] };
 }
 // baton (bâton) from a to b: a turned staff, red, bound with a yellow collar near each end, its ends flared caps of solid
 // black (c009, c013: the cap ~1.7 shafts long, flaring to ~2.4 shafts). w: the shaft's breadth. mid: a collar at its
 // middle too (where two batons are bound)
 function baton(a, b, w, W, seed = 0, { mid = false, end = true } = {}) {
-  const t = unit([b[0] - a[0], b[1] - a[1]]), n = [-t[1], t[0]], L = Math.hypot(b[0] - a[0], b[1] - a[1]), cap0 = Math.min(L * .2, w * 2.5), cap = end ? cap0 : 0, col = w * .62;
+  const t = unit([b[0] - a[0], b[1] - a[1]]), n = [-t[1], t[0]], L = Math.hypot(b[0] - a[0], b[1] - a[1]), cap0 = Math.min(L * .22, w * 3), cap = end ? cap0 : 0, col = w * .62;
   const at = (s, v) => add(add(a, t, s), n, v);
   const s0 = cap0 + col, s1 = L - cap - col, marks = [], fills = [];
   for (const v of [-w / 2, w / 2]) marks.push(cut([at(s0, v), at(s1, v)], W, { seed: seed + (v > 0) }));
   const collar = s => [at(s, -w * .78), at(s + col, -w * .78), at(s + col, w * .78), at(s, w * .78), at(s, -w * .78)];
   const cols = [cap0, L - cap - col]; if (mid) cols.push(L / 2 - col / 2);
   for (const s of cols) { marks.push(cut(collar(s), W * .85, { seed: seed + 3 + s })); fills.push(fill('y', [collar(s)])); }
-  // the caps: the nib swept out from the collar, the bell flaring at its mouth
-  // (printed solid, so a black fill in register with the line, its outline cut round it)
-  const bell = f => w * (.62 + 2 * f ** 2.4), r = rng(seed, 'cap');
-  for (const [s0c, dir] of end ? [[cap0, -1], [L - cap, 1]] : [[cap0, -1]]) { const side = sd => Array.from({ length: 13 }, (_, k) => { const f = k / 12; return at(s0c + dir * cap0 * f, sd * bell(f) / 2); });
-    const mouth = [at(s0c + dir * cap0, bell(1) / 2), at(s0c + dir * cap0 * (.9 + r() * .05), 0), at(s0c + dir * cap0, -bell(1) / 2)];   // the mouth a little hollowed
-    const P = [...side(1), ...mouth.slice(1, 2), ...side(-1).reverse()];
-    marks.push(cut([...P, P[0]], W * .8, { seed: seed + 5 + dir })); fills.push(fill('k', [P])); }
+  // the caps: the bell, flaring from the collar to the staff's end
+  for (const [s0c, dir] of end ? [[cap0, -1], [L - cap, 1]] : [[cap0, -1]]) { const bl = bell(at(s0c, 0), [t[0] * dir, t[1] * dir], cap0, w * .7, w * 2.3, W, seed + 5 + dir);
+    marks.push(...bl.marks); fills.push(...bl.fills); }
   fills.unshift(fill('r', [[at(s0, -w / 2), at(s1, -w / 2), at(s1, w / 2), at(s0, w / 2)]]));
   return { marks, fills };
 }
@@ -247,6 +265,7 @@ export function stencil(fills, { res = 2, seed = 1, slip = 1.2, grow: grow0 = .8
     const c = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
     c.setTransform(res, 0, 0, res, (sl[0] - x0) * res, (sl[1] - y0) * res); c.fillStyle = c.strokeStyle = '#000'; c.lineJoin = c.lineCap = 'round';
     for (const f of F) { for (const P of f.polys) { c.beginPath(); P.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.fill(); if (grow > 0) { c.lineWidth = grow * 2; c.stroke(); } }
+      if (f.holes) { c.globalCompositeOperation = 'destination-out'; for (const l of f.holes) { c.beginPath(); l.pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.lineWidth = l.w; c.stroke(); } c.globalCompositeOperation = 'source-over'; }
       for (const l of f.lines) { c.beginPath(); l.pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.lineWidth = l.w + grow * 2; c.stroke(); } }
     const d = c.getImageData(0, 0, w, h).data, A = new Float32Array(w * h); for (let i = 0; i < w * h; i++) A[i] = d[i * 4 + 3] / 255;
     out.push({ col, ...(k ? { M: A, w, h, x0, y0, res } : texture(A, w, h, x0, y0, res, seed + ORDER.indexOf(col) * 101)) });
@@ -264,7 +283,9 @@ function texture(A, w, h, x0, y0, res, seed, opacity = 1.25) {
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i; if (M[q] <= 0) continue;
     const x = x0 + i / res, y = y0 + j / res, rim = Math.max(0, 1 - Bl[q]) * 1.6, along = x * ca + y * sa, across = -x * sa + y * ca;
     // the medium shows a full coat above ~.55 of coverage: the brush's mottle is kept below that, where it can be seen
-    const mot = .5 + .14 * (dab(x / 2.6, y / 2.6) - .5) * 2 + .12 * (drag(along / 9, across / 1.2) - .5) * 2 + .06 * (dab(x / .9 + 50, y / .9) - .5) * 2;
+    // Conver's lemon and vermilion: dragged on with a stiff brush, so streaked along the stroke, a few streaks almost dry
+    const st = drag(along / 16, across / .8), dry = Math.max(0, st - .72) * 2.4;
+    const mot = .52 + .12 * (dab(x / 2.6, y / 2.6) - .5) * 2 + .2 * (st - .5) * 2 + .06 * (dab(x / .9 + 50, y / .9) - .5) * 2 - dry * .45;
     M[q] *= Math.max(.25, mot) * opacity / (1 + .38 * rim * rim); }
   return { M, w, h, x0, y0, res };
 }
@@ -364,36 +385,59 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1) {
   return join(...els);
 }
 
+// ---- traced from the cards ------------------------------------------------------------------------------------------------
+// Elements of the deck itself, traced from the BnF's Conver (1760) scans (research/12, tools: the session's trace.py:
+// the line's skeleton walked into polylines, the stencils' hue classes into polygons; coordinates in units of the crop's
+// height, a: its width over its height). plant: the tuft with its yellow bud at Le Bateleur's feet (I, c089); ground: the
+// curved hatching of the ground there; tear: one of the drops falling round Le Soleil (XVIIII, c125).
+const TRACE = {"plant":{"src":"c089.jpg [600,1770,780,1975] (its left half, mirrored: the yellow bud hides the right)","a":0.878,"lines":[{"w":0.0098,"f":[1,0],"p":[[0.273,0.546],[0.278,0.532],[0.263,0.522]]},{"w":0.0098,"f":[1,0],"p":[[0.647,0.546],[0.642,0.532],[0.657,0.522]]},{"w":0.0352,"f":[1,1],"p":[[0.283,0.859],[0.176,0.785]]},{"w":0.0352,"f":[1,1],"p":[[0.637,0.859],[0.744,0.785]]},{"w":0.0276,"f":[1,0],"p":[[0.22,0.317],[0.234,0.351],[0.278,0.405],[0.332,0.449]]},{"w":0.0276,"f":[1,0],"p":[[0.7,0.317],[0.686,0.351],[0.642,0.405],[0.588,0.449]]},{"w":0.0284,"f":[1,1],"p":[[0.259,0.742],[0.21,0.705],[0.156,0.683]]},{"w":0.0284,"f":[1,1],"p":[[0.661,0.742],[0.71,0.705],[0.764,0.683]]},{"w":0.0195,"f":[1,0],"p":[[0.381,0.137],[0.39,0.054]]},{"w":0.0195,"f":[1,0],"p":[[0.539,0.137],[0.53,0.054]]},{"w":0.0218,"f":[1,0],"p":[[0.288,0.229],[0.289,0.241],[0.318,0.298],[0.33,0.319],[0.342,0.327]]},{"w":0.0218,"f":[1,0],"p":[[0.632,0.229],[0.631,0.241],[0.602,0.298],[0.59,0.319],[0.578,0.327]]},{"w":0.0138,"f":[1,0],"p":[[0.342,0.112],[0.342,0.137],[0.337,0.141]]},{"w":0.0138,"f":[1,0],"p":[[0.578,0.112],[0.578,0.137],[0.583,0.141]]},{"w":0.0309,"f":[1,0],"p":[[0.449,0.098],[0.44,0.137],[0.422,0.18],[0.419,0.215]]},{"w":0.0309,"f":[1,0],"p":[[0.471,0.098],[0.48,0.137],[0.498,0.18],[0.501,0.215]]},{"w":0.0292,"f":[1,0],"p":[[0.19,0.454],[0.259,0.517]]},{"w":0.0292,"f":[1,0],"p":[[0.73,0.454],[0.661,0.517]]},{"w":0.0098,"f":[1,0],"p":[[0.405,0.019],[0.395,0.049]]},{"w":0.0098,"f":[1,0],"p":[[0.515,0.019],[0.525,0.049]]},{"w":0.0098,"f":[1,0],"p":[[0.381,0.019],[0.381,0.044],[0.385,0.049]]},{"w":0.0098,"f":[1,0],"p":[[0.539,0.019],[0.539,0.044],[0.535,0.049]]},{"w":0.0276,"f":[1,0],"p":[[0.332,0.722],[0.302,0.668]]},{"w":0.0276,"f":[1,0],"p":[[0.588,0.722],[0.618,0.668]]},{"w":0.0138,"f":[1,0],"p":[[0.317,0.61],[0.307,0.585],[0.312,0.576]]},{"w":0.0138,"f":[1,0],"p":[[0.603,0.61],[0.613,0.585],[0.608,0.576]]},{"w":0.0276,"f":[1,0],"p":[[0.293,0.756],[0.32,0.773],[0.36,0.815],[0.374,0.844],[0.376,0.873]]},{"w":0.0276,"f":[1,0],"p":[[0.627,0.756],[0.6,0.773],[0.56,0.815],[0.546,0.844],[0.544,0.873]]},{"w":0.0402,"f":[0,0],"p":[[0.337,0.449],[0.346,0.437],[0.351,0.415],[0.346,0.332]]},{"w":0.0402,"f":[0,0],"p":[[0.583,0.449],[0.574,0.437],[0.569,0.415],[0.574,0.332]]},{"w":0.0511,"f":[0,0],"p":[[0.337,0.454],[0.338,0.532],[0.329,0.554],[0.317,0.566]]},{"w":0.0511,"f":[0,0],"p":[[0.583,0.454],[0.582,0.532],[0.591,0.554],[0.603,0.566]]},{"w":0.0419,"f":[0,0],"p":[[0.381,0.224],[0.415,0.22]]},{"w":0.0419,"f":[0,0],"p":[[0.539,0.224],[0.505,0.22]]},{"w":0.0371,"f":[0,0],"p":[[0.376,0.224],[0.337,0.141]]},{"w":0.0371,"f":[0,0],"p":[[0.544,0.224],[0.583,0.141]]},{"w":0.0276,"f":[0,0],"p":[[0.444,0.288],[0.434,0.283],[0.431,0.249],[0.419,0.224]]},{"w":0.0276,"f":[0,0],"p":[[0.476,0.288],[0.486,0.283],[0.489,0.249],[0.501,0.224]]},{"w":0.0218,"f":[0,0],"p":[[0.351,0.327],[0.37,0.293],[0.376,0.229]]},{"w":0.0218,"f":[0,0],"p":[[0.569,0.327],[0.55,0.293],[0.544,0.229]]},{"w":0.0284,"f":[0,0],"p":[[0.229,0.605],[0.298,0.663]]},{"w":0.0284,"f":[0,0],"p":[[0.691,0.605],[0.622,0.663]]},{"w":0.0138,"f":[0,0],"p":[[0.195,0.585],[0.21,0.605],[0.224,0.605]]},{"w":0.0138,"f":[0,0],"p":[[0.725,0.585],[0.71,0.605],[0.696,0.605]]}],"fills":{"y":[[[0.517,0.963],[0.5,0.942],[0.505,0.932],[0.488,0.915],[0.463,0.929],[0.429,0.885],[0.402,0.868],[0.398,0.81],[0.358,0.771],[0.363,0.766],[0.344,0.722],[0.349,0.595],[0.373,0.566],[0.378,0.517],[0.388,0.502],[0.388,0.454],[0.398,0.444],[0.407,0.385],[0.429,0.358],[0.461,0.39],[0.476,0.439],[0.515,0.478],[0.519,0.512],[0.539,0.537],[0.539,0.571],[0.583,0.595],[0.588,0.624],[0.612,0.668],[0.612,0.727],[0.588,0.771],[0.583,0.82],[0.568,0.839],[0.583,0.883],[0.517,0.963]]]}},"ground":{"src":"c089.jpg [545,1890,840,2090]","a":1.475,"lines":[{"w":0.0253,"f":[1,1],"p":[[0.63,0.505],[0.55,0.523],[0.505,0.54]]},{"w":0.01,"f":[1,1],"p":[[0.31,0.99],[0.295,0.905]]},{"w":0.03,"f":[1,1],"p":[[0.085,0.33],[0.115,0.319],[0.175,0.319],[0.24,0.326],[0.31,0.347],[0.37,0.347],[0.42,0.364],[0.46,0.355]]},{"w":0.0283,"f":[1,0],"p":[[0.455,0.38],[0.5,0.372],[0.517,0.382],[0.535,0.405]]},{"w":0.0447,"f":[1,0],"p":[[0.56,0.865],[0.542,0.864],[0.521,0.853],[0.485,0.815],[0.36,0.71],[0.295,0.684],[0.245,0.656],[0.131,0.624],[0.12,0.615]]},{"w":0.04,"f":[1,0],"p":[[1.425,0.815],[1.419,0.801],[1.404,0.793],[1.37,0.793],[1.275,0.772],[1.23,0.775]]},{"w":0.02,"f":[1,1],"p":[[0.675,0.28],[0.651,0.24],[0.614,0.199],[0.594,0.184],[0.57,0.18]]},{"w":0.03,"f":[1,0],"p":[[0.96,0.8],[1.125,0.773],[1.2,0.771],[1.22,0.775]]},{"w":0.0338,"f":[1,1],"p":[[0.565,0.285],[0.5,0.22]]},{"w":0.0418,"f":[1,1],"p":[[0.015,0.605],[0.015,0.545],[0.02,0.52]]},{"w":0.0316,"f":[1,1],"p":[[0.755,0.995],[0.685,0.981],[0.575,0.895]]},{"w":0.04,"f":[1,0],"p":[[0.46,0.445],[0.526,0.415],[0.535,0.405]]},{"w":0.03,"f":[1,0],"p":[[0.105,0.51],[0.265,0.489],[0.31,0.473],[0.385,0.46]]},{"w":0.0316,"f":[1,0],"p":[[0.7,0.72],[0.76,0.703],[0.88,0.685]]},{"w":0.0308,"f":[1,1],"p":[[0.96,0.37],[0.92,0.356],[0.855,0.35]]},{"w":0.0224,"f":[1,1],"p":[[1.44,0.0],[1.45,0.013],[1.463,0.06],[1.46,0.13],[1.47,0.19]]},{"w":0.0224,"f":[1,0],"p":[[1.055,0.9],[1.085,0.891],[1.155,0.885],[1.25,0.89],[1.34,0.88],[1.4,0.885]]},{"w":0.04,"f":[0,0],"p":[[1.42,0.695],[1.335,0.687],[1.255,0.67],[1.13,0.666],[1.03,0.678],[0.925,0.676],[0.885,0.68]]},{"w":0.0412,"f":[0,0],"p":[[0.97,0.565],[1.025,0.557],[1.085,0.57],[1.185,0.558],[1.25,0.569],[1.285,0.565]]},{"w":0.0424,"f":[0,0],"p":[[1.425,0.59],[1.355,0.572],[1.285,0.565]]},{"w":0.04,"f":[0,0],"p":[[0.53,0.64],[0.77,0.581],[0.87,0.57]]}],"fills":{}},"tear":{"src":"c125.jpg [295,1090,415,1300]","a":0.5714,"lines":[],"fills":{"r":[[[0.181,0.893],[0.136,0.852],[0.126,0.829],[0.126,0.809],[0.141,0.786],[0.117,0.748],[0.117,0.7],[0.107,0.681],[0.117,0.633],[0.102,0.61],[0.117,0.595],[0.098,0.567],[0.112,0.533],[0.098,0.509],[0.107,0.5],[0.102,0.476],[0.112,0.452],[0.107,0.409],[0.117,0.343],[0.155,0.229],[0.231,0.124],[0.3,0.064],[0.367,0.064],[0.438,0.102],[0.474,0.157],[0.483,0.209],[0.479,0.29],[0.469,0.3],[0.46,0.357],[0.407,0.452],[0.398,0.514],[0.35,0.586],[0.321,0.662],[0.298,0.686],[0.302,0.695],[0.288,0.733],[0.217,0.814],[0.212,0.857],[0.181,0.893]]]}}};
+// a traced element laid in box [x, y, h] (its top left, its height; mirror: flipped left to right about its own middle),
+// its lines cut at width W (free ends tapered, as the knife left them), its stencils as fills; clip: a box no point leaves
+function place(name, [bx, by, bh], W, { mirror = false, clip = null, col = null, seed = 0 } = {}) {
+  const T = TRACE[name], X = ([x, y]) => [bx + (mirror ? T.a - x : x) * bh, by + y * bh], inside = p => !clip || (p[0] >= clip[0] && p[0] <= clip[2] && p[1] >= clip[1] && p[1] <= clip[3]);
+  const marks = [], fills = [];
+  T.lines.forEach((l, k) => { let run = [];
+    const flush = () => { if (run.length > 1 && arclen(run) > W * 1.5) marks.push(cut(run, W, { seed: seed + k, wob: .14, taper: [l.f[0] ? W * 2.5 : 0, l.f[1] ? W * 2.5 : 0] })); run = []; };
+    for (const p of l.p.map(X)) { if (inside(p)) run.push(p); else flush(); } flush(); });
+  for (const [c, polys] of Object.entries(T.fills)) for (const P of polys) { const Q = P.map(X); fills.push(fill(col ?? c, [Q])); if (name === 'tear') marks.push(cut([...Q, Q[0]], W, { seed: seed + 50 })); }
+  return { marks, fills };
+}
+
 // ---- the drop initial -----------------------------------------------------------------------------------------------------------
-// A trump in miniature: the card's frame (as tall as the drop, about half as wide, the cards' 1 : 1.9), the numeral band
-// at its head with the book's number, the title band at its foot left empty as the thirteenth trump's is; in the field the
-// capital of IM FELL standing on the ground every figure on the cards stands on: a yellow strip under a wavering line,
-// hatched with short strokes (c089, c121). ?set=: 'solid' (default): the letter printed black, as the cards letter their
-// titles; 'contour': the letter cut as an outline and its body stencilled red off the line, as the cards colour a figure.
+// A trump in miniature, as tall as the drop: the card's frame, the numeral band at its head with the book's number, the
+// title band at its foot left empty as the thirteenth trump's is; in the field the capital of IM FELL standing on the
+// card's ground among the deck's own things, traced from it: the hatched ground and the two tufts of Le Bateleur's feet,
+// the falling drops of Le Soleil, red, yellow and pale blue. Symmetrical, as the cards are. ?set=: 'solid' (default):
+// the letter printed black, as the cards letter their titles; 'contour': cut as an outline, its body stencilled red.
 // G.box: [x0, capTop, x1, baseline] of the space the host floated; initial.width(ch) gives that width in cap heights.
-const CARD = { ratio: .6, band: .13, letter: .5, side: .11 };
+const CARD = { ratio: .66, band: .125, letter: .42, ground: .16 };
 function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'solid', u = 8, n = 1 }) {
   ch = String(ch).normalize('NFD')[0].toUpperCase(); const [x0, y0, x1, y1] = G.box, H = y1 - y0, W = Math.max(LW(u), H * .014), r = rng(seed, 'card');
   if (!/[A-Z]/.test(ch)) return { letter: ch, marks: [], fills: [], letters: [], width: x1 - x0 };
-  if (!big) {   // in the line: the black capital on a small yellow ground slipped behind it
+  if (!big) {   // in the line: the capital cut as a contour, its body stencilled red
     const m = textWidth(ch, H);
     return { marks: [], fills: [], letters: [{ text: ch, x: x0 + m / 2, base: y1, size: H, outline: Math.max(1.3, H * .06), body: 'r' }], width: m };
   }
-  const hb = H * CARD.band, fy0 = y0 + hb, fy1 = y1 - hb, cx = (x0 + x1) / 2, cw = x1 - x0;
-  const marks = [cut([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0 - W * .3]], W * 1.2, { seed, wob: .14 }), cut([[x0, fy0], [x1, fy0]], W * 1.1, { seed: seed + 1 }), cut([[x0, fy1], [x1, fy1]], W * 1.1, { seed: seed + 2 })];
-  const fills = [], letters = [{ text: roman(n), x: cx, base: y0 + hb / 2 + hb * .31, size: hb * .62 }];
-  // the ground: a strip across the foot of the field, its top a low wavering line, hatched
-  const gt = fy1 - H * .1, wave = Array.from({ length: 33 }, (_, k) => { const t = k / 32; return [x0 + t * cw, gt + Math.sin(t * Math.PI * 2.2 + r() * .3) * H * .012 + (r() - .5) * H * .004]; });
-  marks.push(cut(wave, W * .9, { seed: seed + 3 }));
-  fills.push(fill('y', [[...wave, [x1, fy1], [x0, fy1]]]));
-  for (let k = 0, nh = Math.round(cw / (H * .05)); k < nh; k++) { const hx = x0 + (k + .5 + (r() - .5) * .3) * cw / nh, ty = gt + Math.sin((hx - x0) / cw * Math.PI * 2.2) * H * .012 + H * .025;
-    if (hx < x0 + W * 2 || hx > x1 - W * 2) continue; marks.push(cut([[hx, ty], [hx - H * .022, Math.min(fy1 - W, ty + H * .05)]], W * .75, { seed: seed + 10 + k, taper: [0, H * .02] })); }
-  // the letter on the ground, as large as the field allows
-  const room = Math.min((gt - fy0) * .92 - H * .02, (cw - 2 * cw * CARD.side) / textWidth(ch, 1)), size = room, base = gt + H * .006;
-  if (set === 'contour') letters.push({ text: ch, x: cx, base, size, outline: W, body: 'r' }); else letters.push({ text: ch, x: cx, base, size });
-  return { marks, fills, letters, width: cw };
+  const hb = H * CARD.band, fy0 = y0 + hb, fy1 = y1 - hb, cx = (x0 + x1) / 2, cw = x1 - x0, Wl = Math.max(1.2, W * .8);
+  const els = [{ marks: [cut([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0 - W * .3]], W * 1.2, { seed, wob: .14 }), cut([[x0, fy0], [x1, fy0]], W * 1.1, { seed: seed + 1 }), cut([[x0, fy1], [x1, fy1]], W * 1.1, { seed: seed + 2 })],
+    fills: [], letters: [{ text: roman(n), x: cx, base: y0 + hb / 2 + hb * .31, size: hb * .62 }] }];
+  // the ground: its top a low wavering line, yellow under it, hatched with the curves of Le Bateleur's ground, mirrored
+  const gt = fy1 - H * CARD.ground, wave = Array.from({ length: 33 }, (_, k) => { const t = k / 32; return [x0 + t * cw, gt + Math.sin(t * Math.PI * 2) * H * .01 + (r() - .5) * H * .004]; });
+  els.push({ marks: [cut(wave, W * .9, { seed: seed + 3 })], fills: [fill('y', [[...wave.map(([x, y]) => [Math.min(x1 - W, Math.max(x0 + W, x)), y]), [x1 - W, fy1 - W * .5], [x0 + W, fy1 - W * .5]]])] });
+  const gh = fy1 - gt, clip = [x0 + W, gt + W * 1.2, x1 - W, fy1 - W];
+  els.push(place('ground', [x0 + cw / 2 - TRACE.ground.a * gh * 1.1, gt, gh * 1.1], Wl, { clip, seed: seed + 5 }), place('ground', [x0 + cw / 2, gt, gh * 1.1], Wl, { clip, mirror: true, seed: seed + 6 }));
+  // a tuft either side, standing on the ground
+  const ph = H * .3, pw = TRACE.plant.a * ph;
+  for (const sd of [-1, 1]) els.push(place('plant', [sd < 0 ? x0 - pw * .12 : x1 + pw * .12 - pw, gt - ph * .8, ph], Wl, { mirror: sd > 0, seed: seed + 8 + sd, clip: [x0 + W, fy0, x1 - W, gt + H * .02] }));
+  // the drops of Le Soleil: one over the letter, one either side, in the three stencils
+  const th = H * .11, tw = TRACE.tear.a * th;
+  [[cx - tw / 2, fy0 + H * .025, 'r'], [x0 + cw * .1, fy0 + H * .14, 'y'], [x1 - cw * .1 - tw, fy0 + H * .2, 'p']].forEach(([tx, ty, c], k) => els.push(place('tear', [tx, ty, th], Wl, { col: c, seed: seed + 20 + k })));
+  // the letter on the ground, at its middle
+  const size = Math.min(H * CARD.letter, cw * .62 / textWidth(ch, 1)), base = gt + H * .008;
+  const el = join(...els); el.letters.push(set === 'contour' ? { text: ch, x: cx, base, size, outline: W, body: 'r' } : { text: ch, x: cx, base, size });
+  return { ...el, width: cw };
 }
-initial.width = () => CARD.ratio * (1 + 0);   // in cap heights of the drop: the card is as tall as the drop
+initial.width = () => CARD.ratio;   // in cap heights of the drop: the card is as tall as the drop
 initial.line = ch => textWidth(String(ch).normalize('NFD')[0].toUpperCase(), 1);
 
 // ---- frames -------------------------------------------------------------------------------------------------------------------
@@ -412,9 +456,12 @@ const frames = {
     if (cap) marks.push(cut([[B[0], box[3] + u * 1.35], [B[2], box[3] + u * 1.35]], W, { seed: seed + 2 }));
     const size = u * 1.5; return { marks, fills: [], letters: [{ text: roman(n), x: (B[0] + B[2]) / 2, base: B[1] + hb / 2 + size / 2, size }] }; },
   // code: the pip card: the frame, its number turned in each side margin, reading up the left and down the right (c023)
-  code: ({ box, u, seed, rich = .5, n = 1 }) => { const W = LW(u) * 1.2, B = box, size = u * 1.4, txt = roman(n), cy = (B[1] + B[3]) / 2;
-    const letters = rich >= .25 ? [{ text: txt, x: B[0] + u * 1.15, base: cy + size / 2, size, rot: -Math.PI / 2 }, { text: txt, x: B[2] - u * 1.15, base: cy + size / 2, size, rot: Math.PI / 2 }] : [];
-    return { marks: [rect(B, W, seed)], fills: [], letters }; },
+  code: ({ box, u, seed, rich = .5, n = 1 }) => { const W = LW(u) * 1.2, B = box, size = u * 1.4, txt = roman(n), cy = (B[1] + B[3]) / 2, cx = (B[0] + B[2]) / 2;
+    // the composition of a pip card (VIII batons, c023): the number turned in each side margin, a flower at the head of
+    // the field and one at its foot, each growing out from the middle toward the frame, its bud to the frame
+    const els = [{ marks: [rect(B, W, seed)], fills: [], letters: rich >= .25 ? [{ text: txt, x: B[0] + u * 1.15, base: cy + size / 2, size, rot: -Math.PI / 2 }, { text: txt, x: B[2] - u * 1.15, base: cy + size / 2, size, rot: Math.PI / 2 }] : [] }];
+    if (rich >= .25) { const fl = Math.min(u * 4.3, (B[3] - B[1]) * .32); els.push(flower([cx, B[1] + fl * 1.08], -Math.PI / 2, fl, LW(u), seed + 3), flower([cx, B[3] - fl * 1.08], Math.PI / 2, fl, LW(u), seed + 4)); }
+    return join(...els); },
   // a pull quote: the bands' rules above and below, a coin on each
   pull: ({ cx, yTop, yBot, measure, u, seed, rich = .5 }) => { const W = LW(u) * 1.15, half = Math.min(measure * .4, u * 18), R = u * 1.7, els = [];
     for (const [y, k] of [[yTop, 0], [yBot, 1]]) {
@@ -422,9 +469,20 @@ const frames = {
       els.push(coin([cx, y], R, LW(u), seed + 10 + k)); }
     return join(...els); },
   // an aside: the card's left edge and its head band, a cup standing in the band
-  aside: ({ box, u, seed, rich = .5 }) => { const W = LW(u) * 1.2, [x0, y0, , y1] = box, hb = u * 3.3;
-    const els = [{ marks: [cut([[x0, y0 - hb], [x0, y1 + u * .4]], W, { seed }), cut([[x0 - W * .4, y0 - hb], [x0 + u * 8, y0 - hb]], W, { seed: seed + 1 }), cut([[x0 - W * .4, y0 - u * .4], [x0 + u * 8, y0 - u * .4]], W, { seed: seed + 2 })], fills: [] }];
-    if (rich >= .25) els.push(cup([x0 + u * 2.2, y0 - u * .65], u * 2.5, LW(u), seed + 3));
+  aside: ({ box, u, seed, rich = .5, n = 1, title = 'NOTA' }) => { const W = LW(u) * 1.2, B = box, hb = u * 2.7, fb = u * 2.7, cx = (B[0] + B[2]) / 2;
+    // a trump: the frame, the numeral band at its head with the chapter's number, the title band at its foot lettered as
+    // the cards are, in Roman capitals (NOTA: the old books' mark for a note), a point either side of the word
+    // and, as on the drop initial, the field's ground above the title band: yellow under a low wavering line, hatched
+    // with Le Bateleur's curves, a tuft of his in each corner
+    const size = u * 1.4, t = rich >= .25 ? `·${title}·` : title, r = rng(seed, 'aside'), els = [{ marks: [rect(B, W, seed), cut([[B[0], B[1] + hb], [B[2], B[1] + hb]], W, { seed: seed + 1 }), cut([[B[0], B[3] - fb], [B[2], B[3] - fb]], W, { seed: seed + 2 })], fills: [],
+      letters: [{ text: roman(n), x: cx, base: B[1] + hb / 2 + size / 2, size }, { text: t, x: cx, base: B[3] - fb / 2 + size * .5, size: size * .92 }] }];
+    if (rich >= .5) { const fy1 = B[3] - fb, gh = u * 1.9, gt = fy1 - gh, cw = B[2] - B[0], wave = Array.from({ length: 49 }, (_, k) => { const f = k / 48; return [B[0] + f * cw, gt + Math.sin(f * Math.PI * 5) * u * .1 + (r() - .5) * u * .05]; });
+      els.push({ marks: [cut(wave, LW(u) * .9, { seed: seed + 3 })], fills: [fill('y', [[...wave.map(([x, y]) => [Math.min(B[2] - W, Math.max(B[0] + W, x)), y]), [B[2] - W, fy1 - W * .5], [B[0] + W, fy1 - W * .5]]])] });
+      // the hatching in three clusters (under each tuft and at the middle), not a repeat
+      const clip = [B[0] + W, gt + W, B[2] - W, fy1 - W], th = gh * 1.25, tw = TRACE.ground.a * th;
+      [[B[0] + W, false], [cx - tw / 2, r() < .5], [B[2] - W - tw, true]].forEach(([x, m], k) => els.push(place('ground', [x, gt - th * .08, th], Math.max(1.2, LW(u) * .8), { clip, mirror: m, seed: seed + 10 + k })));
+      const ph = u * 2.6, pw = TRACE.plant.a * ph;
+      for (const sd of [-1, 1]) els.push(place('plant', [sd < 0 ? B[0] + W + u * .3 : B[2] - W - u * .3 - pw, gt - ph * .82, ph], Math.max(1.2, LW(u) * .8), { mirror: sd > 0, seed: seed + 30 + sd })); }
     return join(...els); },
   // the contents: a baton down the margin; the four suits, one at each entry (its chapter's paraph is that suit)
   nav: ({ box, entries, x, u, seed, rich = .5, side = true }) => { const W = LW(u), els = [];

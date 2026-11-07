@@ -98,9 +98,14 @@ direction (past the line on one side, under it on the other, no paper all round)
 along the brush, and poured into the medium (kit/inkletter.js) before the line is written over them. The medium's rim
 pooling is taken back out of the stencil masks (gouache through a stencil has no ring).
 
-- Drop initial: a trump in miniature, as tall as the drop and 0.6 of it wide: the frame rule, the numeral band with the
-  book's number, the title band left empty (as XIII's is), and in the field IM FELL French Canon's capital standing on
-  the cards' ground (a yellow strip under a wavering line, hatched). ?set=solid (default) prints the letter black as the
+- Drop initial: a trump in miniature, as tall as the drop and 0.66 of it wide: the frame rule, the numeral band with the
+  book's number, the title band left empty (as XIII's is), and in the field IM FELL French Canon's capital standing among
+  things traced from the deck itself (second pass, after the user asked for a living card): the curved hatching of Le
+  Bateleur's ground and the two tufts with their yellow buds at his feet (I, c089), and three of the drops falling round
+  Le Soleil (XVIIII, c125), red, yellow and pale blue. Traced by a script (the session scratchpad's work/trace.py): the
+  line found against the paper's local tone, thinned to its skeleton, walked into polylines, spurs pruned, smoothed; the
+  stencils' hue classes into polygons. The tuft's right half lies under its yellow bud on the card, so its left half is
+  mirrored. Rewritten by the ink engine at the card's scale, free ends tapered as the knife left them. ?set=solid (default) prints the letter black as the
   cards letter their titles; ?set=contour cuts it as a contour with its body stencilled red. ?draw writes the frame, the
   numeral, then the letter along its skeleton (inkletter.js letterWriter), then lays the yellow beneath.
 - Line initial: the capital as a contour with a red stencilled body.
@@ -113,10 +118,15 @@ pooling is taken back out of the stencil masks (gouache through a stencil has no
 - Breaks: chapter, the numeral band with the chapter's number, the chapter's suit standing either side; book, two
   batons crossed in a flat saltire running into the woven lozenge that binds them (strips over and under, pale blue,
   red points in the holes, yellow collars at its edges), the title band with the book's number below.
+- The bell: the flared, solid end of a baton and the pommel of a sword pip (c013, c087), printed black in register with
+  the line; sides curving out slowly then fast to a broad, shallowly hollowed mouth, a sword's swept to one side; on a
+  large one the wood's grain cut through the black in light streaks. The sword is the pip cards' hilt: blade, an oval
+  guard, the grip, a bar, the bell (a small one cut as a woodcutter cuts small: blade, bar, bell).
 - Frames: quotation, the card's frame with the attribution in the title band; figure, the trump (frame, numeral band
-  with the chapter's number, the caption in the title band); code, the pip card (frame, the number turned in each side
-  margin, up the left and down the right); pull quote, the band's rules above and below with a coin on each; aside, the
-  card's left edge and head band with a cup standing in it; contents, a baton down the margin, a suit at each entry
+  with the chapter's number, the caption in the title band); code, the pip card in the composition of VIII batons (frame, the
+  number turned in each side margin, a flower at the head and the foot of the field growing out toward the frame); pull
+  quote, the band's rules above and below with a coin on each; aside, a trump (frame, numeral band with the chapter's
+  number, the title band lettered ·NOTA·, and above it the ground with Le Bateleur's hatching and a tuft in each corner); contents, a baton down the margin, a suit at each entry
   (on a phone the baton lies across the head of the list).
 - Palette: light, Conver's measured colours brought back toward their unaged values, the line a grey-black [64 61 57]
   (lighter than the text, as the print's thin ink is); dark, the line a warm pale ink and the stencil colours deepened
@@ -126,5 +136,5 @@ What falls short (at the 4× gate against the sources): a paraph-sized pip (~20 
 coin loses its scallop and rose, the cup its gadroons), and its line is relatively ~5× heavier than the card's; the
 stencil colour is more even than Conver's streaky lemon and vermilion; the drop initial is a bare card beside a printed
 figure (a letter cannot be a figure; the contour setting brings colour in); long rules are written in lengths a dip
-carries, and the pen pools a little where they join; a wide capital (M, W) is shrunk to fit the card's fixed 0.6 width;
+carries, broken at their corners and otherwise only every ~480 px, so the pen pools only where a cutter would stop; a wide capital (M, W) is shrunk to fit the card's fixed 0.66 width;
 the sword, the vine, the flower and five of the six frames were not set beside a source at 4×.

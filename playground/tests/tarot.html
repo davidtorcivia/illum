@@ -41,9 +41,9 @@
   figure svg g { stroke: var(--ink); }
   figure svg rect[fill] { fill: var(--ink); }
   figcaption { font-style: italic; font-size: .9em; margin-top: 1.6em; text-align: left; hyphens: manual; }
-  pre { margin: 1.8em 0; padding: 1.3em 2.6em; font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; hyphens: none; }
+  pre { margin: 1.8em 0; padding: 3.5em 2.7em; font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; hyphens: none; }
   .pull { margin: 3em 1.5em; font-size: 1.35em; line-height: 1.4; font-style: italic; text-align: center; hyphens: manual; }
-  aside.note { margin: 4em 0 2em 2.5em; padding: 0 0 .2em 1.2em; font-size: .9em; }
+  aside.note { margin: 2.6em 0 2.4em 2em; padding: 3.4em 1.4em 4em; font-size: .9em; }
   aside.note p { margin: 0 0 .6em; }
   .ini { color: transparent; }
   .ini.drop { float: left; line-height: 1; }
@@ -56,9 +56,9 @@
     .sheet { padding: 64px 20px 80px 48px; }
     .text { text-align: left; }
     blockquote { padding: 0 .9em 0 1em; }
-    pre { padding: 1.2em 2.2em; font-size: 13.5px; }
+    pre { padding: 3.5em 2.3em; font-size: 13.5px; }
     .pull { margin: 2.8em .4em; }
-    aside.note { margin-left: .8em; }
+    aside.note { margin-left: 0; }
     .colophon { padding: 0 20px 40px 48px; }
   }
 </style>
@@ -166,11 +166,13 @@ const linesOf = (el, o) => { const rg = document.createRange(); rg.selectNodeCon
   return out; };
 const rel = (el, o) => { const r = el.getBoundingClientRect(); return [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top]; };
 
+let ORIGIN = null;
 // ---- the cases, in reading order ---------------------------------------------------------------------------------------------
 // the chapter an element lies in (0 before the first heading): its suit, and the number on its card
 const chapterOf = el => { let n = 0; for (const h of art.querySelectorAll('h2')) if (h.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) n++; return n; };
 function compose() {
   const r0 = sheet.getBoundingClientRect(), o = { left: r0.left, top: r0.top, width: r0.width, height: r0.height }, fs = parseFloat(getComputedStyle(art).fontSize), u = fs * MET.x, items = [];
+  ORIGIN = o;   // kept current: a case is made when its turn comes, and the reader may have scrolled by then
   const s = k => (SEED + k * 7919) >>> 0, at = el => el.getBoundingClientRect().top, sl = (k = 1) => Math.max(.7, Math.min(2.2, u * .14 * k));
   art.querySelectorAll('.ini').forEach((span, k) => { const big = span.classList.contains('drop'), box = boxOf(span, o);
     items.push({ el: span, y: at(span), slip: big ? sl(1.5) : sl(.8), make: () => S.initial({ ch: span.textContent, G: { box }, big, rich: RICH, seed: s(k), set: SET, u, n: 1 }) }); });
@@ -189,7 +191,7 @@ function compose() {
     push(nav, () => F.nav({ box: nbx, entries: [...nav.querySelectorAll('li')].map(li => linesOf(li, o)[0]), x: nbx[0] - u * 4.2, u, seed: s(1 + k), rich: RICH, side })); });
   art.querySelectorAll('blockquote').forEach((bq, k) => { const ft = bq.querySelector('footer'); push(bq, () => F.quote({ box: rel(bq, o), foot: ft && rel(ft, o)[1], u, seed: s(10 + k), rich: RICH })); });
   art.querySelectorAll('figure').forEach((f, k) => push(f, () => { const c = f.querySelector('figcaption'); return F.figure({ box: rel(f.querySelector('svg'), o), cap: c && rel(c, o)[3], u, seed: s(20 + k), rich: RICH, n: chapterOf(f) || 1 }); }));
-  art.querySelectorAll('aside').forEach((a, k) => push(a, () => F.aside({ box: rel(a, o), u, seed: s(30 + k), rich: RICH })));
+  art.querySelectorAll('aside').forEach((a, k) => push(a, () => F.aside({ box: rel(a, o), u, seed: s(30 + k), rich: RICH, n: chapterOf(a) || 1 })));
   art.querySelectorAll('.pull').forEach((p, k) => { const L = linesOf(p, o); push(p, () => F.pull({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 2.2, yBot: L.at(-1).base + u * 2.6, measure, u, seed: s(40 + k), rich: RICH })); });
   art.querySelectorAll('pre').forEach((p, k) => push(p, () => F.code({ box: rel(p, o), u, seed: s(50 + k), rich: RICH, n: chapterOf(p) || 1 })));
   return { o, u, items: items.sort((a, b) => a.y - b.y) };
@@ -198,6 +200,7 @@ function compose() {
 // ---- making a case: its stencils, its lettering, its line -----------------------------------------------------------------------
 // pours: the colours (each one mask), then the lettering; strokes: the line, in runs of one nib for the writer
 function prepare(it) {
+  const r = sheet.getBoundingClientRect(); ORIGIN.left = r.left; ORIGIN.top = r.top;
   const seed = (it.seed ??= fnv(it.y + ':' + SEED)); return Object.assign(it, printOf(it.make(), { res: RES, seed, slip: it.slip }));
 }
 
@@ -239,8 +242,8 @@ function score(items, animate) {
     for (const r of it.runs) { const L = r.strokes.reduce((a, s) => a + s.L, 0), d = Math.max(.05, L / 300 + r.strokes.length * .03); own.push({ t0: u, t1: u + d, run: r }); u += d; }
     // the lettering, part of the print: a big letter at a hand's pace, a numeral quickly
     for (const L of it.letters) { const big = L.h / L.res > 40, d = big ? 2.6 : .5; own.push({ t0: u, t1: u + d, letter: L }); u += d + .08; }
-    if (animate) for (const p of it.pours.filter(p => p.col !== 'k')) { const d = Math.min(.9, .25 + p.w * p.h / (p.res * p.res) / 9000); own.push({ t0: u, t1: u + d, pour: p }); u += d + .05; }
-    const cap = it.el.classList?.contains('drop') ? 7 : 2.4, k = Math.min(1, cap / Math.max(u, .01));
+    if (animate) for (const p of it.pours.filter(p => p.col !== 'k')) { const d = Math.min(.6, .2 + p.w * p.h / (p.res * p.res) / 12000); own.push({ t0: u, t1: u + d, pour: p }); u += d + .05; }
+    const small = it.el.matches?.('p, h2, .ini.line'), cap = it.el.classList?.contains('drop') ? 5 : small ? 1 : 1.6, k = Math.min(1, cap / Math.max(u, .01));
     for (const p of own) parts.push({ ...p, t0: t + p.t0 * k, t1: t + p.t1 * k, item: it });
     t += u * k + .12; }
   return parts;
@@ -253,7 +256,6 @@ const partOf = (p, animate) => {
   return writer.part(p.t0, p.t1, p.run.strokes.map(s => ({ pts: s.pts, press: s.press, rho: s.rho })), P.k, { width: p.run.w, hair: p.run.hair });
 };
 
-let ORIGIN = null;
 async function render(animate) {
   const t0 = performance.now(); setInitials(); const { o, items } = compose();
   bk.width = Math.round(o.width * DPR); bk.height = Math.round(o.height * DPR); bk.style.width = o.width + 'px'; bk.style.height = o.height + 'px';
@@ -283,7 +285,10 @@ function read(items) {
     prepare(gr.it); gr.parts = score([gr.it], true).map(p => ({ ...p, t0: p.t0 - .1, t1: p.t1 - .1 })).map(p => ({ ...p, part: partOf(p, true) }));
     const r = sheet.getBoundingClientRect(), y = r.top + gr.it.y0, far = y < -innerHeight, past = y < -40;
     const len = Math.max(...gr.parts.map(p => p.t1), .01), free = handFree(now), behind = (free - now) / 1000; gr.len = len;
-    gr.speed = far || past ? 0 : !gr.initial && behind > 3 ? Math.min(1, .3 / len) : !gr.initial && behind > 1.2 ? Math.min(1, .6 / len) : 1;
+    // (a drop initial is always written at a hand's pace; another case, when the hand is behind, quickens, but never so
+    // much that it is not seen being written: a second at the least)
+    const keep = gr.initial || gr.it.el.classList?.contains('drop');
+    gr.speed = far || past ? 0 : !keep && behind > 4 ? Math.min(1, 1 / len) : !keep && behind > 1.5 ? Math.min(1, 1.6 / len) : 1;
     gr.start = gr.speed ? free : now; gr.fin = new Uint8Array(gr.parts.length); gr.state = 'writing'; active.push(gr); };
   const tick = () => { const now = performance.now(), top = sheet.getBoundingClientRect().top; let moved = false;
     for (const gr of active) { if (!gr.speed) continue; const y = top + gr.it.y0;
@@ -303,6 +308,9 @@ function read(items) {
       .forEach(gr => { if (gr.state === 'waiting') { gr.state = 'queued'; gr.initial = first; queue.push(gr); } }); first = false;
     es.forEach(e => e.isIntersecting && io.unobserve(e.target)); if (queue.length) kick(); }, { rootMargin: '100000px 0px -15% 0px' });
   mk.forEach(n => io.observe(n)); document.body.dataset.timing = 'reading';
+  // ?audit: how each case was made (written at a hand's pace, hurried, or laid at once), for tools that check ?draw
+  if (q.has('audit')) self.__audit = () => groups.map(g => ({ what: (g.it.el.tagName + '.' + [...g.it.el.classList].join('.')).toLowerCase(), state: g.state, speed: g.speed ?? null, parts: g.parts?.length ?? 0,
+    kinds: [...new Set((g.parts ?? []).map(p => p.letter ? 'letter' : p.pour ? 'colour:' + p.pour.col : 'line'))].join(' ') }));
 }
 
 // the writer and the letter medium made (their shaders compiled) while the fonts load; the text painted before any ornament
