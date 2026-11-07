@@ -66,35 +66,46 @@ source would trace better.
 ## What was made from it (kit/styles/astrology.js, playground/tests/astrology.html)
 
 Every rule and circle is written by the ink engine's pen (kit/writer.js) as one stroke (a compass circle from its top
-round and over its start; a rule a little past its ends); the pen-written signs (♋ ♎ ♑ ☉ ♀, the five aspects) are
-continuous strokes with merging joins (sketch(), after occult.js). The traced signs and the lettering (IM FELL Double
-Pica, the Oxford types of the 1670s, OFL, already in playground/fonts) are poured as coverage by kit/inkletter.js. Nothing
-under 1.3 px. Tools: **tools/upright.py** (turn a scan about a ring's centre so a sign printed round it stands upright,
-and crop it) and **tools/traceshape.py** (a woodcut's ink, too heavy for tracesign.py's local-median test, as polygons).
+round and over its start; a rule a little past its ends); the pen-written signs are continuous strokes with merging joins
+(sketch(), after occult.js). The zodiac (traced) and the lettering (IM FELL Double Pica, the Oxford types of the 1670s;
+figures in EB Garamond, whose 4 reads as 4 where the Fell's reads as +) are poured as coverage by kit/inkletter.js; on a
+still page the small lettering of one ink in one case is poured as one coverage (clusters ≤ 240 px), written one by one
+under ?draw. Nothing under 1.3 px. Tools: **tools/upright.py** (turn a scan about a ring's centre so a sign printed round
+it stands upright, and crop it) and **tools/traceshape.py** (a woodcut's ink, too heavy for tracesign.py's local-median
+test, as polygons).
 
-- Drop initial (?set=square, default): the square figure of heaven, the IM FELL capital in red in the middle square, each
-  of the twelve cusps' signs in red along its line (the ascendant from the seed); from ~6 lines deep (?lines=6) each with
-  its degree in black, as Lilly prints it. ?set=volvelle: the round form, a ring of the signs round a checkered degree ring.
-- Line initial: the IM FELL capital in red. Paraph: the chapter's sign (Aries the first), red, as cut.
-- Fillers: **aspects** (a rule with ☌ ⚹ □ △ ☍ threaded on it, the rule stopping at each), **signs** (the twelve in a ruled
-  band, a cell each, from the chapter's), **degrees** (Apian's checkered scale, a tick every fifth cell); a heading's: a
-  rule ending in the chapter's sign.
-- Breaks: chapter, a small volvelle (double circle, checkered ring, the chapter's sign) on a ruled band lettered CAP. I. and
-  ARIES; book, the volvelle of aspects (ring of signs, degree ring, the aspects threaded on lines from the ascendant, the
-  square and trine inscribed).
-- Frames: code, the ephemeris's head (thick and thin rules, eight columns, the planets in red over their signs in black);
-  figure, the figure of heaven unrolled to its box (the twelve houses a band round the figure, the corners ruled in, each
-  house's sign and degree written along the band; on a phone the side band narrows and is signed, not lettered); pull
-  quote, two arcs of a checkered degree ring broken by the chapter's sign and its opposite; quotation, the table's ruling
-  (thick and thin at head and foot); aside, a ruled box with a head band lettered NOTA between two aspect signs; contents,
-  the ephemeris's day column (a double rule, each entry's sign in its ruled cell; on a phone across the head).
-- Palette: light k [56 42 32] (Purslow's ink, fresh), r [178 62 36] (Regiomontanus's red lead, deepened); dark k
-  [226 214 194], r [236 120 86].
-- ?draw: per case the ruling (black) first, stroke by stroke, then the red signs and the capital written; each case as its
-  line comes 15 % into view; never scrolls (tests/occult.html's reader, kept standalone: the style is not in the registry).
+- Drop initial (the user's choice, C: the square figure, 6 lines deep by the style's own `initial.lines`; the host's
+  data-lines rules): the IM FELL capital in red in the middle square, under it a line in the italic as Lilly writes the
+  day there ("Anno Dom: 1853", `title`); each of the twelve cusps' signs in red along its line with its degree in black;
+  five planets with their degrees written small in the houses, each placed by a search over the triangle (upright or
+  along an edge) where it lies deepest clear of the cusps' writing and the ruling (a house with no room stays empty, as
+  Lilly's do). Under ~9 px a planet would be a blot: on a phone the figure keeps its cusps only. ?set=volvelle: the round
+  form, a ring of the signs round a checkered degree ring.
+- The signs: the zodiac traced from the Clavis woodcut (♋ ♎ ♑ pen-written in its proportions); the planets ☉ ☽ ☿ ♀ ♂ ♃ ♄ ☊
+  pen-written in the forms of Lilly's ephemeris head (traced from its 45 px type they were blots above 20 px); the five
+  aspects pen-written. tests/astrology-signs.html shows all at 10, 15, 18 and 36 px.
+- Line initial: the IM FELL capital in red. Paraph: the chapter's sign (Aries the first; before it, Pisces).
+- Fillers: **aspects** (☌ ⚹ □ △ ☍ threaded on a rule, the rule running on through each as on the volvelle), **signs**
+  (the twelve in a ruled band, a cell each), **degrees** (Apian's checkered scale, a tick every fifth cell, its band ≥ 5 px
+  so the paper cells hold at dpr 1); a heading's: a rule ending in the chapter's sign.
+- Breaks: chapter, a small volvelle on a ruled band lettered CAP. I. and ARIES; book, the Clavis volvelle as two papers:
+  the fixed disc (ring of signs, degree ring) and the turning plate with the aspects threaded on lines from the ascendant,
+  the square and trine inscribed, and its index, a narrow pointer cut with the plate and run out over the degree ring to
+  the middle of the ascendant's sign. The pointer is paper laid over the rings: the circles and cells under it are hidden
+  (and a hair either side), its edge one pen stroke out to the point and back; a rivet at the centre, the lines stopping
+  at it.
+- Frames: code, Lilly's ephemeris head (thick and thin rules; the day column; eight planets in red each headed M and D, or
+  A, over their signs; two days' rows of degrees and minutes in the planets' own motions, a rule under them); figure, two
+  forms for the user (?figure=houses: the twelve houses unrolled into a band round the figure, my abstraction of the
+  square chart; ?figure=octagon: Apian's octagon, its band checkered as his degree rings, broken at head and foot by a
+  small ring with the chapter's sign and its opposite); pull quote, two arcs of a checkered ring broken by signs;
+  quotation, the table's thick-and-thin ruling; aside, a NOTA head band between aspect signs; contents, the ephemeris's
+  day column.
+- Palette: light k [56 42 32], r [178 62 36]; dark k [226 214 194], r [236 120 86].
+- ?draw: per case the black (ruling, then the planets' pens), then the red, then the lettering, as each case's line comes
+  15 % into view; never scrolls (the reader is tests/occult.html's of before rubricate(): the style is not in the registry).
 
-What falls short (at the 4× gate): the drop at the specimens' 4 lines is too small for Lilly's degrees and planets
-(signs ~9 px; at dpr 1 they are recognisable blots) — at 6 lines it reads as Lilly's figure; the planets were traced from
-a 45 px type and are blobby above ~20 px (they are used at 13–15 px); ♋ ♎ ♑ are pen-written in the volvelle's proportions,
-not traced; the charts are emptier than Lilly's (no planets in the houses, no lettering in the middle square but the
-capital); the ephemeris head lacks its "M D" letters and day rows; the volvelle's book break has no pointer or rete.
+What falls short (at the 4× gate): the figure is still sparer than Lilly's (five planets, not seven, and no aspects or
+part of fortune in the houses); the cusp writing beside the line, not on it as Lilly prints it; the planets are a pen's
+redrawing of Lilly's type, not a trace; the octagon frame, though both its parts are Apian's, is not a frame he drew round
+a rectangle; the volvelle's plate is drawn with a compass where the paper plate was cut by hand.

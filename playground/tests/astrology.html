@@ -14,7 +14,8 @@
   Standalone (the style is not in the registry yet; the machinery is tests/occult.html's before it moved to rubricate()).
   ?draw writes it as you read (each case when its line comes 15% into view; never scrolls); ?theme=light|dark; ?rich=0..1;
   #seed=n; ?set=square|volvelle (the drop initial: the square figure of heaven, or the round volvelle); ?lines=n (the
-  drop's depth); ?audit.
+  drop's depth; the style's own is 6); ?title= (the line under the capital, 'Anno Dom: 1853');
+  ?figure=houses|octagon (the figure's frame: the houses unrolled round it, or Apian's checkered octagon); ?audit.
 -->
 <style>
   @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
@@ -44,7 +45,7 @@
   figure svg g { stroke: var(--ink); }
   figure svg rect[fill] { fill: var(--ink); }
   figcaption { font-style: italic; font-size: .9em; margin-top: 1.6em; text-align: left; hyphens: manual; }
-  pre { margin: 1.8em 0; padding: 6.6em 2.7em 2.2em; font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; hyphens: none; }
+  pre { margin: 1.8em 0; padding: 8.2em 2.7em 2.2em; font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; hyphens: none; }
   .pull { margin: 3em 1.5em; font-size: 1.35em; line-height: 1.4; font-style: italic; text-align: center; hyphens: manual; }
   aside.note { margin: 2.6em 0 2.4em 2em; padding: 3.6em 1.4em 1.6em; font-size: .9em; }
   aside.note p { margin: 0 0 .6em; }
@@ -59,7 +60,7 @@
     .sheet { padding: 64px 20px 80px 48px; }
     .text { text-align: left; }
     blockquote { padding: 0 .9em 0 1em; }
-    pre { padding: 6em 2.3em 2em; font-size: 13.5px; }
+    pre { padding: 9.6em 2.3em 2em; font-size: 13.5px; }
     .pull { margin: 2.8em .4em; }
     aside.note { margin-left: 0; }
     .colophon { padding: 0 20px 40px 48px; }
@@ -80,7 +81,7 @@
         <li><a href="#grown">Grown from the page</a></li>
       </ol>
     </nav>
-    <p><span class="ini drop" data-lines="4">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture. And this we suppose to be all the pleasure that architecture was ever intended to give us. The idea of reading a building as we would read Milton or Dante, and getting the same kind of delight out of the stones as out of the stanzas, never enters our minds for a moment.</p>
+    <p><span class="ini drop">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture. And this we suppose to be all the pleasure that architecture was ever intended to give us. The idea of reading a building as we would read Milton or Dante, and getting the same kind of delight out of the stones as out of the stanzas, never enters our minds for a moment.</p>
     <p class="par">Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art, for the production of which either rules or models can be given. Exactly so far as architecture works on known rules, and from given models, it is not an art, but a manufacture.</p>
     <p><span class="ini line" data-lines="1">L</span>et us then understand at once, that change or variety is as much a necessity to the human heart and brain in buildings as in books; that there is no merit, though there is some occasional use, in monotony; and that we must no more expect to derive either pleasure or profit from an architecture whose ornaments are of one pattern, and whose pillars are of one proportion, than we should out of a universe in which the clouds were all of one shape, and the trees all of one size.</p>
     <hr>
@@ -152,7 +153,7 @@ const M = () => { const c = document.createElement('canvas').getContext('2d'); c
 let MET;
 function setInitials() {
   for (const s of art.querySelectorAll('.ini.drop')) {
-    const cs = getComputedStyle(s.parentElement), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = +s.dataset.lines || 3;
+    const cs = getComputedStyle(s.parentElement), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = +s.dataset.lines || S.initial.lines || 3;
     const base = (lh - (MET.asc + MET.desc) * fs) / 2 + MET.asc * fs, F = ((n - 1) * lh + fs * MET.cap) / MET.cap, top = (n - 1) * lh + base - F * ((1 - MET.asc - MET.desc) / 2 + MET.asc);
     Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', display: 'block', width: (S.initial.width(s.textContent) * F * MET.cap) + 'px', marginRight: Math.round(lh * .42) + 'px' });
   }
@@ -180,7 +181,7 @@ function compose() {
   ORIGIN = o;
   const s = k => (SEED + k * 7919) >>> 0, at = el => el.getBoundingClientRect().top;
   art.querySelectorAll('.ini').forEach((span, k) => { const big = span.classList.contains('drop'), box = boxOf(span, o);
-    items.push({ el: span, y: at(span), make: () => S.initial({ ch: span.textContent, G: { box }, big, rich: RICH, seed: s(k), set: SET, u, n: 1 }) }); });
+    items.push({ el: span, y: at(span), make: () => S.initial({ ch: span.textContent, G: { box }, big, rich: RICH, seed: s(k), set: SET, u, n: 1, title: q.get('title') ?? 'Anno Dom: 1853' }) }); });
   const m = rel(art, o), measure = m[2] - m[0];
   art.querySelectorAll('p.par').forEach((p, k) => { const L = linesOf(p, o)[0], ind = parseFloat(getComputedStyle(p).textIndent), w = u * 1.65, ch = chapterOf(p);
     items.push({ el: p, y: at(p), make: () => S.paraph(L.left - ind + (ind - w) / 2, L.base, u, s(100 + k), RICH, (ch + 11) % 12) }); });
@@ -195,7 +196,7 @@ function compose() {
   art.querySelectorAll('nav').forEach((nav, k) => { const list = nav.querySelector('ol'), nbx = rel(list, o), side = nbx[0] > 60;
     push(nav, () => F.nav({ box: nbx, entries: [...nav.querySelectorAll('li')].map(li => linesOf(li, o)[0]), x: nbx[0] - u * 5.6, u, seed: s(1 + k), rich: RICH, side })); });
   art.querySelectorAll('blockquote').forEach((bq, k) => push(bq, () => F.quote({ box: rel(bq, o), u, seed: s(10 + k), rich: RICH })));
-  art.querySelectorAll('figure').forEach((f, k) => push(f, () => { const c = f.querySelector('figcaption'); return F.figure({ box: rel(f.querySelector('svg'), o), cap: c && rel(c, o)[3], u, seed: s(20 + k), rich: RICH, n: chapterOf(f) || 1, limit: [0, o.width] }); }));
+  art.querySelectorAll('figure').forEach((f, k) => push(f, () => { const c = f.querySelector('figcaption'); return F.figure({ box: rel(f.querySelector('svg'), o), cap: c && rel(c, o)[3], u, seed: s(20 + k), rich: RICH, n: chapterOf(f) || 1, limit: [0, o.width], form: q.get('figure') ?? 'houses' }); }));
   art.querySelectorAll('aside').forEach((a, k) => push(a, () => F.aside({ box: rel(a, o), u, seed: s(30 + k), rich: RICH, n: chapterOf(a) || 1 })));
   art.querySelectorAll('.pull').forEach((p, k) => { const L = linesOf(p, o); push(p, () => F.pull({ cx: (m[0] + m[2]) / 2, yTop: L[0].top - u * 1.6, yBot: L.at(-1).base + u * 2.2, measure, u, seed: s(40 + k), rich: RICH, n: (chapterOf(p) + 11) % 12 })); });
   art.querySelectorAll('pre').forEach((p, k) => push(p, () => F.code({ box: rel(p, o), u, seed: s(50 + k), rich: RICH, n: chapterOf(p) || 1 })));
@@ -204,7 +205,7 @@ function compose() {
 
 function prepare(it) {
   const r = sheet.getBoundingClientRect(); ORIGIN.left = r.left; ORIGIN.top = r.top;
-  return Object.assign(it, printOf(it.make(), { res: RES }));
+  return Object.assign(it, printOf(it.make(), { res: RES, merge: !q.has('draw') }));
 }
 const P = S.palette[dark ? 'dark' : 'light'];
 
