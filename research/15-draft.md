@@ -1,4 +1,4 @@
-# 15 · Cyber: three direction studies, grounded in the material culture of computing
+# 15 · Draft (the user's Cyber): the drawing office, grounded in the material culture of computing
 
 The breadth-first Cyber (cases.html?style=cyber: neon HUD brackets, tick scales, glitch doubles) was rejected as thin
 trope decoration. The approved styles worked because each was read off real objects at full size. So Cyber is grounded
@@ -6,7 +6,7 @@ the same way, in the real paper, film and glass of computing and electronics eng
 This file is for choosing a direction. Three short studies were made, each with only four elements (a drop initial, a
 paraph, a filler and one frame), on the opening of tests/blackletter.html's text, in light and dark:
 
-- **A · the drawing office:** tests/cyber-a.html, kit/styles/cyber-a.js
+- **A · the drawing office:** now **Draft** (tests/draft.html, kit/styles/draft.js)
 - **B · the phosphor screen** and **C · the printout**, since removed (they are in commit ce07318)
 
 **Decision (the user, 2026-11-07):** "A for sure, the other two are terrible. A needs to rework the drop caps though."
@@ -184,3 +184,61 @@ the lining leaves their patches clear. Dark mode is the reverse print. Weights f
 - The Leroy series figure may name a size the series does not have (the large templates were not checked).
 - The views option leaves the side view bare: no centreline, no projection.
 - None of the three has been set beside a lettering-plate source; the Apollo sheets have no large letter.
+
+**Decision (the user):** option 1, the part in section, which is now the default. The style is named **draft**, labelled
+"Draft · the drawing office". Options 2 and 3 remain as `?set=views|leroy`.
+
+The radius call-out now finds the arc's true centre. A circle is fitted by least squares (Kåsa) to the outline near
+where the leader meets it. The leader is radial and its arrowhead stands on the arc. A few angles are tried, and the
+first whose figure and leader clear the ink and stay in the cell is taken.
+
+## The full style (kit/styles/draft.js, tests/draft.html)
+
+The specimen has the same text as the other styles. It is standalone, on the pre-library harness of
+tests/astrology.html (commit 75cd20f), and the style is not in the registry yet.
+
+Every line is written by the ink engine's technical pen at the two weights. Thin is max(1.3 px, 0.12 x-height) and
+thick is max(2.4, 0.25 x-height), so about 2 : 1, as on the MIT sheets. Lettering is Hershey Simplex at Leroy's
+spacing. Under ?draw, the blue construction (the grid, and guidelines under lettering 9 px and up) is drawn first, then
+the inking, case by case as each scrolls into view, never scrolling the page.
+
+- **Drop initial:** the part in section. The line initial is the part alone at the line's height, its section lining
+  coarser.
+- **Paraph:** an item balloon numbered with the paragraph.
+- **Fillers** (MIT sheets; ANSI Y14.2):
+  - a dimension line stating its gap in inches;
+  - a centreline (chain line) ending in the centreline symbol ℄: an L through a C;
+  - a long break line: a thin rule with freehand Z-breaks.
+- **Chapter break:** a cutting-plane line. It is thick, a long dash and two short; the ends are turned, with arrows
+  pointing the viewing direction and the section letter at each (A, B, C …, skipping I, O, Q, S, X, Z).
+- **Book break:** the revision block (REVISIONS / REV, DESCRIPTION, DATE, APPROVED / A, RELEASED, 1853, J. R.), after the
+  MIT sheets' revision block.
+- **Frames:**
+  - **quote:** the zoned sheet border and title block.
+  - **figure:** an enlarged detail: a phantom-line boundary, with "DETAIL D" underlined and "SCALE 2:1".
+  - **code:** a parts list: ITEM / DESCRIPTION over the code's lines. One item is numbered per source line; a wrapped
+    line runs on in its row, unruled.
+  - **pull:** the general notes: "NOTES:" and the quotation as note 1.
+  - **aside:** a flagged note box: a triangle flag with the note's number, standing on the box's broken top edge.
+  - **contents:** the drawing list: SHEET / TITLE, a sheet number per entry.
+- **Lettering points:** periods and colons are laid as round blots of ink (the pen set down), not as Hershey's tiny loops.
+
+**Timings** (headless, Intel Arc, whole page still):
+
+| dpr | light | dark |
+|---|---|---|
+| 1 | ~111 ms | ~101 ms |
+| 2 | ~115 ms | ~105 ms |
+
+Of that, prepare is ~35 ms and the writer ~55 ms.
+
+**What falls short (at the 4× gate against the Apollo sheets):**
+
+- The scans' ink is heavier and bloomed: microfilm thickens every line. Their arrowheads are bigger and blacker; ours are
+  true to the 1.4 : 1 shape, but lighter.
+- The item balloon is a circle. The MIT one is a stadium on a dog-leg leader to its part; a paraph has no part to point to.
+- The title block's headings are pre-printed grotesque on the sheets. Ours are all template lettering.
+- Under ?draw the arrowheads and points (laid as ink deposits) come after the case's lines, not as each line is drawn.
+- No source was found for the parts list, the general notes, or the cutting-plane line. They follow the ANSI Y14 conventions
+  of the period, not a measured sheet.
+- The figure's detail letter follows the chapter, so the first detail reads D, not B.

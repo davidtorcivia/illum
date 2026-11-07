@@ -1,11 +1,15 @@
-// Cyber, direction A: THE DRAWING OFFICE (a study; research/15-cyber.md). The engineering drawing of the electronic age as
+// Draft: THE DRAWING OFFICE (research/15-draft.md; the user's Cyber). The engineering drawing of the electronic age as
 // the drafting room made it, 1950s–80s: india ink from a technical pen (Rapidograph, Leroy scriber) on vellum or drafting
 // film, one round nib per weight, the line hierarchy of the drafting standard (ANSI Y14.2: thick ≈ 2× thin); single-stroke
 // template lettering (Leroy), vertical capitals; construction in non-repro blue pencil, which the print never shows.
 //   drop initial: the capital as a part: in section with its call-outs, in two views, or laid out as Leroy lettering (set)
+//   line initial: the part in section alone, at the line's height
 //   paraph: an item balloon (a numbered circle: the drawing's call-out)
-//   filler: a dimension line across the gap, its extension lines and arrowheads, and the figure: the gap's own length, in inches
-//   frame (blockquote): the sheet's border: the trim line, the heavy border, zone marks lettered in the margin, a title block
+//   fillers: a dimension line stating the gap's own length in inches; a centreline ending in its symbol; a long break line
+//   breaks: a cutting-plane line A–A (a chapter); the revision block (the book's end)
+//   frames: quote, the sheet (zoned border, title block); figure, an enlarged detail (phantom boundary, DETAIL / SCALE);
+//     code, a parts list; pull, the general notes; aside, a flagged note box; contents, the drawing list
+//   ?draw: the blue construction (guidelines, grid) first, then the inking, case by case
 // Letters: the Hershey Roman Simplex (A. V. Hershey, U.S. National Bureau of Standards, 1967; tools/hershey.py), the single-
 // stroke roman made for plotters and vector displays, closest of the open forms to Leroy template lettering; each stroke
 // written by the ink engine's pen as the scriber's pen would draw it. Everything is { marks, letters } as kit/styles/occult.js
@@ -63,8 +67,9 @@ export const textWidth = (text, cap) => [...text].reduce((a, ch) => { const g = 
 export function letter(text, x, base, cap, W, { align = 'left', col = 'k', seed = 0, round = cap > 30 ? 3 : cap > 12 ? 1 : 0 } = {}) {
   const k = cap / 21, w = textWidth(text, cap); let cx = (align === 'center' ? x - w / 2 : align === 'right' ? x - w : x) - 1 * k; const marks = [];
   for (const ch of text) { const g = HERSHEY[ch] ?? HERSHEY[' '];
+    if (ch === ':') { const px = cx + (0 - g.l) * k; for (const py of [base - W * .6, base - cap * .55]) marks.push({ dot: [px, py], r: W * .62, col, pts: [] }); cx += (g.r - g.l) * SP * k + track(cap); continue; }
     if (ch === '.' || ch === ',') {   // (Hershey's point is a tiny loop; the template's is the pen set down)
-      const px = cx + (0 - g.l) * k, py = base - W * .55, r = W * .3; marks.push(tpen(Array.from({ length: 13 }, (_, i) => [px + r * Math.cos(i / 12 * 6.2832), py + r * Math.sin(i / 12 * 6.2832)]), W, { col, seed: seed + marks.length * 3, pool: 0 }));
+      const px = cx + (0 - g.l) * k, py = base - W * .6; marks.push({ dot: [px, py], r: W * .62, col, pts: [] });
       if (ch === ',') marks.push(tpen([[px, py], [px - k * 1.2, py + k * 3.5]], W, { col, seed: seed + marks.length * 3 })); cx += (g.r - g.l) * SP * k + track(cap); continue; }
     g.s.forEach((s, i) => { const P = s.map(([gx, gy]) => [cx + (gx - g.l) * k, base + (gy - 9) * k]);
       if (P.length === 1) P.push([P[0][0] + .01, P[0][1]]);   // (a dot: the pen set down)
@@ -180,9 +185,10 @@ export function initial({ ch, G, u, seed = 1, rich = .5, set = 'part' }) {
     return { marks, letters };
   }
   // the plate: the Leroy path swept at a heavy width, its outline inked thick
-  const views = set === 'views', cap = h * (views ? .68 : .8), base = views ? y0 + cap + h * .04 : y1 - h * .06, sw = cap * .17;
-  const P = plate(ch, x0 + (views ? thick : textWidth('.000', fc) + u * 2.6), base, cap, sw);
-  for (const [i, L] of outline(P).entries()) marks.push(tpen(L, thick, { seed: seed + 300 + i, pool: .05 }));
+  // (a line initial: the part alone, at the line's cap height, its outline at the thin weight's 1.5)
+  const small = G.big === false, views = set === 'views', cap = small ? h : h * (views ? .68 : .8), base = small ? y1 : views ? y0 + cap + h * .04 : y1 - h * .06, sw = cap * .17;
+  const P = plate(ch, x0 + (views || small ? (small ? 0 : thick) : textWidth('.000', fc) + u * 2.6), base, cap, sw), loops = outline(P), ow = small ? Math.max(1.6, thin * 1.4) : thick;
+  for (const [i, L] of loops.entries()) marks.push(tpen(L, ow, { seed: seed + 300 + i, pool: .05 }));
   const holes = counters(P), taken = [];
   if (views) {
     // the right side view: the plate's thickness to the right, at the front view's height (projected across), its counters'
@@ -198,39 +204,66 @@ export function initial({ ch, G, u, seed = 1, rich = .5, set = 'part' }) {
   }
   // section lining: thin lines at 45°, about a ninth of the cap apart, inside the part; broken where a call-out's lettering
   // or leader passes over (true occlusion: the lettering is written on a clear patch, as a draftsman leaves one)
-  const gap = Math.max(3.2, cap / 11), R = P.box, labels = [];
-  // the call-outs, placed first so the lining can leave room for them. A radius on the upper bowl: from its counter's
-  // centre out along 45° above the right, the arc's point where the ray leaves the ink; R and the radius, by the arc
-  const bowl = holes[0], callouts = [];
-  if (bowl && rich > .15) { const dir = [Math.SQRT1_2, -Math.SQRT1_2]; let s = 0, inInk = false, p = bowl.c;
-    for (; s < cap; s += .25) { const q = [bowl.c[0] + dir[0] * s, bowl.c[1] + dir[1] * s], ink = P.inside(...q); if (ink) inInk = true; else if (inInk) { p = q; break; } }
-    const rad = Math.hypot(p[0] - bowl.c[0], p[1] - bowl.c[1]), txt = 'R' + fmt(rad);
-    // the leader runs on out along the ray and then level to the figure, written to its right if there is room, else left
-    const elb = [p[0] + dir[0] * u * 1.4, p[1] + dir[1] * u * 1.4], right = elb[0] + u * .8 + textWidth(txt, fc) < x1;
-    const end = [elb[0] + (right ? u * .7 : -u * .7), elb[1]], tb = labelBox(txt, end[0] + (right ? u * .3 : -u * .3), elb[1] + fc / 2, fc, right ? 'left' : 'right');
-    if (tb[1] > y0 - u * .3 && tb[2] < x1 + u * .3) { callouts.push({ arrowAt: p, dir: [-dir[0], -dir[1]], path: [p, elb, end], txt, tx: end[0] + (right ? u * .3 : -u * .3), base: elb[1] + fc / 2, align: right ? 'left' : 'right', tb }); labels.push(tb); }
-    // centre marks and centrelines through each counter: a small cross at the centre, the lines run a little past the hole
+  const gap = Math.max(3.2, cap / (small ? 7 : 11)), R = P.box, labels = [], callouts = [], big = !small;
+  if (big && rich > .15) {
+    // A radius on the upper bowl, called out as the standard has it: the arc's true centre (a circle fitted to the outline
+    // where the leader meets it), the leader radial, its arrowhead on the arc from outside, then a shoulder level to "R"
+    // and the radius (decimal inches, as the screen draws it). The first of a few angles whose figure and leader clear the
+    // ink and stay in the cell is taken.
+    const bowl = holes[0];
+    if (bowl) for (const deg of [-42, -30, -55, -18, -68]) {
+      const a = deg * Math.PI / 180, d = [Math.cos(a), Math.sin(a)]; let s = 0, inInk = false, p = null;
+      for (; s < cap; s += .25) { const q = [bowl.c[0] + d[0] * s, bowl.c[1] + d[1] * s], ink = P.inside(...q); if (ink) inInk = true; else if (inInk) { p = q; break; } }
+      if (!p) continue;
+      const fit = arcAt(loops, p, cap * .16); if (!fit) continue;
+      const rd = [p[0] - fit.c[0], p[1] - fit.c[1]], rl = Math.hypot(...rd), dn = [rd[0] / rl, rd[1] / rl], tip = [fit.c[0] + dn[0] * fit.r, fit.c[1] + dn[1] * fit.r];
+      const txt = 'R' + fmt(fit.r), elb = [tip[0] + dn[0] * u * 1.5, tip[1] + dn[1] * u * 1.5], right = dn[0] >= 0;
+      const end = [elb[0] + (right ? u * .7 : -u * .7), elb[1]], tx = end[0] + (right ? u * .3 : -u * .3), base = elb[1] + fc / 2, tb = labelBox(txt, tx, base, fc, right ? 'left' : 'right');
+      const clear = tb[0] >= x0 && tb[2] <= x1 + u * .2 && tb[1] >= y0 - u * .2 && !inkIn(P, tb) && Array.from({ length: 12 }, (_, k) => [tip[0] + dn[0] * (thick * 1.4 + (u * 1.5 - thick * 1.4) * k / 11), tip[1] + dn[1] * (thick * 1.4 + (u * 1.5 - thick * 1.4) * k / 11)]).every(q => P.at(...q) < .3);
+      if (!clear) continue;
+      callouts.push({ tip, dn, path: [[tip[0] + dn[0] * u * .6, tip[1] + dn[1] * u * .6], elb, end], txt, tx, base, align: right ? 'left' : 'right' }); labels.push(tb); break; }
+    // centre marks and centrelines through each counter: the lines run a little past the hole
     holes.forEach((c, i) => { const ex = (c.bb[2] - c.bb[0]) / 2 + u * .55, ey = (c.bb[3] - c.bb[1]) / 2 + u * .55;
-      marks.push(...chain([c.c[0] - ex, c.c[1]], [c.c[0] + ex, c.c[1]], thin * .8, seed + 500 + i * 20, { long: ex * .7 }), ...chain([c.c[0], c.c[1] - ey], [c.c[0], c.c[1] + ey], thin * .8, seed + 510 + i * 20, { long: ey * .7 })); }); }
-  // the stroke's width across the stem, from the left: two arrows pointing in to the stem's edges, the figure left of them
-  const sy = P.box[3] - cap * .3, sxs = []; for (let x = P.box[0]; x < P.box[0] + cap * .5; x += .25) { const ink = P.inside(x, sy); if (ink !== (sxs.length % 2 === 1)) sxs.push(x); if (sxs.length === 2) break; }
-  if (sxs.length === 2 && rich > .15) { const [a, b] = sxs, al = u * .8, fig = fmt(b - a);
-    callouts.push({ dim: [a, b, sy], al, fig });
-    marks.push(line([a - al * 2.2, sy], [a - al * .4, sy], thin, { seed: seed + 600 }), line([b + al * .4, sy], [b + al * 1.4, sy], thin, { seed: seed + 601 }));
-    letters.push(arrow([a, sy], [1, 0], al), arrow([b, sy], [-1, 0], al));
-    labels.push(labelBox(fig, a - al * 2.4, sy + fc / 2, fc, 'right'));
-    marks.push(...letter(fig, a - al * 2.4, sy + fc / 2, fc, tw, { align: 'right', seed: seed + 610 })); }
-  for (const c of callouts) if (c.path) { marks.push(tpen([c.path[0].map((v, i) => v - c.dir[i] * u * .6), ...c.path.slice(1)], thin, { seed: seed + 620 })); letters.push(arrow(c.arrowAt, c.dir, u * .8));
-    marks.push(...letter(c.txt, c.tx, c.base, fc, tw, { align: c.align, seed: seed + 630 })); }
+      marks.push(...chain([c.c[0] - ex, c.c[1]], [c.c[0] + ex, c.c[1]], thin * .8, seed + 500 + i * 20, { long: ex * .7 }), ...chain([c.c[0], c.c[1] - ey], [c.c[0], c.c[1] + ey], thin * .8, seed + 510 + i * 20, { long: ey * .7 })); });
+    // the stroke's width across the stem, from the left: two arrows pointing in to the stem's edges, the figure left of them
+    const sy = P.box[3] - cap * .3, sxs = []; for (let x = P.box[0]; x < P.box[0] + cap * .5; x += .25) { const ink = P.inside(x, sy); if (ink !== (sxs.length % 2 === 1)) sxs.push(x); if (sxs.length === 2) break; }
+    if (sxs.length === 2) { const [a, b] = sxs, al = u * .8, fig = fmt(b - a);
+      marks.push(line([a - al * 2.2, sy], [a - al * .4, sy], thin, { seed: seed + 600 }), line([b + al * .4, sy], [b + al * 1.4, sy], thin, { seed: seed + 601 }));
+      letters.push(arrow([a, sy], [1, 0], al), arrow([b, sy], [-1, 0], al));
+      labels.push(labelBox(fig, a - al * 2.4, sy + fc / 2, fc, 'right'));
+      marks.push(...lettered(fig, a - al * 2.4, sy + fc / 2, fc, tw, { align: 'right', seed: seed + 610 })); }
+    for (const c of callouts) { marks.push(tpen(c.path, thin, { seed: seed + 620 })); letters.push(arrow(c.tip, [-c.dn[0], -c.dn[1]], u * .8));
+      marks.push(...lettered(c.txt, c.tx, c.base, fc, tw, { align: c.align, seed: seed + 630 })); }
+  }
   // the lining: every line clipped to the ink, less a margin from the outline (the lines stop at the outline's ink, not
   // on it) and less the label patches
-  const hideL = p => !(P.at(p[0], p[1]) > .5 && P.at(p[0] + thick * .6, p[1]) > .3 && P.at(p[0] - thick * .6, p[1]) > .3 && P.at(p[0], p[1] + thick * .6) > .3 && P.at(p[0], p[1] - thick * .6) > .3) || labels.some(b => p[0] > b[0] && p[0] < b[2] && p[1] > b[1] && p[1] < b[3]);
+  const mg = ow * .6, hideL = p => !(P.at(p[0], p[1]) > .5 && P.at(p[0] + mg, p[1]) > .3 && P.at(p[0] - mg, p[1]) > .3 && P.at(p[0], p[1] + mg) > .3 && P.at(p[0], p[1] - mg) > .3) || labels.some(b => p[0] > b[0] && p[0] < b[2] && p[1] > b[1] && p[1] < b[3]);
   for (let c = R[0] - (R[3] - R[1]), i = 0; c < R[2]; c += gap, i++) {
     for (const q of occlude([[c, R[3]], [c + (R[3] - R[1]), R[1]]], hideL, 1.5)) marks.push(tpen(q, thin * .8, { seed: seed + 700 + i, pool: .04 })); }
   return { marks, letters };
 }
+// is there ink of the plate inside box b
+const inkIn = (P, b) => { for (let y = b[1]; y <= b[3]; y += 1) for (let x = b[0]; x <= b[2]; x += 1) if (P.at(x, y) > .3) return true; return false; };
+// the circle through the outline near p: the loop nearest p, its points within `span` of the nearest along the loop, fitted
+// by least squares (Kåsa: x² + y² + Dx + Ey + F = 0)
+function arcAt(loops, p, span) {
+  let best = null; for (const L of loops) L.forEach((q, i) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (!best || d < best.d) best = { d, L, i }; });
+  if (!best) return null; const { L, i } = best, n = L.length - 2, pts = [L[i]];
+  for (const dir of [1, -1]) { let s = 0; for (let k = 1; k < n / 2; k++) { const a = L[((i + dir * (k - 1)) % n + n) % n], b = L[((i + dir * k) % n + n) % n]; s += Math.hypot(b[0] - a[0], b[1] - a[1]); if (s > span) break; pts.push(b); } }
+  if (pts.length < 6) return null;
+  let Sxx = 0, Sxy = 0, Syy = 0, Sx = 0, Sy = 0, Sxz = 0, Syz = 0, Sz = 0; const N = pts.length;
+  for (const [x, y] of pts) { const z = x * x + y * y; Sxx += x * x; Sxy += x * y; Syy += y * y; Sx += x; Sy += y; Sxz += x * z; Syz += y * z; Sz += z; }
+  // [Sxx Sxy Sx; Sxy Syy Sy; Sx Sy N] [D E F] = -[Sxz Syz Sz]
+  const A = [[Sxx, Sxy, Sx, -Sxz], [Sxy, Syy, Sy, -Syz], [Sx, Sy, N, -Sz]];
+  for (let c = 0; c < 3; c++) { let m = c; for (let r = c + 1; r < 3; r++) if (Math.abs(A[r][c]) > Math.abs(A[m][c])) m = r; [A[c], A[m]] = [A[m], A[c]];
+    if (Math.abs(A[c][c]) < 1e-9) return null; for (let r = 0; r < 3; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let k = c; k < 4; k++) A[r][k] -= f * A[c][k]; } }
+  const D = A[0][3] / A[0][0], E = A[1][3] / A[1][1], F = A[2][3] / A[2][2], c = [-D / 2, -E / 2], r = Math.sqrt(Math.max(0, c[0] * c[0] + c[1] * c[1] - F));
+  return r > 1 && r < span * 8 ? { c, r } : null;
+}
 initial.width = (ch, set = 'part') => SETS[set] ?? 1.1;
+initial.line = () => .86;
 initial.lines = 5;
+initial.margin = .5;
 
 
 // ---- the paraph: an item balloon ------------------------------------------------------------------------------------------------
@@ -242,12 +275,30 @@ export function paraph(x, base, u, seed, rich = .5, n = 1) {
   const fc = d * .36; return { marks: [tpen(pts, Math.max(1.3, d * .075), { seed }), ...letter(String(n), c[0], c[1] + fc / 2, fc, Math.max(1.3, fc * .16), { align: 'center', seed: seed + 3 })], letters: [] };
 }
 
-// ---- the filler: a dimension line --------------------------------------------------------------------------------------------------
-// Across the gap a short line leaves: extension lines at its ends (a gap from the words, past the dimension line by a little),
-// the dimension line with its arrowheads to them, broken for the figure: the gap's own length, as the drawing would state it.
-export function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
-  const u = yBase - yTop, { thin } = weights(u), y = yBase - u * .5, L = x1 - x0, a = Math.min(u * .95, L * .12), marks = [], letters = [];
-  const e0 = y - u * .95, e1 = y + u * .55;
+// ---- the fillers -------------------------------------------------------------------------------------------------------------------
+// kinds: 'dim' a dimension line across the gap, stating its own length; 'center' a centreline (chain line: long dash, short
+// dash) ending in the centreline symbol (℄: a C and an L laid one over the other, ANSI Y14.2); 'break' a long break line (a
+// thin ruled line with freehand zigzags where the view is broken off). A heading's: none.
+export const FILLERS = ['dim', 'center', 'break'];
+export const kinds = (v, rich = .5) => rich < .25 ? ['dim'] : FILLERS;
+export function filler(x0, x1, yTop, yBase, kind = 'dim', seed = 1, rich = .5) {
+  const u = yBase - yTop, { thin } = weights(u), y = yBase - u * .5, L = x1 - x0, marks = [], letters = [];
+  if (kind === 'center') {
+    const s = u * 1.25, xe = x1 - s * 1.1;
+    marks.push(...chain([x0, y], [xe - u * .9, y], thin, seed, { long: u * 3.4 }));
+    // ℄: the C and the L at the line's end, the L's foot on the line
+    const k = s / 21, C = HERSHEY.C, Lg = HERSHEY.L, cx = xe + s * .35;
+    // (the L's stem through the C's middle, its foot running out to the right)
+    for (const [g, dx] of [[C, 0], [Lg, 6.5]]) g.s.forEach((st, i) => marks.push(tpen(smooth(st.map(([gx, gy]) => [cx + (gx + dx) * k, y + s * .45 + (gy - 9) * k]), 1), thin, { seed: seed + 9 + i + dx })));
+    return { marks, letters };
+  }
+  if (kind === 'break') {
+    // zigzags every ~14 x-heights, each a quick Z of the freehand pen: up a, across the gap, down 2a, up to the line
+    const n = Math.max(1, Math.round(L / (u * 16))), a = u * .62, z = u * .5, pts = [[x0, y]], r = rng(seed, 'break');
+    for (let i = 0; i < n; i++) { const xc = x0 + L * (i + .5) / n + (r() - .5) * u; pts.push([xc - z, y], [xc - z * .35, y - a], [xc + z * .35, y + a], [xc + z, y]); }
+    pts.push([x1, y]); marks.push(tpen(pts, thin, { seed, wob: .05 })); return { marks, letters };
+  }
+  const a = Math.min(u * .95, L * .12), e0 = y - u * .95, e1 = y + u * .55;
   marks.push(line([x0, e0], [x0, e1], thin, { seed }), line([x1, e0], [x1, e1], thin, { seed: seed + 1 }));
   const fig = inches(L), fc = u * 1.02, fw = textWidth(fig, fc), mid = (x0 + x1) / 2, gap = fw / 2 + u * .4;
   letters.push(arrow([x0 + thin * .5, y], [-1, 0], a), arrow([x1 - thin * .5, y], [1, 0], a));
@@ -256,6 +307,46 @@ export function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
     marks.push(...letter(fig, mid, y + fc / 2, fc, thin, { align: 'center', seed: seed + 5 }));
   } else marks.push(line([x0 + a * .7, y], [x1 - a * .7, y], thin, { seed: seed + 2 }));
   return { marks, letters };
+}
+
+// ---- breaks ------------------------------------------------------------------------------------------------------------------------
+// rank 1 (a chapter): a cutting-plane line, as a section view is called out: the thick chain line (a long dash and two
+// short) across the measure, its ends turned with arrows pointing the way the section is viewed, the section's letter at
+// each arrow (A, B, C … skipping I, O, Q, S, X, Z, as the standard does). rank 2 (the book's end): the revision block, its
+// one revision: the drawing released.
+const SECT = 'ABCDEFGHJKLMNPRTUVWY';
+export function breakMark(cx, y, measure, rank, seed = 1, rich = .5, u = 9, n = 1) {
+  const { thin, thick } = weights(u), marks = [], letters = [], fc = Math.max(7, u * 1.15);
+  if (rank === 2) {
+    const W = Math.min(measure * .92, u * 54), x0 = cx - W / 2, x1 = cx + W / 2, cc = Math.max(5.5, u * .55), ec = Math.max(6.5, u * .75), rh = ec + u * 1.3, y0 = y - rh * 1.5;
+    const cols = [0, .1, .62, .8, 1].map(f => x0 + W * f), rows = [y0, y0 + rh, y0 + rh * 2, y0 + rh * 3];
+    marks.push(...rect([x0, y0, x1, rows[3]], thick, { seed }));
+    for (const yy of rows.slice(1, 3)) marks.push(line([x0, yy], [x1, yy], thin, { seed: seed + yy | 0 }));
+    for (const xx of cols.slice(1, 4)) marks.push(line([xx, rows[1]], [xx, rows[3]], thin, { seed: seed + xx | 0 }));
+    marks.push(...lettered('REVISIONS', cx, rows[1] - (rh - ec) / 2, ec, Math.max(1.3, thin), { align: 'center', seed: seed + 20 }));
+    const heads = ['REV', 'DESCRIPTION', 'DATE', 'APPROVED'], vals = ['A', 'RELEASED', '1853', 'J. R.'];
+    heads.forEach((h, i) => { const m = (cols[i] + cols[i + 1]) / 2, w = cols[i + 1] - cols[i] - u * .6;
+      marks.push(...lettered(h, m, rows[2] - (rh - cc) / 2, Math.min(cc, cc * w / textWidth(h, cc)), 1.3, { align: 'center', seed: seed + 30 + i }));
+      marks.push(...lettered(vals[i], m, rows[3] - (rh - ec) / 2, Math.min(ec, ec * w / textWidth(vals[i], ec)), Math.max(1.3, thin * .9), { align: 'center', seed: seed + 40 + i })); });
+    return { marks, letters };
+  }
+  const L = Math.min(measure * .9, u * 70), x0 = cx - L / 2, x1 = cx + L / 2, ch = SECT[(n - 1) % SECT.length], tl = u * 1.6, al = u * 1.1;
+  // the cutting plane: thick; long dash ~6 x-heights, two short ~1, gaps ~.7; the end segments solid, turned at 90°
+  const pat = [u * 6, u * .7, u * 1, u * .7, u * 1, u * .7]; let s = x0 + tl * 1.2, k = 0;
+  marks.push(line([x0, y], [x0 + tl * 1.2, y], thick, { seed }), line([x1 - tl * 1.2, y], [x1, y], thick, { seed: seed + 1 }));
+  while (s < x1 - tl * 1.2 - u) { const len = Math.min(pat[k % 6], x1 - tl * 1.2 - s); if (k % 2 === 0) marks.push(line([s, y], [s + len, y], thick, { seed: seed + 3 + k })); s += len; k++; }
+  for (const x of [x0, x1]) { marks.push(line([x, y], [x, y + tl], thin, { seed: seed + x | 0 })); letters.push(arrow([x, y + tl + al * .9], [0, 1], al));
+    marks.push(...lettered(ch, x + (x === x0 ? -1 : 1) * u * 1.6, y + tl + al * .4, fc, Math.max(1.3, thin * 1.1), { align: 'center', guide: false, seed: seed + 50 + x | 0 })); }
+  return { marks, letters };
+}
+
+// ---- lettering with its guidelines --------------------------------------------------------------------------------------------------
+// Lettering in a block (a title, a table, a note) laid between two guidelines a draftsman ruled first in non-repro blue
+// (an Ames guide's), the base line and the cap line, a little longer than the words; then the letters inked over them.
+function lettered(text, x, base, cap, W, o = {}) {
+  const w = textWidth(text, cap), l = o.align === 'center' ? x - w / 2 : o.align === 'right' ? x - w : x, m = cap * 1.2;
+  const g = o.guide === false || cap < 9 ? [] : [base, base - cap].map((yy, i) => tpen([[l - m, yy], [l + w + m, yy]], 1.3, { col: 'g', seed: (o.seed ?? 0) + 900 + i, pool: 0, wob: .05 }));
+  return [...g, ...letter(text, x, base, cap, W, o)];
 }
 
 // ---- the frame: the sheet ------------------------------------------------------------------------------------------------------------
@@ -281,27 +372,89 @@ function quote({ box, u, seed = 1, rich = .5, tb = 0 }) {
   // the title block, in the lower right corner inside the border: three rows; captions small at each cell's top left, the
   // entries larger below them; the title's row the tallest
   if (tb) {
-    const cc = Math.max(5.2, u * .5), ec = Math.max(7, u * .82), rh = cc + ec + u * 1.05, W = Math.min(B[2] - B[0], Math.max(u * 26, (B[2] - B[0]) * .62));
+    const cc = Math.max(5.2, u * .5), ec = Math.max(7, u * .82), rh = cc + ec + u * 1.5, W = Math.min(B[2] - B[0], Math.max(u * 26, (B[2] - B[0]) * .62));
     const bx0 = B[2] - W, by0 = B[3] - rh * 3, rows = [by0, by0 + rh, by0 + rh * 2, B[3]];
     marks.push(line([bx0, by0], [B[2], by0], thick, { seed: seed + 110 }), line([bx0, by0], [bx0, B[3]], thick, { seed: seed + 111 }));
     for (const y of rows.slice(1, 3)) marks.push(line([bx0, y], [B[2], y], thin, { seed: seed + 112 + y | 0 }));
     const cell = (cx0, cx1, r, cap, entry) => { const y = rows[r], pad = u * .3;
       if (cx0 > bx0 + 1) marks.push(line([cx0, rows[r]], [cx0, rows[r + 1]], thin, { seed: seed + 120 + cx0 | 0 }));
-      marks.push(...letter(cap, cx0 + pad, y + pad + cc, cc, 1.3, { seed: seed + 130 + cx0 | 0 }));
+      marks.push(...lettered(cap, cx0 + pad, y + pad + cc, cc, 1.3, { seed: seed + 130 + cx0 | 0 }));
       const fit = Math.min(ec, ec * (cx1 - cx0 - pad * 2) / Math.max(1, textWidth(entry, ec)));
-      marks.push(...letter(entry, (cx0 + cx1) / 2, rows[r + 1] - pad * 1.4, fit, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 140 + cx0 | 0 })); };
+      marks.push(...lettered(entry, (cx0 + cx1) / 2, rows[r + 1] - pad * 1.4, fit, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 140 + cx0 | 0 })); };
     cell(bx0, B[2], 0, 'TITLE', TITLE.title);
     const c1 = bx0 + W * .74; cell(bx0, c1, 1, 'DWG NO.', TITLE.dwg); cell(c1, B[2], 1, 'REV', TITLE.rev);
     const d1 = bx0 + W * .42, d2 = bx0 + W * .7; cell(bx0, d1, 2, 'DRAWN', TITLE.drawn); cell(d1, d2, 2, 'DATE', TITLE.date); cell(d2, B[2], 2, 'SHEET', TITLE.sheet);
   }
   return { marks, letters };
 }
-export const frames = { quote };
+// ---- the other frames ------------------------------------------------------------------------------------------------------------------
+// a phantom line (thin: a long dash and two short), the line a detail's boundary is drawn in
+function phantom(a, b, W, seed) { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), d = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], out = [], pat = [Math.max(14, W * 12), Math.max(2.2, W * 1.6), Math.max(1.8, W * 1.3), Math.max(2.2, W * 1.6), Math.max(1.8, W * 1.3), Math.max(2.2, W * 1.6)];
+  let s = 0, k = 0; while (s < L) { const len = Math.min(pat[k % 6], L - s); if (k % 2 === 0) out.push(line([a[0] + d[0] * s, a[1] + d[1] * s], [a[0] + d[0] * (s + len), a[1] + d[1] * (s + len)], W, { seed: seed + k, pool: .05 })); s += len; k++; }
+  return out; }
+// figure: the figure as an enlarged detail: its boundary in a phantom line round it, and under it the detail's name
+// underlined and its scale ("DETAIL B", "SCALE 2:1"), the letter the chapter's
+function figure({ box, u, seed = 1, n = 1 }) {
+  const { thin } = weights(u), [X0, Y0, X1, Y1] = box, p = u * 1.4, B = [X0 - p, Y0 - p, X1 + p, Y1 + p], marks = [];
+  for (const [a, b, i] of [[[B[0], B[1]], [B[2], B[1]], 1], [[B[2], B[1]], [B[2], B[3]], 2], [[B[2], B[3]], [B[0], B[3]], 3], [[B[0], B[3]], [B[0], B[1]], 4]]) marks.push(...phantom(a, b, thin, seed + i * 40));
+  const c1 = Math.max(7.5, u * 1.05), c2 = Math.max(6.5, u * .8), cx = (X0 + X1) / 2, b1 = B[3] + u * 1.2 + c1, t1 = 'DETAIL ' + SECT[(n + 1) % SECT.length], w1 = textWidth(t1, c1);
+  marks.push(...lettered(t1, cx, b1, c1, Math.max(1.3, thin), { align: 'center', seed: seed + 5 }), line([cx - w1 / 2, b1 + c1 * .32], [cx + w1 / 2, b1 + c1 * .32], thin, { seed: seed + 6 }));
+  marks.push(...lettered('SCALE 2:1', cx, b1 + c1 * .32 + u * .7 + c2, c2, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 7 }));
+  return { marks, letters: [] };
+}
+// code: a parts list: the code's lines its rows, ruled thin between; a column of item numbers at the left; the head row
+// ("ITEM", "DESCRIPTION") above; the list ruled heavy round
+// starts: the tops of the rows that begin a line of the code (a line the box wraps runs on in its item's row, unruled)
+function code({ box, rows, starts = null, u, seed = 1 }) {
+  const { thin, thick } = weights(u), [X0, Y0, X1, Y1] = box, marks = [], cc = Math.max(5.6, u * .62), ic = Math.max(6.5, u * .78);
+  const hr = rows[0].top - Y0, colX = rows[0].left - u * 1.4, tops = rows.map(r => r.top), bot = Y1;
+  marks.push(...rect([X0, Y0, X1, bot], thick, { seed }), line([X0, Y0 + hr], [X1, Y0 + hr], thick, { seed: seed + 1 }), line([colX, Y0], [colX, bot], thin, { seed: seed + 2 }));
+  const begins = r => !starts || starts.some(t => Math.abs(t - r.top) < 3);
+  rows.slice(1).forEach((r, i) => { if (begins(r)) marks.push(line([X0, r.top], [X1, r.top], thin, { seed: seed + 10 + i })); });
+  const hb = Y0 + hr / 2 + cc / 2; marks.push(...lettered('ITEM', (X0 + colX) / 2, hb, Math.min(cc, cc * (colX - X0 - u * .5) / textWidth('ITEM', cc)), 1.3, { align: 'center', seed: seed + 3 }), ...lettered('DESCRIPTION', colX + u * .9, hb, cc, 1.3, { seed: seed + 4 }));
+  let item = 0; rows.forEach((r, i) => { if (begins(r)) marks.push(...letter(String(++item), (X0 + colX) / 2, r.base, ic, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 20 + i })); });
+  return { marks, letters: [] };
+}
+// pull: the general notes: "NOTES:" above, and the quotation as note 1, its numeral hung in the margin
+function pull({ lines, u, seed = 1, n = 1 }) {
+  const { thin } = weights(u), L0 = lines[0], hc = Math.max(7.5, u * 1.05), nc = Math.max(7.5, u * 1.05), marks = [];
+  marks.push(...lettered('NOTES:', L0.left, L0.top - u * 1.3, hc, Math.max(1.3, thin), { seed }));
+  marks.push(...lettered(n + '.', L0.left - u * .9, L0.base, nc, Math.max(1.3, thin), { align: 'right', seed: seed + 3 }));
+  return { marks, letters: [] };
+}
+// aside: a note in its box, flagged: the thin box round it and, on its upper left corner, the flag (the triangle a drawing
+// flags a note with) carrying the note's number
+function aside({ box, u, seed = 1, n = 1 }) {
+  const { thin } = weights(u), [X0, Y0, X1, Y1] = box, marks = [], s = u * 2.4, h = s * Math.sqrt(3) / 2, c = [X0 + s * .9, Y0];
+  const A = [c[0], c[1] - h * .62], Bp = [c[0] + s / 2, c[1] + h * .38], C = [c[0] - s / 2, c[1] + h * .38];
+  // the box's top is broken where the flag stands on it
+  marks.push(line([X0, Y0], [C[0] - thin, Y0], thin, { seed }), line([Bp[0] + thin, Y0], [X1, Y0], thin, { seed: seed + 1 }), line([X1, Y0], [X1, Y1], thin, { seed: seed + 2 }), line([X1, Y1], [X0, Y1], thin, { seed: seed + 3 }), line([X0, Y1], [X0, Y0], thin, { seed: seed + 4 }));
+  marks.push(tpen([A, Bp, C, A, [A[0] + (Bp[0] - A[0]) * .06, A[1] + (Bp[1] - A[1]) * .06]], thin, { seed: seed + 5 }));
+  const fc = s * .34; marks.push(...letter(String(n), c[0], c[1] + h * .38 - s * .12, fc, Math.max(1.3, fc * .17), { align: 'center', seed: seed + 6 }));
+  return { marks, letters: [] };
+}
+// nav: the drawing list (the sheet index of a set): "SHEET" and "TITLE" over the entries, each entry's sheet number in the
+// column to its left, the rows ruled, the list boxed
+function nav({ box, entries, u, seed = 1 }) {
+  const { thin, thick } = weights(u), cc = Math.max(5.6, u * .62), ic = Math.max(6.5, u * .8), marks = [], rh = entries.length > 1 ? entries[1].top - entries[0].top : u * 3.5;
+  const eL = Math.min(...entries.map(e => e.left)), X0 = eL - u * 5, colX = eL - u * 1.1, X1 = Math.max(...entries.map(e => e.right)) + u * 2.2, Y0 = entries[0].top - rh * .9, top = entries[0].top - rh * .1, Y1 = entries.at(-1).top + rh * .9;
+  marks.push(...rect([X0, Y0, X1, Y1], thick, { seed }), line([X0, top], [X1, top], thin, { seed: seed + 1 }), line([colX, Y0], [colX, Y1], thin, { seed: seed + 2 }));
+  entries.slice(1).forEach((e, i) => marks.push(line([X0, e.top - rh * .1], [X1, e.top - rh * .1], thin, { seed: seed + 10 + i })));
+  const hb = (Y0 + top) / 2 + cc / 2;
+  marks.push(...lettered('SHEET', (X0 + colX) / 2, hb, Math.min(cc, cc * (colX - X0 - u * .5) / textWidth('SHEET', cc)), 1.3, { align: 'center', seed: seed + 3 }), ...lettered('TITLE', colX + u * .9, hb, cc, 1.3, { seed: seed + 4 }));
+  entries.forEach((e, i) => marks.push(...letter(String(i + 1), (X0 + colX) / 2, e.base, ic, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 20 + i })));
+  return { marks, letters: [] };
+}
+export const frames = { quote: a => quote({ tb: 1, ...a }), figure, code, pull, aside, nav };
+
 
 // ---- laying it ---------------------------------------------------------------------------------------------------------------------
 // The pencil's construction first, then the ink, as the drawing was made (printOf lays black before green; here the blue
 // construction, col 'g', is drawn first)
+// (a lettering point, { dot }, is laid as ink, as the pen set down: a round blot, not a stroke)
 export function printOf(el, o) {
+  const all = (el.marks ?? []).flat(3), dots = all.filter(m => m.dot).map(m => ({ dot: m.dot, r: m.r, col: m.col }));
+  el = { ...el, marks: all.filter(m => !m.dot), letters: [...(el.letters ?? []), ...dots] };
   const ready = (el.letters ?? []).filter(L => L.M), p = occultPrint({ ...el, letters: (el.letters ?? []).filter(L => !L.M) }, o), ord = { g: 0, k: 1, r: 2 };
   p.runs.sort((a, b) => ord[a.col] - ord[b.col]); p.letters.push(...ready.map(L => ({ ...L, wet: .06, dry: .28 }))); return p; }
 
@@ -311,4 +464,7 @@ export const palette = {
   light: { k: [26, 26, 30], g: [168, 204, 228], r: [184, 58, 38] },
   dark: { k: [226, 233, 240], g: [52, 76, 100], r: [232, 112, 84] },
 };
-export default { label: 'Cyber · the drawing office', initial, paraph, filler, frames, palette, printOf };
+export const loadFace = async () => {};   // (Hershey's letters are data: nothing to load)
+initial.load = loadFace;
+export const draft = { label: 'Draft · the drawing office', initial, paraph, filler, breakMark, frames, palette, printOf, kinds, FILLERS, loadFace };
+export default draft;
