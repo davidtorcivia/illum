@@ -76,7 +76,45 @@ width); our Garamond B's members are 10–13 px at a desktop drop, so the panel 
 - the counters, when wide enough, keep their hairlines as one central column with an eye beside it (466773); the domes
   are drawn lumpy and leaning, studded with small loops with points.
 
-## 5. The letter
+## 4c. The Lombards (third pass: a real Lombardic alphabet, at 467763's density)
+
+**Sources.** The whole of Met 467763 (Gradual, Italian, c. 1310–15: 34 open-access images, `lomb-raw/`), one book and one
+hand of red-and-blue filigree Lombards (A ×4, B, D, E, G ×2, I, K ×3, L, O, S, V ×2, X on g00/g03/g04/g05; the great P with its
+roundel panel on g07), with Met 466790 (D, uncial h) and CMA 1985.60.a/b (F, h, L) of the same century for letters it lacks.
+
+**How they are built** (at 4×): body solid azurite or minium, often parted (a stem split in the two colours, a red
+channel down a blue stem); the counters are not bare but *worked panels*: a double white line just inside the edge, then a
+field of roundels (rings, doubled when large) each holding a trefoil of white points, red points in them, small white points
+between (the P's bowl: ~25 roundels, each ~1/9 of the letter's height). The white is reserved parchment.
+
+**Tracing** (`tools/tracelomb.py`): paint = saturated red or blue (brown text and black notes out); the solid body is
+where paint fills a small window (over .8), its largest pieces kept; worked panels and fine penwork fall away by the same test,
+so a trace gives the body's silhouette. Clean traces: B, E, F, G, h, I, K, O, V (the U form), X, A's stem and bar, D (466790).
+Failed: the darker S (its blue-black band is lost by the paint test), the P (too pale a scan), the panel-heavy A/K/L/X variants.
+
+**Completing the set** (`tools/lombcompose.py`, `research/choirbook/lombards.json`): only from the traced letters' own
+strokes, cropped, erased, mirrored, placed. A = A's stem and bar + the X's main stroke mirrored as its leg; C = G less its
+tongue; D = the O's bowl + 466790's ascender; J = I; L = I + F's arm as foot; M = G's back + I + h's leg; N = I + h's leg;
+P = I + O's bowl; Q = O + X's arm as tail; R = P + K's leg; S = G's back and its turn rotated, joined by X's stroke (the weakest:
+re-trace from another S when one is found); T = E's bar + I; U = V; W = V + V; Y = X's arms + I; Z = E's bar twice + X's stroke.
+The O's head lay under a staff line in the scan; its foot, turned over, stands for it (O, Q, D).
+
+**Fonts** (`tools/lombfont.py`): one WOFF2 per letter (~1 kB each, 27.8 kB all), with EB Garamond's vertical metrics and cap
+height, so kit/illum.js's drop measure (Garamond's) places a Lombard exactly; the float is the Lombard's own width. The host
+sets `.ini { font-family: "Choir Lombard", "EB Garamond" }`; `initial.load()` fetches the letters the page uses. The letter's
+coverage is drawn from the face at the drop's measure; which letter it is, the registry does not say (it hands a registry
+style only Garamond's coverage): it is read back from that coverage (`identify`).
+
+**The filigree, now**: closed counters become panels (painted, worked: double line, roundels with trefoils and red points,
+small points); the stem's red channel as before; penwork round the letter as painted. Light: azurite paint (paintField).
+Dark: the designed dark blue (inkDark), laid flat with its opacity pooled at the rim; the white is the dark ground.
+
+**Hooks kit/illum.js would need** (not edited: shared): (1) a registry initial is not told its letter (`ch` in its args);
+(2) a pigment letter in dark is `flat(lift(pigment))` (a pastel): a `letter.pigmentDark` or an unlifted flat; here the
+letter is returned as `{ M, col }` in dark to get the style's designed `inkDark` (flat, no paint texture); (3) `initial.width`
+routes a style to the written path, so a registry style cannot size its float itself: the font's metrics do it instead.
+
+## 5. The letter (first and second passes)
 
 No OFL Lombardic face is good enough. Checked: Metamorphous, MedievalSharp, Lancelot, Almendra Display, Jacquard 24,
 Grenze Gotisch, Uncial Antiqua (rejected earlier). The closest (Metamorphous) has the round E and D but a modern, even

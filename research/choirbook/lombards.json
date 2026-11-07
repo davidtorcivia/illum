@@ -1,0 +1,691 @@
+{
+ "_": "The choir book's Lombardic alphabet (tools/lombcompose.py). Sources: Met 467763 (Gradual, Italian, c. 1310-15; images g00/g03/g05 of the Met's set), Met 466790, CMA 1985.60.b, traced with tools/tracelomb.py (research/17 \u00a76). Units: each source letter's height = 1.",
+ "A": {
+  "char": "A",
+  "note": "467763 g05 A (stem and bar) + its leg from the same book's X main stroke, mirrored",
+  "pieces": [
+   {
+    "src": "A3"
+   },
+   {
+    "src": "X1b",
+    "erase": [
+     [
+      0.62,
+      0,
+      0.95,
+      0.42
+     ],
+     [
+      0.08,
+      0.58,
+      0.42,
+      1
+     ]
+    ],
+    "fx": true,
+    "s": 0.98,
+    "at": [
+     -0.47,
+     0.02
+    ]
+   }
+  ]
+ },
+ "B": {
+  "char": "B",
+  "note": "467763 g00 B",
+  "pieces": [
+   {
+    "src": "B1"
+   }
+  ]
+ },
+ "C": {
+  "char": "C",
+  "note": "467763 g00 G, its tongue and turned-up foot taken away",
+  "pieces": [
+   {
+    "src": "G2",
+    "erase": [
+     [
+      0.47,
+      0.24,
+      0.95,
+      0.52
+     ],
+     [
+      0.72,
+      0.44,
+      0.95,
+      0.75
+     ]
+    ]
+   }
+  ]
+ },
+ "D": {
+  "char": "D",
+  "note": "uncial D: 467763 g03 O's bowl + the ascender of 466790's D (its head, under a staff line in the scan, is its foot turned over)",
+  "pieces": [
+   {
+    "src": "O1",
+    "crop": [
+     0.27,
+     0.03,
+     1.26,
+     1
+    ],
+    "erase": [
+     [
+      0,
+      0,
+      1.5,
+      0.14
+     ]
+    ]
+   },
+   {
+    "src": "O1",
+    "crop": [
+     0.27,
+     0.84,
+     1.26,
+     1
+    ],
+    "fy": true,
+    "at": [
+     0,
+     0.025
+    ]
+   },
+   {
+    "src": "D2",
+    "crop": [
+     0.29,
+     0.12,
+     0.84,
+     0.32
+    ],
+    "s": 1.1,
+    "at": [
+     -0.12,
+     -0.12
+    ]
+   }
+  ]
+ },
+ "E": {
+  "char": "E",
+  "note": "467763 g00 E (uncial)",
+  "pieces": [
+   {
+    "src": "E1",
+    "erase": [
+     [
+      0.37,
+      0,
+      0.53,
+      0.04
+     ]
+    ]
+   }
+  ]
+ },
+ "F": {
+  "char": "F",
+  "note": "CMA 1985.60.b F",
+  "pieces": [
+   {
+    "src": "F1",
+    "crop": [
+     0,
+     0,
+     0.8,
+     1
+    ]
+   }
+  ]
+ },
+ "G": {
+  "char": "G",
+  "note": "467763 g00 G",
+  "pieces": [
+   {
+    "src": "G2"
+   }
+  ]
+ },
+ "H": {
+  "char": "H",
+  "note": "CMA 1985.60.a h (uncial)",
+  "pieces": [
+   {
+    "src": "H2"
+   }
+  ]
+ },
+ "I": {
+  "char": "I",
+  "note": "467763 g00 I",
+  "pieces": [
+   {
+    "src": "I1"
+   }
+  ]
+ },
+ "J": {
+  "char": "J",
+  "note": "the I (Lombardic J is I)",
+  "pieces": [
+   {
+    "src": "I1"
+   }
+  ]
+ },
+ "K": {
+  "char": "K",
+  "note": "467763 g00 K",
+  "pieces": [
+   {
+    "src": "K1"
+   }
+  ]
+ },
+ "L": {
+  "char": "L",
+  "note": "the I's stem + the F's arm turned down as its foot",
+  "pieces": [
+   {
+    "src": "I1"
+   },
+   {
+    "src": "F1",
+    "crop": [
+     0.21,
+     0.28,
+     0.62,
+     0.55
+    ],
+    "fy": true,
+    "s": 1.2,
+    "at": [
+     0.24,
+     0.67
+    ]
+   }
+  ]
+ },
+ "M": {
+  "char": "M",
+  "note": "uncial M: the G's round back, the I's stem, the h's leg",
+  "pieces": [
+   {
+    "src": "G2",
+    "crop": [
+     0,
+     0,
+     0.42,
+     1
+    ],
+    "s": 1
+   },
+   {
+    "src": "I1",
+    "s": 0.95,
+    "at": [
+     0.33,
+     0.03
+    ]
+   },
+   {
+    "src": "H2",
+    "crop": [
+     0.26,
+     0.26,
+     0.7,
+     0.98
+    ],
+    "s": 1.3,
+    "at": [
+     0.55,
+     0.06
+    ]
+   }
+  ]
+ },
+ "N": {
+  "char": "N",
+  "note": "uncial N: the I's stem and the h's leg, raised to the cap line",
+  "pieces": [
+   {
+    "src": "I1"
+   },
+   {
+    "src": "H2",
+    "crop": [
+     0.26,
+     0.26,
+     0.7,
+     0.98
+    ],
+    "s": 1.32,
+    "at": [
+     0.2,
+     0.02
+    ]
+   }
+  ]
+ },
+ "O": {
+  "char": "O",
+  "note": "467763 g03 O, its penwork stub and the staff line erased (its head, under a staff line in the scan, is its foot turned over)",
+  "pieces": [
+   {
+    "src": "O1",
+    "crop": [
+     0.27,
+     0.03,
+     1.26,
+     1
+    ],
+    "erase": [
+     [
+      0,
+      0,
+      1.5,
+      0.14
+     ]
+    ]
+   },
+   {
+    "src": "O1",
+    "crop": [
+     0.27,
+     0.84,
+     1.26,
+     1
+    ],
+    "fy": true,
+    "at": [
+     0,
+     0.025
+    ]
+   }
+  ]
+ },
+ "P": {
+  "char": "P",
+  "note": "the I's stem + the O's bowl (467763)",
+  "pieces": [
+   {
+    "src": "I1"
+   },
+   {
+    "src": "O1",
+    "crop": [
+     0.76,
+     0.04,
+     1.26,
+     1
+    ],
+    "erase": [
+     [
+      0,
+      0,
+      1.5,
+      0.075
+     ]
+    ],
+    "s": 0.62,
+    "at": [
+     0.17,
+     0.0
+    ]
+   }
+  ]
+ },
+ "Q": {
+  "char": "Q",
+  "note": "the O + the X's lower arm as its tail (its head, under a staff line in the scan, is its foot turned over)",
+  "pieces": [
+   {
+    "src": "O1",
+    "crop": [
+     0.27,
+     0.03,
+     1.26,
+     1
+    ],
+    "erase": [
+     [
+      0,
+      0,
+      1.5,
+      0.14
+     ]
+    ]
+   },
+   {
+    "src": "O1",
+    "crop": [
+     0.27,
+     0.84,
+     1.26,
+     1
+    ],
+    "fy": true,
+    "at": [
+     0,
+     0.025
+    ]
+   },
+   {
+    "src": "X1b",
+    "crop": [
+     0.1,
+     0.62,
+     0.37,
+     1
+    ],
+    "fx": true,
+    "s": 0.7,
+    "at": [
+     0.64,
+     0.72
+    ]
+   }
+  ]
+ },
+ "R": {
+  "char": "R",
+  "note": "the I's stem + the O's bowl + the K's leg (467763)",
+  "pieces": [
+   {
+    "src": "I1"
+   },
+   {
+    "src": "O1",
+    "crop": [
+     0.76,
+     0.04,
+     1.26,
+     1
+    ],
+    "erase": [
+     [
+      0,
+      0,
+      1.5,
+      0.075
+     ]
+    ],
+    "s": 0.52,
+    "at": [
+     0.17,
+     0.0
+    ]
+   },
+   {
+    "src": "K1",
+    "crop": [
+     0.28,
+     0.4,
+     0.49,
+     1
+    ],
+    "s": 1.0,
+    "at": [
+     0.26,
+     0.42
+    ]
+   }
+  ]
+ },
+ "S": {
+  "char": "S",
+  "note": "composed: the G's upper back, its turn (rotated) below, joined by the X's main stroke",
+  "pieces": [
+   {
+    "src": "G2",
+    "crop": [
+     0,
+     0,
+     0.95,
+     0.52
+    ],
+    "erase": [
+     [
+      0.45,
+      0.25,
+      0.95,
+      0.52
+     ]
+    ],
+    "s": 0.85
+   },
+   {
+    "src": "G2",
+    "crop": [
+     0,
+     0,
+     0.95,
+     0.52
+    ],
+    "erase": [
+     [
+      0.45,
+      0.25,
+      0.95,
+      0.52
+     ]
+    ],
+    "fx": true,
+    "fy": true,
+    "s": 0.85,
+    "at": [
+     0.02,
+     0.42
+    ]
+   },
+   {
+    "src": "X1b",
+    "crop": [
+     0.25,
+     0.25,
+     0.7,
+     0.75
+    ],
+    "erase": [
+     [
+      0.55,
+      0.2,
+      0.9,
+      0.42
+     ],
+     [
+      0.25,
+      0.58,
+      0.45,
+      0.8
+     ]
+    ],
+    "s": 0.75,
+    "at": [
+     0.12,
+     0.27
+    ]
+   }
+  ]
+ },
+ "T": {
+  "char": "T",
+  "note": "the E's bar along the head + the I's stem",
+  "pieces": [
+   {
+    "src": "I1",
+    "at": [
+     0.32,
+     0.02
+    ]
+   },
+   {
+    "src": "E1",
+    "crop": [
+     0.1,
+     0.41,
+     0.88,
+     0.55
+    ],
+    "s": 1.15,
+    "at": [
+     0,
+     0
+    ]
+   }
+  ]
+ },
+ "U": {
+  "char": "U",
+  "note": "467763 g05 V (the U form)",
+  "pieces": [
+   {
+    "src": "V1"
+   }
+  ]
+ },
+ "V": {
+  "char": "V",
+  "note": "467763 g05 V",
+  "pieces": [
+   {
+    "src": "V1"
+   }
+  ]
+ },
+ "W": {
+  "char": "W",
+  "note": "two Vs",
+  "pieces": [
+   {
+    "src": "V1"
+   },
+   {
+    "src": "V1",
+    "crop": [
+     0.3,
+     0,
+     0.78,
+     1
+    ],
+    "at": [
+     0.62,
+     0
+    ]
+   }
+  ]
+ },
+ "X": {
+  "char": "X",
+  "note": "467763 g00 X",
+  "pieces": [
+   {
+    "src": "X1b"
+   }
+  ]
+ },
+ "Y": {
+  "char": "Y",
+  "note": "the X's upper arms + the I's stem",
+  "pieces": [
+   {
+    "src": "X1b",
+    "crop": [
+     0,
+     0,
+     0.92,
+     0.52
+    ],
+    "erase": [
+     [
+      0.45,
+      0.42,
+      0.6,
+      0.52
+     ]
+    ]
+   },
+   {
+    "src": "I1",
+    "crop": [
+     0,
+     0.42,
+     0.31,
+     1
+    ],
+    "at": [
+     0.33,
+     0.45
+    ]
+   }
+  ]
+ },
+ "Z": {
+  "char": "Z",
+  "note": "the E's bar at head and foot + the X's main stroke, mirrored",
+  "pieces": [
+   {
+    "src": "E1",
+    "crop": [
+     0.1,
+     0.41,
+     0.88,
+     0.55
+    ],
+    "s": 1.0,
+    "at": [
+     0.02,
+     0
+    ]
+   },
+   {
+    "src": "E1",
+    "crop": [
+     0.1,
+     0.41,
+     0.88,
+     0.55
+    ],
+    "fx": true,
+    "s": 1.0,
+    "at": [
+     0.0,
+     0.88
+    ]
+   },
+   {
+    "src": "X1b",
+    "erase": [
+     [
+      0.62,
+      0,
+      0.95,
+      0.42
+     ],
+     [
+      0.08,
+      0.58,
+      0.42,
+      1
+     ]
+    ],
+    "fx": true,
+    "s": 0.85,
+    "at": [
+     0,
+     0.07
+    ]
+   }
+  ]
+ }
+}

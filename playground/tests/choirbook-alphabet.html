@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Choir Lombards</title>
+<!--
+  The choir book's Lombardic alphabet, A-Z, each as a drop initial with its filigree (kit/styles/choirbook.js): traced
+  from Met 467763 (Gradual, Italian, c. 1310-15) and two leaves of its time, completed from the set's own strokes
+  (research/choirbook/lombards.json says which letter is traced and which composed). ?rich=0..1 (default .25, so the
+  margin's staff is short), ?filigree=0|1 (default on), ?theme=dark|light.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; --rubric: rgb(176 58 36); color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper: rgb(28 25 22); --ink: rgb(222 212 196); --rubric: rgb(232 112 88); color-scheme: dark; } }
+  :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); --rubric: rgb(232 112 88); color-scheme: dark; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 20px/1.6 "EB Garamond", Garamond, serif; font-kerning: normal; -webkit-font-smoothing: antialiased; }
+  .sheet { position: relative; max-width: 900px; margin: 0 auto; padding: 120px 100px 140px 200px; box-sizing: border-box; }
+  .sheet > canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .text { position: relative; hyphens: auto; text-align: justify; text-wrap: pretty; }
+  h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; color: var(--rubric); margin: 0 0 .15em; }
+  .sub { font-style: italic; margin: 0 0 2.4em; }
+  h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
+  p { margin: 0; }
+  /* the gap the scribe left for the rubricator's paraph */
+  p.par { text-indent: 1.6em; }
+  hr { border: 0; height: 3.2em; margin: .4em 0; }
+  hr[data-rank="2"] { height: 4.6em; }
+  a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
+  nav.toc { margin: 0 0 4.2em; font-style: italic; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; }
+  blockquote { margin: 1.4em 0; padding: 0 0 0 2.4em; }
+  blockquote p { margin: 0 0 .3em; }
+  blockquote footer { font-style: italic; font-size: .9em; text-align: right; }
+  figure { margin: 2.8em auto 2em; max-width: 24em; }
+  figure svg { display: block; width: 100%; height: auto; }
+  figure svg g { stroke: var(--ink); }
+  figure svg rect[fill] { fill: var(--ink); }
+  figcaption { font-style: italic; font-size: .9em; margin-top: 1.6em; text-align: left; hyphens: manual; }
+  pre { margin: 1.8em 0; padding: 1.3em 1.6em; font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; hyphens: none; }
+  .pull { margin: 2.8em 1.5em; font-size: 1.35em; line-height: 1.4; font-style: italic; text-align: center; hyphens: manual; }
+  aside.note { margin: 2em 0 2em 2.5em; padding: 1em 0 .2em 1.4em; font-size: .9em; }
+  aside.note p { margin: 0 0 .6em; }
+  /* the letter is text; its ink is on the canvas. Sizes are set from the font's metrics once it has loaded */
+  /* the initials are set in the choir book's own Lombards (kit/styles/choirbook.js loads the letters a page uses) */
+  .ini { color: transparent; font-weight: 600; font-family: "Choir Lombard", "EB Garamond", serif; }
+  .ini.drop { float: left; line-height: 1; }
+  .ini.line { font-size: 1.5em; line-height: 0; margin-right: .04em; }
+  .ghost .ini { color: rgb(255 0 160 / .45); }
+  .colophon { max-width: 900px; margin: 0 auto; padding: 0 100px 60px 200px; box-sizing: border-box; font-size: 14px; font-style: italic; opacity: .6; }
+  .colophon a { color: inherit; }
+  /* the richness control (03's): a thin rule with a small ring on it */
+  .rich { display: inline-flex; align-items: center; gap: .45em; white-space: nowrap; }
+  .rich input { -webkit-appearance: none; appearance: none; width: 6.5em; height: 1.1em; margin: 0; background: transparent; color: inherit; cursor: pointer; }
+  .rich input::-webkit-slider-runnable-track { height: 1px; background: currentColor; }
+  .rich input::-moz-range-track { height: 1px; background: currentColor; }
+  .rich input::-webkit-slider-thumb { -webkit-appearance: none; width: .62em; height: .62em; margin-top: calc(-.31em + .5px); border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
+  .rich input::-moz-range-thumb { width: .62em; height: .62em; border-radius: 50%; background: var(--paper); border: 1px solid currentColor; }
+  .rich input:focus-visible { outline: 1px dotted currentColor; outline-offset: 3px; }
+  @media (max-width: 640px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .sheet { padding: 64px 20px 80px 48px; }
+    .text { text-align: left; }
+    blockquote { padding-left: 2em; }
+    pre { padding: 1.2em 1.1em; font-size: 13.5px; }
+    .pull { margin: 2.6em .4em; }
+    aside.note { margin-left: .8em; }
+    .colophon { padding: 0 20px 40px 48px; }
+  }
+  .text p {{ margin: 0 0 1.6em; min-height: 6.4em; }}
+</style>
+</head>
+<body>
+<main class="sheet">
+  <article class="text">
+    <h1>Choir Lombards</h1>
+    <p class="sub">A to Z, after Met 467763</p>
+    <p><span class="ini drop" data-lines="3">A</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">C</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">D</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">E</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">F</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">G</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">H</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">I</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">J</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">K</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">L</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">M</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">N</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">O</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">P</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">Q</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">R</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">S</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">T</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">U</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">V</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">W</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">X</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">Y</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+    <p><span class="ini drop" data-lines="3">Z</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+  </article>
+</main>
+<script type="module">
+import { rubricate } from '../kit/illum.js';
+import '../kit/styles/choirbook.js';
+const q = new URLSearchParams(location.search);
+if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
+if (!q.has('filigree')) { q.set('filigree', '1'); history.replaceState(null, '', '?' + q); }
+const r = rubricate(document.querySelector('.text'), { style: 'choirbook', rich: q.get('rich') ?? .25, select: { filler: 'none' },
+  on: (state, t) => { document.body.dataset.timing = t ? `all ${t.all} ms` : state; } });
+</script>
+<script type="module" src="../kit/theme-toggle.js"></script>
+</body>
+</html>

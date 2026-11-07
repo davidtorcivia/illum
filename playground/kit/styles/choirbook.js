@@ -20,8 +20,8 @@
 //   bare, so the page's own colour in light and dark). Drop initials, usual budget up; ?filigree=0|1 overrides.
 // - a small cross of points in the margin (467763), on the finer budgets.
 // - the stave (every leaf): four red rules, the square notes in black, the finalis, as the chapter break.
-// The letter stays a real face (EB Garamond 600): five procedurally built letters were rejected, and no free Lombardic
-// face is good enough (research/17 §5).
+// The letter is the choir book's own Lombard: an alphabet traced from Met 467763 and leaves of its time, completed from its
+// own strokes, one small webfont per letter (research/17 §4c; see "the letter" below); EB Garamond if a face is missing.
 //
 // Marks are the registry's: strokes { pts, col, w, start, end, load, dry, broad, swell, nib, ink? } and points
 // { dot, p, r, col, ink? }; col 'a' | 'b' (red and blue in turn), 'k' the notes' black.
@@ -91,68 +91,71 @@ function ridges(L, minLen, frac = .5) {
     return q.slice(3, -3); });
 }
 
-// ---- the filigree (467763's K and X, at 4×) ---------------------------------------------------------------------------------
-// How it is made in the sources: the letter's body is not one flat blue. Down its straight stem runs a channel of the other
-// colour, pointed at both ends, a hair of bare parchment left between it and the blue (the painter laid round it); in
-// its curved members the blue is worked with white: two lines following the stroke a little in from its edges and a
-// scroll running between them, touching one side and then the other, small points in the bays it leaves. The white is
-// the parchment left bare, so it is the page's own colour in light and in dark (a reserve, cut from the paint here); its
-// lines are about a hundred-and-fiftieth of the letter's height, the scroll's period some four of the stroke's half-
-// widths. It stops short where the stroke thins: nothing is worked in a member narrower than ~6 px, so on a phone it
-// thins out by itself to the channel and a single scroll. Returns the paint's mask with the reserve cut, and the
-// channel's strokes (a broad nib, laid after the paint).
+// ---- the filigree (467763's K, X and P, at 4×) ---------------------------------------------------------------------------------
+// How it is made in the sources: the Lombard's body is not one flat blue. Its stem is split: a channel of the other colour
+// down it, pointed at both ends, a hair of bare parchment reserved between it and the blue. Its broad members are worked
+// panels: a double white line just inside the member's edge, following it all round, and inside that a field of roundels,
+// each a ring (two where there is room) holding a trefoil of white points, a red point in each where they are big enough,
+// small white points scattered between (the P, g07; the K, g00). The white is the parchment left bare by the painter (it
+// carries the parchment's grain), so here it is cut from the paint: the page's own colour, in light and in dark. Measured
+// (467763, at 4×): white lines ~1/130 of the letter's height, the double line's gap about one line, roundels ~1/9 of the
+// height across. It thins itself: a member under ~0.15 of the height across is left solid; a roundel too small for its
+// trefoil keeps one point; so on a phone the panels have fewer, larger-looking parts, never mush.
+// Returns the paint's mask with the reserve cut, the channel's strokes (a broad nib, laid after the paint) and the red
+// points (laid last).
 const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const taperOf = L => f => .08 + .92 * Math.pow(1 - sm(1 - Math.min(.35, 34 / L), 1, f), 1.2);   // the broad nib's lift (kit/illum.js swell)
-export function filigree(L, seed, rgb) {
-  const { M, w, h, x0, y0, res } = L, paper = new Uint8Array(w * h); let r0 = h, r1 = 0;
+export function filigree(L0, seed) {
+  // the counters the letter closes are its panels (467763's bowls are worked, not bare): painted, and worked below
+  const { w, h, x0, y0, res } = L0, out0 = new Uint8Array(w * h), st = [];
+  for (let x = 0; x < w; x++) st.push(x, (h - 1) * w + x); for (let y = 0; y < h; y++) st.push(y * w, y * w + w - 1);
+  while (st.length) { const i = st.pop(); if (out0[i] || L0.M[i] > .5) continue; out0[i] = 1; const x = i % w; if (x > 0) st.push(i - 1); if (x < w - 1) st.push(i + 1); if (i >= w) st.push(i - w); if (i < w * (h - 1)) st.push(i + w); }
+  const pan = new Uint8Array(w * h), M = Float32Array.from(L0.M); for (let k = 0; k < w * h; k++) if (!out0[k] && L0.M[k] <= .5) { pan[k] = 1; M[k] = 1; }
+  const L = { ...L0, M }, paper = new Uint8Array(w * h); let r0 = h, r1 = 0;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; paper[k] = M[k] <= .5; if (!paper[k]) { r0 = Math.min(r0, j); r1 = Math.max(r1, j); } }
-  const D = edt(paper, w, h), H = (r1 - r0) / res, r = stream(seed, 'filigree'), cut = new Float32Array(w * h), marks = [];
-  const depth = ([x, y]) => { const i = Math.floor((x - x0) * res), j = Math.floor((y - y0) * res); return i < 0 || j < 0 || i >= w || j >= h ? 0 : D[j * w + i] / res; };
-  // the reserve: a stroke of bare parchment wd px wide (its edge eased over a quarter of a pixel), or a point
+  const D = edt(paper, w, h), H = (r1 - r0) / res, r = stream(seed, 'filigree'), cut = new Float32Array(w * h), marks = [], reds = [];
+  const at = (x, y) => { const i = Math.floor((x - x0) * res), j = Math.floor((y - y0) * res); return i < 0 || j < 0 || i >= w || j >= h ? -1 : j * w + i; };
+  const depth = p => { const k = at(...p); return k < 0 ? 0 : D[k] / res; };
   const lay = (pts, wd) => { const R = wd / 2 + 1 / res; for (const [px, py] of resample(pts, .2)) { const ci = (px - x0) * res, cj = (py - y0) * res, Rr = R * res;
     for (let j = Math.max(0, Math.floor(cj - Rr)); j <= Math.min(h - 1, Math.ceil(cj + Rr)); j++) for (let i = Math.max(0, Math.floor(ci - Rr)); i <= Math.min(w - 1, Math.ceil(ci + Rr)); i++) {
       const d = Math.hypot(i + .5 - ci, j + .5 - cj) / res, v = Math.min(1, Math.max(0, (wd / 2 - d) * 3.2 + .5)), k = j * w + i; if (v > cut[k]) cut[k] = v; } } };
   const point = (c, rad) => lay([c, [c[0] + .01, c[1]]], rad * 2);
-  const lw = Math.max(.55, H * .0068), chans = [];
-  const segD = (p, { a, b }) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy))); return Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dy * t); };   // a white line's width (467763: ~1/150 of the letter)
-  // (the stem first, so the white work knows where its channel runs)
-  const upright = P => { const L2 = arclen(P); return Math.abs(P.at(-1)[1] - P[0][1]) / L2 * L2; };
-  for (const P0 of ridges(L, H * .16, .36).sort((a, b) => upright(b) - upright(a))) {
-    const P = resample(P0, .5), dep = P.map(depth), Lp = arclen(P), md = dep.reduce((a, b) => a + b, 0) / dep.length;
-    const straight = Math.hypot(P.at(-1)[0] - P[0][0], P.at(-1)[1] - P[0][1]) / Lp;
-    // (the channel only in the stem: the longest member that runs straight and upright)
-    if (straight > .97 && Lp >= H * .45 && Math.abs(P.at(-1)[1] - P[0][1]) > Lp * .9 && md >= 3.4) {
-      // the channel: from the middle outward both ways, a broad nib laid square across the stroke, lifting to a point
-      // (one stroke, straight down the stem, set down to a point and lifted to a point; the reserve follows its width)
-      const chw = Math.min(md * .62, H * .06), gap = Math.max(.65, lw * 1.15), a = P[0], b = P.at(-1), t = [(b[0] - a[0]) / Lp, (b[1] - a[1]) / Lp];
+  const ring = (c, R, wd) => lay(Array.from({ length: Math.max(16, Math.ceil(R * 6)) + 1 }, (_, k) => { const a = k / Math.max(16, Math.ceil(R * 6)) * 2 * Math.PI; return [c[0] + Math.cos(a) * R, c[1] + Math.sin(a) * R]; }), wd);
+  const lw = Math.max(.6, H * .0078), gp = Math.max(.65, H * .008);
+  // 1. the stem's channel: the longest member that runs straight and upright, if it is broad enough
+  const chans = [], segD = (p, { a, b }) => { const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy))); return Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dy * t); };
+  const upright = P => Math.abs(P.at(-1)[1] - P[0][1]);
+  const stem = ridges(L0, H * .45, .45).filter(P => { const Lp = arclen(P); return Math.hypot(P.at(-1)[0] - P[0][0], P.at(-1)[1] - P[0][1]) / Lp > .96 && upright(P) > Lp * .85; }).sort((a, b) => upright(b) - upright(a))[0];
+  const B0 = new Uint8Array(w * h); for (let k = 0; k < w * h; k++) B0[k] = L0.M[k] <= .5; const D0 = edt(B0, w, h), depth0 = p => { const k = at(...p); return k < 0 ? 0 : D0[k] / res; };
+  if (stem) { const dep = resample(stem, 1).map(depth0), md = dep.reduce((a, b) => a + b, 0) / dep.length;
+    if (md >= H * .05) { const chw = Math.min(md * .6, H * .075), gap = Math.max(.7, lw * 1.15), a = stem[0], b = stem.at(-1), Lp = arclen(stem), t = [(b[0] - a[0]) / Lp, (b[1] - a[1]) / Lp];
       const st = resample([a, b], .5), Ls = arclen(st), wf = f => (.4 + .6 * sm(0, Math.min(.15, 9 / Ls), f)) * taperOf(Ls)(f);
       st.forEach((q, i) => point(q, chw * wf(i / (st.length - 1)) / 2 + gap));
-      marks.push({ pts: st, kind: 'channel', w: chw, nib: -Math.atan2(t[0], t[1]) }); chans.push({ a, b, half: chw / 2 + gap });
-      continue; }
-    // (cut back where it comes near the channel: the junction with the stem is left plain blue)
-    for (const Q of (() => { const segs = [[]]; P.forEach(q => { if (chans.some(c => segD(q, c) < c.half + 3)) { if (segs.at(-1).length) segs.push([]); } else segs.at(-1).push(q); }); return segs; })()) {
-    if (Q.length < 4) continue; const P = Q, dep = P.map(depth), Lp = arclen(P), md = dep.reduce((a, b) => a + b, 0) / dep.length;
-    if (md < 3.1 || Lp < H * .14) continue;
-    // the white work in a curved member: a vine down its middle, waving gently with the stroke, a point either side of it
-    // in turn, and the vine's ends turned into a small curl where the stroke still has room (466790's L, 467763's bowls)
-    const S = [0]; for (let i = 1; i < P.length; i++) S.push(S[i - 1] + .5);
-    const nrm = i => { const t = tangentAt(P, i); return [-t[1], t[0]]; }, lam = Math.max(7, md * 5), ph = r() * Math.PI * 2, vw = Math.max(.72, H * .0092);
-    const vine = [], keepI = [];
-    P.forEach((q, i) => { if (dep[i] < 3) return; const n = nrm(i), o = Math.max(0, dep[i] - 2.6 - vw) * .45 * Math.sin(2 * Math.PI * S[i] / lam + ph); vine.push([q[0] + n[0] * o, q[1] + n[1] * o]); keepI.push(i); });
-    if (vine.length < 8) continue;
-    lay(vine, vw);
-    // the curls: off each end, turning toward the stroke's inside, small enough to stay in the paint
-    for (const [e, back] of [[vine[0], vine[Math.min(6, vine.length - 1)]], [vine.at(-1), vine.at(-Math.min(7, vine.length))]]) {
-      const de = depth(e), cr = Math.min(1.9, de - vw - .9); if (cr < 1.05) { point(e, vw * .9); continue; }
-      const hd = Math.atan2(e[1] - back[1], e[0] - back[0]); for (const sg of [1, -1]) { const c = tendril(e, hd, cr * 2 * Math.PI * .85, 1 / cr * sg * .6, 1 / cr * sg * 1.5, 1.3, .25);
-        if (c.every(q => depth(q) > vw * .5 + .7)) { lay(c, vw * .9); break; } } }
-    // points: either side of the vine in turn, a little over a stroke's width apart
-    for (let k = 1, side = 1; k < keepI.length - 1; k++) { const i = keepI[k]; if ((S[i] - S[keepI[0]]) % Math.max(5, md * 2.2) > .5 || dep[i] < 4) continue;
-      const n = nrm(i), o = side * (dep[i] * .52), c = [vine[k][0] + n[0] * o, vine[k][1] + n[1] * o]; if (depth(c) > vw + .9) point(c, Math.max(.7, H * .0085)); side = -side; }
-    }
-  }
+      marks.push({ pts: st, kind: 'channel', w: chw, nib: -Math.atan2(t[0], t[1]) }); chans.push({ a, b, half: md }); } }
+  // 2. the panels: a double white line just inside each panel's edge (the first parts it from the body), then the field
+  const nopan = new Uint8Array(w * h); for (let k = 0; k < w * h; k++) nopan[k] = !pan[k];
+  const P = edt(nopan, w, h), e1 = lw * .55, e2 = e1 + lw + gp;
+  for (let k = 0; k < w * h; k++) { if (!pan[k]) continue; const d = P[k] / res, v = Math.max(1 - Math.abs(d - e1) / (lw / 2 + .12), 1 - Math.abs(d - e2) / (lw / 2 + .12)); if (v > 0) cut[k] = Math.max(cut[k], Math.min(1, v * 1.6)); }
+  // 3. the field inside the double line: roundels, packed from the deepest outward, each a ring (two if it is large) round a
+  // trefoil of points with a red point in each; then small points between
+  const inner = k => P[k] / res - e2 - lw / 2 - gp, cells = [], got = [];
+  for (let k = 0; k < w * h; k += 2) if (pan[k] && inner(k) > 1.3) cells.push(k);
+  cells.sort((a, b) => inner(b) - inner(a) + (r() - .5) * 1.2);
+  const rMax = H * .062;
+  for (const k of cells) { const c = [x0 + (k % w + .5) / res, y0 + ((k / w | 0) + .5) / res], R = Math.min(rMax, inner(k) - .1); if (R < 1.3) continue;
+    if (got.some(g => Math.hypot(g.c[0] - c[0], g.c[1] - c[1]) < g.R + R + gp + lw * .5)) continue; got.push({ c, R }); }
+  for (const { c, R } of got) {
+    ring(c, R - lw / 2, lw); let ri = R - lw / 2;
+    if (R >= 3.6) { ri = R - lw * 1.5 - gp; ring(c, ri, lw * .9); }
+    const dr = Math.max(.55, ri * .28), a0 = r() * 2 * Math.PI;
+    if (ri - lw >= dr * 2.2) for (let q = 0; q < 3; q++) { const a = a0 + q * 2 * Math.PI / 3, p = [c[0] + Math.cos(a) * dr * 1.2, c[1] + Math.sin(a) * dr * 1.2]; point(p, dr); if (dr >= .95) reds.push({ p, r: dr * .45 }); }
+    else point(c, Math.max(.55, Math.min(dr * 1.3, ri - lw))); }
+  // small points between the roundels
+  const n0 = got.length;
+  for (const k of cells) { if (r() > .4) continue; const c = [x0 + (k % w + .5) / res, y0 + ((k / w | 0) + .5) / res], pr = Math.max(.5, lw * .72);
+    if (inner(k) < pr + .3 || got.some(g => Math.hypot(g.c[0] - c[0], g.c[1] - c[1]) < g.R + pr + gp)) continue; point(c, pr); got.push({ c, R: pr }); }
   const out = new Float32Array(w * h); for (let k = 0; k < w * h; k++) out[k] = M[k] * (1 - cut[k]);
-  return { M: { ...L, M: out }, marks };
+  return { M: { ...L, M: out }, full: L, marks, reds };
 }
 
 // ---- the flourish ----------------------------------------------------------------------------------------------------------------
@@ -353,7 +356,51 @@ function pooled(L, seed) {
     out[k] = M[k] * Math.min(1, .8 + .2 * Math.exp(-d / 1.3) + .07 * (n(i / res / 6, j / res / 6) - .5)); }
   return { ...L, M: out };
 }
-export function initial({ G, keep, lh, big, level: li, seed, room: margin, bottom, filigree: filig = null }) {
+// ---- the letter: the choir book's own Lombards ------------------------------------------------------------------------------------
+// Traced from the Lombards of one gradual (Met 467763, Italian, c. 1310-15) and two leaves of its time (tools/tracelomb.py),
+// the alphabet completed from the set's own strokes (tools/lombcompose.py, research/choirbook/lombards.json), each letter its
+// own small webfont (tools/lombfont.py; playground/fonts/choirbook) made with EB Garamond's vertical metrics and cap height,
+// so kit/illum.js, which sizes and places a drop by Garamond's metrics, sets a Lombard exactly where a Garamond capital
+// would stand, and floats it as wide as itself. The host sets its initials in the face (CSS: .ini { font-family: "Choir
+// Lombard", "EB Garamond" }); initial.load() fetches the letters the page uses before anything is measured.
+export const FAMILY = 'Choir Lombard';
+const fontDir = new URL('../../fonts/choirbook/', import.meta.url), loaded = new Set();
+export async function loadLetters(chars) {
+  await Promise.all([...new Set(chars)].filter(c => /^[A-Z]$/.test(c) && !loaded.has(c)).map(async c => {
+    const f = new FontFace(FAMILY, `url(${new URL(`choir-lombard-${c}.woff2`, fontDir)})`, { unicodeRange: 'U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'), weight: '100 900' });
+    document.fonts.add(f); await f.load(); loaded.add(c); }));
+}
+// which letter a drop is: kit/illum.js hands a registry style the letter's Garamond coverage (G) and not the letter, so it is
+// read back from that coverage: the capital of EB Garamond 600 at that size whose ink box and cells match it best
+function identify(G) {
+  if (G.ch) return G.ch; const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = `600 ${G.F}px "EB Garamond"`;
+  const gw = G.box[2] - G.box[0], gh = G.box[3] - G.box[1]; let best = null;
+  for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') { const m = c.measureText(ch), e = Math.abs(m.actualBoundingBoxLeft + m.actualBoundingBoxRight - gw) + Math.abs(m.actualBoundingBoxAscent + m.actualBoundingBoxDescent - gh);
+    if (e > 1.5) continue;
+    // the cells: Garamond's letter drawn on G's grid, the share of cells that agree
+    const k = new OffscreenCanvas(G.w, G.h).getContext('2d', { willReadFrequently: true }); k.setTransform(G.res, 0, 0, G.res, -G.x0 * G.res, -G.y0 * G.res); k.font = c.font;
+    k.fillText(ch, G.box[0] + m.actualBoundingBoxLeft, G.box[1] + m.actualBoundingBoxAscent); const d = k.getImageData(0, 0, G.w, G.h).data; let agree = 0;
+    for (let i = 0; i < G.w * G.h; i += 3) agree += (d[i * 4 + 3] > 127) === (G.M[i] > .5);
+    if (!best || agree > best.a) best = { a: agree, ch }; }
+  return best?.ch ?? '';
+}
+const letterOf = s => String(s ?? '').trim().normalize('NFD')[0]?.toUpperCase() ?? '';
+// the Lombard as a coverage mask at res cells per px, from the measure kit/illum.js made of the drop (G: Garamond's ink
+// box of the same letter at the same size, G.F): the pen's place and the baseline recovered from it, the Lombard drawn there
+function lombard(G, ch, res = 4) {
+  if (!loaded.has(ch) || !G.F) return null;
+  const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = `600 ${G.F}px "EB Garamond"`; const mg = c.measureText(ch);
+  const x = G.box[0] + mg.actualBoundingBoxLeft, base = G.box[1] + mg.actualBoundingBoxAscent;
+  const font = `400 ${G.F}px "${FAMILY}"`; c.font = font; const m = c.measureText(ch), pad = 4;
+  const gx = Math.floor(x - m.actualBoundingBoxLeft - pad), gy = Math.floor(base - m.actualBoundingBoxAscent - pad);
+  const w = Math.ceil((x + m.actualBoundingBoxRight + pad - gx) * res), h = Math.ceil((base + m.actualBoundingBoxDescent + pad - gy) * res);
+  const k = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true }); k.setTransform(res, 0, 0, res, -gx * res, -gy * res); k.font = font; k.fillStyle = '#000'; k.fillText(ch, x, base);
+  const d = k.getImageData(0, 0, w, h).data, M = new Float32Array(w * h); for (let i = 0; i < w * h; i++) M[i] = d[i * 4 + 3] / 255;
+  return { M, w, h, x0: gx, y0: gy, res, box: [x - m.actualBoundingBoxLeft, base - m.actualBoundingBoxAscent, x + m.actualBoundingBoxRight, base + m.actualBoundingBoxDescent], F: G.F };
+}
+
+export function initial({ G: G0, keep, lh, big, level: li, seed, room: margin, bottom, filigree: filig = null, ch }) {
+  const G = lombard(G0, ch ? letterOf(ch) : identify(G0)) ?? G0;
   const pig = big ? 'azurite' : 'minium', ink = INKS[pig], [lx0, ly0, lx1, ly1] = G.box, Hl = ly1 - ly0, dark = isDark();
   const gap = big ? 2.6 : 2.1, roomL = Math.max(0, margin - gap * 3);
   const panel = big ? [lx0 - Math.min(GEOM.panelW[li] * Hl, roomL), ly0 - GEOM.rise[li] * Hl, lx0 - gap * .7, ly1]
@@ -361,19 +408,27 @@ export function initial({ G, keep, lh, big, level: li, seed, room: margin, botto
   const staff = { y1: Math.min(bottom, ly1 + Math.round((big ? GEOM.staff[li] : GEOM.small.staff[li]) * lh)) };
   const right = big && li >= 2 ? lh * .42 + GEOM.wider[li] : gap;
   const tp = big && li >= 2 ? [lx1 + gap * .4, ly0 - GEOM.rise[li] * Hl * .6, lx1 + right - gap * .6, ly1] : null;
-  const L = drawn(G, seed, big ? .8 : .45);
+  const L = drawn(G, seed, big ? .5 : .3);   // (the traced edge already wavers: a lighter hand than 03's on a type glyph)
   const q = new URLSearchParams(globalThis.location?.search ?? ''), fq = filig ?? (q.has('filigree') ? q.get('filigree') !== '0' : null);
-  const marks = flourish({ glyph: L, panel, keep, staff, g: gap, seed, level: li, right, tp });
   // the filigree, in a drop initial (the line initial is too small to be worked): its reserve cut from the paint, its
-  // channel laid in the other colour (minium in azurite) after the paint and before the penwork
-  const F = big && (fq ?? BUDGETS[li].filigree) ? filigree(L, seed) : { M: L, marks: [] }, chInk = PIGMENTS[big ? 'minium' : 'azurite'].rgb;
+  // channel laid in the other colour (minium in azurite) after the paint and before the penwork; the penwork keeps to the
+  // letter as painted, its worked counters included
+  const F = big && (fq ?? BUDGETS[li].filigree) ? filigree(L, seed) : { M: L, full: L, marks: [] };
+  const marks = flourish({ glyph: F.full, panel, keep, staff, g: gap, seed, level: li, right, tp });
+  const chInk = PIGMENTS[big ? 'minium' : 'azurite'].rgb;
   const channel = F.marks.map((s, i) => ({ pts: s.pts, col: 'b', ink: chInk, seed: seed + 7 * i, w: s.w, broad: .9, nib: s.nib, load: 1, dry: .12, swell: 0, start: 'taper', end: 'taper' }));
-  return { letter: dark ? { M: pooled(F.M, seed), pigment: big ? 'cbAzureDark' : 'cbMiniumDark' } : { M: F.M, pigment: pig },
-    marks: [...channel, ...marks.map((s, i) => s.kind === 'dot'
+  const reds = (F.reds ?? []).map(d => ({ dot: true, p: d.p, r: d.r, col: 'b', ink: chInk }));
+  // dark: the letter laid flat in the style's own designed dark paint (its inkDark: 'b' is the drop's blue, 'a' the line
+  // initial's red), its opacity pooled at the rim. (kit/illum.js lays a pigment letter on a dark page as the pigment
+  // lifted to a pastel; a designed dark pigment needs a hook there: letter.pigmentDark, or flat() not lifting it.)
+  return { letter: dark ? { M: pooled(F.M, seed), col: big ? 'b' : 'a' } : { M: F.M, pigment: pig },
+    marks: [...channel, ...reds, ...marks.map((s, i) => s.kind === 'dot'
       ? { dot: true, p: s.p, r: s.r, col: s.accent ? 'a' : 'b', ink: s.accent ? PIGMENTS[pig].rgb : ink }
       : { pts: s.pts, col: 'b', ink, seed: seed + i * 13, w: s.w * 1.15, rho: s.rho, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 })] };
 }
 initial.wider = GEOM.wider;
+// before the page is measured: the Lombards of every initial on it
+initial.load = () => typeof document === 'undefined' ? null : loadLetters([...document.querySelectorAll('.ini')].map(e => letterOf(e.textContent)));
 
 // ---- the wayfinding ------------------------------------------------------------------------------------------------------------
 // The paraph is the Decretals' (kit/wayfinding.js, approved in 06). The fillers are 06's, and the pendant chain: a
@@ -446,7 +501,7 @@ const frames = { quote: columnFrame, figure: figureFrame, code: codeFrame, pull:
 export const choirbook = { label: 'Choir book', pair: ['red', 'blue'], alternate: true, minGap: 1.4,
   // vermilion and azurite as 03 had them; the notes in the book's brown-black
   ink: { red: { solid: [200, 66, 40], hair: RED_HAIR }, blue: { solid: [40, 70, 160], hair: [56, 84, 166] }, black: { solid: [44, 34, 27], hair: [58, 46, 36] } },
-  inkDark: { red: { solid: [232, 104, 78], hair: [226, 118, 94] }, blue: { solid: [112, 146, 232], hair: [120, 150, 228] }, black: { solid: [222, 212, 196], hair: [214, 204, 188] } },
+  inkDark: { red: { solid: [214, 88, 60], hair: [226, 118, 94] }, blue: { solid: [70, 108, 206], hair: [120, 150, 228] }, black: { solid: [222, 212, 196], hair: [214, 204, 188] } },
   setup: seed => { const r = stream(seed, 'choirbook'); return { kinds: pickKinds(r, FILLERS, 3) }; },
   kinds: (v, rich) => rich < .25 ? ['beads'] : rich < .5 ? ['beads', 'pendants'] : v.kinds,
   paraph: (x, base, u, seed, rich) => wParaph(x, base, u, seed, rich),
