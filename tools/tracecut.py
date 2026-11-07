@@ -9,7 +9,7 @@
 #   env: U=3  SIGMA=1.1 (source px)  BIAS=0 (+ keeps more white)  TOL=.45 (source px)  SPECK=6  HOLE=4  RED=1 (red ink: its
 #        redness instead of its darkness)  ERASE='x0,y0,x1,y1;...' (source px, made paper)  DBG=mask.png
 # Output (JSON): { name, src, a (width / height of the box), polys: [[[x, y]...]...] (even-odd, units of the box's height,
-# origin its top left), white: { p5, p25, p50 } } where white is the width of the white lines (twice the distance to the
+# origin its top left), white: { p5, p25, p50 }, black: (the same for the black's lines) } where white is the width of the white lines (twice the distance to the
 # black along the white's medial axis) as a fraction of the box's height: the gate for how small the block may be laid
 # before its finest white line falls under a pixel (Kelmscott's research, research/16-kelmscott.md).
 import sys, os, json
@@ -42,8 +42,10 @@ ys, xs = np.nonzero(ink); box = (slice(ys.min(), ys.max() + 1), slice(xs.min(), 
 dt = ndi.distance_transform_edt(wt); sk = skeletonize(wt) & (dt > U * .5)
 inner = np.zeros_like(wt); inner[U * 3:-U * 3, U * 3:-U * 3] = True; w = 2 * dt[sk & inner] / H
 white = {k: round(float(np.percentile(w, p)), 5) for k, p in (('p5', 5), ('p25', 25), ('p50', 50))} if w.size else {}
+bk = ink[box]; dtb = ndi.distance_transform_edt(bk); skb = skeletonize(bk) & (dtb > U * .5); wb = 2 * dtb[skb] / H   # the black's line widths too
+black = {k: round(float(np.percentile(wb, p)), 5) for k, p in (('p5', 5), ('p25', 25), ('p50', 50))} if wb.size else {}
 polys = []
 for ct in find_contours(np.pad(ink.astype(float), 1), .5):
     ct = approximate_polygon(ct - 1, float(os.environ.get('TOL', .45)) * U)
     if len(ct) >= 4: polys.append([[round(x / H, 4), round(y / H, 4)] for y, x in ct])
-print(json.dumps({'name': name, 'src': f.split('/')[-1] + f' [{x0},{y0},{x1},{y1}]', 'a': round(im.width / im.height, 4), 'polys': polys, 'white': white}))
+print(json.dumps({'name': name, 'src': f.split('/')[-1] + f' [{x0},{y0},{x1},{y1}]', 'a': round(im.width / im.height, 4), 'polys': polys, 'white': white, 'black': black}))

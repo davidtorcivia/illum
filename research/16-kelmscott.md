@@ -15,6 +15,8 @@ the session scratchpad (kelm-raw/), not the repo.
 | what | where | licence | used for |
 |---|---|---|---|
 | The Works of Geoffrey Chaucer, Kelmscott 1896, the whole book (578 leaves, 6461×9900) | archive.org `MorrisChaucer` (leaf images at `/download/MorrisChaucer/page/nN.jpg`) | Public Domain Mark | every initial, the red and black, the page |
+| The Kelmscott Chaucer, the Boston Public Library's copy (568 leaves, 2105×3000, sharp: ~180 ppi true, against the other scan's ~150 upsampled) | archive.org `worksofgeoffreyc00chau_0` (`/download/…/page/nN.jpg`) | PD (1896) | the alphabet: 12 white-vine and 18 two-line initials |
+| The Water of the Wondrous Isles, Kelmscott 1897 (4582×6620) | archive.org `MorrisWaterWondrousIsles` | PD (1897) | the column vines: the stem, its leaf head, the rose and grape feet, the rose head |
 | The Chaucer's opening spread (4501×3304, a photograph) | Commons, *William Morris – The Works of Geoffrey Chaucer – Google Art Project.jpg* | PD | the picture-frame band, the woodcut line at its sharpest |
 | The Well at the World's End, Kelmscott 1896, four spreads (4000×~2750) | the Met, 354288 (DP322253–DP322256) | CC0 | the hedera, the sprig, the knot, the red heads, the Well's border |
 | Chaucer p. 483 (Houghton, 1277×1015) | Commons, *Houghton Typ 805K.96.275 … pg. 483.jpg* | PD | looked at; not traced (too small) |
@@ -69,20 +71,24 @@ block cuts the white wider.
 
 | element | form | source (IA leaf / photo, box in px) |
 |---|---|---|
-| drop initial | six-line white-vine B, T, N, P, S | B n313 [990,773,1640,1421]; T n104 [639,4201,1263,4804]; N n213 [4137,1648,4737,2304]; P n245 [3590,868,4665,1972]; S n313 [3652,872,4234,1530] |
-| line / small initial | two-line L, B, M, A, S, N, P, T | L n116 [3042,5232,3406,5552]; B n125 [3636,2244,3978,2556]; M n158 [373,2816,735,3128]; A n158 [357,4872,751,5172]; S n221 [1683,2024,2015,2336]; N n299 [3604,3500,3934,3816]; P n313 [975,5104,1331,5412]; T n313 [975,7256,1327,7560] |
+| drop initial | white-vine B C F H K L M N O P S T V (B from the IA scan, the rest the BPL's) | B IA n313 [990,773,1640,1421]; BPL leaves: C n421 [1299,973,1489,1164], F n428 [62,1253,220,1437], H n101 [1065,312,1373,623], K n415 [1279,1221,1460,1410], L n421 [583,1124,760,1310], M n103 [385,1604,548,1791], N n212 [83,1422,235,1613], O n98 [163,556,355,748], P n248 [804,2042,985,2228], S n137 [393,1217,706,1532], T n95 [1113,1482,1295,1665], V n276 [830,1903,1015,2092] |
+| line / small initial | two-line A B E F G H I K L M N O P Q R S T W Y (B from the IA scan) | B IA n125 [3636,2244,3978,2556]; BPL: A n21, E n235, F n43, G n342, H n75, I n37, K n62, L n46, M n29, N n36, O n27, P n156, Q n315, R n75, S n37, T n23, W n31, Y n30 (boxes in kit/styles/kelmscott.js's GLYPHS) |
 | paraph | the hedera, red (or black) | Met DP322254 [3216,998,3272,1038] |
 | heading filler | 1–2 sprigs, red | Met DP322255 [2991,395,3042,432] |
 | paragraph filler (?fill=knot) | the running head's knots, closed up to the measure | Met DP322254 [3082,361,3258,411] |
-| breaks | the band on its side, centred on the point where it meets its own mirror image; rank 2 wider and longer | Commons GAP [3688,640,3793,1560] |
-| quote, aside | the band down the left side | the same |
-| figure | the band all round, the side bands over the corners; on a phone (no room) a heavy and a light rule | the same |
-| code | the band all round, inside the block's padding, narrowed to keep off the code | the same |
-| pull | the band above and below | the same |
+| breaks | the foot of a column vine, its stem cut where it meets the foot: rank 1 the rose foot (a figure-of-eight with a bud and a rose), rank 2 the grape foot; ?break=rose, grape, mirror (the rose foot mirrored about its stem: symmetrical, not Morris's composition) | Water n22 [1100,4800]+[155,215,2331,616]; n21 [1000,4877]+[107,80,3371,683] |
+| quote, aside | the column vine down the left: the stem in outline curling as it goes, its leaf head above the first line, cut below the last as Morris draws a cut stem | Water n21 [2150,250]+[29,46,900,2750] |
+| pull | the column vine's rose head above, its rose foot below | Water n22 [950,200]+[77,112,2277,440] and the foot |
+| figure | a heavy rule and a light one inside it, as his woodcut pictures are framed | — |
+| code | a single light rule (?code=none: plain) | — |
 | nav | a red hedera at each entry | the hedera |
 
-- A drop takes the six-line block when it is over 6 x-heights deep, else the two-line one; a letter with neither is set
-  in the page's face in red (Q, for now). The line initial defaults to a two-line drop (?line=inline keeps it in the line).
+**Rejected by the user (2026-11-07):** the picture-frame band laid on its side as the break ("uneven in a bad way") and
+reused down the side of quotations and asides and round figures, code and pull quotes ("the dividers and left line
+thing are bad"). Both replaced by Morris's own late vine drawings, used as he composed them.
+
+- A drop takes the six-line block when it is over 6 x-heights deep, else the two-line one; J is set as I, U as V; a
+  letter with neither (D, X, Z: the Chaucer has no initial for them in either series found) is set in the page's face in red. The line initial defaults to a two-line drop (?line=inline keeps it in the line).
 - A strip longer than its source continues as its mirror image (each copy filled on its own), so a stem runs on into
   itself with no seam; a cut end is closed by a black rule.
 - **Dark.** By default ('positive') the dark page is the block's black and what the graver left standing is printed in
@@ -93,26 +99,61 @@ block cuts the white wider.
   ink is pressed once more; in dark, the white is written in pale ink along its stems. A drop takes ~5 s, a band ~1–2 s, a
   stamp a beat; each case as it scrolls into view; the page never scrolls itself.
 
+## Size: the blocks as webfonts
+
+The first build carried the traces as polygons in the module (~250 KB for 13 blocks; the whole alphabet would have been
+~1 MB). Weighed: (a) compact curves, quantised and delta/varint-coded in a blob; (b) a library of Morris's motifs plus
+placements (his vine reuses leaves, berries and curls, but each block is cut by hand, so matching motifs costs more than it
+saves at this size); (c) a low-resolution SDF atlas (crisp at any size, but a white line of .007 of the height needs ~150 px
+per block before it survives, which is no smaller); (d) **a webfont per block** — the browser's native compact vector
+format: the outline refitted as Béziers (potrace, its tolerance tied to the largest size drawn, the scan's sub-pixel grain
+smoothed away), turned to TrueType quadratics with implied on-curve points (cu2qu), the glyf table transformed and brotli-
+compressed by WOFF2. (d) does (a) better than hand-coding it, and is drawn with fillText, so it is chosen
+(tools/kfont.py; playground/fonts/kelmscott/, OFL, outlines from PD woodcuts).
+
+| | before (polygons in the module) | after (fonts) |
+|---|---|---|
+| kit/styles/kelmscott.js | 270 705 B (113 KB gzipped), 13 blocks | 29 418 B (10.6 KB gzipped), no outlines |
+| one white-vine initial | B: ~55 KB | 2.5–5.5 KB (B 4.8 KB) |
+| one two-line initial | ~14 KB | 1.8–3.0 KB |
+| the whole set | — | 31 blocks 85 KB; 7 ornaments 38 KB (the grape foot 15.7 KB, the rose head and foot ~8 KB each, the vine 2 KB, the leaf and the sprig under 1 KB each) |
+| what the specimen fetches | everything (the module) | 48 KB (B, L in both series, leaf, sprig, vine, rose head and foot, grape foot) |
+
+The build (tools/kfont.py, from the scratchpad's traces; the boxes are in GLYPHS): white-vine and two-line, RES=600
+SMOOTH=1.2 ALPHA=1.2 OPT=1.5 ERR=1.5, one font per glyph; ornaments SMOOTH=1.2 ALPHA=1.1 OPT=1 ERR=.8, the leaf, sprig and
+knot at RES 300, the grape foot 700, the rose foot 600, the rose head 500, the vine 2700. Traces: tools/tracecut.py, the
+white-vine and two-line blocks with BIAS=.08 TOL=.35 U=4 SIGMA=.8 SPECK=3 HOLE=1.5, the vines with BIAS=.05 TOL=.5 U=2
+SIGMA=1 SPECK=8 HOLE=2 on the page isolated (the text round the ornament made paper, its stem cut where it meets a foot).
+
+Each block is its own font file and the style fetches only those its page uses (initial.load reads the page's initials
+and frames before it is measured). At 4× the font B is indistinguishable from the polygon B (its edges a little smoother:
+the scan's grain is gone). Short of the target "a few tens of KB for the alphabet": 85 KB for 31 blocks; the floor is
+the cutting itself (a white-vine block has ~80 separate black islands).
+
 ## Measured on the specimen
 
 - Timings (headless, Arc A770): still, 1440: in view 20–35 ms, all 73–135 ms; 390: in view 19–45 ms, all 50–170 ms.
-- Drawn end vs still (the B, 1440 light, dpr 1): mean difference 7/255, p99 26; the drawn block's black is ~4 % heavier
-  (it is pressed twice). Dark (after the face's rim trim): mean 1/255, p99 8.
+- Drawn end vs still (the B, 1440 light, dpr 1; re-measured on the font build): mean difference 7/255, p99 26; the drawn
+  block's black is ~4 % heavier (it is pressed twice). Dark: mean 1/255, p99 8.
 - No horizontal scroll at 390 (scrollWidth 390).
 
 ## What falls short
 
-- **The alphabet.** Five six-line and eight two-line initials are traced; the rest fall back (a six-line letter without its
+- **The alphabet (superseded).** Five six-line and eight two-line initials were traced in the first build; the rest fell back (a six-line letter without its
   own block takes its two-line one; with neither, a red capital of the page's face). The Chaucer has every letter; the
   next step is tracing them (the leaf index from the scan's contact sheets is in the scratchpad's look/ini.json).
-- **Weight.** The traces are inline polygons, ~250 KB of the module. They should load per letter (or be packed into an
+- **Weight (superseded: fonts, above).** The traces were inline polygons, ~250 KB of the module. They should load per letter (or be packed into an
   OFL initials font, which compresses well and is drawn with fillText).
 - **The knots** at a line's height (~12 px) lose the gaps between their strands; they are off by default. Drawn again as
   continuous strokes with true over/under (occult.js's sketch / occlude) they would hold at that size.
-- **The two-line initials** are traced from the ~150 ppi scan: their edges are a little ragged; in dark (positive) their
-  outline reads as an outlined letter, and a few specks of the scan's grain survive at their scalloped edge.
-- **The band on its side.** Morris's top borders are their own designs; the breaks and the heads of frames use the side
-  band turned. The vine grows sideways, which it does in his horizontals, but it is not one of them.
+- **The two-line initials in the dark** are printed pale (negative) by design: flooded for the positive, their scalloped
+  edge leaves their white in specks.
+- **The alphabet now.** 12 + 18 letters from the BPL scan (and B of each from the IA scan); D, X, Z have no block;
+  U and J borrow V and I. The BPL scan is ~180 ppi: a white-vine block is ~190 px tall in it, so its finest white is
+  1–1.5 px of the scan; the two-line ones are ~88 px.
+- **The vine down a quotation** is one traced length (~310 px at 1440): a longer quotation shows the vine stopping short
+  of its foot (ponytail: stack a second length of stem from the glyph's middle).
+- **The feet's cut stems** read as Morris's open tube, but they are cut by us, not by him.
 - **The two-line initials at 46 px** have their white opened by ~.4 px. The Chaucer prints them ~0.52 in tall (310 px at
   the scan's nominal 600 ppi), ~50 px at 96 dpi: the specimen sets them at about their own size, which is finer than a
   screen likes. (The six-line B is 1.08 in, ~104 px at 96 dpi; the specimen's 173 px drop is ~1.7× its printed size,

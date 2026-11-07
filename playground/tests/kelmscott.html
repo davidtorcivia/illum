@@ -9,11 +9,14 @@
   tests/blackletter.html, tarot.html, occult.html, astrology.html and draft.html so the styles compare, drawn by the one
   library: rubricate(text, { style: 'kelmscott' }) (kit/illum.js; this page puts the style in the registry in place of
   the breadth-first Kelmscott of kit/wayfinding.js). Every case is Morris's own woodcut, traced from the Kelmscott
-  Chaucer (1896) and The Well at the World's End (1896) and printed again through the ink engine: the black's edge
+  Chaucer (1896), The Well at the World's End (1896) and The Water of the Wondrous Isles (1897), refitted as
+  small webfonts (playground/fonts/kelmscott/, fetched per letter), and printed again through the ink engine: the black's edge
   spreading into the white a little, as the press left it. ?draw engraves it as you read (each case when its line comes
   15% into view: the block's face laid black, the white cut into it along its stems; never scrolls); ?theme=light|dark;
   ?rich=0..1; #seed=n; ?lines=n (the drop initial's depth; Morris's own six by default); ?paraph=red|black (the hedera); ?line=drop|inline (the L: two lines deep, or in the line); ?cut=positive|negative (dark: the
   white line printed pale on the page, or the block pale with its cut dark); ?fill=none|knot (a paragraph's short line);
+  ?break=both|rose|grape|mirror (the breaks: the Water of the Wondrous Isles' column-vine feet); ?code=rule|none; ?vine=on|none (the column vine
+  down quotations and asides, its head and foot round the pull quote; none: plain, the pull quote between two sprigs);
   ?audit.
 -->
 <style>
@@ -139,7 +142,10 @@ if (q.has('ghost')) document.body.classList.add('ghost');
 if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.dataset.lines = Math.max(2, Math.min(9, +q.get('lines') || 6)));
 kelmscott.paraphCol = q.get('paraph') ?? 'red';
 kelmscott.darkCut = q.get('cut') ?? 'positive';
-kelmscott.fill = q.get('fill') ?? 'none';   // a paragraph's short last line: left open, as Morris's text pages leave it (none), or closed with the running heads' knots (knot)   // dark: the cut printed pale on the dark page (positive), or the block pale with its cut dark (negative)
+kelmscott.fill = q.get('fill') ?? 'none';
+kelmscott.breaks = q.get('break') ?? 'both';   // rose | grape | both (rank 1 rose, rank 2 grape) | mirror
+kelmscott.code = q.get('code') ?? 'rule';
+kelmscott.vine = q.get('vine') ?? 'on';   // none: quotation and aside plain, the pull quote between two sprigs   // a paragraph's short last line: left open, as Morris's text pages leave it (none), or closed with the running heads' knots (knot)   // dark: the cut printed pale on the dark page (positive), or the block pale with its cut dark (negative)
 // ?line=drop (default): the initial in the line set as the Chaucer sets its small initials, two lines deep; ?line=inline:
 // in the line, as the markup has it
 if (q.get('line') !== 'inline') document.querySelectorAll('.ini.line').forEach(s => { s.classList.replace('line', 'drop'); s.dataset.lines = 2; });
