@@ -99,6 +99,20 @@
                 the four suits as paraphs in flat red, yellow, blue and flesh under a black line; pips or the card's
                 stencil border as fillers; the numeral box between chapters and the trump's banner between books, each
                 numbered by the real chapter or book.
+  Revision: fillers as fragments of the big gesture, not the flourish shrunk into the band.
+    copperplate one compound curve from the top of the band, down past the baseline into a single oval on the slant
+                closed on itself; or the same curve into two long ovals interlaced, as Baumann lays them. Both the
+                band's full height, swinging below the line into the space between the lines where the page leaves
+                room (the page measures it down to the next line or part, and hands it over as v.dip).
+    nouveau     one whiplash: a slack run that rises to the top of the band, swoops down and throws one loop across its
+                own path (a prolate trochoid), and runs out into a bud; a tendril branches off the run and curls back
+                over it, budded or barbed. It may rise into the ascenders' room and dip below the line when free.
+    tarot       the suits at a paraph's height (each sized by its own drawn height); pips stand on their rule.
+    botanical   the tag's string threaded: it runs to a knot and the doubled loop passes into the eyelet (a lark's head).
+  Joins (?audit, joins()): every stroke end and point lying near another stroke of its own ornament is meant to meet it,
+  and must, within 0.3 px, with no gap and no hair's overrun; points set apart by design are marked free. Terminals now
+  grow from the pattern's own open end. A filler that would touch a word is made again kept to its band, then at its
+  own size, and otherwise left out whole, never cut; a break that would is drawn smaller about its centre.
   Light and dark: the page's tokens (--paper, --ink, --rubric) belong to the host; dark follows prefers-color-scheme,
   or data-theme / ?theme=dark|light, or the colophon's day / night / system. A style colours only its own marks (and the
   rubric, where that is its tradition); its own ground (Cyber's dark glass, Blueprint's cyanotype) only with
@@ -271,7 +285,7 @@ const lines = (el, origin) => { const rg = document.createRange(); rg.selectNode
 // ?specimen: the current style as a pattern book: twenty fillers of different lengths and twelve paraphs, all from one
 // copy's grammar, so the variation within the style can be seen at once (the text is hidden, not changed)
 function specimen(g, sr) {
-  const S = st(), V = S.setup(SEED), u = 8 * SCALE, out = [], r = stream(SEED, 'spec'), x0 = 40, y0 = 60, kinds = S.kinds(V, RICH);
+  const S = st(), V = S.setup(SEED), u = 8 * SCALE, out = [], r = stream(SEED, 'spec'), x0 = 40, y0 = 60, kinds = q.get('kind') ? [q.get('kind')] : S.kinds(V, RICH);   // &kind= shows one kind
   for (let k = 0; k < 20; k++) { const w = 60 + r() * 200, col = k % 2, y = y0 + k * 30, x = x0 + (k % 2 ? 300 : 0) * 0;
     out.push({ y, a: S.pair[col % 2] ?? S.pair[0], type: 'filler', list: scaled(S.filler(x, x + w / SCALE, y - 8, y, kinds[k % kinds.length], SEED + 977 * k, RICH, V), x, y - 4) }); }
   for (let k = 0; k < 12; k++) { const x = 400 + (k % 4) * 52, y = y0 + 12 + Math.floor(k / 4) * 46;   // a tidy grid of four by three
@@ -288,7 +302,9 @@ function compose() {
   const marks = [];   // { y, list, a: colour name }  in reading order
   const S = st(), V = S.setup(SEED);   // the variation within the style for this copy
   if (q.has('specimen')) { art.style.visibility = 'hidden'; marks.push(...specimen(g, sr)); }
-  let nFill = 0;
+  let nFill = 0; const TEXT = []; document.querySelectorAll('.text h1, .text .sub, .text h2, .text h3, .text p').forEach(el => TEXT.push(...lines(el, sr)));
+  // a part's opening is room kept for its break: a filler may not swing down into it
+  document.querySelectorAll('.text .book, .text .chapter').forEach(el => { const b = el.getBoundingClientRect(); TEXT.push({ l: b.left - sr.left, r: b.right - sr.left, t: b.top - sr.top, b: b.top - sr.top + 1 }); });
   const fillAfter = (el, col, seed) => {
     const cs = getComputedStyle(el), fs = parseFloat(cs.fontSize), mt = metric(`${cs.fontStyle} ${cs.fontWeight} ${fs}px "EB Garamond"`), L = lines(el, sr);
     if (!L.length) return;
@@ -297,7 +313,13 @@ function compose() {
     if (x1 - x0 < fs * S.minGap) return;
     const kinds = S.kinds(V, RICH), r = stream(seed, 'kind');
     const h = mt.x, mid = base - h / 2, k = kinds[(r() * kinds.length) | 0];
-    marks.push({ y: base, a: col, type: 'filler', list: scaled(S.filler(x0, x0 + (x1 - x0) / SCALE, mid - h / 2, mid + h / 2, k, seed, RICH, V), x0, mid) }); nFill++;
+    // the room below the line for a filler that swings under it: down to the next line's top over the gap (the filler
+    // is drawn at unit size and scaled about its middle, so the room is handed over in its own units)
+    const next = Math.min(sr.height - base, ...TEXT.filter(b => b.t > base + 1 && b.l < x1 + fs && b.r > x0 - fs).map(b => b.t - base));
+    const dip = Math.max(0, (next - 2 + h / 2) / SCALE - h / 2);
+    const make = o => scaled(S.filler(x0, x0 + (x1 - x0) / SCALE, mid - h / 2, mid + h / 2, k, seed, RICH, { ...V, ...o }), x0, mid);
+    // redo: kept to its band; and if a larger ornament scale still will not fit, at its own size
+    marks.push({ y: base, a: col, type: 'filler', list: make({ dip }), redo: [() => make({ dip: 0, tight: true }), () => S.filler(x0, x1, mid - h / 2, mid + h / 2, k, seed, RICH, { ...V, dip: 0, tight: true })] }); nFill++;
   };
   const u0 = metric('400 20px "EB Garamond"');
   if (q.has('specimen')) return score(marks);
@@ -309,10 +331,10 @@ function compose() {
     // the break above the book's head, in the room its padding leaves; the first book is opened by the title, so it
     // takes the device too: the same rank
     const u = parseFloat(getComputedStyle(art).fontSize) * u0.x / 20;
-    marks.push({ y: br.top - sr.top, a: pairAt(bi + 1), type: 'book', list: brk((hr.left + hr.right) / 2 - sr.left, (br.top + hr.top) / 2 - sr.top, hr.width, 2, SEED + 101 * bi, u, bi + 1) });
+    marks.push({ y: br.top - sr.top, a: pairAt(bi + 1), type: 'book', ax: (hr.left + hr.right) / 2 - sr.left, ay: (br.top + hr.top) / 2 - sr.top, list: brk((hr.left + hr.right) / 2 - sr.left, (br.top + hr.top) / 2 - sr.top, hr.width, 2, SEED + 101 * bi, u, bi + 1) });
     book.querySelectorAll('.chapter').forEach((ch, ci) => {
       const h3 = ch.querySelector('h3'), cr = ch.getBoundingClientRect(), h3r = h3.getBoundingClientRect();
-      if (ci > 0) marks.push({ y: cr.top - sr.top, a: pairAt(ci + 1), type: 'chapter', list: brk((h3r.left + h3r.right) / 2 - sr.left, (cr.top + h3r.top) / 2 - sr.top + 2, h3r.width, 1, SEED + 101 * bi + 7 * ci, u, ci + 1) });
+      if (ci > 0) marks.push({ y: cr.top - sr.top, a: pairAt(ci + 1), type: 'chapter', ax: (h3r.left + h3r.right) / 2 - sr.left, ay: (cr.top + h3r.top) / 2 - sr.top + 2, list: brk((h3r.left + h3r.right) / 2 - sr.left, (cr.top + h3r.top) / 2 - sr.top + 2, h3r.width, 1, SEED + 101 * bi + 7 * ci, u, ci + 1) });
       fillAfter(h3, pairAt(1), SEED + 31 * bi + 3 * ci);
       ch.querySelectorAll('p').forEach((p, pi) => {
         const cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), mt = metric(`400 ${fs}px "EB Garamond"`), L = lines(p, sr);
@@ -329,25 +351,29 @@ function compose() {
   // the score: down the page as the rubricator went, each mark at a hand's pace, then compressed to ~14 s
   const parts = [], drawn = []; let clock = .3;
   // the guard: after scaling, a stroke or point that would touch a word's box is not drawn (a flourish gives way)
-  const words = []; document.querySelectorAll('.text h1, .text .sub, .text h2, .text h3, .text p').forEach(el => words.push(...lines(el, sr)));
+  const DROPPED = {}; const words = []; document.querySelectorAll('.text h1, .text .sub, .text h2, .text h3, .text p').forEach(el => words.push(...lines(el, sr)));
   const touches = (x, y, R) => !q.has('specimen') && words.some(b => x + R > b.l - 1.5 && x - R < b.r + 1.5 && y + R > b.t + .5 && y - R < b.b - .5);
   const hits = s => s.dot ? touches(s.p[0], s.p[1], s.r) : resampleLine(s.pts, .5).some(([x, y]) => touches(x, y, s.w / 2));
   for (const m of marks) {
     // a paraph is never broken: if it would touch a word it is drawn smaller about its foot until it does not
-    if (m.type === 'paraph') for (let f = .92; m.list.some(hits) && f > .55; f -= .08) m.list = m.list.map(s => { const g2 = ([x, y]) => [m.ax + (x - m.ax) * .92, m.ay + (y - m.ay) * .92];
+    // and a break likewise about its centre (cut, its pieces would no longer meet)
+    if (m.ax !== undefined) for (let f = .92; m.list.some(hits) && f > .4; f -= .08) m.list = m.list.map(s => { const g2 = ([x, y]) => [m.ax + (x - m.ax) * .92, m.ay + (y - m.ay) * .92];
       return s.dot ? { ...s, p: g2(s.p), r: s.r * .92 } : { ...s, pts: s.pts.map(g2), w: Math.max(.32, s.w * .92) }; });
-    m.list = m.list.filter(s => !hits(s)); }
+    // a filler that would touch a word is made again kept to its band (no swing above or below), before anything is cut
+    for (const again of m.redo ?? []) if (m.list.some(hits)) m.list = again();
+    if (m.redo && m.list.some(hits)) { m.list = []; (DROPPED.filler ??= [0, 0])[1]++; continue; }   // still touching: no filler rather than a broken one
+    const n0 = m.list.length; m.list = m.list.filter(s => !hits(s)); if (m.list.length < n0) (DROPPED[m.type] ??= [0, 0])[m.list.length ? 0 : 1]++; }
   const groups = [];
   marks.sort((m, n) => m.y - n.y).forEach((m, mi) => { const g0 = clock, from = parts.length; m.list.forEach((s, i) => {
     const col = s.col === 'g' ? 'gold' : s.col === 'k' ? 'black' : s.col === 'f' ? 'flesh' : s.col === 'a' ? m.a : other(m.a), INK = PAL[col] ?? PAL[S.pair[0]];
-    if (s.dot) { drawn.push({ mi, type: m.type, dot: s.p, r: s.r }); parts.push(dotted(clock, s.p, s.r, INK.solid, BLEND)); clock += .03; return; }
+    if (s.dot) { drawn.push({ mi, type: m.type, dot: s.p, r: s.r, free: s.free, plate: s.plate | 0 }); parts.push(dotted(clock, s.p, s.r, INK.solid, BLEND)); clock += .03; return; }
     const ink = s.broad ? INK.solid : INK.hair, pts = refine(s.pts), ends = freeEnds(s, m.list);
     const o = { w: s.w * (s.broad ? 1 : 1.1), ink, paper: PAPER_NOW, dark: DARK, blend: BLEND, seed: (SEED + mi * 131 + i * 7) >>> 0, start: ends.start, end: ends.end, load: s.load ?? .85, dry: s.dry ?? .3, broad: s.broad ?? .3, swell: s.swell ?? .25, nib: s.nib ?? .55, press: s.press };
-    drawn.push({ mi, type: m.type, pts, w: o.w, ends: [pts[0], pts.at(-1)] }); const d = Math.max(.05, arclen(pts) / (s.broad ? 70 : 260)); parts.push(stem(clock, clock + d, pts, { ...o, live: 'cut' })); clock += d * .8;
+    drawn.push({ mi, type: m.type, pts, w: o.w, ends: [pts[0], pts.at(-1)], cap: [ends.start, ends.end], plate: s.plate | 0, free: s.free }); const d = Math.max(.05, arclen(pts) / (s.broad ? 70 : 260)); parts.push(stem(clock, clock + d, pts, { ...o, live: 'cut' })); clock += d * .8;
   }); groups.push({ y: m.y, type: m.type, parts: parts.slice(from).map(p => ({ ...p, t0: p.t0 - g0, t1: p.t1 - g0 })) }); });
   let end = Math.max(.1, ...parts.map(p => p.t1)); const k = Math.min(1, 14 / end);
   if (k < 1) { parts.forEach(p => { p.t0 *= k; p.t1 *= k; }); end *= k; }
-  if (q.has('audit')) document.body.dataset.audit = JSON.stringify(audit(drawn, sr));
+  if (q.has('audit')) document.body.dataset.audit = JSON.stringify({ ...audit(drawn, sr), dropped: DROPPED, joins: joins(drawn) });
   return { layers: [[g, live]], parts, end, groups };
   }
 }
@@ -370,6 +396,41 @@ function audit(drawn, sr) {
           if (!d.dot && !o.dot && !near(d.ends[0]) && !near(d.ends[1]) && !near(o.ends?.[0]) && !near(o.ends?.[1])) { hit[c] |= 2; bump(d.type, 'self'); } } } }
   });
   return res;
+}
+// Joins (?audit): every stroke end and every point that lies near another stroke of its own ornament (closer than
+// GAP px) is meant to meet it, and must: within 0.3 px of its centreline (or anywhere inside a heavier stroke's ink),
+// (at a scale below 1 the bands shrink with the drawing, so a spacing designed at size is not read as a miss)
+// with no gap and no overrun past it (an end may not stop a hair, 0.6 to 1.2 px, past a line it has crossed: further is a crossing by design). A free end
+// further away is a lift of the pen, not a join. Dots: the point's edge or centre on the line.
+function joins(drawn, GAP = 3 * Math.min(1, SCALE), HARD = 1.5 * Math.min(1, SCALE)) {   // gap: 0.3 to HARD px, a hair's miss, always a fault; near: HARD to GAP, a spacing to judge by eye
+  const segD = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy, t = L2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2)) : 0;
+    return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+  const lineD = (p, pts) => { let d = Infinity; for (let i = 1; i < pts.length; i++) d = Math.min(d, segD(p, pts[i - 1], pts[i])); return d; };
+  const by = {}; drawn.forEach((d, i) => (by[d.mi + '/' + d.plate] ??= []).push(i));   // a print's second drum, out of register by design, is its own drawing
+  const res = { gap: 0, near: 0, overrun: 0, ok: 0, byType: {}, where: [] }, flag = (k, d, info) => { if (k === 'gap' && info[2] > HARD) k = 'near'; res[k]++; (res.byType[d.type] ??= { gap: 0, near: 0, overrun: 0 })[k]++; res.where.push(k === 'overrun' ? [...info.slice(0, 5), 'over', info[5]] : info); };
+  for (const ids of Object.values(by)) for (const i of ids) { const s = drawn[i];
+    // a point against the lines only (a row of points is not a join)
+    if (s.free) continue;   // set apart by design (a point in its cell, a seed's embryo)
+    if (s.dot) { let best = Infinity, bw = 0; for (const j of ids) { const o = drawn[j]; if (j === i || o.dot) continue; const d = lineD(s.dot, o.pts); if (d < best) { best = d; bw = o.dot ? 0 : o.w; } }
+      const edge = best - s.r - bw / 2; if (best > .3 && edge > .3 && edge < GAP) flag('gap', s, [s.type, 'dot', +edge.toFixed(2), Math.round(s.dot[0]), Math.round(s.dot[1])]); else if (best <= .3 || edge <= .3) res.ok++; continue; }
+    if (Math.hypot(s.pts[0][0] - s.pts.at(-1)[0], s.pts[0][1] - s.pts.at(-1)[1]) < 1) continue;   // closed on itself
+    for (const e of [0, 1]) { const P = e ? s.pts.at(-1) : s.pts[0], tail = e ? [...s.pts].reverse() : s.pts;
+      let best = Infinity, bo = null; for (const j of ids) { if (j === i || drawn[j].free) continue; const o = drawn[j], d = o.dot ? Math.max(0, Math.hypot(o.dot[0] - P[0], o.dot[1] - P[1]) - o.r) : lineD(P, o.pts); if (d < best) { best = d; bo = o; } }
+      if (!bo || best >= GAP) continue;
+      const tol = Math.max(.3 * Math.max(1, SCALE), bo.dot ? .3 : bo.w / 2 - .2);   // on its centreline, or well inside a heavier stroke's ink
+      // or it lies on its own line further along (a ring written a little past where it began)
+      const own = (() => { let a = 0, far = []; const q = e ? [...s.pts].reverse() : s.pts; for (let k = 1; k < q.length; k++) { a += Math.hypot(q[k][0] - q[k - 1][0], q[k][1] - q[k - 1][1]); if (a > 3) far.push(q[k]); } return far.length > 1 ? lineD(P, far) : Infinity; })();
+      if (best <= tol || own <= .3 * Math.max(1, SCALE) || ids.some(j => j !== i && !drawn[j].dot && drawn[j].w > s.w && lineD(P, drawn[j].pts) <= drawn[j].w / 2 - .2)) { res.ok++; continue; }   // met, or hidden in a heavier stroke's ink
+      // ran past it: the line met it a little way back (but not at its own other end: that is a stroke standing on it)
+      const total = arclen(s.pts); let run = 0, over = 0, back = best;
+      for (let k = 1; k < tail.length; k++) { run += Math.hypot(tail[k][0] - tail[k - 1][0], tail[k][1] - tail[k - 1][1]); if (run > GAP * 2) break;
+        const d = bo.dot ? Math.max(0, Math.hypot(bo.dot[0] - tail[k][0], bo.dot[1] - tail[k][1]) - bo.r) : lineD(tail[k], bo.pts); if (run <= 1) back = d;
+        if (d <= tol) { if (total - run > 1.5 && run < total * .25 && run <= 1.2 * Math.min(1, SCALE) && (s.cap?.[e] !== 'taper' || run > .9 * Math.min(1, SCALE))) over = run; break; } }   // a hair's stub, not a crossbar run on by design
+      if (over) flag('overrun', s, [s.type, e ? 'end' : 'start', +over.toFixed(2), Math.round(P[0]), Math.round(P[1]), s.cap?.[e]]);
+      // an interlace passing under: the same line resumes on the far side of the strand it went under
+      else if (back > best + .15 && !ids.some(j => { const o = drawn[j]; return j !== i && o !== bo && !o.dot && [o.pts[0], o.pts.at(-1)].some(F => Math.hypot(F[0] - P[0], F[1] - P[1]) < 2 * best + bo.w + 2 && lineD(F, bo.pts) < GAP && lineD(F, bo.pts) > tol); })) flag('gap', s, [s.type, e ? 'end' : 'start', +best.toFixed(2), Math.round(P[0]), Math.round(P[1])]);   // heading for it, and stopped short
+    } }
+  const rank = w => w[5] === 'over' ? 1 : w[2] <= HARD ? 0 : 2; res.where.sort((a, b) => rank(a) - rank(b) || b[2] - a[2]); if (q.has('showjoins')) window.JOINS = res.where; res.where = res.where.slice(0, 12); return res;
 }
 const resampleLine = (p, ds) => { const out = [p[0]]; for (let i = 1; i < p.length; i++) { const a = p[i - 1], b = p[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(L / ds);
   for (let k = 1; k <= n; k++) out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]); } return out; };
