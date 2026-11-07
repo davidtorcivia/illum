@@ -1,64 +1,53 @@
 {
- "_": "The choir book's Lombardic alphabet (tools/lombcompose.py). Sources: Met 467763 (Gradual, Italian, c. 1310-15; images g00/g03/g05 of the Met's set), Met 466790, CMA 1985.60.b, traced with tools/tracelomb.py (research/17 \u00a76). Units: each source letter's height = 1.",
+ "_": "The choir book's Lombardic alphabet, second hand: Free Library of Philadelphia Lewis E 73 (Gradual, Bologna?, c. 1425; Internet Archive lewis_e_073), one hand of red and blue filigree Lombards throughout. Traced with tools/tracelomb.py (STAFF=.035 COL=red|blue CENTER=.04 BOPEN=.001 BODY=.55 WINB=.015) from the full-size page images; sources in research/choirbook/le073/ (the page in each file's src). Composed letters say so. Units: each source letter's height = 1. tools/lombcompose.py fairs every letter (FAIR).",
  "A": {
   "char": "A",
-  "note": "467763 g05 A (stem and bar) + its leg from the same book's X main stroke, mirrored",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), A, p. n54",
   "pieces": [
    {
-    "src": "A3"
-   },
-   {
-    "src": "X1b",
-    "erase": [
-     [
-      0.62,
-      0,
-      0.95,
-      0.42
-     ],
-     [
-      0.08,
-      0.58,
-      0.42,
-      1
-     ]
-    ],
-    "fx": true,
-    "s": 0.98,
-    "at": [
-     -0.47,
-     0.02
-    ]
+    "src": "At"
    }
   ]
  },
  "B": {
   "char": "B",
-  "note": "467763 g00 B",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), B, p. n22",
   "pieces": [
    {
-    "src": "B1"
+    "src": "Bt"
    }
   ]
  },
  "C": {
   "char": "C",
-  "note": "467763 g00 G, its tongue and turned-up foot taken away",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), C composed: the E (p. n53) without its bar and its descender (the hand's C is its E's bow)",
   "pieces": [
    {
-    "src": "G2",
+    "src": "Et",
     "erase": [
      [
-      0.47,
-      0.24,
-      0.95,
-      0.52
+      0.14,
+      0.37,
+      0.86,
+      0.63
      ],
      [
       0.72,
-      0.44,
-      0.95,
-      0.75
+      0.25,
+      1.1,
+      1
+     ],
+     [
+      0,
+      0,
+      1.1,
+      0.06
+     ],
+     [
+      0.55,
+      0,
+      1.1,
+      0.3
      ]
     ]
    }
@@ -66,67 +55,25 @@
  },
  "D": {
   "char": "D",
-  "note": "uncial D: 467763 g03 O's bowl + the ascender of 466790's D (its head, under a staff line in the scan, is its foot turned over)",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), D, p. n25",
   "pieces": [
    {
-    "src": "O1",
-    "crop": [
-     0.27,
-     0.03,
-     1.26,
-     1
-    ],
-    "erase": [
-     [
-      0,
-      0,
-      1.5,
-      0.14
-     ]
-    ]
-   },
-   {
-    "src": "O1",
-    "crop": [
-     0.27,
-     0.84,
-     1.26,
-     1
-    ],
-    "fy": true,
-    "at": [
-     0,
-     0.025
-    ]
-   },
-   {
-    "src": "D2",
-    "crop": [
-     0.29,
-     0.12,
-     0.84,
-     0.32
-    ],
-    "s": 1.1,
-    "at": [
-     -0.12,
-     -0.12
-    ]
+    "src": "Dt"
    }
   ]
  },
  "E": {
   "char": "E",
-  "note": "467763 g00 E (uncial)",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), E, p. n53",
   "pieces": [
    {
-    "src": "E1",
+    "src": "Et",
     "erase": [
      [
-      0.37,
       0,
-      0.53,
-      0.04
+      0,
+      1.1,
+      0.06
      ]
     ]
    }
@@ -134,452 +81,269 @@
  },
  "F": {
   "char": "F",
-  "note": "CMA 1985.60.b F",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), F composed: the L (p. n190) turned over, its foot become the F's head, + the E's bar (p. n53)",
   "pieces": [
    {
-    "src": "F1",
+    "src": "L",
+    "fy": true
+   },
+   {
+    "src": "Et",
     "crop": [
-     0,
-     0,
-     0.8,
-     1
+     0.45,
+     0.37,
+     0.84,
+     0.62
+    ],
+    "s": 0.9,
+    "at": [
+     0.18,
+     0.38
     ]
    }
   ]
  },
  "G": {
   "char": "G",
-  "note": "467763 g00 G",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), G, p. n27",
   "pieces": [
    {
-    "src": "G2"
+    "src": "Gt"
    }
   ]
  },
  "H": {
   "char": "H",
-  "note": "CMA 1985.60.a h (uncial)",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), H composed (uncial h): the K's stem (p. n284) + the M's right bow (p. n98), lowered",
   "pieces": [
    {
-    "src": "H2"
+    "src": "Kt",
+    "crop": [
+     0.12,
+     0.08,
+     0.52,
+     1
+    ]
+   },
+   {
+    "src": "M2t",
+    "crop": [
+     0.5,
+     0.0,
+     1.05,
+     1
+    ],
+    "s": 0.68,
+    "at": [
+     0.26,
+     0.32
+    ]
    }
   ]
  },
  "I": {
   "char": "I",
-  "note": "467763 g00 I",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), I, p. n11",
   "pieces": [
    {
-    "src": "I1"
+    "src": "It"
    }
   ]
  },
  "J": {
   "char": "J",
-  "note": "the I (Lombardic J is I)",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), J: the I (the hand writes J as I)",
   "pieces": [
    {
-    "src": "I1"
+    "src": "It"
    }
   ]
  },
  "K": {
   "char": "K",
-  "note": "467763 g00 K",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), K, p. n284 (Kyrie)",
   "pieces": [
    {
-    "src": "K1"
+    "src": "Kt"
    }
   ]
  },
  "L": {
   "char": "L",
-  "note": "the I's stem + the F's arm turned down as its foot",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), L, p. n190",
   "pieces": [
    {
-    "src": "I1"
-   },
-   {
-    "src": "F1",
-    "crop": [
-     0.21,
-     0.28,
-     0.62,
-     0.55
-    ],
-    "fy": true,
-    "s": 1.2,
-    "at": [
-     0.24,
-     0.67
-    ]
+    "src": "L"
    }
   ]
  },
  "M": {
   "char": "M",
-  "note": "uncial M: the G's round back, the I's stem, the h's leg",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), M, p. n98",
   "pieces": [
    {
-    "src": "G2",
-    "crop": [
-     0,
-     0,
-     0.42,
-     1
-    ],
-    "s": 1
-   },
-   {
-    "src": "I1",
-    "s": 0.95,
-    "at": [
-     0.33,
-     0.03
-    ]
-   },
-   {
-    "src": "H2",
-    "crop": [
-     0.26,
-     0.26,
-     0.7,
-     0.98
-    ],
-    "s": 1.3,
-    "at": [
-     0.55,
-     0.06
-    ]
+    "src": "M2t"
    }
   ]
  },
  "N": {
   "char": "N",
-  "note": "uncial N: the I's stem and the h's leg, raised to the cap line",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), N: the hand's uncial N is its M's stem and right bow (p. n98)",
   "pieces": [
    {
-    "src": "I1"
-   },
-   {
-    "src": "H2",
+    "src": "M2t",
     "crop": [
-     0.26,
-     0.26,
-     0.7,
-     0.98
-    ],
-    "s": 1.32,
-    "at": [
-     0.2,
-     0.02
+     0.32,
+     0,
+     1.05,
+     1
     ]
    }
   ]
  },
  "O": {
   "char": "O",
-  "note": "467763 g03 O, its penwork stub and the staff line erased (its head, under a staff line in the scan, is its foot turned over)",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), O, p. n46 (a rubric before it and a flourish after it erased)",
   "pieces": [
    {
-    "src": "O1",
+    "src": "Ot",
     "crop": [
-     0.27,
-     0.03,
-     1.26,
-     1
+     0.3,
+     0,
+     1.32,
+     0.96
     ],
     "erase": [
      [
+      1.2,
+      0.66,
+      1.6,
+      1
+     ],
+     [
       0,
       0,
-      1.5,
-      0.14
+      0.36,
+      0.75
      ]
-    ]
-   },
-   {
-    "src": "O1",
-    "crop": [
-     0.27,
-     0.84,
-     1.26,
-     1
-    ],
-    "fy": true,
-    "at": [
-     0,
-     0.025
     ]
    }
   ]
  },
  "P": {
   "char": "P",
-  "note": "the I's stem + the O's bowl (467763)",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), P, p. n23",
   "pieces": [
    {
-    "src": "I1"
-   },
-   {
-    "src": "O1",
-    "crop": [
-     0.76,
-     0.04,
-     1.26,
-     1
-    ],
-    "erase": [
-     [
-      0,
-      0,
-      1.5,
-      0.075
-     ]
-    ],
-    "s": 0.62,
-    "at": [
-     0.17,
-     0.0
-    ]
+    "src": "Pt"
    }
   ]
  },
  "Q": {
   "char": "Q",
-  "note": "the O + the X's lower arm as its tail (its head, under a staff line in the scan, is its foot turned over)",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), Q, p. n31",
   "pieces": [
    {
-    "src": "O1",
-    "crop": [
-     0.27,
-     0.03,
-     1.26,
-     1
-    ],
-    "erase": [
-     [
-      0,
-      0,
-      1.5,
-      0.14
-     ]
-    ]
-   },
-   {
-    "src": "O1",
-    "crop": [
-     0.27,
-     0.84,
-     1.26,
-     1
-    ],
-    "fy": true,
-    "at": [
-     0,
-     0.025
-    ]
-   },
-   {
-    "src": "X1b",
-    "crop": [
-     0.1,
-     0.62,
-     0.37,
-     1
-    ],
-    "fx": true,
-    "s": 0.7,
-    "at": [
-     0.64,
-     0.72
-    ]
+    "src": "Qt"
    }
   ]
  },
  "R": {
   "char": "R",
-  "note": "the I's stem + the O's bowl + the K's leg (467763)",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), R, p. n39",
   "pieces": [
    {
-    "src": "I1"
-   },
-   {
-    "src": "O1",
+    "src": "Rt",
     "crop": [
-     0.76,
-     0.04,
-     1.26,
+     0.2,
+     0,
+     1.42,
      1
     ],
     "erase": [
      [
       0,
       0,
+      0.36,
+      0.12
+     ],
+     [
+      1.05,
+      0.94,
       1.5,
-      0.075
+      1
+     ],
+     [
+      1.3,
+      0.8,
+      1.5,
+      1
+     ],
+     [
+      1.17,
+      0.82,
+      1.8,
+      1
      ]
-    ],
-    "s": 0.52,
-    "at": [
-     0.17,
-     0.0
-    ]
-   },
-   {
-    "src": "K1",
-    "crop": [
-     0.28,
-     0.4,
-     0.49,
-     1
-    ],
-    "s": 1.0,
-    "at": [
-     0.26,
-     0.42
     ]
    }
   ]
  },
  "S": {
   "char": "S",
-  "note": "composed: the G's upper back, its turn (rotated) below, joined by the X's main stroke",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), S, p. n36 (the staff's run at its head erased)",
   "pieces": [
    {
-    "src": "G2",
-    "crop": [
-     0,
-     0,
-     0.95,
-     0.52
-    ],
+    "src": "St",
     "erase": [
      [
-      0.45,
-      0.25,
-      0.95,
-      0.52
+      0.66,
+      0,
+      1.1,
+      0.13
      ]
-    ],
-    "s": 0.85
-   },
-   {
-    "src": "G2",
-    "crop": [
-     0,
-     0,
-     0.95,
-     0.52
-    ],
-    "erase": [
-     [
-      0.45,
-      0.25,
-      0.95,
-      0.52
-     ]
-    ],
-    "fx": true,
-    "fy": true,
-    "s": 0.85,
-    "at": [
-     0.02,
-     0.42
-    ]
-   },
-   {
-    "src": "X1b",
-    "crop": [
-     0.25,
-     0.25,
-     0.7,
-     0.75
-    ],
-    "erase": [
-     [
-      0.55,
-      0.2,
-      0.9,
-      0.42
-     ],
-     [
-      0.25,
-      0.58,
-      0.45,
-      0.8
-     ]
-    ],
-    "s": 0.75,
-    "at": [
-     0.12,
-     0.27
     ]
    }
   ]
  },
  "T": {
   "char": "T",
-  "note": "the E's bar along the head + the I's stem",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), T, p. n29",
   "pieces": [
    {
-    "src": "I1",
-    "at": [
-     0.32,
-     0.02
-    ]
-   },
-   {
-    "src": "E1",
-    "crop": [
-     0.1,
-     0.41,
-     0.88,
-     0.55
-    ],
-    "s": 1.15,
-    "at": [
-     0,
-     0
-    ]
+    "src": "Tt"
    }
   ]
  },
  "U": {
   "char": "U",
-  "note": "467763 g05 V (the U form)",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), U: the V, p. n20 (the hand's V is the U form)",
   "pieces": [
    {
-    "src": "V1"
+    "src": "V"
    }
   ]
  },
  "V": {
   "char": "V",
-  "note": "467763 g05 V",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), V, p. n20",
   "pieces": [
    {
-    "src": "V1"
+    "src": "V"
    }
   ]
  },
  "W": {
   "char": "W",
-  "note": "two Vs",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), W: VV, as the Italian books write it (the V, p. n20, twice)",
   "pieces": [
    {
-    "src": "V1"
+    "src": "V"
    },
    {
-    "src": "V1",
-    "crop": [
-     0.3,
-     0,
-     0.78,
-     1
-    ],
+    "src": "V",
     "at": [
-     0.62,
+     0.78,
      0
     ]
    }
@@ -587,103 +351,108 @@
  },
  "X": {
   "char": "X",
-  "note": "467763 g00 X",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), X, p. n284 (Xpiste)",
   "pieces": [
    {
-    "src": "X1b"
+    "src": "Xt",
+    "erase": [
+     [
+      0,
+      0.84,
+      1.3,
+      1
+     ],
+     [
+      0.8,
+      0.52,
+      1.3,
+      0.86
+     ]
+    ]
    }
   ]
  },
  "Y": {
   "char": "Y",
-  "note": "the X's upper arms + the I's stem",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), Y composed: the X's upper arms (p. n284) + the I's stem (p. n11)",
   "pieces": [
    {
-    "src": "X1b",
+    "src": "Xt",
     "crop": [
      0,
      0,
-     0.92,
-     0.52
-    ],
-    "erase": [
-     [
-      0.45,
-      0.42,
-      0.6,
-      0.52
-     ]
+     0.95,
+     0.47
     ]
    },
    {
-    "src": "I1",
+    "src": "It",
     "crop": [
-     0,
+     0.2,
      0.42,
-     0.31,
+     0.85,
      1
     ],
     "at": [
-     0.33,
-     0.45
+     0.24,
+     0.42
     ]
    }
   ]
  },
  "Z": {
   "char": "Z",
-  "note": "the E's bar at head and foot + the X's main stroke, mirrored",
+  "note": "Free Library of Philadelphia, Lewis E 73 (Gradual, Bologna?, c. 1425), Z composed: the T's bar (p. n29) + the X's main stroke turned (p. n284) + the L's foot (p. n190)",
   "pieces": [
    {
-    "src": "E1",
+    "src": "Tt",
     "crop": [
-     0.1,
-     0.41,
-     0.88,
-     0.55
-    ],
-    "s": 1.0,
-    "at": [
-     0.02,
-     0
+     0.05,
+     0,
+     0.95,
+     0.24
     ]
    },
    {
-    "src": "E1",
+    "src": "Xt",
     "crop": [
+     0.12,
      0.1,
-     0.41,
-     0.88,
-     0.55
+     0.95,
+     0.82
     ],
-    "fx": true,
-    "s": 1.0,
-    "at": [
-     0.0,
-     0.88
-    ]
-   },
-   {
-    "src": "X1b",
     "erase": [
      [
-      0.62,
-      0,
+      0.55,
+      0.1,
       0.95,
       0.42
      ],
      [
-      0.08,
-      0.58,
-      0.42,
-      1
+      0.12,
+      0.5,
+      0.45,
+      0.82
      ]
     ],
     "fx": true,
-    "s": 0.85,
+    "s": 0.95,
     "at": [
-     0,
-     0.07
+     0.08,
+     0.12
+    ]
+   },
+   {
+    "src": "L",
+    "crop": [
+     0.1,
+     0.78,
+     0.85,
+     1
+    ],
+    "at": [
+     0.06,
+     0.8
     ]
    }
   ]

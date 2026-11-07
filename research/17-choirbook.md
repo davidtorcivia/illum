@@ -114,6 +114,36 @@ Dark: the designed dark blue (inkDark), laid flat with its opacity pooled at the
 letter is returned as `{ M, col }` in dark to get the style's designed `inkDark` (flat, no paint texture); (3) `initial.width`
 routes a style to the written path, so a registry style cannot size its float itself: the font's metrics do it instead.
 
+## 4d. Refinement (fourth pass: "very clumsy, but the direction is good")
+
+**Sources, widened.** Searched the Met (v1.1 API), Cleveland open access, Wikimedia Commons, and the Free Library of
+Philadelphia's Lewis E manuscripts on the Internet Archive. The find: **Lewis E 73, a complete Gradual, Bologna?, c. 1425**
+(Internet Archive `lewis_e_073`, Public Domain Mark; 316 page images at 5609×7501), written and rubricated in one hand
+throughout: hundreds of red and blue filigree Lombards, each about 500 px tall at full size. A detector (paint blobs per page,
+`scratchpad/cb/detect.py`) found 720 candidates; read on contact sheets, they give real instances of A B D E G I K L M O P Q R
+S T V X (and many of each). It is a little later than the 1280–1400 asked (c. 1425), but it is one hand with nearly the whole
+alphabet, which no earlier book in reach offered; 467763 (c. 1310–15) has only ~15 letters and its S and P would not trace.
+
+**Tracing** (tools/tracelomb.py, new: `STAFF` takes out the staff's rules where they run thin to the crop's side; `CENTER`
+keeps only the pieces centred in the crop; and a thin setting, BOPEN .001 BODY .55 WINB .015, keeps the hairline joints this
+hand paints). Traced from the book: A B D E G I K L M O P Q R S T V X (17). Composed from that hand's own strokes, as a last
+resort, recorded per letter in research/choirbook/lombards.json: C (its E's bow), F (its L turned over + its E's bar), H (its
+K's stem + its M's right bow: uncial h), J (= I), N (its M's stem and right bow: the hand's uncial N), U (= its V), W (VV, as
+the Italian books write it), Y (its X's arms + its I's stem), Z (its T's bar, its X's main stroke turned, its L's foot).
+
+**Fairing** (tools/lombcompose.py `FAIR`, default .009 of the height): every letter closed and opened at that scale (notches
+filled, burrs off), then a Gaussian of that width cut at half, before potrace refits it as curves (tools/lombfont.py, OPT .6).
+The strokes' swell and the ball terminals, being larger, are kept.
+
+**Panels**: counters closed by the letter grown 6 % of its height (this hand leaves joints thin or a hair open), crevices
+under ~1/9 of the height dropped; roundels up to 1/10 of the height, fewer small points, red points larger (they read at
+1×). **Dark**: the letter's paint mottled at two scales and toothed, pooled at the rim (the designed dark blue).
+
+**Short**: the closing that finds a counter also paints the joint it bridges, so a few letters (B, O, Q) gain a soft lump at a
+joint; small staff-line remnants survive under some feet (O, Q, U, V); the composed letters (C F H N W Y Z) are less sure than
+the traced; the panel filigree is still 467763's (white reserve on blue), while Lewis E 73's own counters are paper worked in
+blue hairline (a truer pairing would be that hand's filigree, or 467763's letters, which are too few).
+
 ## 5. The letter (first and second passes)
 
 No OFL Lombardic face is good enough. Checked: Metamorphous, MedievalSharp, Lancelot, Almendra Display, Jacquard 24,

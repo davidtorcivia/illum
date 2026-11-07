@@ -33,6 +33,12 @@ for name, L in json.load(open(spec)).items():
         x, y = [round(v * R) for v in pc.get('at', [0, 0])]; h, w = m.shape
         canvas[oy + y:oy + y + h, ox + x:ox + x + w] |= m
     canvas = nd.binary_closing(canvas, iterations=2) | canvas   # pieces meet without a seam
+    # faired: the scan's grain and a join's step smoothed away (a Gaussian of FAIR of the height, then cut at half), small
+    # notches filled and burrs taken off at the same scale; the strokes' swell, being larger, is kept
+    ys_, xs_ = np.nonzero(canvas); Hc = ys_.max() - ys_.min() + 1; f = float(os.environ.get('FAIR', .009)) * Hc
+    if f > 0:
+        k = max(1, int(f * .8)); canvas = nd.binary_opening(nd.binary_closing(np.pad(canvas, k + 2), iterations=k), iterations=k)[k + 2:-k - 2, k + 2:-k - 2]
+        canvas = nd.gaussian_filter(canvas.astype(float), f) > .5
     ys, xs = np.nonzero(canvas); bx0, by0, bx1, by1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1; H = by1 - by0
     sm = nd.gaussian_filter(canvas.astype(float), 1.2); polys = []
     for ct in find_contours(np.pad(sm, 1), .5):

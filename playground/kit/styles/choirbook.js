@@ -20,8 +20,8 @@
 //   bare, so the page's own colour in light and dark). Drop initials, usual budget up; ?filigree=0|1 overrides.
 // - a small cross of points in the margin (467763), on the finer budgets.
 // - the stave (every leaf): four red rules, the square notes in black, the finalis, as the chapter break.
-// The letter is the choir book's own Lombard: an alphabet traced from Met 467763 and leaves of its time, completed from its
-// own strokes, one small webfont per letter (research/17 §4c; see "the letter" below); EB Garamond if a face is missing.
+// The letter is the choir book's own Lombard: an alphabet traced from one hand (Free Library of Philadelphia, Lewis E 73, a
+// Gradual, Bologna?, c. 1425), completed from that hand's own strokes, faired, one small webfont per letter (research/17 §4c; see "the letter" below); EB Garamond if a face is missing.
 //
 // Marks are the registry's: strokes { pts, col, w, start, end, load, dry, broad, swell, nib, ink? } and points
 // { dot, p, r, col, ink? }; col 'a' | 'b' (red and blue in turn), 'k' the notes' black.
@@ -107,10 +107,21 @@ const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
 const taperOf = L => f => .08 + .92 * Math.pow(1 - sm(1 - Math.min(.35, 34 / L), 1, f), 1.2);   // the broad nib's lift (kit/illum.js swell)
 export function filigree(L0, seed) {
   // the counters the letter closes are its panels (467763's bowls are worked, not bare): painted, and worked below
+  // (the hand leaves a joint thin, sometimes a hair open: a counter is closed for this by the letter grown a few percent of
+  // its height, and the joint is painted with it)
   const { w, h, x0, y0, res } = L0, out0 = new Uint8Array(w * h), st = [];
+  const ink0 = new Uint8Array(w * h); for (let k = 0; k < w * h; k++) ink0[k] = L0.M[k] > .5; const Dg = edt(ink0, w, h); let rows = [h, 0];
+  for (let k = 0; k < w * h; k++) if (L0.M[k] > .5) { const j = k / w | 0; rows = [Math.min(rows[0], j), Math.max(rows[1], j)]; }
+  const grow = (rows[1] - rows[0]) * .06, grown = k => Dg[k] <= grow;
   for (let x = 0; x < w; x++) st.push(x, (h - 1) * w + x); for (let y = 0; y < h; y++) st.push(y * w, y * w + w - 1);
-  while (st.length) { const i = st.pop(); if (out0[i] || L0.M[i] > .5) continue; out0[i] = 1; const x = i % w; if (x > 0) st.push(i - 1); if (x < w - 1) st.push(i + 1); if (i >= w) st.push(i - w); if (i < w * (h - 1)) st.push(i + w); }
-  const pan = new Uint8Array(w * h), M = Float32Array.from(L0.M); for (let k = 0; k < w * h; k++) if (!out0[k] && L0.M[k] <= .5) { pan[k] = 1; M[k] = 1; }
+  while (st.length) { const i = st.pop(); if (out0[i] || grown(i)) continue; out0[i] = 1; const x = i % w; if (x > 0) st.push(i - 1); if (x < w - 1) st.push(i + 1); if (i >= w) st.push(i - w); if (i < w * (h - 1)) st.push(i + w); }
+  const Dout = edt(out0, w, h), pan = new Uint8Array(w * h), M = Float32Array.from(L0.M);   // (the outside grown back by as much)
+  for (let k = 0; k < w * h; k++) if (L0.M[k] <= .5 && Dout[k] > grow + 1) pan[k] = 1;
+  // a panel is a counter, not a crevice the growing closed (a notch between two feet): under ~1/9 of the height square, dropped
+  { const seen = new Uint8Array(w * h), min = ((rows[1] - rows[0]) * .11) ** 2;
+    for (let s = 0; s < w * h; s++) { if (!pan[s] || seen[s]) continue; const comp = [], st2 = [s]; seen[s] = 1;
+      while (st2.length) { const i = st2.pop(); comp.push(i); const x = i % w; for (const q of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, i - w, i + w]) if (q >= 0 && q < w * h && pan[q] && !seen[q]) { seen[q] = 1; st2.push(q); } }
+      if (comp.length < min) for (const i of comp) pan[i] = 0; else for (const i of comp) M[i] = 1; } }
   const L = { ...L0, M }, paper = new Uint8Array(w * h); let r0 = h, r1 = 0;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; paper[k] = M[k] <= .5; if (!paper[k]) { r0 = Math.min(r0, j); r1 = Math.max(r1, j); } }
   const D = edt(paper, w, h), H = (r1 - r0) / res, r = stream(seed, 'filigree'), cut = new Float32Array(w * h), marks = [], reds = [];
@@ -141,19 +152,19 @@ export function filigree(L0, seed) {
   const inner = k => P[k] / res - e2 - lw / 2 - gp, cells = [], got = [];
   for (let k = 0; k < w * h; k += 2) if (pan[k] && inner(k) > 1.3) cells.push(k);
   cells.sort((a, b) => inner(b) - inner(a) + (r() - .5) * 1.2);
-  const rMax = H * .062;
-  for (const k of cells) { const c = [x0 + (k % w + .5) / res, y0 + ((k / w | 0) + .5) / res], R = Math.min(rMax, inner(k) - .1); if (R < 1.3) continue;
-    if (got.some(g => Math.hypot(g.c[0] - c[0], g.c[1] - c[1]) < g.R + R + gp + lw * .5)) continue; got.push({ c, R }); }
+  const rMax = H * .1;   // (467763's P: roundels ~1/9 of the height; calm, not a froth of small rings)
+  for (const k of cells) { const c = [x0 + (k % w + .5) / res, y0 + ((k / w | 0) + .5) / res], R = Math.min(rMax, inner(k) - .1); if (R < Math.max(1.6, H * .035)) continue;
+    if (got.some(g => Math.hypot(g.c[0] - c[0], g.c[1] - c[1]) < g.R + R + gp * 1.6 + lw)) continue; got.push({ c, R }); }
   for (const { c, R } of got) {
     ring(c, R - lw / 2, lw); let ri = R - lw / 2;
     if (R >= 3.6) { ri = R - lw * 1.5 - gp; ring(c, ri, lw * .9); }
     const dr = Math.max(.55, ri * .28), a0 = r() * 2 * Math.PI;
-    if (ri - lw >= dr * 2.2) for (let q = 0; q < 3; q++) { const a = a0 + q * 2 * Math.PI / 3, p = [c[0] + Math.cos(a) * dr * 1.2, c[1] + Math.sin(a) * dr * 1.2]; point(p, dr); if (dr >= .95) reds.push({ p, r: dr * .45 }); }
+    if (ri - lw >= dr * 2.2) for (let q = 0; q < 3; q++) { const a = a0 + q * 2 * Math.PI / 3, p = [c[0] + Math.cos(a) * dr * 1.2, c[1] + Math.sin(a) * dr * 1.2]; point(p, dr); if (dr >= .8) reds.push({ p, r: Math.max(.6, dr * .55) }); }
     else point(c, Math.max(.55, Math.min(dr * 1.3, ri - lw))); }
   // small points between the roundels
   const n0 = got.length;
-  for (const k of cells) { if (r() > .4) continue; const c = [x0 + (k % w + .5) / res, y0 + ((k / w | 0) + .5) / res], pr = Math.max(.5, lw * .72);
-    if (inner(k) < pr + .3 || got.some(g => Math.hypot(g.c[0] - c[0], g.c[1] - c[1]) < g.R + pr + gp)) continue; point(c, pr); got.push({ c, R: pr }); }
+  for (const k of cells) { if (r() > .12) continue; const c = [x0 + (k % w + .5) / res, y0 + ((k / w | 0) + .5) / res], pr = Math.max(.5, lw * .72);
+    if (inner(k) < pr + .6 || got.some(g => Math.hypot(g.c[0] - c[0], g.c[1] - c[1]) < g.R + pr + gp * 2.2)) continue; point(c, pr); got.push({ c, R: pr }); }
   const out = new Float32Array(w * h); for (let k = 0; k < w * h; k++) out[k] = M[k] * (1 - cut[k]);
   return { M: { ...L, M: out }, full: L, marks, reds };
 }
@@ -350,14 +361,17 @@ const INKS = { azurite: [212, 108, 82], minium: [60, 86, 164] };
 PIGMENTS.cbAzureDark ??= { rgb: [52, 88, 206], gran: .03, rim: .42 };
 PIGMENTS.cbMiniumDark ??= { rgb: [214, 84, 52], gran: .03, rim: .36 };
 function pooled(L, seed) {
+  // the dark page's letter: a flat paint whose body is not even: thick where the brush pooled at the edge, mottled where it
+  // dried unevenly (two scales, ~7 px and ~2 px), a fine tooth over it, as paintField makes the light page's
   const { M, w, h, res } = L, paper = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) paper[i] = M[i] <= .5;
-  const D = edt(paper, w, h), n = noise2(seed ^ 0x2b), out = new Float32Array(w * h);
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; if (!M[k]) continue; const d = D[k] / res;
-    out[k] = M[k] * Math.min(1, .8 + .2 * Math.exp(-d / 1.3) + .07 * (n(i / res / 6, j / res / 6) - .5)); }
+  const D = edt(paper, w, h), n = noise2(seed ^ 0x2b), n2 = noise2(seed ^ 0x6c), n3 = noise2(seed ^ 0x13), out = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; if (!M[k]) continue; const d = D[k] / res, x = i / res, y = j / res;
+    const a = .76 + .2 * Math.exp(-d / 1.4) + .12 * (n(x / 7, y / 7) - .5) * 2 + .06 * (n2(x / 2.2, y / 2.2) - .5) * 2 + .04 * (n3(x / .7, y / .7) - .5) * 2;
+    out[k] = M[k] * Math.max(.55, Math.min(1, a)); }
   return { ...L, M: out };
 }
 // ---- the letter: the choir book's own Lombards ------------------------------------------------------------------------------------
-// Traced from the Lombards of one gradual (Met 467763, Italian, c. 1310-15) and two leaves of its time (tools/tracelomb.py),
+// Traced from the Lombards of one gradual (Free Library of Philadelphia, Lewis E 73, Bologna?, c. 1425; tools/tracelomb.py),
 // the alphabet completed from the set's own strokes (tools/lombcompose.py, research/choirbook/lombards.json), each letter its
 // own small webfont (tools/lombfont.py; playground/fonts/choirbook) made with EB Garamond's vertical metrics and cap height,
 // so kit/illum.js, which sizes and places a drop by Garamond's metrics, sets a Lombard exactly where a Garamond capital
