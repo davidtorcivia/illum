@@ -107,7 +107,7 @@ code, pre { font-family: var(--mono); font-variant-ligatures: none; }
 
 /* the running head: a line over the specimen, set on the text's column, that stays at the top while the reader scrolls,
    with one rule under it, as a book's running head has */
-.viewer { position: sticky; top: 0; z-index: 5; background: var(--paper); border-bottom: 1px solid var(--rule);
+.viewer { position: sticky; top: 0; z-index: 5; background: var(--paper);
   margin-top: .8rem; padding: 0 20px 0 calc(max(0px, 50vw - 450px) + 192px); }
 .viewer .panel { padding-bottom: .8rem; }
 @media (min-width: 641px) and (max-width: 1000px) { .viewer { padding-left: calc(max(0px, 50vw - 450px) + 102px); } }
