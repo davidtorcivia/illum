@@ -2,7 +2,7 @@
 // the drafting room made it, 1950s–80s: india ink from a technical pen (Rapidograph, Leroy scriber) on vellum or drafting
 // film, one round nib per weight, the line hierarchy of the drafting standard (ANSI Y14.2: thick ≈ 2× thin); single-stroke
 // template lettering (Leroy), vertical capitals; construction in non-repro blue pencil, which the print never shows.
-//   drop initial: the capital lettered large on its non-repro blue lettering grid, in a heavy-ruled cell, its height dimensioned
+//   drop initial: the capital as a part: in section with its call-outs, in two views, or laid out as Leroy lettering (set)
 //   paraph: an item balloon (a numbered circle: the drawing's call-out)
 //   filler: a dimension line across the gap, its extension lines and arrowheads, and the figure: the gap's own length, in inches
 //   frame (blockquote): the sheet's border: the trim line, the heavy border, zone marks lettered in the margin, a title block
@@ -11,7 +11,7 @@
 // written by the ink engine's pen as the scriber's pen would draw it. Everything is { marks, letters } as kit/styles/occult.js
 // (printOf from there lays it); col 'k' the ink, 'g' the non-repro blue.
 import { noise2 } from '../marks.js';
-import { resample, printOf as occultPrint } from './occult.js';
+import { resample, occlude, printOf as occultPrint } from './occult.js';
 
 // Hershey Roman Simplex (futural.jhf), the glyphs this style letters: { l, r, s: strokes [[x, y]...] } in Hershey units
 // (cap height 21: caps from y -12 to the baseline at 9). Credit, as the distribution asks: Dr. A. V. Hershey, U.S. NBS.
@@ -64,7 +64,7 @@ export function letter(text, x, base, cap, W, { align = 'left', col = 'k', seed 
   const k = cap / 21, w = textWidth(text, cap); let cx = (align === 'center' ? x - w / 2 : align === 'right' ? x - w : x) - 1 * k; const marks = [];
   for (const ch of text) { const g = HERSHEY[ch] ?? HERSHEY[' '];
     if (ch === '.' || ch === ',') {   // (Hershey's point is a tiny loop; the template's is the pen set down)
-      const px = cx + (0 - g.l) * k, py = base - W * .3; marks.push(tpen([[px - .2, py], [px + .2, py]], W * 1.25, { col, seed: seed + marks.length * 3 }));
+      const px = cx + (0 - g.l) * k, py = base - W * .55, r = W * .3; marks.push(tpen(Array.from({ length: 13 }, (_, i) => [px + r * Math.cos(i / 12 * 6.2832), py + r * Math.sin(i / 12 * 6.2832)]), W, { col, seed: seed + marks.length * 3, pool: 0 }));
       if (ch === ',') marks.push(tpen([[px, py], [px - k * 1.2, py + k * 3.5]], W, { col, seed: seed + marks.length * 3 })); cx += (g.r - g.l) * SP * k + track(cap); continue; }
     g.s.forEach((s, i) => { const P = s.map(([gx, gy]) => [cx + (gx - g.l) * k, base + (gy - 9) * k]);
       if (P.length === 1) P.push([P[0][0] + .01, P[0][1]]);   // (a dot: the pen set down)
@@ -86,35 +86,152 @@ export const weights = u => ({ thin: Math.max(1.3, u * .12), thick: Math.max(2.4
 const inches = px => (px / 96).toFixed(2);
 
 // ---- the drop initial ----------------------------------------------------------------------------------------------------------
-// The capital lettered large, as on a drawing's lettering plate: the cell ruled heavy, the non-repro blue grid it was laid
-// out on (the guide lines a draftsman pencils before he inks, which the reproduction drops out), the letter in one weight
-// of ink (the template pen's: cap / 12), the cap height dimensioned on the left, its figure in the small lettering.
-export function initial({ ch, G, u, seed = 1, rich = .5 }) {
-  const [x0, y0, x1, y1] = G.box, h = y1 - y0, w = x1 - x0, { thin, thick } = weights(u), marks = [], letters = [];
-  marks.push(...rect([x0, y0, x1, y1], thick, { seed }));
-  // the grid: fade-out grid vellum (Clearprint's, ten to the inch, printed in a blue the camera does not see), the
-  // inch lines a shade stronger; as many squares as fit the cell, the lettering on them
-  const g = h / 7, fine = h / Math.max(8, Math.round(h / 9.6)), gx0 = x0 + ((w - Math.floor(w / fine) * fine) / 2);
-  for (let k = 1, y = y0 + fine; y < y1 - fine * .3; k++, y += fine) marks.push(tpen([[x0 + thick, y], [x1 - thick, y]], 1.3, { col: 'g', seed: seed + 40 + k, pool: 0, wob: .05 }));
-  for (let x = gx0 + fine; x < x1 - fine * .3; x += fine) marks.push(tpen([[x, y0 + thick], [x, y1 - thick]], 1.3, { col: 'g', seed: seed + 60 + x | 0, pool: 0, wob: .05 }));
-  // the letter: five units of the seven high, standing on the grid's second line from the foot, centred on the cell
-  const cap = g * 5, base = y1 - g, gl = HERSHEY[ch] ?? HERSHEY.B, lw = cap / 12;   // (the MIT drawings' large numerals: ~1/12 of their height)
-  const xs = gl.s.flat().map(p => p[0]), cx = (x0 + x1) / 2 + g * .35 - (Math.min(...xs) + Math.max(...xs)) / 2 * cap / 21;
-  gl.s.forEach((s, i) => marks.push(tpen(smooth(s.map(([gx, gy]) => [cx + gx * cap / 21, base + (gy - 9) * cap / 21]), 4), lw, { seed: seed + 100 + i, pool: .1 })));
-  // its height dimensioned in the cell's left column: extension from cap line and base line, the dimension line between
-  // with its arrowheads, the figure written across it (aligned system: reading from the right)
-  const dx = x0 + g * .62, a = Math.min(g * .5, u * .9), fig = inches(cap), fc = Math.max(5.5, Math.min(g * .48, u * .62));
-  if (rich > .2 && g > 9) {
-    const yc = base - cap / 2, fw = textWidth(fig, fc), gap = fw / 2 + fc * .5;
-    marks.push(line([dx, base - cap + a], [dx, yc - gap], thin * .8, { seed: seed + 7 }), line([dx, yc + gap], [dx, base - a], thin * .8, { seed: seed + 8 }));
-    letters.push(arrow([dx, base - cap], [0, -1], a), arrow([dx, base], [0, 1], a));
-    // the figure turned to read from the right (as aligned dimensions on a vertical line are)
-    marks.push(...letter(fig, 0, 0, fc, thin * .8, { align: 'center', seed: seed + 9 }).map(m => ({ ...m, pts: m.pts.map(([px, py]) => [dx + py + fc / 2, yc - px]) })));
+// The capital treated as the drawing office treats a part. Three treatments (set):
+//   'part'   the letter as a machined plate in section: the Leroy capital swept by a heavy pen (as a slot is swept by an end
+//            mill: the template's path, a constant width, round ends) taken as the part's outline, inked heavy; its body
+//            section-lined at 45° (thin, evenly spaced, broken where a figure or leader passes over); centre marks and
+//            centrelines through its counters; a radius called out on a bowl (R and the radius as the screen shows it, in
+//            inches) and the stroke's width dimensioned
+//   'views'  the letter as a detail in two views: the front view's outline, the right side view (the plate's thickness, its
+//            counters' edges as hidden lines, dashed), "DETAIL A" underlined and "SCALE 4:1" beneath
+//   'leroy'  the capital as Leroy lettering is laid on the sheet: guidelines and vertical guides in non-repro blue, the
+//            letter inked over them in the template's heavy pen, the template's size (its letter height in thousandths of
+//            an inch, the Leroy series) in a balloon on a leader
+// The Apollo sheets' weights (research/15): outline (thick) : thin ≈ 2 : 1; section lines and centrelines thin.
+const SETS = { part: 1.34, views: 1.42, leroy: 1.08 };
+
+// the letter as a plate: the Leroy path swept by a pen of width sw, as coverage on a grid at `res` cells a px
+function plate(ch, x, base, cap, sw, res = 2) {
+  const gl = HERSHEY[ch] ?? HERSHEY.B, k = cap / 21, xs = gl.s.flat().map(p => p[0]);
+  const strokes = gl.s.map(s => smooth(s.map(([gx, gy]) => [x + (gx - Math.min(...xs)) * k + sw / 2, base + (gy - 9) * k]), 3));
+  let bb = [Infinity, Infinity, -Infinity, -Infinity]; for (const s of strokes) for (const [px, py] of s) bb = [Math.min(bb[0], px), Math.min(bb[1], py), Math.max(bb[2], px), Math.max(bb[3], py)];
+  const gx = Math.floor(bb[0] - sw), gy = Math.floor(bb[1] - sw), w = Math.ceil((bb[2] - gx + sw) * res) + 2, h = Math.ceil((bb[3] - gy + sw) * res) + 2;
+  const c = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
+  c.setTransform(res, 0, 0, res, -gx * res, -gy * res); c.lineWidth = sw; c.lineCap = c.lineJoin = 'round'; c.strokeStyle = '#000';
+  for (const s of strokes) { c.beginPath(); s.forEach(([px, py], i) => i ? c.lineTo(px, py) : c.moveTo(px, py)); c.stroke(); }
+  const d = c.getImageData(0, 0, w, h).data, M = new Float32Array(w * h); for (let i = 0; i < w * h; i++) M[i] = d[i * 4 + 3] / 255;
+  const at = (px, py) => { const i = Math.round((px - gx) * res), j = Math.round((py - gy) * res); return i < 0 || j < 0 || i >= w || j >= h ? 0 : M[j * w + i]; };
+  return { M, w, h, gx, gy, res, at, inside: (px, py) => at(px, py) > .5, box: [bb[0] - sw / 2, base - cap - sw / 2, bb[2] + sw / 2, base + sw / 2], strokes };
+}
+// the outline of a coverage grid at 0.5 (marching squares), as closed polylines in page px, lightly smoothed
+function outline(P) {
+  const { M, w, h, gx, gy, res } = P, v = (i, j) => i < 0 || j < 0 || i >= w || j >= h ? 0 : M[j * w + i], t = .5, pt = {}, adj = {};
+  const key = (e, i, j) => e + i + ',' + j, lerp = (a, b) => (t - a) / (b - a || 1e-6);
+  const at = (e, i, j) => { const k = key(e, i, j); if (pt[k]) return k;
+    pt[k] = e === 'h' ? [i + lerp(v(i, j), v(i + 1, j)), j] : [i, j + lerp(v(i, j), v(i, j + 1))]; return k; };
+  const link = (a, b) => { (adj[a] ??= []).push(b); (adj[b] ??= []).push(a); };
+  for (let j = -1; j < h; j++) for (let i = -1; i < w; i++) {
+    const a = v(i, j) > t, b = v(i + 1, j) > t, c = v(i + 1, j + 1) > t, d = v(i, j + 1) > t, n = a | b << 1 | c << 2 | d << 3; if (!n || n === 15) continue;
+    const T = () => at('h', i, j), B = () => at('h', i, j + 1), L = () => at('v', i, j), R = () => at('v', i + 1, j);
+    ({ 1: [[L, T]], 2: [[T, R]], 3: [[L, R]], 4: [[R, B]], 5: [[L, T], [R, B]], 6: [[T, B]], 7: [[L, B]], 8: [[B, L]], 9: [[T, B]], 10: [[T, R], [B, L]], 11: [[R, B]], 12: [[R, L]], 13: [[T, R]], 14: [[L, T]] })[n]
+      .forEach(([p, q]) => link(p(), q())); }
+  const seen = new Set(), loops = [];
+  for (const s in adj) { if (seen.has(s)) continue; const loop = [s]; seen.add(s); let prev = null, cur = s;
+    for (;;) { const nx = adj[cur].find(n => n !== prev && !seen.has(n)); if (!nx) break; seen.add(nx); loop.push(nx); prev = cur; cur = nx; }
+    if (loop.length > 6) loops.push(loop.map(k => [gx + (pt[k][0] + .5) / res, gy + (pt[k][1] + .5) / res])); }
+  // (the staircase of the grid smoothed away: a moving average over a few cells, round the closed loop)
+  return loops.map(L => { const n = L.length, m = 3, out = L.map((_, i) => { let x = 0, y = 0; for (let d = -m; d <= m; d++) { const q = L[(i + d + n) % n]; x += q[0]; y += q[1]; } return [x / (2 * m + 1), y / (2 * m + 1)]; }); out.push(out[0], out[1]); return out; });
+}
+// the counters: the holes of the plate (regions of no ink enclosed by it), each { c: centroid, bb, n }
+function counters(P) {
+  const { M, w, h, gx, gy, res } = P, lab = new Int32Array(w * h).fill(-1), out = [];
+  for (let s = 0; s < w * h; s++) { if (M[s] > .5 || lab[s] >= 0) continue; const st = [s], id = out.length; lab[s] = id; let edge = false, sx = 0, sy = 0, n = 0, bb = [1e9, 1e9, -1e9, -1e9];
+    while (st.length) { const q = st.pop(), i = q % w, j = (q - i) / w; if (!i || !j || i === w - 1 || j === h - 1) edge = true; sx += i; sy += j; n++; bb = [Math.min(bb[0], i), Math.min(bb[1], j), Math.max(bb[2], i), Math.max(bb[3], j)];
+      for (const o of [q - 1, q + 1, q - w, q + w]) if (o >= 0 && o < w * h && Math.abs((o % w) - i) <= 1 && lab[o] < 0 && M[o] <= .5) { lab[o] = id; st.push(o); } }
+    out.push(edge ? null : { c: [gx + sx / n / res, gy + sy / n / res], bb: bb.map((b, k) => (k % 2 ? gy : gx) + b / res), n }); }
+  return out.filter(Boolean).filter(c => c.n > 20).sort((a, b) => a.c[1] - b.c[1]);
+}
+// a chain line (centreline: long dash, short dash) from a to b, each dash a stroke of the pen
+function chain(a, b, W, seed, o = {}) { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), d = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], out = [], long = o.long ?? Math.max(7, W * 7), sh = Math.max(1.6, W * 1.4), gap = Math.max(2.2, W * 1.6);
+  let s = 0, k = 0; const pat = [long, gap, sh, gap];
+  while (s < L) { const len = Math.min(pat[k % 4], L - s); if (k % 2 === 0) out.push(line([a[0] + d[0] * s, a[1] + d[1] * s], [a[0] + d[0] * (s + len), a[1] + d[1] * (s + len)], W, { seed: seed + k, pool: .05 })); s += len; k++; }
+  return out; }
+// a hidden line (short dashes)
+function dashes(a, b, W, seed) { const L = Math.hypot(b[0] - a[0], b[1] - a[1]), d = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], out = [], on = Math.max(3.5, W * 3.2), off = Math.max(2, W * 1.6);
+  for (let s = 0, k = 0; s < L; s += on + off, k++) { const e = Math.min(L, s + on); out.push(line([a[0] + d[0] * s, a[1] + d[1] * s], [a[0] + d[0] * e, a[1] + d[1] * e], W, { seed: seed + k, pool: .05 })); }
+  return out; }
+// the text box a lettering run occupies (for keeping labels clear of lines and of each other)
+const labelBox = (text, x, base, cap, align = 'left') => { const w = textWidth(text, cap), l = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x; return [l - cap * .3, base - cap * 1.3, l + w + cap * .3, base + cap * .35]; };
+const hits = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+const fmt = px => (px / 96).toFixed(3).replace(/^0/, '');   // inches as decimal-inch drawings write them: .250
+
+export function initial({ ch, G, u, seed = 1, rich = .5, set = 'part' }) {
+  const [x0, y0, x1, y1] = G.box, h = y1 - y0, { thin, thick } = weights(u), marks = [], letters = [];
+  const fc = Math.max(6.5, u * .78), tw = Math.max(1.3, thin * .9);   // the call-outs' lettering: the notes' size and pen
+  if (set === 'leroy') {
+    // guidelines: the cap line and base line run across the cell and a little past the letter; a waist line; vertical
+    // guides at the Ames guide's even spacing, all in the blue pencil
+    const cap = h * .8, base = y1 - h * .04, sw = cap / 9.5, gl = HERSHEY[ch] ?? HERSHEY.B, k = cap / 21, xs = gl.s.flat().map(p => p[0]), lx = x0 + sw;
+    const blue = (a, b, s) => tpen([a, b], 1.3, { col: 'g', seed: s, pool: 0, wob: .06 });
+    for (const [y, s] of [[base - cap, 1], [base, 2], [base - cap * .5, 3]]) marks.push(blue([x0, y], [x1, y], seed + s));
+    for (let x = x0 + cap * .14, i = 0; x < x1; x += cap * .3, i++) marks.push(blue([x, base - cap - cap * .06], [x, base + cap * .06], seed + 10 + i));
+    // (the template pen is round: the letter is its round sweep along the template's path, laid by the ink engine as one
+    // deposit, so the joins merge as wet ink does and the ends are round)
+    const L = plate(ch, lx - sw / 2, base, cap, sw); letters.push({ M: L.M, w: L.w, h: L.h, x0: L.gx, y0: L.gy, res: L.res, col: 'k' });
+    // the balloon: the Leroy template whose letter this is (series 60 … 500, letter height in thousandths of an inch)
+    const series = [60, 80, 100, 120, 140, 175, 200, 240, 290, 350, 425, 500, 700, 1000], th = cap / 96 * 1000, tmpl = series.reduce((a, b) => Math.abs(b - th) < Math.abs(a - th) ? b : a);
+    const r = Math.max(fc * 1.3, textWidth(String(tmpl), fc) * .5 + fc * 1.05), bc = [x1 - r - thin, y0 + r + thin];
+    const ring = Array.from({ length: 65 }, (_, i) => { const a = -Math.PI / 2 + i / 60 * Math.PI * 2; return [bc[0] + r * Math.cos(a), bc[1] + r * Math.sin(a)]; });
+    marks.push(tpen(ring, thin, { seed: seed + 200 }), ...letter(String(tmpl), bc[0], bc[1] + fc / 2, fc, tw, { align: 'center', seed: seed + 210 }));
+    // the leader from the balloon's edge down and left to the letter's bowl, ending in an arrowhead on its ink
+    const tgt = [lx + (Math.max(...xs) - Math.min(...xs)) * k, base - cap * .74], dir = [tgt[0] - bc[0], tgt[1] - bc[1]], dl = Math.hypot(...dir), dn = [dir[0] / dl, dir[1] / dl];
+    const st = [bc[0] + dn[0] * r, bc[1] + dn[1] * r], tip = [tgt[0] - dn[0] * sw * .5, tgt[1] - dn[1] * sw * .5];
+    marks.push(line(st, [tip[0] - dn[0] * u * .6, tip[1] - dn[1] * u * .6], thin, { seed: seed + 220 })); letters.push(arrow(tip, dn, u * .95));
+    return { marks, letters };
   }
+  // the plate: the Leroy path swept at a heavy width, its outline inked thick
+  const views = set === 'views', cap = h * (views ? .68 : .8), base = views ? y0 + cap + h * .04 : y1 - h * .06, sw = cap * .17;
+  const P = plate(ch, x0 + (views ? thick : textWidth('.000', fc) + u * 2.6), base, cap, sw);
+  for (const [i, L] of outline(P).entries()) marks.push(tpen(L, thick, { seed: seed + 300 + i, pool: .05 }));
+  const holes = counters(P), taken = [];
+  if (views) {
+    // the right side view: the plate's thickness to the right, at the front view's height (projected across), its counters'
+    // top and bottom edges as hidden lines; then the title of the detail beneath, underlined
+    const t = cap * .16, sx = Math.min(x1 - t - thick, P.box[2] + cap * .32), top = P.box[1], bot = P.box[3];
+    marks.push(...rect([sx, top, sx + t, bot], thick, { seed: seed + 400 }));
+    holes.forEach((c, i) => { for (const y of [c.bb[1], c.bb[3]]) marks.push(...dashes([sx + thin, y], [sx + t - thin, y], thin * .9, seed + 410 + i * 7)); });
+    const cy = y1 - fc * .3, tx = (x0 + x1) / 2, t1 = 'DETAIL A', t2 = 'SCALE 4:1', c1 = fc * 1.12;
+    const b1 = cy - fc * 2.1; marks.push(...letter(t1, tx, b1, c1, Math.max(1.3, thin), { align: 'center', seed: seed + 430 }));
+    const w1 = textWidth(t1, c1); marks.push(line([tx - w1 / 2, b1 + c1 * .3], [tx + w1 / 2, b1 + c1 * .3], thin, { seed: seed + 440 }));
+    marks.push(...letter(t2, tx, cy, fc, tw, { align: 'center', seed: seed + 450 }));
+    return { marks, letters };
+  }
+  // section lining: thin lines at 45°, about a ninth of the cap apart, inside the part; broken where a call-out's lettering
+  // or leader passes over (true occlusion: the lettering is written on a clear patch, as a draftsman leaves one)
+  const gap = Math.max(3.2, cap / 11), R = P.box, labels = [];
+  // the call-outs, placed first so the lining can leave room for them. A radius on the upper bowl: from its counter's
+  // centre out along 45° above the right, the arc's point where the ray leaves the ink; R and the radius, by the arc
+  const bowl = holes[0], callouts = [];
+  if (bowl && rich > .15) { const dir = [Math.SQRT1_2, -Math.SQRT1_2]; let s = 0, inInk = false, p = bowl.c;
+    for (; s < cap; s += .25) { const q = [bowl.c[0] + dir[0] * s, bowl.c[1] + dir[1] * s], ink = P.inside(...q); if (ink) inInk = true; else if (inInk) { p = q; break; } }
+    const rad = Math.hypot(p[0] - bowl.c[0], p[1] - bowl.c[1]), txt = 'R' + fmt(rad);
+    // the leader runs on out along the ray and then level to the figure, written to its right if there is room, else left
+    const elb = [p[0] + dir[0] * u * 1.4, p[1] + dir[1] * u * 1.4], right = elb[0] + u * .8 + textWidth(txt, fc) < x1;
+    const end = [elb[0] + (right ? u * .7 : -u * .7), elb[1]], tb = labelBox(txt, end[0] + (right ? u * .3 : -u * .3), elb[1] + fc / 2, fc, right ? 'left' : 'right');
+    if (tb[1] > y0 - u * .3 && tb[2] < x1 + u * .3) { callouts.push({ arrowAt: p, dir: [-dir[0], -dir[1]], path: [p, elb, end], txt, tx: end[0] + (right ? u * .3 : -u * .3), base: elb[1] + fc / 2, align: right ? 'left' : 'right', tb }); labels.push(tb); }
+    // centre marks and centrelines through each counter: a small cross at the centre, the lines run a little past the hole
+    holes.forEach((c, i) => { const ex = (c.bb[2] - c.bb[0]) / 2 + u * .55, ey = (c.bb[3] - c.bb[1]) / 2 + u * .55;
+      marks.push(...chain([c.c[0] - ex, c.c[1]], [c.c[0] + ex, c.c[1]], thin * .8, seed + 500 + i * 20, { long: ex * .7 }), ...chain([c.c[0], c.c[1] - ey], [c.c[0], c.c[1] + ey], thin * .8, seed + 510 + i * 20, { long: ey * .7 })); }); }
+  // the stroke's width across the stem, from the left: two arrows pointing in to the stem's edges, the figure left of them
+  const sy = P.box[3] - cap * .3, sxs = []; for (let x = P.box[0]; x < P.box[0] + cap * .5; x += .25) { const ink = P.inside(x, sy); if (ink !== (sxs.length % 2 === 1)) sxs.push(x); if (sxs.length === 2) break; }
+  if (sxs.length === 2 && rich > .15) { const [a, b] = sxs, al = u * .8, fig = fmt(b - a);
+    callouts.push({ dim: [a, b, sy], al, fig });
+    marks.push(line([a - al * 2.2, sy], [a - al * .4, sy], thin, { seed: seed + 600 }), line([b + al * .4, sy], [b + al * 1.4, sy], thin, { seed: seed + 601 }));
+    letters.push(arrow([a, sy], [1, 0], al), arrow([b, sy], [-1, 0], al));
+    labels.push(labelBox(fig, a - al * 2.4, sy + fc / 2, fc, 'right'));
+    marks.push(...letter(fig, a - al * 2.4, sy + fc / 2, fc, tw, { align: 'right', seed: seed + 610 })); }
+  for (const c of callouts) if (c.path) { marks.push(tpen([c.path[0].map((v, i) => v - c.dir[i] * u * .6), ...c.path.slice(1)], thin, { seed: seed + 620 })); letters.push(arrow(c.arrowAt, c.dir, u * .8));
+    marks.push(...letter(c.txt, c.tx, c.base, fc, tw, { align: c.align, seed: seed + 630 })); }
+  // the lining: every line clipped to the ink, less a margin from the outline (the lines stop at the outline's ink, not
+  // on it) and less the label patches
+  const hideL = p => !(P.at(p[0], p[1]) > .5 && P.at(p[0] + thick * .6, p[1]) > .3 && P.at(p[0] - thick * .6, p[1]) > .3 && P.at(p[0], p[1] + thick * .6) > .3 && P.at(p[0], p[1] - thick * .6) > .3) || labels.some(b => p[0] > b[0] && p[0] < b[2] && p[1] > b[1] && p[1] < b[3]);
+  for (let c = R[0] - (R[3] - R[1]), i = 0; c < R[2]; c += gap, i++) {
+    for (const q of occlude([[c, R[3]], [c + (R[3] - R[1]), R[1]]], hideL, 1.5)) marks.push(tpen(q, thin * .8, { seed: seed + 700 + i, pool: .04 })); }
   return { marks, letters };
 }
-initial.width = () => 1.02;   // the cell a shade wider than high
-initial.lines = 4;
+initial.width = (ch, set = 'part') => SETS[set] ?? 1.1;
+initial.lines = 5;
+
 
 // ---- the paraph: an item balloon ------------------------------------------------------------------------------------------------
 // The circle a drawing calls out an item or a pin with, its number inside (the MIT sheets: ring ~0.09 of the balloon's
@@ -184,7 +301,9 @@ export const frames = { quote };
 // ---- laying it ---------------------------------------------------------------------------------------------------------------------
 // The pencil's construction first, then the ink, as the drawing was made (printOf lays black before green; here the blue
 // construction, col 'g', is drawn first)
-export function printOf(el, o) { const p = occultPrint(el, o), ord = { g: 0, k: 1, r: 2 }; p.runs.sort((a, b) => ord[a.col] - ord[b.col]); return p; }
+export function printOf(el, o) {
+  const ready = (el.letters ?? []).filter(L => L.M), p = occultPrint({ ...el, letters: (el.letters ?? []).filter(L => !L.M) }, o), ord = { g: 0, k: 1, r: 2 };
+  p.runs.sort((a, b) => ord[a.col] - ord[b.col]); p.letters.push(...ready.map(L => ({ ...L, wet: .06, dry: .28 }))); return p; }
 
 // Light: india ink on vellum, and the non-repro blue of the pencil (a light cyan blue). Dark: the drawing as its reverse
 // print (a blueprint's white line), the pencil a dim blue.

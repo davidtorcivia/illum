@@ -9,7 +9,8 @@
   only, from kit/styles/cyber-a.js, on the opening of tests/blackletter.html's text. The engineering drawing as the
   drafting room made it: technical-pen ink on vellum, template lettering (Hershey Roman Simplex, written stroke by stroke
   by the ink engine, kit/writer.js), construction in non-repro blue pencil.
-    drop initial: the capital on its lettering grid, the cell ruled heavy, its height dimensioned
+    drop initial (?set=part|views|leroy): the capital as a part in section with its call-outs; as a detail in two views;
+      or laid out as Leroy lettering on non-repro blue guidelines with its template's size in a balloon
     paraph: an item balloon, numbered        filler: a dimension line stating the gap's length        frame: the sheet (blockquote)
   ?draw writes each element as it comes into view (never scrolls); ?theme=light|dark; #seed=n.
 -->
@@ -52,7 +53,7 @@
   <article class="text">
     <h1>Changefulness</h1>
     <p class="sub">John Ruskin, The Stones of Venice, 1853</p>
-    <p><span class="ini drop" data-lines="4">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture. And this we suppose to be all the pleasure that architecture was ever intended to give us. The idea of reading a building as we would read Milton or Dante, and getting the same kind of delight out of the stones as out of the stanzas, never enters our minds for a moment.</p>
+    <p><span class="ini drop">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture. And this we suppose to be all the pleasure that architecture was ever intended to give us. The idea of reading a building as we would read Milton or Dante, and getting the same kind of delight out of the stones as out of the stanzas, never enters our minds for a moment.</p>
     <p class="par">Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art, for the production of which either rules or models can be given. Exactly so far as architecture works on known rules, and from given models, it is not an art, but a manufacture.</p>
     <p class="par">Let us then understand at once, that change or variety is as much a necessity to the human heart and brain in buildings as in books; that there is no merit, though there is some occasional use, in monotony; and that we must no more expect to derive either pleasure or profit from an architecture whose ornaments are of one pattern, and whose pillars are of one proportion, than we should out of a universe in which the clouds were all of one shape, and the trees all of one size.</p>
 
@@ -83,7 +84,7 @@ const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark'
 document.documentElement.dataset.theme = dark ? 'dark' : 'light';
 if (q.has('draw')) document.getElementById('redraw').href = '?' + new URLSearchParams([...q].filter(([k]) => k !== 'draw'));
 const art = document.querySelector('.text'), sheet = document.querySelector('.sheet'), bk = document.getElementById('bake');
-const SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 1853), RICH = +(q.get('rich') ?? .5), DPR = Math.min(2, devicePixelRatio || 1), RES = DPR >= 1.5 ? 2 : 1;
+const SET = q.get('set') ?? 'part', SEED = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 1853), RICH = +(q.get('rich') ?? .5), DPR = Math.min(2, devicePixelRatio || 1), RES = DPR >= 1.5 ? 2 : 1;
 document.getElementById('seed').textContent = SEED;
 const P = S.palette[dark ? 'dark' : 'light'];
 
@@ -96,7 +97,7 @@ function setInitials() {
   for (const s of art.querySelectorAll('.ini.drop')) {
     const cs = getComputedStyle(s.parentElement), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = +s.dataset.lines || S.initial.lines;
     const base = (lh - (MET.asc + MET.desc) * fs) / 2 + MET.asc * fs, F = ((n - 1) * lh + fs * MET.cap) / MET.cap, top = (n - 1) * lh + base - F * ((1 - MET.asc - MET.desc) / 2 + MET.asc);
-    Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', display: 'block', width: (S.initial.width(s.textContent) * F * MET.cap) + 'px', marginRight: Math.round(lh * .55) + 'px' });
+    Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', display: 'block', width: (S.initial.width(s.textContent, SET) * F * MET.cap) + 'px', marginRight: Math.round(lh * .55) + 'px' });
   }
 }
 function boxOf(span, o) {
@@ -115,7 +116,7 @@ const rel = (el, o) => { const r = el.getBoundingClientRect(); return [r.left - 
 function compose() {
   const r0 = sheet.getBoundingClientRect(), o = { left: r0.left, top: r0.top, width: r0.width, height: r0.height }, fs = parseFloat(getComputedStyle(art).fontSize), u = fs * MET.x, items = [];
   const s = k => (SEED + k * 7919) >>> 0, at = el => el.getBoundingClientRect().top, m = rel(art, o);
-  art.querySelectorAll('.ini.drop').forEach((span, k) => items.push({ el: span, kind: 'drop', y: at(span), make: () => S.initial({ ch: span.textContent, G: { box: boxOf(span, o) }, u, seed: s(k), rich: RICH }) }));
+  art.querySelectorAll('.ini.drop').forEach((span, k) => items.push({ el: span, kind: 'drop', y: at(span), make: () => S.initial({ ch: span.textContent, G: { box: boxOf(span, o) }, u, seed: s(k), rich: RICH, set: SET }) }));
   art.querySelectorAll('p.par').forEach((p, k) => { const L = linesOf(p, o)[0], ind = parseFloat(getComputedStyle(p).textIndent), w = u * 1.65;
     items.push({ el: p, kind: 'paraph', y: at(p), make: () => S.paraph(L.left - ind + (ind - w) / 2, L.base, u, s(100 + k), RICH, k + 1) }); });
   art.querySelectorAll('.text > p:not(.sub)').forEach((el, k) => { const L = linesOf(el, o).at(-1); if (!L) return;

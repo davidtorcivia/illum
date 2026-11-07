@@ -7,8 +7,17 @@ This file is for choosing a direction. Three short studies were made, each with 
 paraph, a filler and one frame), on the opening of tests/blackletter.html's text, in light and dark:
 
 - **A · the drawing office:** tests/cyber-a.html, kit/styles/cyber-a.js
-- **B · the phosphor screen:** tests/cyber-b.html, kit/styles/cyber-b.js
-- **C · the printout:** tests/cyber-c.html, kit/styles/cyber-c.js
+- **B · the phosphor screen** and **C · the printout**, since removed (they are in commit ce07318)
+
+**Decision (the user, 2026-11-07):** "A for sure, the other two are terrible. A needs to rework the drop caps though."
+B and C were deleted:
+
+- **B (beam light):** the stroke capital as slanted vectors, Lissajous paraphs, scope sweeps and a graticule frame. In
+  dark mode it was only striking; light mode, a guessed Tektronix hard copy, had no source; the frame read as a ruler.
+- **C (ribbon ink and paper):** the banner letter, the comment asterisk, punched tape and greenbar. It was quiet, and the
+  tape did not read at line height.
+
+The record of both stays below.
 
 Every page takes `?draw` and `?theme=light|dark`. None of the three is in the registry. Raw downloads are in the session
 scratchpad (cyber-raw/), not the repo.
@@ -137,3 +146,41 @@ and **IBM Plex Mono Medium** (OFL, playground/fonts/IBMPlexMono-Medium.woff2, wi
   - The host's code is not struck in impact type (the host's text is not ours to restyle), so the greenbar holds clean
     screen type.
   - The sprocket holes read a little like buttons.
+
+## The drop initial, reworked (A; three options for the user)
+
+The first drop, a thin Simplex B in a grid cell with its height dimensioned, read as a placeholder. The capital is now
+treated as the drawing office treats a part (`?set=part|views|leroy` on tests/cyber-a.html; 5 lines deep). All three
+take the Leroy path (Hershey Simplex) swept by a round pen as the letter's body: a template letter inked with a heavy
+pen, or a slot swept by an end mill.
+
+- **part, the letter in section:**
+  - The swept body's outline (marching squares over its coverage) is inked at the thick weight.
+  - The body is section-lined at 45° in the thin weight. The lining stops a pen's width inside the outline and is
+    broken where a figure sits.
+  - Centre marks and chain centrelines (long dash, short dash) cross each counter.
+  - A radius is called out on the upper bowl: a leader with its arrowhead on the arc, and "R" with the radius as the
+    screen draws it, in decimal inches.
+  - The stem's width is dimensioned from outside: arrows in to its edges, the figure beside them.
+- **views, a detail in two views:**
+  - The front view's outline.
+  - The right side view: the plate's thickness, its counters' top and bottom edges projected across as hidden (dashed)
+    lines.
+  - "DETAIL A" underlined, with "SCALE 4:1" beneath.
+- **leroy, the Leroy layout:**
+  - Cap, waist and base guidelines and the Ames guide's verticals in non-repro blue.
+  - The capital inked over them as the round template pen's sweep. It is laid by the ink engine as one deposit, so the
+    joins merge.
+  - The template's size in a balloon on a leader to the bowl. The size is the letter's height in thousandths of an inch,
+    rounded to the series.
+
+Every call-out's lettering is the notes' size and pen. Labels are placed where they clear the outline and the box, and
+the lining leaves their patches clear. Dark mode is the reverse print. Weights follow the MIT sheets: outline : thin
+≈ 2 : 1.
+
+**What still falls short:**
+
+- The radius is measured from the counter's centroid to the outer edge, not from a true arc centre.
+- The Leroy series figure may name a size the series does not have (the large templates were not checked).
+- The views option leaves the side view bare: no centreline, no projection.
+- None of the three has been set beside a lettering-plate source; the Apollo sheets have no large letter.
