@@ -33,7 +33,7 @@ def arc(c, rx, ry, a0, a1, n=80):
     t = np.linspace(a0, a1, n); return np.stack([c[0] + rx * np.cos(t), c[1] + ry * np.sin(t)], 1)
 def line(a, b, n=40): return np.linspace(a, b, n)
 # width profiles over f in 0..1 along the stroke
-stem = lambda f: S * (.93 + .16 * (2 * f - 1) ** 6)
+stem = lambda f: S * (.9 + .05 * f + .18 * (2 * f - 1) ** 6)   # a waist a little above the middle, the foot a touch fuller
 bow = lambda wmax=B, w0=h * 1.1, w1=None: (lambda f: (w0 if f < .5 else (w1 if w1 is not None else w0)) + (wmax - (w0 if f < .5 else (w1 if w1 is not None else w0))) * math.sin(math.pi * f) ** 1.15)
 hair = lambda f: h * (1 + .25 * math.sin(math.pi * f))
 wedge = lambda w0=S, w1=h: (lambda f: w0 + (w1 - w0) * f ** 1.3)
@@ -45,7 +45,9 @@ def curl(p, out, down, rr=None):   # a hair's end drawn on round into a hook, th
     pts = np.stack([c[0] + R * np.cos(a) * out * -1 * -1, c[1] + R * np.sin(a)], 1) if False else np.stack([c[0] + out * R * np.sin(t * math.pi * .95), c[1] - down * R * np.cos(t * math.pi * .95)], 1)
     return [(pts, lambda f, rr=rr: h * 1.1 + (rr - h * 1.1) * (max(0, (f - .55) / .45)) ** 1.6)]   # the ball is the curl's end swelling (its round cap)
 def serif(x, y, left=.15, right=.15, down=1):   # the bar across a stem's end, each end drawn on into a hook with its ball
-    a, b = (x - left, y), (x + right, y); return [(line(a, b), lambda f: h * 1.25)] + curl(a, -1, down) + curl(b, 1, down)
+    # (as a brush lays it: the two arms never alike, each thinning from the stem out to its hook)
+    left *= rng.uniform(.78, 1.18); right *= rng.uniform(.78, 1.18); a, b = (x - left, y), (x + right, y); m = left / (left + right)
+    return [(line(a, (x, y)), lambda f: h * (.95 + .7 * f ** 1.5)), (line((x, y), b), lambda f: h * (1.65 - .7 * f ** .7))] + curl(a, -1, down) + curl(b, 1, down)
 
 def letter(ch):
     L = []
@@ -65,8 +67,8 @@ def letter(ch):
         L += [(line((.3, .5), (xs, .5)), lambda f: .04 + .015 * f)]
     elif ch == 'B':
         a = 1.1; x = .3; L += [(line((x, .05), (x, .95)), stem)]
-        L += [(arc((x + .22, .26), .26, .21, -math.pi / 2, math.pi / 2 * .98), bow(B * .82))]
-        L += [(arc((x + .3, .7), .38, .27, -math.pi / 2 - .1, math.pi / 2), bow(B))]
+        L += [(arc((x + .25, .26), .32, .21, -math.pi / 2, math.pi / 2 * .98), bow(B * .82))]
+        L += [(arc((x + .32, .7), .47, .27, -math.pi / 2 - .1, math.pi / 2), bow(B * 1.05))]
         L += [(line((x, .47), (x + .26, .47)), lambda f: h * 1.3)]
         L += [(line((.05, .05), (x + .24, .05)), hair), ('ball', (.05, .08), r), (line((.05, .955), (x + .3, .97)), hair), ('ball', (.05, .93), r)]
     elif ch in 'CEG':
@@ -118,25 +120,33 @@ def letter(ch):
         L += [(line((.04, .05), (x + .26, .05)), hair), ('ball', (.04, .08), r)]
         if ch == 'R': L += [(bez((x + .2, .56), (.62, .6), (.76, .72), (.74, .92)), bow(B * .9, h, h * 1.4)), (bez((.74, .92), (.78, .97), (.86, .97), (.92, .92)), hair), ('ball', (.93, .9), r)]
     elif ch == 'S':
-        a = 1.0
-        L += [(bez((.82, .16), (.7, .03), (.2, .02), (.18, .25)), lambda f: h + (B * .55 - h) * math.sin(math.pi * f)), ('ball', (.84, .18), r)]
-        L += [(bez((.18, .25), (.16, .48), (.84, .4), (.82, .72)), lambda f: B * .55 + (B * 1.08 - B * .55) * math.sin(math.pi * f) ** .7)]
-        L += [(bez((.82, .72), (.84, .98), (.3, .98), (.16, .82)), lambda f: B * .55 * (1 - f) + h * f + .02 * math.sin(math.pi * f)), ('ball', (.15, .8), r)]
-        L += [(bez((.82, .16), (.86, .12), (.86, .06)), hair)]
+        a = 1.2; sx = lambda P: [((p[0] - .5) * 1.3 + .62, p[1]) for p in P]   # (his S is wide: 1.29 of its height)
+        L += [(bez(*sx([(.8, .14), (.66, .02), (.2, .0), (.2, .27)])), lambda f: h * 1.2 + (B * .8 - h * 1.2) * math.sin(math.pi * f ** .8))] + curl(sx([(.82, .14)])[0], 1, 1)
+        L += [(bez(*sx([(.2, .27), (.22, .47), (.8, .47), (.81, .72)])), lambda f: B * .62 + (B * 1.12 - B * .62) * math.sin(math.pi * f) ** .7)]
+        L += [(bez(*sx([(.81, .72), (.82, 1.0), (.28, 1.0), (.17, .84)])), lambda f: B * .62 * (1 - f) ** .8 + h * f + .03 * math.sin(math.pi * f))] + curl(sx([(.17, .84)])[0], -1, -1)
     elif ch in 'UVW':
         def u(dx):
             xs = dx + .78
             return [(line((xs, .05), (xs, .95)), stem)] + serif(xs, .955, .14, .12, -1) + \
                 [(bez((dx + .32, .06), (dx + .1, .25), (dx + .06, .7), (dx + .3, .93)), bow(B * 1.05, h, h)), (bez((dx + .3, .93), (dx + .5, 1.0), (dx + .66, .97), (xs, .9)), hair),
                  (line((dx + .14, .045), (dx + .36, .045)), hair), ('ball', (dx + .13, .07), r)]
-        a = 1.0 if ch != 'W' else 1.86; L += u(0) + (u(.86) if ch == 'W' else []); L += [(line((.62, .045), (.96, .045)), hair), ('ball', (.97, .07), r)] if ch != 'W' else []
+        if ch != 'W': a = 1.0; L += u(0) + [(line((.62, .045), (.96, .045)), hair), ('ball', (.97, .07), r)]
+        else:
+            a = 1.42; xm = .7
+            L += [(bez((.3, .07), (.08, .28), (.05, .72), (.3, .94)), bow(B * 1.0, h, h)), (bez((.3, .94), (.46, 1.0), (.6, .98), (xm, .9)), lambda f: h * (1 + .6 * f))]
+            L += [(line((xm, .07), (xm, .93)), lambda f: S * .9 * (.93 + .16 * (2 * f - 1) ** 6))] + serif(xm, .055, .12, .12, 1)
+            L += [(bez((xm + .02, .93), (1.0, 1.03), (1.38, .78), (1.3, .14)), bow(B * 1.0, h * 1.6, h))] + curl((1.3, .12), 1, 1)
+            L += [(line((.16, .045), (.36, .05)), hair)] + curl((.16, .045), -1, 1)
     elif ch in 'XY':
         a = 1.04
-        L += [(bez((.12, .07), (.4, .38), (.6, .6) if ch == 'X' else (.45, .45), (.88, .93) if ch == 'X' else (.52, .52)), stem if ch == 'X' else bow(B * .9, S * .9, S * .8))]
-        L += [(bez((.9, .07), (.6, .4), (.4, .62) if ch == 'X' else (.55, .45), (.12, .93) if ch == 'X' else (.52, .52)), hair if ch == 'X' else bow(B * .45, h, h * 2))]
-        L += [(line((.02, .05), (.36, .05)), hair), ('ball', (.01, .08), r), (line((.7, .05), (1.02, .05)), hair), ('ball', (1.03, .08), r)]
-        if ch == 'X': L += [(line((.0, .955), (.3, .955)), hair), ('ball', (-.01, .93), r), (line((.7, .955), (1.04, .955)), hair), ('ball', (1.05, .93), r)]
-        else: L += [(line((.52, .5), (.52, .95)), stem)] + serif(.52, .955, .16, .16, -1)
+        if ch == 'X':   # the heavy diagonal swelling through the crossing, the hairline crossing it; every end on its serif
+            L += [(bez((.16, .06), (.38, .34), (.6, .64), (.86, .94)), lambda f: S * (.72 + .36 * math.sin(math.pi * f) ** .8))]
+            L += [(bez((.84, .06), (.64, .36), (.38, .64), (.16, .94)), lambda f: h * (1.2 + .5 * math.sin(math.pi * f)))]
+            L += serif(.16, .05, .13, .11, 1) + serif(.84, .05, .1, .13, 1) + serif(.16, .955, .13, .1, -1) + serif(.86, .955, .1, .14, -1)
+        else:
+            L += [(bez((.12, .07), (.4, .38), (.45, .45), (.52, .52)), bow(B * .9, S * .9, S * .8)), (bez((.9, .07), (.6, .4), (.55, .45), (.52, .52)), bow(B * .45, h, h * 2))]
+            L += [(line((.02, .05), (.36, .05)), hair)] + curl((.02, .05), -1, 1) + [(line((.7, .05), (1.02, .05)), hair)] + curl((1.02, .05), 1, 1)
+            L += [(line((.52, .5), (.52, .95)), stem)] + serif(.52, .955, .16, .16, -1)
     elif ch == 'Z':
         a = .96
         L += [(bez((.08, .1), (.3, .05), (.7, .06), (.9, .07)), lambda f: h + (S * .55 - h) * math.sin(math.pi * f) ** .6), ('ball', (.06, .14), r)]
@@ -150,15 +160,19 @@ from PIL import Image, ImageDraw
 for ch in want:
     a, L = letter(ch); W = int((a + .4) * R); Hh = int(1.3 * R); ox, oy = .2 * R, .15 * R; ss = 3
     im = Image.new('L', (W * ss, Hh * ss), 0); dr = ImageDraw.Draw(im)
-    def outline(P, rad):   # a stroke as its contour: the line offset by its half-width either side, closed by round caps
-        P = np.asarray(P, float); t = np.gradient(P, axis=0); t /= np.maximum(np.hypot(t[:, 0], t[:, 1])[:, None], 1e-9); n = np.stack([-t[:, 1], t[:, 0]], 1)
-        poly = np.concatenate([P + n * rad[:, None], (P - n * rad[:, None])[::-1]]); dr.polygon([((x + ox) * ss, (y + oy) * ss) for x, y in poly], fill=255)
-        for e in (0, -1): cx, cy, rr = (P[e, 0] + ox) * ss, (P[e, 1] + oy) * ss, rad[e] * ss; dr.ellipse([cx - rr, cy - rr, cx + rr, cy + rr], fill=255)
+    def outline(P, rad, radR=None):   # a stroke as its contour: the line offset by its half-width either side (each side its own), round caps
+        P = np.asarray(P, float); radR = rad if radR is None else radR; t = np.gradient(P, axis=0); t /= np.maximum(np.hypot(t[:, 0], t[:, 1])[:, None], 1e-9); n = np.stack([-t[:, 1], t[:, 0]], 1)
+        poly = np.concatenate([P + n * rad[:, None], (P - n * radR[:, None])[::-1]]); dr.polygon([((x + ox) * ss, (y + oy) * ss) for x, y in poly], fill=255)
+        for e in (0, -1): rr = (rad[e] + radR[e]) / 2 * ss; c = (P[e] + n[e] * (rad[e] - radR[e]) / 2 + [ox, oy]) * ss; dr.ellipse([c[0] - rr, c[1] - rr, c[0] + rr, c[1] + rr], fill=255)
     for s in L:
         if isinstance(s[0], str): (px, py), rad = s[1], s[2]; outline(np.array([[px * R, py * R], [px * R + .01, py * R]]), np.array([rad * R, rad * R])); continue
         P, prof = s; P = np.asarray(P, float); seg = np.hypot(*np.diff(P, axis=0).T); cum = np.concatenate([[0], np.cumsum(seg)]); Lt = cum[-1] or 1
         n = max(4, int(Lt * R / .8)); fs = np.linspace(0, 1, n); xs = np.interp(fs * Lt, cum, P[:, 0]) * R; ys = np.interp(fs * Lt, cum, P[:, 1]) * R
-        outline(np.stack([xs, ys], 1), np.array([max(1.0, prof(f) * R) for f in fs]))
+        rad = np.array([max(1.0, prof(f) * R) for f in fs])
+        if rad.max() > h * R * 2.4:   # a heavy stroke
+            ph = rng.uniform(0, 6.28); press = 1 + .045 * np.sin(fs * 2 * math.pi * rng.uniform(.7, 1.3) + ph)
+            outline(np.stack([xs, ys], 1), rad * press * (1 + .2 * (1 - fs) ** 6), rad * press * (1 + .2 * fs ** 6))
+        else: outline(np.stack([xs, ys], 1), rad)
     acc = np.asarray(im.resize((W, Hh), Image.LANCZOS)) > 127
     # the painter's edge: his outline wanders a little off the true curve (measured on the traced letters at drop scale: a
     # slow drift of ~.3 % of the height over ~5 %, a faint quiver over ~1.5 %), applied as a displacement of the edge

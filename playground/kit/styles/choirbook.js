@@ -256,6 +256,26 @@ export function counterWork(L, seed, g = 2.6, keep = []) {
   return out;
 }
 
+// ---- the split body (his parted letters: a stem in the other colour) -------------------------------------------------------------
+// kit/illum.js paints a registry letter in one pigment (letter: { M, pigment }); a letter in two needs a hook there, e.g.
+// letter.parts: [{ M, pigment }...] painted in turn in score()'s paint(). Until then the style prototypes it: the stem (the
+// letter's longest upright member) is cut from the paint with a hair of parchment round it, and laid in the other colour by
+// the ink engine's broad nib, square across it, as wide as the stem. Returns { M, marks }.
+export function splitBody(L, seed) {
+  const { M, w, h, x0, y0, res } = L, paper = new Uint8Array(w * h); let r0 = h, r1 = 0;
+  for (let k = 0; k < w * h; k++) { paper[k] = M[k] <= .5; if (!paper[k]) { const j = k / w | 0; r0 = Math.min(r0, j); r1 = Math.max(r1, j); } }
+  const H = (r1 - r0) / res, D = edt(paper, w, h);
+  const st = ridges(L, H * .5, .5).filter(P => { const Lp = arclen(P); return Math.abs(P.at(-1)[1] - P[0][1]) > Lp * .9; }).sort((a, b) => arclen(b) - arclen(a))[0];
+  if (!st) return { M: L, marks: [] };
+  const a = st[0], b = st.at(-1), at = p => { const i = Math.floor((p[0] - x0) * res), j = Math.floor((p[1] - y0) * res); return i < 0 || j < 0 || i >= w || j >= h ? 0 : D[j * w + i] / res; };
+  const half = resample(st, 1).map(at).sort((u, v) => u - v)[Math.floor(st.length * .5)] ?? H * .08, Lp = arclen(st), t = [(b[0] - a[0]) / Lp, (b[1] - a[1]) / Lp];
+  const out = Float32Array.from(M), gap = .65;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; if (!M[k]) continue; const x = x0 + (i + .5) / res, y = y0 + (j + .5) / res;
+    const s0 = (x - a[0]) * t[0] + (y - a[1]) * t[1], d = Math.abs(-(x - a[0]) * t[1] + (y - a[1]) * t[0]); if (s0 < -1 || s0 > Lp + 1) continue;
+    out[k] *= Math.min(1, Math.max(0, (d - half * .92 - gap) * 2)); }
+  return { M: { ...L, M: out }, marks: [{ pts: resample([a, b], .5), kind: 'split', w: half * 1.84, nib: -Math.atan2(t[0], t[1]) }] };
+}
+
 // ---- the flourish ----------------------------------------------------------------------------------------------------------------
 // 03's (kit/penwork.js flourish), deepened: the same order of work and the same clearance, with the columns' capitals,
 // the text-side panel, pendants, the pearled contour, the cross. The filigree is laid by filigree() above. Arguments as 03's, and tp: the
