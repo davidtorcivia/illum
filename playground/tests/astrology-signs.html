@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Astrology Signs</title>
+<!-- The signs of kit/styles/astrology.js at 10, 15, 18 and 36 px (the drop's cusps, a filler's, a paraph's, a large figure's):
+     the twelve of the zodiac (traced from the Clavis volvelle; Cancer, Libra, Capricorn written with the pen), the planets
+     (traced from Lilly's ephemeris; the Sun and Venus written), the five aspects (written). Laid by the ink engine.
+     ?theme=light|dark. -->
+<style>
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; color-scheme: light; }
+  :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); color-scheme: dark; }
+  html { background: var(--paper); } body { margin: 0; color: var(--ink); font: 14px/1.4 Georgia, serif; }
+  main { position: relative; padding: 24px 16px; } canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+  p { margin: 0 0 6px; font-style: italic; opacity: .7; }
+</style>
+</head>
+<body>
+<main><canvas id="bake" aria-hidden="true"></canvas><p>zodiac, planets, aspects at 10 · 15 · 18 · 36 px</p></main>
+<script type="module">
+import { createWriter } from '../kit/writer.js';
+import { inkLetter, warmInk } from '../kit/inkletter.js';
+import S, { loadFace, printOf, sign, signWidth } from '../kit/styles/astrology.js';
+const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark' || (!q.get('theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+const host = document.querySelector('main'), bk = document.getElementById('bake'), DPR = Math.min(2, devicePixelRatio || 1), P = S.palette[dark ? 'dark' : 'light'];
+await loadFace(); warmInk(DPR);
+const rows = [S.ZODIAC, [...S.PLANETS, 'node'], S.ASPECTS], sizes = [10, 15, 18, 36], els = []; let y = 60;
+for (const h of sizes) for (const row of rows) { let x = 24; for (const n of row) { const w = signWidth(n) * h; els.push(sign(n, [x + w / 2, y + h / 2], h, { col: row === rows[0] ? 'r' : 'k', seed: x })); x += w + h * .8; } x += h; y += h * 1.9; }
+host.style.height = y + 40 + 'px'; const W = host.clientWidth, H = y + 40;
+bk.width = W * DPR; bk.height = H * DPR; bk.style.width = W + 'px'; bk.style.height = H + 'px'; bk.getContext('2d').setTransform(DPR, 0, 0, DPR, 0, 0);
+const writer = createWriter(host, bk.getContext('2d'), { dpr: DPR, dark });
+const pr = printOf({ marks: els.flatMap(e => e.marks), letters: els.flatMap(e => e.letters) }, { res: DPR >= 1.5 ? 2 : 1 });
+for (const r of pr.runs) writer.part(0, 1, r.strokes, P[r.col], { width: r.w, hair: r.hair }).done();
+writer.flush(); for (const L of pr.letters) inkLetter(bk.getContext('2d'), L, P[L.col], { dpr: DPR });
+document.body.dataset.timing = 'drawn';
+</script>
+<script type="module" src="../kit/theme-toggle.js"></script>
+</body>
+</html>
