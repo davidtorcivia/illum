@@ -411,12 +411,13 @@ function place(name, [bx, by, bh], W, { mirror = false, clip = null, col = null,
 // the letter printed black, as the cards letter their titles; 'contour': cut as an outline, its body stencilled red.
 // G.box: [x0, capTop, x1, baseline] of the space the host floated; initial.width(ch) gives that width in cap heights.
 const CARD = { ratio: .66, band: .125, letter: .42, ground: .16 };
-function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'solid', u = 8, n = 1 }) {
+// line: the initial in the line, 'contour' (default) or 'solid'; title: lettering for the foot band (empty by default)
+function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'solid', line = 'contour', title = '', u = 8, n = 1 }) {
   ch = String(ch).normalize('NFD')[0].toUpperCase(); const [x0, y0, x1, y1] = G.box, H = y1 - y0, W = Math.max(LW(u), H * .014), r = rng(seed, 'card');
   if (!/[A-Z]/.test(ch)) return { letter: ch, marks: [], fills: [], letters: [], width: x1 - x0 };
   if (!big) {   // in the line: the capital cut as a contour, its body stencilled red
     const m = textWidth(ch, H);
-    return { marks: [], fills: [], letters: [{ text: ch, x: x0 + m / 2, base: y1, size: H, outline: Math.max(1.3, H * .06), body: 'r' }], width: m };
+    return { marks: [], fills: [], letters: [line === 'solid' ? { text: ch, x: x0 + m / 2, base: y1, size: H } : { text: ch, x: x0 + m / 2, base: y1, size: H, outline: Math.max(1.3, H * .06), body: 'r' }], width: m };
   }
   const hb = H * CARD.band, fy0 = y0 + hb, fy1 = y1 - hb, cx = (x0 + x1) / 2, cw = x1 - x0, Wl = Math.max(1.2, W * .8);
   const els = [{ marks: [cut([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0 - W * .3]], W * 1.2, { seed, wob: .14 }), cut([[x0, fy0], [x1, fy0]], W * 1.1, { seed: seed + 1 }), cut([[x0, fy1], [x1, fy1]], W * 1.1, { seed: seed + 2 })],
@@ -434,6 +435,9 @@ function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'solid', 
   [[cx - tw / 2, fy0 + H * .025, 'r'], [x0 + cw * .1, fy0 + H * .14, 'y'], [x1 - cw * .1 - tw, fy0 + H * .2, 'p']].forEach(([tx, ty, c], k) => els.push(place('tear', [tx, ty, th], Wl, { col: c, seed: seed + 20 + k })));
   // the letter on the ground, at its middle
   const size = Math.min(H * CARD.letter, cw * .62 / textWidth(ch, 1)), base = gt + H * .008;
+  // the title band lettered, if asked: Roman capitals with middle dots between words, as LE·BATELEUR, fitted to the band
+  if (title) { const t = String(title).toUpperCase().trim().split(/\s+/).join('·'), ts = Math.min(hb * .62, cw * .84 / textWidth(t, 1));
+    els.push({ marks: [], fills: [], letters: [{ text: t, x: cx, base: fy1 + hb / 2 + ts * .5, size: ts }] }); }
   const el = join(...els); el.letters.push(set === 'contour' ? { text: ch, x: cx, base, size, outline: W, body: 'r' } : { text: ch, x: cx, base, size });
   return { ...el, width: cw };
 }

@@ -175,7 +175,7 @@ function compose() {
   ORIGIN = o;   // kept current: a case is made when its turn comes, and the reader may have scrolled by then
   const s = k => (SEED + k * 7919) >>> 0, at = el => el.getBoundingClientRect().top, sl = (k = 1) => Math.max(.7, Math.min(2.2, u * .14 * k));
   art.querySelectorAll('.ini').forEach((span, k) => { const big = span.classList.contains('drop'), box = boxOf(span, o);
-    items.push({ el: span, y: at(span), slip: big ? sl(1.5) : sl(.8), make: () => S.initial({ ch: span.textContent, G: { box }, big, rich: RICH, seed: s(k), set: SET, u, n: 1 }) }); });
+    items.push({ el: span, y: at(span), slip: big ? sl(1.5) : sl(.8), make: () => S.initial({ ch: span.textContent, G: { box }, big, rich: RICH, seed: s(k), set: SET, line: q.get('line') ?? 'contour', title: q.get('title') ?? '', u, n: 1 }) }); });
   const m = rel(art, o), measure = m[2] - m[0];
   art.querySelectorAll('p.par').forEach((p, k) => { const L = linesOf(p, o)[0], ind = parseFloat(getComputedStyle(p).textIndent), w = u * 1.65, ch = chapterOf(p);
     items.push({ el: p, y: at(p), slip: sl(.8), make: () => S.paraph(L.left - ind + (ind - w) / 2, L.base, u, s(100 + k), RICH, ch ? (ch - 1) % 4 : 3) }); });
