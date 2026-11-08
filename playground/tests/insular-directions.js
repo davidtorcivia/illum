@@ -4,7 +4,7 @@
 // the paraph, the line-filler, the break and the frame. Every piece is a Sheet (kit/styles/insular-knot.js) of per-ink
 // coverage, poured ink by ink through the ink engine. Nothing here is drawn from a raster of the master: the letter's shape is
 // Uncial Antiqua's (OFL), everything else is generated.
-import { plait, cords, knot, measure, dotsAlong, Sheet, pathOf, stream, NIB } from '../kit/styles/insular-knot.js';
+import { plait, cords, knot, measure, dotsAlong, Sheet, pathOf, stream, NIB, handOn, strand } from '../kit/styles/insular-knot.js';
 import { dist } from '../kit/inkletter.js';
 import { contours } from '../kit/brushwork.js';
 import { noise1, tendril } from '../kit/marks.js';
@@ -169,7 +169,7 @@ function rings(L, S, spec, body) {
   for (let it = 0; it < 4; it++) { const B = G.slice(); for (let q = gw + 1; q < n - gw - 1; q++) G[q] = (B[q - 1] + B[q + 1] + B[q - gw] + B[q + gw] + 4 * B[q]) / 8; }
   const e = .5 / L.res, clamp = v => Math.max(0, Math.min(1, v)), out = spec.map(() => new Float32Array(n)), Bd = new Float32Array(n);
   for (let q = 0; q < n; q++) { if (L.M[q] <= 0) continue; const v = L.Din[q]; let a = 0;
-    for (let k = 0; k < spec.length; k++) { const b = a + spec[k].w * (spec[k].pen ? G[q] : 1); out[k][q] = (a <= 0 ? L.M[q] : clamp((v - a) / (2 * e) + .5)) * clamp((b - v) / (2 * e) + .5); a = b; }
+    for (let k = 0; k < spec.length; k++) { const pn = spec[k].pen, b = a + spec[k].w * (pn === true ? G[q] : pn ? 1 + pn * (G[q] - 1) : 1); out[k][q] = (a <= 0 ? L.M[q] : clamp((v - a) / (2 * e) + .5)) * clamp((b - v) / (2 * e) + .5); a = b; }
     Bd[q] = clamp((v - a + .2) / (2 * e) + .5); }
   S.image(body, Bd); spec.forEach((s, k) => S.image(s.ink, out[k]));
   return { frame: spec.reduce((s, x) => s + x.w, 0), Bd };
@@ -224,14 +224,13 @@ function diaper(L, S, dr, pitch, ink = 'd') {
   S.dots(D, ink);
 }
 // rows of dots round the letter: a brush reloaded every dozen touches, the pitch following the bend
-function dotRows(L, S, dr, rows, seed, ink = 'd') {
-  const pitch = dr * 2 * 1.8;
-  for (let k = 0; k < rows; k++) for (const lp of ring(L, dr * 1.66 + k * pitch * .9)) S.dots(dotsAlong(lp, pitch, dr * (1 - .05 * k), true, { load: 11 + 2 * k + (seed % 3), bend: .15 }), ink);
+function dotRows(L, S, dr, rows, seed, ink = 'd', { off = 1.66, pitch = dr * 2 * 1.8 } = {}) {
+  for (let k = 0; k < rows; k++) for (const lp of ring(L, dr * off + k * pitch * .9)) S.dots(dotsAlong(lp, pitch, dr * (1 - .05 * k), true, { load: 11 + 2 * k + (seed % 3), bend: .15 }), ink);
 }
 
 // ---- the compartment letter (f. 139r) ----------------------------------------------------------------------------------
 // A stroke's centreline as a frame: position, normal and the stroke's half-width at arc length s.
-function along(line, hw) {
+export function along(line, hw) {
   const S = [0]; for (let i = 1; i < line.length; i++) S.push(S[i - 1] + Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]));
   const len = S.at(-1), at = s => { s = Math.max(0, Math.min(len, s)); let lo = 0, hi = S.length - 2; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (S[m] <= s) lo = m; else hi = m - 1; }
     const j = lo, f = (s - S[j]) / ((S[j + 1] - S[j]) || 1), a = line[j], b = line[j + 1], tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty) || 1;
@@ -288,8 +287,15 @@ function compartments(L, S, Bd, { u0, clear, seed, look }) {
     let a = 0, b = len;
     for (const end of [0, 1]) { const t = T.find(x => x.end === end), ed = end ? b : a, hwE = end ? st.hw.at(-1) : st.hw[0];
       let cut; if (st.closed) cut = 0; else if (st.forks[end]) cut = hwE * .98; else if (t) cut = t.s + t.R + clear * .3;   // (t.s: from its own end)
-      else { const blk = Math.min(len * .3, hwE * 1.6 + u); put(look.solid, slab(A, end ? len - blk - 1 : 0, end ? len : blk + 1, 3)); cut = blk; }
+      else { const blk = Math.min(len * .3, hwE * 1.6 + u); if (!look.terminal) put(look.solid, slab(A, end ? len - blk - 1 : 0, end ? len : blk + 1, 3)); cut = blk; }
       if (end) b = len - cut; else a = cut; }
+    // a free end beyond its bar (the swell, the curl past the skeleton's end): its own ground, a field round the roundel
+    if (look.terminal && !st.closed) for (const end of [0, 1]) { if (st.forks[end]) continue;
+      const sb = end ? b : a, [px, py, nx, ny] = A.at(sb), o = end ? [ny, -nx] : [-ny, nx], E = A.at(end ? len : 0), t = T.find(x => x.end === end);
+      let hx = 0; for (let k = 0; k <= 10; k++) hx = Math.max(hx, A.at(end ? sb + (len - sb) * k / 10 : sb * k / 10)[4]);
+      const Rend = Math.hypot(E[0] - px, E[1] - py) + hx * 1.4;
+      const inT = (x, y) => (x - px) * o[0] + (y - py) * o[1] > barW * .5 && Math.hypot(x - E[0], y - E[1]) < Rend;
+      jobs.push(() => look.terminal(S, inT, [E[0] - Rend, E[1] - Rend, E[0] + Rend, E[1] + Rend], t ? [t.c[0], t.c[1], t.R] : null)); }
     for (const t of T) jobs.push(() => look.roundel(S, t));
     const run = b - a; if (run < u * 3) continue;
     // long, short, long ... in whole cells (cell 2u): long ≈ 2 bands (4 cells at 2 rows), short ≈ 1 band
@@ -307,7 +313,8 @@ function compartments(L, S, Bd, { u0, clear, seed, look }) {
       const wq = ws.slice().sort((x, y) => x - y)[1], rc = Math.max(1, Math.min(3, Math.floor(wq / (u0 * 1.0)))), uc = Math.min(wq / rc, L0 / (p === 'L' ? 2 : 1.6)), cc = 2 * uc;
       const fit0 = x => (A.at(x)[4] - clear) / (rc * uc), fit = x => Math.min(1.5, fit0(x - uc), fit0(x), fit0(x + uc));
       const nA = p === 'L' ? Math.max(1, Math.floor(L0 / cc + .15)) : Math.max(1, Math.min(rc === 1 ? 1 : 2, Math.floor(L0 / cc + .3)));
-      if (p === 'S' && look.block) jobs.push(() => look.block(S, A, s0, s1, sch));
+      if (look.fill) jobs.push(() => look.fill(S, A, s0, s1, p, sch));
+      else if (p === 'S' && look.block) jobs.push(() => look.block(S, A, s0, s1, sch));
       else if (p === 'S' && (rc === 1 || nA < 2) && look.jewel) { const m = A.at((s0 + s1) / 2); jobs.push(() => look.jewel(S, m, Math.min(L0 / 2, wm) * 1.1, sch)); }
       else if (wl / (rc * uc) >= .32 && uc >= u0 * .55 && nA * cc <= L0 + cc * .2) {
         const sA = s0 + (L0 - nA * cc) / 2, per = 2 + Math.floor(rnd() * 2);
@@ -321,11 +328,65 @@ function compartments(L, S, Bd, { u0, clear, seed, look }) {
       s = s1 + barW; if (s < b - 1 || st.closed) bars.push([A, s1 + barW / 2]);
     }
     if (!st.closed) bars.push([A, b]);
-    for (const bb of bars.filter(x => x[0] === A)) bb.push(barW, Math.max(...st.hw) + 2);
+    for (const bb of bars.filter(x => x[0] === A)) bb.push(barW, Math.min(Math.max(...st.hw), (hm + clear) * 1.25) + 2);   // (not the fork's depth: the bar stays in its own stroke)
   }
   for (const [ink, polys] of grounds) S.image(ink, masked(L, Bd, polys));
   for (const j of jobs) j();
   look.bars(S, bars.map(([A, s, w, half]) => { const [x, y, nx, ny] = A.at(s), tx = ny, ty = -nx; return { x, y, nx, ny, tx, ty, w, half }; }), Bd, L);
+}
+
+// ---- knots fitted to a panel ----
+// Breaks (walls on edge midpoints, grid units; nB the rows ×2): long horizontal loops every four cells on alternate row
+// lines, vertical turns between them (the field reads as interlace, not a mesh); or vertical breaks staggered every third.
+export const BREAKS = [
+  (x, y, nA, nB) => y > 0 && y < nB && x > 0 && x < 2 * nA && (((x & 1) && !(y & 1) && (y / 2) % 2 === 1 && ((x - 1) / 2) % 4 === 1) || (!(x & 1) && (y & 1) && (x / 2) % 4 === 3 && ((y - 1) / 2) % 2 === 0)),
+  (x, y, nA, nB) => !(x & 1) && (y & 1) && x > 0 && x < 2 * nA && (x / 2 + (y - 1) / 2) % 3 === 0,
+];
+// ------------------------------------------------------------------------------------------
+// A point of a stroke's band: arc length x along the stroke, offset y across it.
+const onBand = (A, x, y) => { const [px, py, nx, ny] = A.at(x); return [px + nx * y, py + ny * y]; };
+// A plait fitted to the piece of a stroke's panel between s0 and s1: cells of side 2u in the band's own frame, each kept
+// where it lies wholly inside the panel (depth >= clear) and outside every hole ([x, y, half]: a square in band coordinates,
+// where another knot sits); the cords turn back at the edge of what is kept, so the field closes round the holes and along
+// the panel's edge whatever its shape (Allen's plait fitted to any set of cells). wall(x, y, nA, nB): breaks.
+function fitted(L, A, s0, s1, u, clear, { holes = [], wall = null } = {}) {
+  let hmax = 0; for (let k = 0; k <= 16; k++) hmax = Math.max(hmax, A.at(s0 + (s1 - s0) * k / 16)[4]);
+  const nA = Math.floor((s1 - s0) / (2 * u)), nB = Math.ceil(hmax / u), x0 = s0 + ((s1 - s0) - nA * 2 * u) / 2, y0 = -nB * u;
+  if (nA < 1) return null;
+  const inside = (x, y) => { const [px, py] = onBand(A, x, y); return L.at(px, py, L.Din) >= clear; }, e = u * .75;   // (a cord turns .2 u inside its cell: its edge ~.7 u out)
+  const inc = (a, b) => { const cx = x0 + (2 * a + 1) * u, cy = y0 + (2 * b + 1) * u;
+    if (holes.some(([hx, hy, hh]) => Math.abs(cx - hx) < hh + u * .35 && Math.abs(cy - hy) < hh + u * .35)) return false;
+    return inside(cx, cy) && inside(cx - e, cy) && inside(cx + e, cy) && inside(cx, cy - e) && inside(cx, cy + e); };
+  const K = plait(nA, 2 * nB, sizable(inc, nA, 2 * nB), wall ? (x, y) => wall(x, y, nA, 2 * nB) : undefined);
+  if (!K.threads.length) return null;
+  const C = measure(cords(K, { ox: x0, oy: y0, u, inset: .3, round: 1.08, edgeInset: .2, ds: Math.min(.5, u * .3) }), u);
+  for (const c of C) c.pts = c.pts.map(([x, y]) => onBand(A, x, y));
+  return { K, C };
+}
+// A knot fitted to an area of the page (cells on the page's own diagonals): inside(x, y) says what belongs to it; the cells
+// kept lie wholly inside it and deeper than clear in the letter.
+function areaKnot(L, inside, box, u, clear, { wall = null, avoid = null } = {}) {
+  const [x0, y0, x1, y1] = box, nA = Math.floor((x1 - x0) / (2 * u)), nB = Math.floor((y1 - y0) / (2 * u)), e = u * .75;
+  const ok = (x, y) => inside(x, y) && L.at(x, y, L.Din) >= clear && !(avoid && avoid(x, y));
+  const K = plait(nA, nB, sizable((a, b) => { const cx = x0 + (2 * a + 1) * u, cy = y0 + (2 * b + 1) * u; return ok(cx, cy) && ok(cx - e, cy) && ok(cx + e, cy) && ok(cx, cy - e) && ok(cx, cy + e); }, nA, nB), wall ? (x, y) => wall(x, y, nA, nB) : undefined);
+  if (!K.threads.length) return null;
+  return { K, C: measure(cords(K, { ox: x0, oy: y0, u, inset: .3, round: 1.08, edgeInset: .2, ds: Math.min(.5, u * .3) }), u) };
+}
+// the cells kept, less every group (4-connected) of fewer than min cells
+function sizable(inc, nA, nB, min = 4) {
+  const lab = new Int32Array(nA * nB).fill(-1), size = []; 
+  for (let b = 0; b < nB; b++) for (let a = 0; a < nA; a++) { if (lab[b * nA + a] >= 0 || !inc(a, b)) continue; const id = size.length, st = [[a, b]]; lab[b * nA + a] = id; let n = 0;
+    while (st.length) { const [x, y] = st.pop(); n++; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= nA || Y >= nB || lab[Y * nA + X] >= 0 || !inc(X, Y)) continue; lab[Y * nA + X] = id; st.push([X, Y]); } }
+    size.push(n); }
+  return (a, b) => { const l = lab[b * nA + a]; return l >= 0 && size[l] >= min; };
+}
+// A closed knot whose cords run along and across the band, not on its diagonals (f. 139r's blue knots set in the red plait):
+// a diamond of cells (radius r) turned through 45°, so it stands as a square of half-side (2r + 1) u / √2, at sc on the band.
+export function squareKnot(A, sc, yc, r, u, wall = null, { edgeInset = .22, edgeRound = null, centre = true } = {}) {
+  const n = 2 * r + 1, K = plait(n, n, (a, b) => Math.abs(a - r) + Math.abs(b - r) <= r, wall ?? (r >= 2 && centre ? (x, y) => ((x === 2 * r || x === 2 * r + 2) && (y & 1) && Math.abs((y - 1) / 2 - r) >= 1 && Math.abs((y - 1) / 2 - r) < r) || ((y === 2 * r || y === 2 * r + 2) && (x & 1) && Math.abs((x - 1) / 2 - r) >= 1 && Math.abs((x - 1) / 2 - r) < r) : undefined));
+  const C = measure(cords(K, { ox: -n * u, oy: -n * u, u, inset: .3, round: 1.1, edgeInset, edgeRound, ds: Math.min(.5, u * .3) }), u);
+  for (const c of C) c.pts = c.pts.map(([x, y]) => onBand(A, sc + (x - y) * Math.SQRT1_2, yc + (x + y) * Math.SQRT1_2));
+  return { K, C, half: n * u * Math.SQRT1_2 };
 }
 
 // ---- A · Lindisfarne ------------------------------------------------------------------------------------------------------
@@ -334,30 +395,62 @@ const LIND = {
   knot: (S, C, K, u, i) => knot(S, C, K.crossings, { layers: [{ w: u * .82, ink: 'k' }, { w: u * .82 - Math.max(.5, u * .3), ink: 'y' }], gap: Math.max(.35, u * .12), ground: 'k',
     colour: t => t === 1 ? (i % 4 === 0 ? 'b' : 'g') : 'y' }),
 };
+// Measured on f. 139r against the letter's outer height Ho (research/20 §Stage 4): the pen line .016 Ho, the orpiment band
+// .015, the inner hairline .003; the red plait's cords ~.0075 Ho (outlined; pitch ~.011, the gaps ~.4 W), compared at matched scale;
+// the blue knots' cords .0097 at a pitch of .014, set in the plait every ~1.8 panel widths; dots .0056 Ho across at a pitch
+// of .010, two rows, the first a dot and a half off the ink. The finest marks are held to what a cell can show (1/res).
 export function lindInitial(ch, H, seed = 1, { theme = 'light', res = 2 } = {}) {
-  const L = letterField(ch, H, { res, bold: H * .055 }), S = new Sheet([0, 0, L.W, L.Ht], res), dk = theme === 'dark';
-  const pen = Math.max(1.1, H * .014), { frame, Bd } = rings(L, S, [{ w: pen, ink: dk ? 'l' : 'k', pen: true }, { w: Math.max(1.3, H * .017), ink: 'y' }, { w: Math.max(.55, H * .0055), ink: 'k', pen: true }], 'y');
-  const u0 = Math.max(2.4, H / 40), hair = Math.max(.45, H * .0045);
-  compartments(L, S, Bd, { u0, clear: frame + .4, seed, look: {
-    long: [{ ground: 'r', cord: 'y' }, { ground: 'k', cord: 'g' }], short: [{ ground: 'k', cord: 'b' }, { ground: 'p', cord: 'y' }], solid: 'r',
-    knot: (S, C, K, u, sch) => { const w = u * .86; knot(S, C, K.crossings, { layers: [{ w, ink: 'k' }, { w: w - Math.max(.5, u * .3), ink: sch.cord }], gap: Math.max(.3, u * .12), ground: sch.ground }); },
+  const L = letterField(ch, H, { res, bold: H * .055 }), S = new Sheet([0, 0, L.W, L.Ht], res), dk = theme === 'dark', Ho = H * 1.11, px = 1 / res;
+  const hair = Math.max(.5 * px, Ho * .003), { frame, Bd } = rings(L, S, [{ w: Ho * .0155, ink: dk ? 'l' : 'k', pen: .3 }, { w: Ho * .0145, ink: 'y' }, { w: hair, ink: 'k', pen: .3 }], 'y');
+  const u0 = Math.max(2.4, H / 40), clear = frame + .4;
+  const uf = Math.max(1.25 * px, Ho * .0078), ub = Math.max(2 * px, Ho * .0098), rnd = stream(seed, 'lind');
+  // the fine field: cords of red lead or orpiment outlined in ink on black, a break every few cells along a row (staggered)
+  // (its pen line .1 W, heavier than the knots' .06: at this size it is all that tells over from under)
+  const field = (A, s0, s1, sch, holes) => { const wf = uf, ln = Math.max(.4 * px, wf * .1);
+    const f = fitted(L, A, s0, s1, uf, clear + uf * .15, { holes, wall: BREAKS[Math.floor(rnd() * 2)] });
+    if (f) knot(S, handOn(f.C, uf, wf, seed), f.K.crossings, { layers: [{ w: wf, ink: 'k' }, { w: wf - 2 * ln, ink: sch.cord }], gap: 0, ground: 'k' }); };
+  // a coarser knot: its cords pigment in a pale rim and the ink line
+  const big = (C, K, u, ink) => { const W = u * 1.0; knot(S, handOn(C, u, W, seed + 3), K.crossings, { layers: strand(W, ink, { min: .35 * px }), gap: 0, ground: 'k' }); };
+  compartments(L, S, Bd, { u0, clear, seed, look: {
+    long: [{ ground: 'k', cord: 'r', knot: 'b' }, { ground: 'k', cord: 'r', knot: 'g' }], short: [{ ground: 'k', cord: 'b' }, { ground: 'k', cord: 'g' }], solid: 'r',
+    fill: (S, A, s0, s1, p, sch) => {
+      const hp = s => A.at(s)[4] - clear, mid = hp((s0 + s1) / 2);
+      if (p === 'S') {   // a closed knot fitted to the compartment, at the coarse scale
+        const f = fitted(L, A, s0, s1, ub, clear + ub * .2, { wall: BREAKS[0] }); if (f && f.K.crossings.size >= 8) big(f.C, f.K, ub, sch.cord);
+        else LOOK.jewel(S, A.at((s0 + s1) / 2), Math.min((s1 - s0) / 2, mid) * 1.1, sch);
+        return; }
+      // knots set in the field ~1.8 panel widths apart, each as large as the panel there allows (its cords at one scale)
+      const n = Math.max(1, Math.round((s1 - s0) / (3.6 * Math.max(mid, ub * 3)))), holes = [];
+      for (let k = 0; k < n; k++) { const sc = s0 + (s1 - s0) * (k + .5) / n, h = Math.min(hp(sc - ub * 3), hp(sc), hp(sc + ub * 3)) * .94, r = Math.max(2, Math.min(3, Math.floor((h * Math.SQRT2 / ub - 1) / 2))), u = Math.min(ub * 1.25, h * Math.SQRT2 / (2 * r + 1));
+        if (u < ub * .55 || (s1 - s0) < 2 * h + 4 * uf) continue; const q = squareKnot(A, sc, 0, r, u, null, { centre: false, edgeInset: .05, edgeRound: 1.7 }); big(q.C, q.K, u, sch.knot); holes.push([sc, 0, q.half]); }
+      field(A, s0, s1, sch, holes); },
     bars: (S, B, Bd, L) => { const q = (b, w) => { const { x, y, nx, ny, tx, ty, half } = b; return [[x + tx * w / 2 + nx * half, y + ty * w / 2 + ny * half], [x - tx * w / 2 + nx * half, y - ty * w / 2 + ny * half], [x - tx * w / 2 - nx * half, y - ty * w / 2 - ny * half], [x + tx * w / 2 - nx * half, y + ty * w / 2 - ny * half]]; };
       S.image('k', masked(L, Bd, B.map(b => q(b, b.w + 2 * hair)))); S.image('y', masked(L, Bd, B.map(b => q(b, b.w)))); },
-    scroll: (S, pts, w, sch) => { const W = Math.max(1, w * .42); cordLine(S, pts, [{ w: W, ink: 'k' }, { w: W - Math.max(.5, W * .36), ink: sch.cord }]); },
-    // a cross of four lentoids (f. 139r sets them in black between its spirals)
-    jewel: (S, m, r, sch) => { const [x, y, nx, ny] = m, P = new Path2D(), a = r * .5, b = r * .17;
-      for (const [dx, dy] of [[nx, ny], [-nx, -ny], [ny, -nx], [-ny, nx]]) { const cx = x + dx * (a + r * .06), cy = y + dy * (a + r * .06); P.moveTo(cx - dx * a, cy - dy * a);
-        for (const sg of [1, -1]) for (let k = sg > 0 ? 1 : 19; sg > 0 ? k <= 20 : k >= 0; k += sg) { const f = k / 10 - 1, h = sg * b * (1 - f * f); P.lineTo(cx + dx * a * f - dy * h, cy + dy * a * f + dx * h); } P.closePath(); }
-      S.fill(P, sch.cord); const e = new Path2D(); e.arc(x, y, r * .1, 0, Math.PI * 2); S.fill(e, sch.cord); },
-    roundel: (S, t) => { const { c, R } = t, disc = r => { const P = new Path2D(); P.arc(c[0], c[1], r, 0, Math.PI * 2); return P; };
-      S.fill(disc(R + hair), 'k'); S.fill(disc(R), 'y'); S.fill(disc(R - Math.max(1, R * .16)), 'k'); S.fill(disc(R - Math.max(1, R * .16) - hair), 'b');
-      const ri = R - Math.max(1, R * .16) - hair, W = Math.max(.9, ri * .19); triskele(S, c, ri * .8, t.a0, () => [{ w: W, ink: 'k' }, { w: W - Math.max(.45, W * .34), ink: 'y' }], { len: 1.75, eye: .07 });
-      const hub = new Path2D(); hub.arc(c[0], c[1], W * .5, 0, Math.PI * 2); S.fill(hub, 'k'); },
+    roundel: (S, t) => LOOK.roundel(S, t, hair),
+    terminal: (S, inT, box, disc) => { const M = new Float32Array(L.w * L.h);
+      for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) { const q = j * L.w + i; if (Bd[q] > 0 && inT((i + .5) / res, (j + .5) / res)) M[q] = Bd[q]; }
+      S.image('k', M);
+      const f = areaKnot(L, inT, box, uf, clear + uf * .15, { wall: BREAKS[0], avoid: disc && ((x, y) => Math.hypot(x - disc[0], y - disc[1]) < disc[2] + hair + uf * .5) });
+      if (f) knot(S, handOn(f.C, uf, uf, seed + 5), f.K.crossings, { layers: [{ w: uf, ink: 'k' }, { w: uf - 2 * Math.max(.4 * px, uf * .1), ink: 'r' }], gap: 0, ground: 'k' }); },
   } });
-  const dr = Math.max(.75, H * .0105); diaper(L, S, dr, dr * 2 * 1.85);
-  dotRows(L, S, dr, H > 90 ? 2 : 1, seed);
+  const dr = Math.max(.7 * px, Ho * .0028); diaper(L, S, dr, dr * 2 * 1.85);
+  dotRows(L, S, dr, 2, seed, 'd', { off: 3, pitch: dr * 2 * 1.85 });
+  // the hand's drift: the arm's slow waver (.008 Ho over .16 Ho), the fingers' finer one, each ink a hair off register
+  S.drift({ amp: Ho * .008, lam: Ho * .16, amp2: Ho * .0015, lam2: Ho * .035, mis: Ho * .0025, seed });
   return { S, W: L.W, H: L.Ht, P: L.P, L };
 }
+// the Lindisfarne jewel and roundel (also drawn by the small pieces' looks)
+const LOOK = {
+  // a cross of four lentoids (f. 139r sets them in black between its spirals)
+  jewel: (S, m, r, sch) => { const [x, y, nx, ny] = m, P = new Path2D(), a = r * .5, b = r * .17;
+    for (const [dx, dy] of [[nx, ny], [-nx, -ny], [ny, -nx], [-ny, nx]]) { const cx = x + dx * (a + r * .06), cy = y + dy * (a + r * .06); P.moveTo(cx - dx * a, cy - dy * a);
+      for (const sg of [1, -1]) for (let k = sg > 0 ? 1 : 19; sg > 0 ? k <= 20 : k >= 0; k += sg) { const f = k / 10 - 1, h = sg * b * (1 - f * f); P.lineTo(cx + dx * a * f - dy * h, cy + dy * a * f + dx * h); } P.closePath(); }
+    S.fill(P, sch.cord); const e = new Path2D(); e.arc(x, y, r * .1, 0, Math.PI * 2); S.fill(e, sch.cord); },
+  roundel: (S, t, hair) => { const { c, R } = t, disc = r => { const P = new Path2D(); P.arc(c[0], c[1], r, 0, Math.PI * 2); return P; };
+    S.fill(disc(R + hair), 'k'); S.fill(disc(R), 'y'); S.fill(disc(R - Math.max(1, R * .16)), 'k'); S.fill(disc(R - Math.max(1, R * .16) - hair), 'b');
+    const ri = R - Math.max(1, R * .16) - hair, W = Math.max(.9, ri * .19); triskele(S, c, ri * .8, t.a0, () => [{ w: W, ink: 'k' }, { w: W - Math.max(.45, W * .34), ink: 'y' }], { len: 1.75, eye: .07 });
+    const hub = new Path2D(); hub.arc(c[0], c[1], W * .5, 0, Math.PI * 2); S.fill(hub, 'k'); },
+};
 // the paraph: a small knot of two cords broken once at its heart (not the plain 2×2), three dots beside it as a positura
 export function lindParaph(size, seed = 1, { res = 2, theme = 'light' } = {}) {
   const u = size / 4.4, pad = size * .3, Wd = size * 1.75, S = new Sheet([0, 0, Wd + 2 * pad, size + 2 * pad], res), ox = pad, oy = pad + (size - 4 * u) / 2;

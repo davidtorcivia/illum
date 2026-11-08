@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Insular scale</title>
+<!--
+  A bench for one letter's geometry and scale (not its paint): the E of a direction at 4x, light and dark, printed with
+  the direction's own pour. ?dir=lind|durrow ?ch=E ?z=4 ?h=109 ?theme=light|dark (both by default)
+-->
+<style>
+  @font-face { font-family: InsularUncial; src: url(../fonts/insular/UncialAntiqua.woff2) format("woff2"); font-display: block; }
+  html { background: #e9e4d8; } body { margin: 0; padding: 16px; font: italic 13px/1.4 serif; color: #333; }
+  .grid { display: flex; flex-wrap: wrap; gap: 14px; } figure { margin: 0; background: rgb(241 232 213); padding: 8px; }
+  figure[data-theme=dark] { background: rgb(28 24 21); color: #ccc; }
+</style>
+</head>
+<body>
+<div class="grid" id="out"></div>
+<script type="module">
+import * as D from './insular-directions.js';
+const q = new URLSearchParams(location.search), key = q.get('dir') ?? 'lind', ch = q.get('ch') ?? 'E', seed = +(q.get('seed') ?? 7);
+const Z = +(q.get('z') ?? 4), H = +(q.get('h') ?? 109), dpr = Math.min(2, devicePixelRatio || 1), dir = D.DIRS[key];
+await document.fonts.load('40px InsularUncial');
+if (q.get('mode') === 'walls') {   // break patterns for a fine field, side by side (a band of 24 × 6 cells)
+  const K = await import('../kit/styles/insular-knot.js'), u = 6, A = 24, B = 6, P = D.PAL.lind.light;
+  const RULES = {
+    plain: () => false,
+    'h per 3': (x, y) => (x & 1) && !(y & 1) && y > 0 && y < 2 * B && ((x - 1) / 2 + y) % 3 === 0,
+    'h every other, alt rows': (x, y) => (x & 1) && !(y & 1) && y > 0 && y < 2 * B && (y / 2) % 2 === 1 && ((x - 1) / 2) % 2 === (y / 2 - 1) / 2 % 2,
+    'h+v loops': (x, y) => y > 0 && y < 2 * B && x > 0 && x < 2 * A && (((x & 1) && !(y & 1) && (y / 2) % 2 === 1 && ((x - 1) / 2) % 4 === 1) || (!(x & 1) && (y & 1) && (x / 2) % 4 === 3 && ((y - 1) / 2) % 2 === 0)),
+    'h pairs per 4': (x, y) => (x & 1) && !(y & 1) && y > 0 && y < 2 * B && ((x - 1) / 2 + (y / 2) * 2) % 4 < 2 && (y / 2) % 2 === 1,
+    'v per 3 stagger': (x, y) => !(x & 1) && (y & 1) && x > 0 && x < 2 * A && (x / 2 + (y - 1) / 2) % 3 === 0,
+  };
+  for (const [name, wall] of Object.entries(RULES)) {
+    const S = new K.Sheet([0, 0, A * 2 * u + 20, B * 2 * u + 20], 4), Kn = K.plait(A, B, () => true, wall), C = K.measure(K.cords(Kn, { ox: 10, oy: 10, u, inset: .3, round: 1.08, edgeInset: .2, ds: u * .3 }), u);
+    const g = new Path2D(); g.rect(8, 8, A * 2 * u + 4, B * 2 * u + 4); S.fill(g, 'k');
+    K.knot(S, K.handOn(C, u, u * .9, 3), Kn.crossings, { layers: [{ w: u * .9, ink: 'k' }, { w: u * .9 * .86, ink: 'r' }], gap: 0, ground: 'k' });
+    const cv = document.createElement('canvas'); cv.width = S.w; cv.height = S.h; cv.style.width = S.w / 4 * 1.5 + 'px';
+    S.print(cv.getContext('2d'), P, { dpr: 4, order: ['k', 'r'] });
+    const f = document.createElement('figure'); f.append(cv, Object.assign(document.createElement('figcaption'), { textContent: name })); document.getElementById('out').append(f);
+  }
+  document.body.dataset.timing = 'drawn'; throw 0;
+}
+if (q.get('mode') === 'square') {   // square knots: r 2 and 3, with and without the centre breaks, tight or round outer loops
+  const K = await import('../kit/styles/insular-knot.js'), u = 8, P = D.PAL.lind.light, A = D.along([[0, 60], [400, 60]], [60, 60]);
+  for (const r of [2, 3]) for (const [name, o] of [['centre, tight', {}], ['open, tight', { centre: false }], ['centre, round', { edgeInset: .05, edgeRound: 1.7 }], ['open, round', { centre: false, edgeInset: .05, edgeRound: 1.7 }], ['open, rounder', { centre: false, edgeInset: -.1, edgeRound: 2.2 }]]) {
+    const S = new K.Sheet([0, 0, 120, 120], 4), q2 = D.squareKnot(A, 60, 0, r, u * 2.5 / (r + .5), null, o), W = u * 2.5 / (r + .5);
+    const g = new Path2D(); g.rect(0, 0, 120, 120); S.fill(g, 'k');
+    K.knot(S, K.handOn(q2.C, W, W, 3), q2.K.crossings, { layers: K.strand(W, 'b'), gap: 0, ground: 'k' });
+    const cv = document.createElement('canvas'); cv.width = S.w; cv.height = S.h; cv.style.width = '240px';
+    S.print(cv.getContext('2d'), P, { dpr: 4, order: ['k', 'v', 'b'] });
+    const f = document.createElement('figure'); f.append(cv, Object.assign(document.createElement('figcaption'), { textContent: `r ${r}, ${name}` })); document.getElementById('out').append(f);
+  }
+  document.body.dataset.timing = 'drawn'; throw 0;
+}
+for (const theme of q.get('theme') ? [q.get('theme')] : ['light', 'dark']) {
+  const t0 = performance.now(), piece = dir.initial(ch, H, seed, { theme, res: dpr * Z }), { S, W } = piece, d = dpr * Z, cv = document.createElement('canvas');
+  cv.width = Math.ceil(W * d); cv.height = Math.ceil(piece.H * d); cv.style.width = W * Z + 'px'; cv.style.height = piece.H * Z + 'px';
+  S.print(cv.getContext('2d'), D.PAL[dir.pal][theme], { dpr: d, order: dir.order, seed, tex: dir.tex, alias: dir.alias });
+  const f = document.createElement('figure'); f.dataset.theme = theme;
+  f.append(cv, Object.assign(document.createElement('figcaption'), { textContent: `${dir.name} ${ch}, ${Z}x, ${theme} (${Math.round(performance.now() - t0)} ms)` }));
+  document.getElementById('out').append(f);
+}
+document.body.dataset.timing = 'drawn';
+</script>
+</body>
+</html>

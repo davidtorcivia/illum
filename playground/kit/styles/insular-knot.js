@@ -98,6 +98,22 @@ function hand(c, W) {
   for (const A of [c.f, c.g]) for (let it = 0; it < 3; it++) { const B = A.slice(); for (let i = 0; i < n; i++) A[i] = (B[(i - 3 + n) % n] + B[(i - 1 + n) % n] + 2 * B[i] + B[(i + 1) % n] + B[(i + 3) % n]) / 6; }
   return c;
 }
+// The hand on a knot's cords, measured on f. 139r's blue knots (W: the strand's width, u: the half cell): the centreline wanders
+// ~0.1 W off the true curve over about a cell, on a slower drift of 0.06 u over 3 u; the breadth swells and thins ±20% over
+// ~1.3 u; the pen line is heavier in the turns (curvature) with a slow wander of its own. Sets c.f and c.g, which knot() reads.
+export function handOn(C, u, W, seed = 1) {
+  const nx = noise2(seed * 13 + 11), ny = noise2(seed * 13 + 29), wx = noise2(seed * 13 + 41), wy = noise2(seed * 13 + 57), lam = u * 3.2, amp = u * .06, lw = u, aw = W * .1;
+  C.forEach((c, t) => { const fb = noise2(seed * 31 + 100 + t), gb = noise2(seed * 31 + 200 + t), n = c.pts.length;
+    c.pts = c.pts.map(([x, y]) => [x + amp * (nx(x / lam, y / lam) - .5) * 2 + aw * (wx(x / lw, y / lw) - .5) * 2, y + amp * (ny(x / lam, y / lam) - .5) * 2 + aw * (wy(x / lw, y / lw) - .5) * 2]);
+    c.f = new Float32Array(n); c.g = new Float32Array(n); const P = c.pts;
+    for (let k = 0; k < n; k++) { const s = k / n * c.L, a = P[(k - 3 + n) % n], b = P[k], d = P[(k + 3) % n], h1 = Math.atan2(b[1] - a[1], b[0] - a[0]), h2 = Math.atan2(d[1] - b[1], d[0] - b[0]);
+      let dh = h2 - h1; dh -= Math.round(dh / (2 * Math.PI)) * 2 * Math.PI; const turn = Math.min(1, Math.abs(dh) / (Math.hypot(d[0] - a[0], d[1] - a[1]) || 1) * u * .9);
+      c.f[k] = 1 + .2 * (fb(s / (u * 1.3), t * 3.1) - .5) * 2;
+      c.g[k] = .7 + .9 * turn + .35 * (gb(s / (u * .8), t) - .5); } });
+  return C;
+}
+// the layers of a measured strand: the pen line ~0.06 W, a band of vellum, the tint ~0.5 W down the middle
+export const strand = (W, tint, { line = 'k', reserve = 'v', min = 0 } = {}) => [{ w: W, ink: line }, { w: W - 2 * Math.max(min, W * .06), ink: reserve }, { w: W * .5, ink: tint }];
 export const pathOf = (pts, close = true, P = new Path2D()) => { P.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) P.lineTo(pts[i][0], pts[i][1]); if (close) P.closePath(); return P; };
 
 // ---- the knot drawn as bands ------------------------------------------------------------------------------------------------
@@ -108,25 +124,28 @@ export function knot(sheet, C, crossings, { layers, gap = 1, ground = null, colo
   const W = layers[0].w, Lg = W / 2 + gap + .6, line = layers.length > 1 ? (W - layers[1].w) / 2 : 0;
   // each layer's width at each point: the band breathes (f), the pen line (outermost ring) swells and thins with the nib (g)
   const widths = (c, idx, i) => idx.map(j => { const f = 1 + (c.f[j] - 1) * breath, w0 = W * f; return i === 0 ? w0 : i === 1 ? w0 - 2 * line * c.g[j] : w0 - 2 * line * c.g[j] - (layers[1].w - layers[i].w); });
-  const lay = (t, pts, close, k) => { const c = C[t]; for (let i = 0; i < layers.length; i++) { const ly = layers[i], ink = (i === layers.length - 1 && colour) ? colour(t, k) : ly.ink;
-    sheet.strokeW(pts, widths(c, pts.idx, i), ink, { close, trap }); } };
+  // (batched: every stretch of one layer and one ink is a single fill, phase by phase: the cords, the gaps, the overs again —
+  // a fine field holds thousands of crossings. A gap never reaches the next crossing's laid-again stretch, so the order holds.)
+  const jobs = new Map(), add = (ph, i, ink, pts, ws, close) => { const k = `${ph}|${i}|${ink}`; (jobs.get(k) ?? jobs.set(k, { ph, i, ink, list: [] }).get(k)).list.push([pts, ws, close]); };
+  const lay = (ph, t, pts, close, k) => { const c = C[t]; for (let i = 0; i < layers.length; i++) add(ph, i, (i === layers.length - 1 && colour) ? colour(t, k) : layers[i].ink, pts, widths(c, pts.idx, i), close); };
   for (const c of C) hand(c, W);
   // a cord's stretches run between the crossings where it goes under (a colour changes out of sight, as in Durrow)
   const unders = C.map(c => c.ev.map((e, i) => e.cross && !e.over ? c.s[i] : null).filter(v => v != null));
   C.forEach((c, t) => {
     const xs = unders[t];
-    if (!xs.length || !colour) { const all = c.pts.slice(); all.idx = c.pts.map((_, i) => i); lay(t, all, true, 0); return; }
-    for (let k = 0; k < xs.length; k++) { const a = xs[k], b = k + 1 < xs.length ? xs[k + 1] : xs[0] + c.L; lay(t, stretch(c, a - .5, b + .5), false, k); }
+    if (!xs.length || !colour) { const all = c.pts.slice(); all.idx = c.pts.map((_, i) => i); lay(0, t, all, true, 0); return; }
+    for (let k = 0; k < xs.length; k++) { const a = xs[k], b = k + 1 < xs.length ? xs[k + 1] : xs[0] + c.L; lay(0, t, stretch(c, a - .5, b + .5), false, k); }
   });
   // each crossing: the gap cut round the over cord, then the over cord laid again across it
   for (const [, vs] of crossings) {
     const ov = vs.find(v => v.over); if (!ov) continue;
     const c = C[ov.t], s = c.s[ov.i], xs = unders[ov.t];
     const Lp = Math.max(Lg + .4, Math.min(Lg + W * .35, (c.step ?? 1e9) - Lg - .3)), gp = stretch(c, s - Lg, s + Lg);
-    sheet.strokeW(gp, widths(c, gp.idx, 0).map(w => w + 2 * gap), ground, { close: false, trap: 0 });
+    add(1, 0, ground, gp, widths(c, gp.idx, 0).map(w => w + 2 * gap), false);
     let k = xs.findIndex(v => v > s) - 1; if (k < 0) k = xs.length - 1;   // (the stretch this crossing lies in)
-    lay(ov.t, stretch(c, s - Lp, s + Lp), false, Math.max(0, k));
+    lay(2, ov.t, stretch(c, s - Lp, s + Lp), false, Math.max(0, k));
   }
+  for (const j of [...jobs.values()].sort((a, b) => a.ph - b.ph || a.i - b.i)) sheet.strokeMany(j.list, j.ink == null || j.ink === 'null' ? null : j.ink, { trap: j.ph === 1 ? 0 : trap });
 }
 // each cord's distance between crossings (so a laid-again stretch never reaches the next crossing)
 export function measure(C, u) { for (const c of C) { c.unit = u; c.step = Math.SQRT2 * u; } return C; }
@@ -177,13 +196,39 @@ export class Sheet {
   }
   dots(D, ink) { const P = new Path2D(); for (const [x, y, r, a = 0, e = 1] of D) { P.moveTo(x + Math.cos(a) * r * e, y + Math.sin(a) * r * e); P.ellipse(x, y, r * e, r / e, a, 0, Math.PI * 2); } this.fill(P, ink); }
   // a band of varying width along a polyline, as quads that share their edges (one path, nonzero: no seams, crossings fill)
-  strokeW(pts, ws, ink, { close = false, trap = .35 } = {}) {
-    const n = pts.length; if (n < 2) return; const N = pts.map((p, i) => { const a = pts[close ? (i - 1 + n) % n : Math.max(0, i - 1)], b = pts[close ? (i + 1) % n : Math.min(n - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [-(b[1] - a[1]) / l, (b[0] - a[0]) / l]; });
-    const path = d => { const P = new Path2D(), m = close ? n : n - 1;
-      for (let i = 0; i < m; i++) { const j = (i + 1) % n, wi = Math.max(.05, ws[i] / 2 + d), wj = Math.max(.05, ws[j] / 2 + d), a = pts[i], b = pts[j];
-        P.moveTo(a[0] + N[i][0] * wi, a[1] + N[i][1] * wi); P.lineTo(b[0] + N[j][0] * wj, b[1] + N[j][1] * wj); P.lineTo(b[0] - N[j][0] * wj, b[1] - N[j][1] * wj); P.lineTo(a[0] - N[i][0] * wi, a[1] - N[i][1] * wi); P.closePath(); }
+  strokeW(pts, ws, ink, { close = false, trap = .35 } = {}) { this.strokeMany([[pts, ws, close]], ink, { trap }); }
+  // many such bands of one ink as one fill: lines [[pts, ws, close], ...]
+  strokeMany(lines, ink, { trap = .35 } = {}) {
+    // (each band one outline, its left side out and its right side back: every band winds the same way, so overlaps add and
+    // nothing cancels under nonzero; a closed band is two loops, the hole between them wound to zero)
+    const path = d => { const P = new Path2D();
+      for (const [pts, ws, close] of lines) { const n = pts.length; if (n < 2) continue; const l = [], r = [];
+        for (let i = 0; i < n; i++) { const a = pts[close ? (i - 1 + n) % n : Math.max(0, i - 1)], b = pts[close ? (i + 1) % n : Math.min(n - 1, i + 1)], h = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, nx = -(b[1] - a[1]) / h, ny = (b[0] - a[0]) / h, w = Math.max(.05, ws[i] / 2 + d), p = pts[i];
+          l.push(p[0] + nx * w, p[1] + ny * w); r.push(p[0] - nx * w, p[1] - ny * w); }
+        if (close) { P.moveTo(l[0], l[1]); for (let i = 2; i < l.length; i += 2) P.lineTo(l[i], l[i + 1]); P.closePath();
+          P.moveTo(r[r.length - 2], r[r.length - 1]); for (let i = r.length - 4; i >= 0; i -= 2) P.lineTo(r[i], r[i + 1]); P.closePath(); }
+        else { P.moveTo(l[0], l[1]); for (let i = 2; i < l.length; i += 2) P.lineTo(l[i], l[i + 1]); for (let i = r.length - 2; i >= 0; i -= 2) P.lineTo(r[i], r[i + 1]); P.closePath(); } }
       return P; };
     const own = path(0), less = trap ? path(-trap) : own; this.op(ink, (g, d) => g.fill(d < 0 ? less : own, 'nonzero'));
+  }
+  // The hand's drift: every ink's coverage moved by one slow displacement (amp px over wavelength lam px: the arm), a finer
+  // one (the fingers: amp2 over lam2) and a hair of misregistration of its own (mis px). Geometry, before any pour: the
+  // drawing wavers as a drawn one does and the inks sit a hair off one another.
+  drift({ amp, lam, amp2 = 0, lam2 = 1, mis = 0, seed = 1 } = {}) {
+    const { w, h, res } = this, [x0, y0] = this.box, sx = noise2(seed * 7 + 91), sy = noise2(seed * 7 + 173), fx = noise2(seed * 7 + 19), fy = noise2(seed * 7 + 41);
+    const DX = new Float32Array(w * h), DY = new Float32Array(w * h);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const x = x0 + i / res, y = y0 + j / res, q = j * w + i;
+      DX[q] = (amp * (sx(x / lam, y / lam) - .5) * 2 + amp2 * (fx(x / lam2, y / lam2) - .5) * 2) * res;
+      DY[q] = (amp * (sy(x / lam, y / lam) - .5) * 2 + amp2 * (fy(x / lam2, y / lam2) - .5) * 2) * res; }
+    for (const [ink, g] of this.c) {
+      const rs = noise2(ink.charCodeAt(0) * 7 + seed), ox = (rs(1.3, 2.1) - .5) * 2 * mis * res, oy = (rs(4.7, .4) - .5) * 2 * mis * res;
+      const im = g.getImageData(0, 0, w, h), d = im.data, A = new Uint8ClampedArray(w * h); for (let q = 0; q < A.length; q++) A[q] = d[q * 4 + 3];
+      for (let j = 0, q = 0; j < h; j++) for (let i = 0; i < w; i++, q++) {
+        const u = i - DX[q] - ox, v = j - DY[q] - oy, i0 = Math.floor(u), j0 = Math.floor(v), fu = u - i0, fv = v - j0;
+        if (i0 < 0 || j0 < 0 || i0 >= w - 1 || j0 >= h - 1) { d[q * 4 + 3] = 0; continue; }
+        const p = j0 * w + i0; d[q * 4 + 3] = (A[p] * (1 - fu) + A[p + 1] * fu) * (1 - fv) + (A[p + w] * (1 - fu) + A[p + w + 1] * fu) * fv; }
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'copy'; g.putImageData(im, 0, 0); g.restore(); g.globalCompositeOperation = 'source-over';
+    }
   }
   // pour every ink (order: bottom first) through the ink engine; tex(ink) -> grain amount (0: a flat coat, as the key).
   // alias: { ink: other } pours an ink as part of another (the dots are the red lead, one pour). Each pour covers only the
