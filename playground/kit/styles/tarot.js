@@ -248,6 +248,14 @@ function weave(c, a, b, W, seed = 0) {
 }
 const join = (...els) => ({ marks: els.flatMap(e => e.marks).flat(), fills: els.flatMap(e => e.fills), letters: els.flatMap(e => e.letters ?? []) });
 const SUITS = ['cup', 'baton', 'sword', 'coin'];
+// A page asked for by its seed (kit/illum.js sets tarot.seeded; 0: the page as approved) is cut by its own hand, every
+// choice drawn from that seed: which suit leads the chapters (and so the paraphs, the contents and the chapter bands), what
+// grows in the drop card's field and how Le Soleil's drops fall on it, what crosses at a book's break (batons or swords),
+// what sits on a pull quote's rules (the coin or the cup), and which side a vine's first leaf takes
+let HAND = null;
+const hand = () => { const s = tarot.seeded; if (!s) return null; if (HAND?.s === s) return HAND; const r = rng(s, 'hand');
+  return HAND = { s, off: r() * 4 | 0, field: r() < .5 ? 'tufts' : 'flowers', rain: r() * 3 | 0, book: r() < .5 ? 'batons' : 'swords', pull: r() < .5 ? 'coin' : 'cup' }; };
+const off = () => hand()?.off ?? 0;
 
 // ---- lettering -------------------------------------------------------------------------------------------------------------
 // Lettering is a glyph request the page turns into coverage with glyph(): { text, x, base (page px), size (cap height,
@@ -384,14 +392,15 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
     const fl = h * 3.2, run = L - fl, n = Math.max(1, Math.round(run / (h * 4.4))), p = run / n, marks = [], fills = [];
     const yAt = x => mid + Math.sin((x - x0) / p * Math.PI) * h * .14, stem = Array.from({ length: 161 }, (_, k) => { const x = x0 + k / 160 * run; return [x, yAt(x)]; });
     marks.push(cut(stem, W, { seed })); fills.push(fill('r', [], [{ pts: stem, w: h * .2 }]));
-    for (let k = 0; k < n; k++) { const sd = k % 2 ? 1 : -1, bx = x0 + k * p + p * .12, by = yAt(bx), tip = [bx + p * .82, mid + sd * h * .78], ex = bx + p * .5;
+    const f1 = hand() && rng(seed, 'leaf')() < .5 ? 1 : 0;   // (a seeded page: the first leaf below the stem or above it)
+    for (let k = 0; k < n; k++) { const sd = (k + f1) % 2 ? 1 : -1, bx = x0 + k * p + p * .12, by = yAt(bx), tip = [bx + p * .82, mid + sd * h * .78], ex = bx + p * .5;
       // a leaf from the stem, swelling out and running forward to a tip that turns back in a small curl
       const outer = bez([bx, by], [bx + p * .1, by + sd * h * .7], [bx + p * .5, mid + sd * h * .95], tip, 18);
       const inner = bez(tip, [bx + p * .62, mid + sd * h * .42], [ex, yAt(ex) + sd * h * .14], [ex, yAt(ex)], 16);
       const curl = arc([tip[0] - h * .16, tip[1] - sd * h * .04], h * .16, h * .16, sd > 0 ? Math.PI * .1 : -Math.PI * .1, sd > 0 ? -Math.PI * .9 : Math.PI * .9, 8);
       marks.push(cut([...outer, ...curl.slice(1)], W * .9, { seed: seed + k, taper: [0, h * .25] }), cut(inner, W * .8, { seed: seed + 20 + k }),
         cut(bez([bx + p * .12, by + sd * h * .16], [bx + p * .3, by + sd * h * .45], [bx + p * .5, mid + sd * h * .6], [bx + p * .66, mid + sd * h * .66], 10), W * .6, { seed: seed + 40 + k, taper: [h * .2, h * .3] }));
-      fills.push(fill(k % 2 ? 'p' : 'y', [[...outer, ...inner]])); }
+      fills.push(fill((k + f1) % 2 ? 'p' : 'y', [[...outer, ...inner]])); }
     return join({ marks, fills }, flower([x0 + run - W, mid], 0, fl, W * .9, seed + 99, { leaves: false })); }
   if (kind === 'rule') { const R = h * .62; return join({ marks: [cut([[x0, mid], [x1 - R * 2.1, mid]], W * 1.05, { seed })], fills: [] }, coin([x1 - R, mid], R, W, seed + 1)); }
   return baton([x0 + h * .05, mid], [x1 - h * .05, mid], h * .5, W, seed, { mid: L > h * 14 });
@@ -406,7 +415,7 @@ function band(x0, x1, y0, y1, W, seed = 0) {
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1) {
   const W = LW(u) * 1.15;
   if (rank < 2) {   // the numeral band with the chapter's number, the chapter's suit standing either side of it
-    const txt = roman(n), size = u * 1.45, hb = u * 1.25, half = Math.max(textWidth(txt, size) / 2 + u * 1.6, u * 3.2), k = (n - 1) % 4, P = LW(u);
+    const txt = roman(n), size = u * 1.45, hb = u * 1.25, half = Math.max(textWidth(txt, size) / 2 + u * 1.6, u * 3.2), k = (n - 1 + off()) % 4, P = LW(u);
     const els = [{ marks: band(cx - half, cx + half, y - hb, y + hb, W, seed), fills: [], letters: [{ text: txt, x: cx, base: y + size / 2, size }] }];
     if (rich >= .25) for (const sd of [-1, 1]) { const px = cx + sd * (half + u * 2.2);
       els.push(SUITS[k] === 'coin' ? coin([px, y], u * 1.3, P, seed + sd) : SUITS[k] === 'cup' ? cup([px, y + u * 1.45], u * 2.9, P, seed + sd)
@@ -421,7 +430,10 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1) {
   // a book: two batons crossed in a flat saltire, bound where they cross by the woven lozenge, which lies over them: each
   // baton runs from its cap into the lozenge's edge, a yellow collar binding it there (c023, c025)
   const L = Math.min(measure * .66, u * 32), A = .21, a = L / 2 * Math.cos(A), b = L / 2 * Math.sin(A), w = u * .72, la = u * 4.2, lb = u * 2.7, els = [];
-  for (const [sx, sy] of [[-1, -1], [1, 1], [-1, 1], [1, -1]]) { const e = [cx + sx * a, y + sy * b], d = unit([cx - e[0], y - e[1]]);
+  // (a seeded page may cross two swords there instead, points up and out, as the pip cards of swords cross their blades)
+  if (hand()?.book === 'swords') for (const sx of [-1, 1]) { const ang = sx * (Math.PI / 2 - A * 1.6), d = [Math.sin(ang), -Math.cos(ang)], Ls = L * .92;
+    els.push(sword(add([cx, y], d, -Ls * .36), Ls, LW(u), seed + sx * 3, ang, { b: u * .42, g: u * 1.5 })); }
+  else for (const [sx, sy] of [[-1, -1], [1, 1], [-1, 1], [1, -1]]) { const e = [cx + sx * a, y + sy * b], d = unit([cx - e[0], y - e[1]]);
     // where the baton's axis meets the lozenge's edge (|dx|/la + |dy|/lb = 1), less a collar's breadth
     const k = 1 / (Math.abs(d[0]) / la + Math.abs(d[1]) / lb), Lk = Math.hypot(cx - e[0], y - e[1]) - k + w * .9;
     els.push(baton(e, add(e, d, Lk), w, LW(u), seed + sx * 3 + sy, { end: false })); }
@@ -488,12 +500,18 @@ function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'contour'
   els.push({ marks: [cut(wave, W * .9, { seed: seed + 3 })], fills: [fill('y', [[...wave.map(([x, y]) => [Math.min(x1 - W, Math.max(x0 + W, x)), y]), [x1 - W, fy1 - W * .5], [x0 + W, fy1 - W * .5]]])] });
   const gh = fy1 - gt, clip = [x0 + W, gt + W * 1.2, x1 - W, fy1 - W];
   els.push(place('ground', [x0 + cw / 2 - TRACE.ground.a * gh * 1.1, gt, gh * 1.1], Wl, { clip, seed: seed + 5 }), place('ground', [x0 + cw / 2, gt, gh * 1.1], Wl, { clip, mirror: true, seed: seed + 6 }));
-  // a tuft either side, standing on the ground
-  const ph = H * .3, pw = TRACE.plant.a * ph;
-  for (const sd of [-1, 1]) els.push(place('plant', [sd < 0 ? x0 - pw * .12 : x1 + pw * .12 - pw, gt - ph * .8, ph], Wl, { mirror: sd > 0, seed: seed + 8 + sd, clip: [x0 + W, fy0, x1 - W, gt + H * .02] }));
-  // the drops of Le Soleil: one over the letter, one either side, in the three stencils
-  const th = H * .11, tw = TRACE.tear.a * th;
-  [[cx - tw / 2, fy0 + H * .025, 'r'], [x0 + cw * .1, fy0 + H * .14, 'y'], [x1 - cw * .1 - tw, fy0 + H * .2, 'p']].forEach(([tx, ty, c], k) => els.push(place('tear', [tx, ty, th], Wl, { col: c, seed: seed + 20 + k })));
+  // a tuft either side, standing on the ground (a seeded page's hand may grow the pip cards' flower there instead,
+  // leaning out from the letter)
+  const ph = H * .3, pw = TRACE.plant.a * ph, hd = hand();
+  if (hd?.field === 'flowers') for (const sd of [-1, 1]) els.push(flower([cx + sd * cw * .4, gt + H * .01], -Math.PI / 2 + sd * .07, H * .23, Wl, seed + 8 + sd, { leaves: false }));
+  else for (const sd of [-1, 1]) els.push(place('plant', [sd < 0 ? x0 - pw * .12 : x1 + pw * .12 - pw, gt - ph * .8, ph], Wl, { mirror: sd > 0, seed: seed + 8 + sd, clip: [x0 + W, fy0, x1 - W, gt + H * .02] }));
+  // the drops of Le Soleil: one over the letter, one either side, in the three stencils (on a seeded page as its hand lets
+  // them fall: so; or a pair high either side of the letter; or five in an arch over it)
+  const th = H * .11, tw = TRACE.tear.a * th, rain = hd?.rain ?? 0;
+  const fall = rain === 1 ? [[x0 + cw * .14, fy0 + H * .05, 'r'], [x1 - cw * .14 - tw, fy0 + H * .05, 'y']]
+    : rain === 2 ? [-2, -1, 0, 1, 2].map((i, k) => [cx - tw / 2 + i * cw * .19, fy0 + H * (.02 + Math.abs(i) * .045), ['p', 'y', 'r', 'y', 'p'][k]])
+    : [[cx - tw / 2, fy0 + H * .025, 'r'], [x0 + cw * .1, fy0 + H * .14, 'y'], [x1 - cw * .1 - tw, fy0 + H * .2, 'p']];
+  fall.forEach(([tx, ty, c], k) => els.push(place('tear', [tx, ty, rain === 2 ? th * .8 : th], Wl, { col: c, seed: seed + 20 + k, mirror: rain > 0 && tx > cx })));
   // the letter on the ground, at its middle
   const size = Math.min(H * CARD.letter, cw * .62 / textWidth(ch, 1)), base = gt + H * .008;
   // the title band lettered, if asked: Roman capitals with middle dots between words, as LE·BATELEUR, fitted to the band
@@ -546,7 +564,7 @@ const frames = {
       // (on a lavish page the coin cards' vine runs out from the coin either way, ending in its flower)
       if (rich >= 1) els.push(vineTo([cx - R - u * .4, y], cx - half, u * 1.05, seed + 20 + k * 2), vineTo([cx + R + u * .4, y], cx + half, u * 1.05, seed + 21 + k * 2));
       else els.push({ marks: [cut([[cx - half, y], [cx - R - u * .5, y]], W, { seed: seed + k * 3 }), cut([[cx + R + u * .5, y], [cx + half, y]], W, { seed: seed + k * 3 + 1 })], fills: [] });
-      els.push(coin([cx, y], R, LW(u), seed + 10 + k)); }
+      els.push(hand()?.pull === 'cup' ? cup([cx, y + R * 1.05], R * 2.1, LW(u), seed + 10 + k) : coin([cx, y], R, LW(u), seed + 10 + k)); }
     return join(...els); },
   // an aside: the card's left edge and its head band, a cup standing in the band
   // (the ground only where the page leaves it room below the words; the card grown off the words if need be)
@@ -573,7 +591,7 @@ const frames = {
   nav: ({ box, entries, u, seed, rich = .5 }) => { const W = LW(u), els = [], side = box[0] > 60, x = box[0] - u * 4.2;
     if (side) els.push(baton([x, box[1] - u * 1.8], [x, box[3] + u * 1.6], u * .55, W, seed));
     else els.push(baton([box[0] - u * .2, box[1] - u * 1.6], [Math.min(box[2], box[0] + u * 26), box[1] - u * 1.6], u * .5, W, seed));
-    entries.forEach((e, k) => { const px = side ? x + u * 2.5 : box[0] - u * 1.5, s = SUITS[k % 4];
+    entries.forEach((e, k) => { const px = side ? x + u * 2.5 : box[0] - u * 1.5, s = SUITS[(k + off()) % 4];
       els.push(s === 'coin' ? coin([px, e.base - u * .5], u * .95, W, seed + k) : s === 'cup' ? cup([px, e.base + u * .35], u * 2, W, seed + k)
         : s === 'sword' ? sword([px + u * .1, e.base - u * .1], u * 2, W, seed + k, .5, { b: u * .16, g: u * .48 }) : baton(rot([px, e.base + u * .4], [px, e.base - u * .5], .55), rot([px, e.base - u * 1.4], [px, e.base - u * .5], .55), u * .36, W, seed + k)); });
     return join(...els); },
@@ -592,7 +610,7 @@ export const palette = {
 // ---- in the one library (kit/illum.js) ---------------------------------------------------------------------------------------
 // The registry's paraph is given the chapter's number n (0 before the first): the chapter's suit, in the cards' order
 // cups, batons, swords, coins; coins before the first chapter. (paraph(x, base, u, seed, rich, k) itself takes the suit.)
-const chapterParaph = (x, base, u, seed, rich, n) => paraph(x, base, u, seed, rich, typeof n === 'number' ? (n ? (n - 1) % 4 : 3) : null);
+const chapterParaph = (x, base, u, seed, rich, n) => paraph(x, base, u, seed, rich, typeof n === 'number' ? ((n ? n - 1 : 3) + off()) % 4 : null);
 // A case made ready to lay (rubricate calls it once a case is made): its stencils and lettering as masks, its line in runs.
 // The register slips with the size of the hand (u, the x-height), more on a drop card; the seed is the case's place.
 const SLIP = { drop: 1.5, initial: .8, paraph: .8, filler: .8 };

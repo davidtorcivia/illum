@@ -185,6 +185,12 @@ function sign(name, x, base, h, col = 'r', seed = 0) {
 
 // ---- lettering -------------------------------------------------------------------------------------------------------------
 export const roman = n => { let s = ''; for (const [v, r] of [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]) while (n >= v) { s += r; n -= v; } return s; };
+// A page asked for by seed (occult.seeded, set by kit/illum.js; 0: the text's own seed, drawn as ever) is a different
+// copy of the book: its chapters given to the planets from another day of the week (every planet on the page, paraph,
+// contents, seal, table, moving together, so the wayfinding holds), its pentacles struck with the cross upright or as a
+// saltire, and its band written with another of the Clavicules' sentences
+const off = () => occult.seeded ? 1 + occult.seeded % 6 : 0, pl = i => PLANETS[(i + off()) % 7];
+const MOTTOS = ['ALPHA ET OMEGA PRINCIPIVM ET FINIS', 'OMNIA IN MENSVRA ET NVMERO ET PONDERE', 'IN PRINCIPIO ERAT VERBVM', 'SIT NOMEN DOMINI BENEDICTVM', 'LVX IN TENEBRIS LVCET'];
 const ORD = ['', 'PRIMVM', 'SECVNDVM', 'TERTIVM', 'QVARTVM', 'QVINTVM', 'SEXTVM', 'SEPTIMVM', 'OCTAVVM', 'NONVM', 'DECIMVM'];
 export const FACES = { roman: { family: 'IM FELL Double Pica', file: 'IMFellDoublePica.woff2' }, italic: { family: 'IM FELL Double Pica Italic', file: 'IMFellDoublePica-Italic.woff2' },
   // the table's numerals: the Fell italic's 4 is an old-style cross that reads as + in a cell; EB Garamond's italic
@@ -324,7 +330,7 @@ function sigil(cells, x0, y0, s, W, col = 'k', seed = 0) {
 // About two x-heights high, red, in the gap the scribe left; the chapter's planet (the week's order: the contents give
 // each entry its planet, so the paraphs are wayfinding)
 function paraph(x, base, u, seed, rich = .5, k = null) {
-  const name = PLANETS[k ?? (rng(seed, 'planet')() * 7 | 0)], h = u * 1.9, w = signWidth(name) * h;
+  const name = k == null ? PLANETS[rng(seed, 'planet')() * 7 | 0] : pl(k), h = u * 1.9, w = signWidth(name) * h;
   // (lavish: the sign smaller in a ring struck round it, the chapter's seal in little, as the hours' tables ring a day's planet)
   if (rich >= 1) { const c = [x + u * .85, base + u * .12 - h / 2], hs = h * .74, ws = signWidth(name) * hs;
     return join({ marks: [circle(c, h * .64, Math.max(1.2, LW(u) * .7), { seed: seed + 1 })] }, sign(name, c[0] - ws / 2, c[1] + hs / 2, hs, 'r', seed)); }
@@ -357,7 +363,7 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5, k = 0) {
   }
   // signs: the planets of the hours, from the chapter's day, on a black rule
   const sh = h * 1.3, step = sh * 2.4, n = Math.max(1, Math.min(7, Math.floor((L - sh) / step))), y = yBase, els = [{ marks: [rule([x0, y + h * .14], [x1, y + h * .14], W, { seed })] }];
-  const day = PLANETS[k % 7], first = CHALDEAN.indexOf(day);
+  const day = pl(k % 7), first = CHALDEAN.indexOf(day);
   for (let i = 0; i < n; i++) { const name = CHALDEAN[(first + i) % 7], w = signWidth(name) * sh; els.push(sign(name, x1 - (n - i) * step + (step - w) / 2, y, sh, 'r', seed + i)); }
   return join(...els);
 }
@@ -406,7 +412,7 @@ function monas(cx, top, h, W, seed = 0) {
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, room = null) {
   const W = LW(u);
   if (rank < 2) {   // the chapter's seal on its band: two rules each side, lettered CAPVT and the chapter's number
-    const R = u * 2.3, name = PLANETS[n % 7], half = Math.min(measure * .46, u * 24), bh = u * 2.3, size = u * 1.1, els = [seal([cx, y], R, name, W, seed)];
+    const R = u * 2.3, name = pl(n % 7), half = Math.min(measure * .46, u * 24), bh = u * 2.3, size = u * 1.1, els = [seal([cx, y], R, name, W, seed)];
     for (const s of [-1, 1]) { const a = cx + s * (R + u * .7), b = cx + s * half;
       els.push({ marks: [handRule([a, y - bh / 2], [b, y - bh / 2], W, { seed: seed + 3 + s }), handRule([a, y + bh / 2], [b, y + bh / 2], W, { seed: seed + 5 + s })] });
       // (fine: the band closed at its ends and a crosslet beyond each, as f. 54 parts its names)
@@ -443,6 +449,8 @@ function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'ring', t
   if (!/[A-Z]/.test(ch)) return { letter: ch, marks: [], letters: [], width: x1 - x0 };
   if (!big) { const m = textWidth(ch, H); return { marks: [], letters: [{ text: ch, x: x0 + m / 2, base: y1, size: H, col: 'r' }], width: m }; }
   const S = Math.min(x1 - x0, H), c = [x0 + S / 2, y0 + S / 2], W = Math.max(1.3, S * .011), gap = S * .028, run = S * .045, els = [];
+  // (a seeded page: the band's sentence, unless the host wrote its own, and the cross upright or a saltire)
+  const sd = occult.seeded, tilt = sd && (sd >> 3) % 2 ? Math.PI / 4 : 0; if (sd && title === MOTTOS[0]) title = MOTTOS[sd % MOTTOS.length];
   els.push({ marks: doubleRule([x0, y0, x0 + S, y0 + S], gap, W, run, { col: 'r', seed }) });
   const R = S / 2 - gap * 2, band = R * .23, rm = R - W * 1.5 - band / 2, Ri = rm - band / 2, size = band * .64;
   const text = String(title).toUpperCase().trim().split(/\s+/).join(' · ') + ' ·', a0 = -Math.PI / 2 + .02, a1 = -Math.PI / 2 + TAU - .02;
@@ -454,11 +462,12 @@ function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'ring', t
   const capBox = { box: [c[0] - cw / 2 - W * 1.6, c[1] - cap / 2 - W * 1.6, c[0] + cw / 2 + W * 1.6, c[1] + cap / 2 + W * 1.6] }, Wg = Math.max(1.2, W * .85);
   // the field, in verdigris: its circle and the cross of its diameters, the cross stopped short of the capital
   const field = [circle(c, Rg, Wg, { col: 'g', seed: seed + 4 })];
-  if (rich >= .25) for (const [a, b] of [[[c[0], c[1] - Rg], [c[0], c[1] + Rg]], [[c[0] - Rg, c[1]], [c[0] + Rg, c[1]]]]) clip(a, b, [capBox]).forEach(([p, q], k) => field.push(rule(p, q, Wg, { col: 'g', seed: seed + 5 + k })));
+  const arms = tilt ? [[polar(c, Rg, -Math.PI / 2 + tilt), polar(c, Rg, Math.PI / 2 + tilt)], [polar(c, Rg, Math.PI + tilt), polar(c, Rg, tilt)]] : [[[c[0], c[1] - Rg], [c[0], c[1] + Rg]], [[c[0] - Rg, c[1]], [c[0] + Rg, c[1]]]];
+  if (rich >= .25) for (const [a, b] of arms) clip(a, b, [capBox]).forEach(([p, q], k) => field.push(rule(p, q, Wg, { col: 'g', seed: seed + 5 + k })));
   els.push({ marks: field });
   // the crosslets: a pair at the end of each arm, either side of it (f. 54); one between the arms on a plainer page
   const cs = Rg * .17;
-  for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2 - Math.PI / 2, n = [-Math.sin(a), Math.cos(a)];
+  for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2 - Math.PI / 2 + tilt, n = [-Math.sin(a), Math.cos(a)];
     if (rich >= .5) for (const sd of [-1, 1]) els.push({ marks: crosslet(add(polar(c, Rg * .72, a), n, sd * cs * .95), cs, Math.max(1.2, W * .85), 'r', seed + 10 + q * 2 + sd) });
     else els.push({ marks: crosslet(polar(c, Rg * .72, a + Math.PI / 4), cs, Math.max(1.2, W * .85), 'r', seed + 10 + q) }); }
   // (lavish: a crosslet in each corner of the square, outside the ring)
@@ -481,13 +490,13 @@ const frames = {
   quote: ({ box, u, seed, rich = .5, lines, n = 1 }) => { const W = LW(u), B = clear([box[0], box[1] - u * 1.4, box[2], box[3] + u * 1.2], lines, u * 1.05 + W);
     if (rich < .75) return { marks: doubleRule(B, u * .45, W, u * .9, { col: 'r', seed }) };
     const c = [(B[0] + B[2]) / 2, B[1] + u * .22], R = u * 1.7;
-    return join({ marks: doubleRule(B, u * .45, W, u * .9, { col: 'r', seed }, [{ c, r: R + u * .45 }]) }, seal(c, R, PLANETS[n % 7], W, seed + 12)); },
+    return join({ marks: doubleRule(B, u * .45, W, u * .9, { col: 'r', seed }, [{ c, r: R + u * .45 }]) }, seal(c, R, pl(n % 7), W, seed + 12)); },
   // a figure: the double rule round it, and in its corners the four seals of the planets that rule the chapter's first hours
   figure: ({ box, cap, u, seed, rich = .5, n = 1, limit = null }) => { const W = LW(u), R = u * 1.6, g = u * .45, B = [box[0] - u * 2, box[1] - u * 2, box[2] + u * 2, (cap ?? box[3]) + u * 1.6];
     if (limit) { B[0] = Math.max(B[0], limit[0] + R + 2); B[2] = Math.min(B[2], limit[1] - R - 2); }   // (limit: the page's edges, which a corner seal may not cross)
     const corners = [[B[0] + g / 2, B[1] + g / 2], [B[2] - g / 2, B[1] + g / 2], [B[2] - g / 2, B[3] - g / 2], [B[0] + g / 2, B[3] - g / 2]];
     const els = [{ marks: doubleRule(B, g, W, u * 1, { col: 'r', seed }, rich >= .25 ? corners.map(c => ({ c, r: R + u * .45 })) : []) }];
-    if (rich >= .25) { const day = CHALDEAN.indexOf(PLANETS[n % 7]);
+    if (rich >= .25) { const day = CHALDEAN.indexOf(pl(n % 7));
       corners.forEach((p, k) => { const s = seal(p, R, CHALDEAN[(day + k) % 7], W, seed + 10 + k * 5);
         els.push(s); }); }
     return join(...els); },
@@ -497,7 +506,7 @@ const frames = {
     const cols = (B[2] - B[0]) / (u * 3.2) >= 12 ? 12 : 6,   // (a day's twelve hours, or the first six of them)
       cw = (B[2] - B[0] - u * 1.2) / cols, rh = Math.min(u * 4, cw * .72);
     // (only where the box leaves room for it above the code)
-    if (rich >= .25 && !(lines?.length && lines[0].top < B[1] + u * 1.2 + rh * 2)) { const top = B[1] + u * .6, day = CHALDEAN.indexOf(PLANETS[n % 7]);
+    if (rich >= .25 && !(lines?.length && lines[0].top < B[1] + u * 1.2 + rh * 2)) { const top = B[1] + u * .6, day = CHALDEAN.indexOf(pl(n % 7));
       const ys = [top, top + rh, top + rh * 2], g = [];
       for (const y of ys) g.push(rule([B[0] + u * .6, y], [B[2] - u * .6, y], W, { col: 'g', seed: seed + y }));
       for (let i = 0; i <= cols; i++) { const x = B[0] + u * .6 + i * (B[2] - B[0] - u * 1.2) / cols; g.push(rule([x, top], [x, top + rh * 2], W, { col: 'g', seed: seed + 50 + i })); }
@@ -509,7 +518,7 @@ const frames = {
     return join(...els); },
   // a pull quote: lettering bands above and below, each broken at the middle by a seal
   pull: ({ cx, yTop, yBot, measure, u, seed, rich = .5, n = 1 }) => { const W = LW(u), half = Math.min(measure * .42, u * 20), R = u * 1.8, bh = u * 1.1, els = [];
-    [[yTop, PLANETS[n % 7]], [yBot, PLANETS[(n + 1) % 7]]].forEach(([y, name], k) => {
+    [[yTop, pl(n % 7)], [yBot, pl((n + 1) % 7)]].forEach(([y, name], k) => {
       for (const s of [-1, 1]) els.push({ marks: [rule([cx + s * (R + u * .6), y - bh / 2], [cx + s * half, y - bh / 2], W, { seed: seed + k * 9 + s }), rule([cx + s * (R + u * .6), y + bh / 2], [cx + s * half, y + bh / 2], W, { seed: seed + k * 9 + s + 3 })] });
       els.push(seal([cx, y], R, name, W, seed + 20 + k)); });
     return join(...els); },
@@ -521,7 +530,7 @@ const frames = {
     els.push({ marks: [rule([cx - tw, B[1] - u * 1.2], [cx + tw, B[1] - u * 1.2], W, { seed: seed + 5 }), rule([cx + tw, B[1] - u * 1.2], [cx + tw, B[1] + u * 1.6], W, { seed: seed + 6 }),
       rule([cx + tw, B[1] + u * 1.6], [cx - tw, B[1] + u * 1.6], W, { seed: seed + 7 }), rule([cx - tw, B[1] + u * 1.6], [cx - tw, B[1] - u * 1.2], W, { seed: seed + 8 })],
       letters: [{ text: title, x: cx, base: B[1] + u * .2 + size / 2, size, col: 'r' }] });
-    if (rich >= .5) els.push(seal(sealC, sR, PLANETS[n % 7], W, seed + 12));
+    if (rich >= .5) els.push(seal(sealC, sR, pl(n % 7), W, seed + 12));
     // (lavish: a crosslet either side of the cartouche)
     if (rich >= 1) for (const s of [-1, 1]) els.push({ marks: crosslet([cx + s * (tw + u * 1.75), B[1] + u * .2], u * 1.2, W, 'r', seed + 20 + s) });
     return join(...els); },
@@ -531,7 +540,7 @@ const frames = {
     else els.push({ marks: [rule([box[0] - u * .2, box[1] - u * 1.6], [Math.min(box[2], box[0] + u * 26), box[1] - u * 1.6], W, { col: 'r', seed }), rule([box[0] - u * .2, box[1] - u * 2.1], [Math.min(box[2], box[0] + u * 26), box[1] - u * 2.1], W, { col: 'r', seed: seed + 1 })] });
     // (lavish: a crosslet at the head and the foot of the double rule)
     if (side && rich >= 1) for (const [y, k] of [[box[1] - u * 2.9, 0], [box[3] + u * 2.7, 1]]) els.push({ marks: crosslet([x + u * 1.05, y], u * 1.3, W, 'r', seed + 60 + k) });
-    entries.forEach((e, k) => { const name = PLANETS[(k + 1) % 7], h = u * 1.7, w = signWidth(name) * h, px = side ? x + u * 2.5 : box[0] - u * 2.2;
+    entries.forEach((e, k) => { const name = pl((k + 1) % 7), h = u * 1.7, w = signWidth(name) * h, px = side ? x + u * 2.5 : box[0] - u * 2.2;
       els.push(sign(name, px - w / 2, e.base + u * .1, h, 'r', seed + k)); });
     return join(...els); },
 };

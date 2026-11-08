@@ -161,6 +161,10 @@ const labelBox = (text, x, base, cap, align = 'left') => { const w = textWidth(t
 const wordsOf = L => L?.length ? [Math.min(...L.map(l => l.left)), Math.min(...L.map(l => l.top)), Math.max(...L.map(l => l.right)), Math.max(...L.map(l => l.base + (l.base - l.top) * .35))] : null;
 const hits = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
 const fmt = px => (px / 96).toFixed(3).replace(/^0/, '');   // inches as decimal-inch drawings write them: .250
+// A page given its own seed (draft.seeded, set by kit/illum.js; 0 when the page's seed is its text's) is its own drawing
+// set: its title block, its numbers and letters, the way its sections are lined and its planes cut, drawn from that seed.
+// pick(name, list, dflt): the page's choice from list, or dflt (as the style was approved) for a page left to its text
+const pick = (name, list, dflt) => draft.seeded ? list[(rng(draft.seeded, name)() * list.length) | 0] : dflt;
 
 export function initial({ ch, G, u, seed = 1, rich = .5, set = 'part', big: drop = G.big }) {
   const [x0, y0, x1, y1] = G.box, h = y1 - y0, { thin, thick } = weights(u), marks = [], letters = [];
@@ -198,7 +202,7 @@ export function initial({ ch, G, u, seed = 1, rich = .5, set = 'part', big: drop
     const t = cap * .16, sx = Math.min(x1 - t - thick, P.box[2] + cap * .32), top = P.box[1], bot = P.box[3];
     marks.push(...rect([sx, top, sx + t, bot], thick, { seed: seed + 400 }));
     holes.forEach((c, i) => { for (const y of [c.bb[1], c.bb[3]]) marks.push(...dashes([sx + thin, y], [sx + t - thin, y], thin * .9, seed + 410 + i * 7)); });
-    const cy = y1 - fc * .3, tx = (x0 + x1) / 2, t1 = 'DETAIL A', t2 = 'SCALE 4:1', c1 = fc * 1.12;
+    const cy = y1 - fc * .3, tx = (x0 + x1) / 2, t1 = 'DETAIL ' + pick('ini-detail', 'ABCDEFGH', 'A'), t2 = pick('ini-scale', ['SCALE 4:1', 'SCALE 3:1', 'SCALE 5:1'], 'SCALE 4:1'), c1 = fc * 1.12;
     const b1 = cy - fc * 2.1; marks.push(...letter(t1, tx, b1, c1, Math.max(1.3, thin), { align: 'center', seed: seed + 430 }));
     const w1 = textWidth(t1, c1); marks.push(line([tx - w1 / 2, b1 + c1 * .3], [tx + w1 / 2, b1 + c1 * .3], thin, { seed: seed + 440 }));
     marks.push(...letter(t2, tx, cy, fc, tw, { align: 'center', seed: seed + 450 }));
@@ -213,7 +217,7 @@ export function initial({ ch, G, u, seed = 1, rich = .5, set = 'part', big: drop
     // and the radius (decimal inches, as the screen draws it). The first of a few angles whose figure and leader clear the
     // ink and stay in the cell is taken.
     const bowl = holes[0];
-    if (bowl) for (const deg of [-42, -30, -55, -18, -68]) {
+    if (bowl) for (const deg of pick('ini-radius', [[-42, -30, -55, -18, -68], [-30, -18, -42, -55], [-55, -68, -42, -30]], [-42, -30, -55, -18, -68])) {
       const a = deg * Math.PI / 180, d = [Math.cos(a), Math.sin(a)]; let s = 0, inInk = false, p = null;
       for (; s < cap; s += .25) { const q = [bowl.c[0] + d[0] * s, bowl.c[1] + d[1] * s], ink = P.inside(...q); if (ink) inInk = true; else if (inInk) { p = q; break; } }
       if (!p) continue;
@@ -240,8 +244,12 @@ export function initial({ ch, G, u, seed = 1, rich = .5, set = 'part', big: drop
   // the lining: every line clipped to the ink, less a margin from the outline (the lines stop at the outline's ink, not
   // on it) and less the label patches
   const mg = ow * .6, hideL = p => !(P.at(p[0], p[1]) > .5 && P.at(p[0] + mg, p[1]) > .3 && P.at(p[0] - mg, p[1]) > .3 && P.at(p[0], p[1] + mg) > .3 && P.at(p[0], p[1] - mg) > .3) || labels.some(b => p[0] > b[0] && p[0] < b[2] && p[1] > b[1] && p[1] < b[3]);
-  for (let c = R[0] - (R[3] - R[1]), i = 0; c < R[2]; c += gap, i++) {
-    for (const q of occlude([[c, R[3]], [c + (R[3] - R[1]), R[1]]], hideL, 1.5)) marks.push(tpen(q, thin * .8, { seed: seed + 700 + i, pool: .04 })); }
+  // (a page of its own seed may line its sections the other way, at 135°, and a little closer or wider, as another
+  // draftsman's sheet; the same way on every part of the page)
+  const back = pick('lining', [false, true], false), gp = gap * pick('lining-gap', [1, .85, 1.2], 1);
+  for (let c = R[0] - (R[3] - R[1]), i = 0; c < R[2] + (back ? R[3] - R[1] : 0); c += gp, i++) {
+    const seg = back ? [[c, R[3]], [c - (R[3] - R[1]), R[1]]] : [[c, R[3]], [c + (R[3] - R[1]), R[1]]];
+    for (const q of occlude(seg, hideL, 1.5)) marks.push(tpen(q, thin * .8, { seed: seed + 700 + i, pool: .04 })); }
   return { marks, letters };
 }
 // is there ink of the plate inside box b
@@ -274,6 +282,11 @@ initial.fills = true;   // (its box is the float as the page laid it)
 // The circle a drawing calls out an item or a pin with, its number inside (the MIT sheets: ring ~0.09 of the balloon's
 // diameter, the figure 0.36 of it): this paragraph is item n. Drawn with the circle template: one stroke round, over its start.
 export function paraph(x, base, u, seed, rich = .5, n = 1) {
+  // (a page of its own seed numbers its items from its own place in the list, and may call them out as flagged notes)
+  n += pick('item-base', [0, 3, 6, 10, 14], 0);
+  if (pick('item-form', ['balloon', 'flag'], 'balloon') === 'flag') { const s = u * 2.4, h = s * Math.sqrt(3) / 2, c = [x + u * .85, base - u * .3], fc = s * .3;
+    const A = [c[0], c[1] - h * .62], B = [c[0] + s / 2, c[1] + h * .38], C = [c[0] - s / 2, c[1] + h * .38];
+    return { marks: [tpen([A, B, C, A, [A[0] + (B[0] - A[0]) * .06, A[1] + (B[1] - A[1]) * .06]], Math.max(1.3, s * .07), { seed }), ...letter(String(n), c[0], B[1] - s * .17, fc, Math.max(1.3, fc * .17), { align: 'center', seed: seed + 3 })], letters: [] }; }
   const d = u * 2.1, { thin } = weights(u), c = [x + u * .85, base - u * .5], r = d / 2, pts = [];
   for (let i = 0; i <= 64; i++) { const a = -Math.PI / 2 + i / 60 * Math.PI * 2; pts.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]); }
   const fc = d * .36; return { marks: [tpen(pts, Math.max(1.3, d * .075), { seed }), ...letter(String(n), c[0], c[1] + fc / 2, fc, Math.max(1.3, fc * .16), { align: 'center', seed: seed + 3 })], letters: [] };
@@ -327,6 +340,9 @@ export function filler(x0, x1, yTop, yBase, kind = 'dim', seed = 1, rich = .5) {
 // each arrow (A, B, C … skipping I, O, Q, S, X, Z, as the standard does). rank 2 (the book's end): the revision block, its
 // one revision: the drawing released.
 const SECT = 'ABCDEFGHJKLMNPRTUVWY';
+// the revision block's rows: the approved one first, the others a page of its own seed may carry
+const REVS = [[['A', 'RELEASED', '1853', 'J. R.'], ['B', 'REDRAWN', '2026', 'ILLUM']], [['A', 'PRELIM RELEASE', '1851', 'J. R.'], ['B', 'RELEASED', '1853', 'J. R.']],
+  [['C', 'ADDED NOTES', '1853', 'E. C. G.'], ['D', 'REDRAWN', '2026', 'ILLUM']], [['A', 'ISSUED FOR USE', '1849', 'J. R.'], ['B', 'NOTES REVISED', '1880', 'J. R.']]];
 export function breakMark(cx, y, measure, rank, seed = 1, rich = .5, u = 9, n = 1) {
   const { thin, thick } = weights(u), marks = [], letters = [], fc = Math.max(7, u * 1.15);
   if (rank === 2) {
@@ -337,17 +353,18 @@ export function breakMark(cx, y, measure, rank, seed = 1, rich = .5, u = 9, n = 
     for (const yy of rows.slice(1, nr)) marks.push(line([x0, yy], [x1, yy], thin, { seed: seed + yy | 0 }));
     for (const xx of cols.slice(1, 4)) marks.push(line([xx, rows[1]], [xx, foot], thin, { seed: seed + xx | 0 }));
     marks.push(...lettered('REVISIONS', cx, rows[1] - (rh - ec) / 2, ec, Math.max(1.3, thin), { align: 'center', seed: seed + 20 }));
-    const heads = ['REV', 'DESCRIPTION', 'DATE', 'APPROVED'], vals = [['A', 'RELEASED', '1853', 'J. R.'], ['B', 'REDRAWN', '2026', 'ILLUM']].slice(0, nr - 2);
+    const heads = ['REV', 'DESCRIPTION', 'DATE', 'APPROVED'], vals = pick('revs', REVS, REVS[0]).slice(0, nr - 2);
     heads.forEach((h, i) => { const m = (cols[i] + cols[i + 1]) / 2, w = cols[i + 1] - cols[i] - u * .6;
       marks.push(...lettered(h, m, rows[2] - (rh - cc) / 2, Math.min(cc, cc * w / textWidth(h, cc)), 1.3, { align: 'center', seed: seed + 30 + i }));
       vals.forEach((v, r) => marks.push(...lettered(v[i], m, rows[3 + r] - (rh - ec) / 2, Math.min(ec, ec * w / textWidth(v[i], ec)), Math.max(1.3, thin * .9), { align: 'center', seed: seed + 40 + i + r * 7 }))); });
     return { marks, letters };
   }
-  const L = Math.min(measure * .9, u * 70), x0 = cx - L / 2, x1 = cx + L / 2, ch = SECT[(n - 1) % SECT.length], tl = u * 1.6, al = u * 1.1;
+  const L = Math.min(measure * .9, u * 70), x0 = cx - L / 2, x1 = cx + L / 2, ch = SECT[(n - 1 + pick('sect', [0, 1, 2, 3, 5, 7], 0)) % SECT.length], tl = u * 1.6, al = u * 1.1;
   // the cutting plane: thick; long dash ~6 x-heights, two short ~1, gaps ~.7; the end segments solid, turned at 90°
-  const pat = [u * 6, u * .7, u * 1, u * .7, u * 1, u * .7]; let s = x0 + tl * 1.2, k = 0;
+  // (a page of its own seed may draw it in the standard's other form: long dashes, one short between)
+  const pat = pick('plane', [[u * 6, u * .7, u * 1, u * .7, u * 1, u * .7], [u * 5, u * .8, u * 1.3, u * .8, u * 5, u * .8, u * 1.3, u * .8]], [u * 6, u * .7, u * 1, u * .7, u * 1, u * .7]); let s = x0 + tl * 1.2, k = 0;
   marks.push(line([x0, y], [x0 + tl * 1.2, y], thick, { seed }), line([x1 - tl * 1.2, y], [x1, y], thick, { seed: seed + 1 }));
-  while (s < x1 - tl * 1.2 - u) { const len = Math.min(pat[k % 6], x1 - tl * 1.2 - s); if (k % 2 === 0) marks.push(line([s, y], [s + len, y], thick, { seed: seed + 3 + k })); s += len; k++; }
+  while (s < x1 - tl * 1.2 - u) { const len = Math.min(pat[k % pat.length], x1 - tl * 1.2 - s); if (k % 2 === 0) marks.push(line([s, y], [s + len, y], thick, { seed: seed + 3 + k })); s += len; k++; }
   for (const x of [x0, x1]) { marks.push(line([x, y], [x, y + tl], thin, { seed: seed + x | 0 })); letters.push(arrow([x, y + tl + al * .9], [0, 1], al));
     marks.push(...lettered(ch, x + (x === x0 ? -1 : 1) * u * 1.6, y + tl + al * .4, fc, Math.max(1.3, thin * 1.1), { align: 'center', guide: false, seed: seed + 50 + x | 0 })); }
   // (fine: the view the plane cuts named under its middle, as the section is titled on the sheet)
@@ -371,6 +388,11 @@ function lettered(text, x, base, cap, W, o = {}) {
 // the sides, counted from the foot), each zone's mark lettered in its middle; the title block in the lower right corner,
 // its cells captioned small and filled in the larger lettering.
 const TITLE = { title: 'THE NATURE OF GOTHIC', dwg: 'SV-II-VI', rev: 'A', drawn: 'J. RUSKIN', date: '1853', sheet: '1 OF 1' };
+// (the sheets a page of its own seed may be drawn on: the same book's other chapters, its other drawings)
+const TITLES = [TITLE, { title: 'THE LAMP OF TRUTH', dwg: 'SL-II-IV', rev: 'B', drawn: 'J. RUSKIN', date: '1849', sheet: '2 OF 7' },
+  { title: 'THE LAMP OF MEMORY', dwg: 'SL-VI-XX', rev: 'A', drawn: 'J. RUSKIN', date: '1849', sheet: '6 OF 7' },
+  { title: 'THE WALL VEIL', dwg: 'SV-I-V', rev: 'C', drawn: 'J. RUSKIN', date: '1851', sheet: '3 OF 30' },
+  { title: 'GOTHIC PALACES', dwg: 'SV-II-VII', rev: 'A', drawn: 'J. RUSKIN', date: '1853', sheet: '7 OF 8' }];
 // Where the page leaves the words too little room inside the border (lines: the quotation's line boxes), the border is
 // drawn round them a little clear and the sheet's margin stands outside the box, narrower where the page's edge (limit)
 // comes near (its zones then unlettered); the title block only where it stands clear of the words.
@@ -395,7 +417,7 @@ function quote({ box, u, seed = 1, rich = .5, tb = 0, lines = null, limit = null
       marks.push(...letter(l, T[0] + m / 2, ym + zc / 2, zc, thin, { align: 'center', seed: seed + 80 + j }), ...letter(l, T[2] - m / 2, ym + zc / 2, zc, thin, { align: 'center', seed: seed + 90 + j })); } }
   // the title block, in the lower right corner inside the border: three rows; captions small at each cell's top left, the
   // entries larger below them; the title's row the tallest
-  if (tb && rich >= .5) {
+  if (tb && rich >= .5) { const TITLE = pick('title', TITLES, TITLES[0]);
     const cc = Math.max(5.2, u * .5), ec = Math.max(7, u * .82), rh = cc + ec + u * 1.5, W = Math.min(B[2] - B[0], Math.max(u * 26, (B[2] - B[0]) * .62));
     const bx0 = B[2] - W, by0 = B[3] - rh * 3, rows = [by0, by0 + rh, by0 + rh * 2, B[3]];
     if (lines?.some(l => l.right > bx0 - u * .3 && wordsOf([l])[3] > by0 - u * .3)) return { marks, letters };   // (no room for it beside the words)
@@ -437,13 +459,13 @@ function figure({ box, u, seed = 1, n = 1, caption = null, room = null, limit = 
       ...letter(th, xd, my + dc / 2, dc, thin, { align: 'center', seed: seed + 308 }), { arrows: [arrow([xd, Y0 + thin * .5], [0, -1], al), arrow([xd, Y1 - thin * .5], [0, 1], al)] }); }
   const letters = dims.flatMap(d => d.arrows ?? []); marks.push(...dims.filter(d => !d.arrows));
   if (rich < .25) return { marks, letters };   // (plain: the boundary alone)
-  const c1 = Math.max(7.5, u * 1.05), c2 = Math.max(6.5, u * .8), cx = (X0 + X1) / 2, t1 = 'DETAIL ' + SECT[(n + 1) % SECT.length], w1 = textWidth(t1, c1);
+  const c1 = Math.max(7.5, u * 1.05), c2 = Math.max(6.5, u * .8), cx = (X0 + X1) / 2, t1 = 'DETAIL ' + SECT[(n + 1 + pick('detail', [0, 2, 4, 6], 0)) % SECT.length], w1 = textWidth(t1, c1);
   let b1 = B[3] + u * 1.2 + c1; const foot = b => b + c1 * .32 + u * .7 + c2 * 1.35;
   if (caption && caption[1] < foot(b1) + u * .4) { b1 = caption[3] + u * .9 + c1;
     if (room && b1 + c1 * .35 + u * 2 > room[1]) return { marks, letters };
     if (room && foot(b1) + u * 2 > room[1]) { marks.push(...lettered(t1, cx, b1, c1, Math.max(1.3, thin), { align: 'center', seed: seed + 5 }), line([cx - w1 / 2, b1 + c1 * .32], [cx + w1 / 2, b1 + c1 * .32], thin, { seed: seed + 6 })); return { marks, letters }; } }
   marks.push(...lettered(t1, cx, b1, c1, Math.max(1.3, thin), { align: 'center', seed: seed + 5 }), line([cx - w1 / 2, b1 + c1 * .32], [cx + w1 / 2, b1 + c1 * .32], thin, { seed: seed + 6 }));
-  if (rich >= .5) marks.push(...lettered('SCALE 2:1', cx, b1 + c1 * .32 + u * .7 + c2, c2, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 7 }));
+  if (rich >= .5) marks.push(...lettered(pick('fig-scale', ['SCALE 2:1', 'SCALE 3:1', 'SCALE 4:1', 'SCALE 3:2'], 'SCALE 2:1'), cx, b1 + c1 * .32 + u * .7 + c2, c2, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 7 }));
   return { marks, letters };
 }
 // code: a parts list: the code's lines its rows, ruled thin between; a column of item numbers at the left; the head row
@@ -455,14 +477,15 @@ function code({ box, rows, starts = null, u, seed = 1 }) {
   marks.push(...rect([X0, Y0, X1, bot], thick, { seed }), line([X0, Y0 + hr], [X1, Y0 + hr], thick, { seed: seed + 1 }), line([colX, Y0], [colX, bot], thin, { seed: seed + 2 }));
   const begins = r => !starts || starts.some(t => Math.abs(t - r.top) < 3);
   rows.slice(1).forEach((r, i) => { if (begins(r)) marks.push(line([X0, r.top], [X1, r.top], thin, { seed: seed + 10 + i })); });
-  const hb = Y0 + hr / 2 + cc / 2; marks.push(...lettered('ITEM', (X0 + colX) / 2, hb, Math.min(cc, cc * (colX - X0 - u * .5) / textWidth('ITEM', cc)), 1.3, { align: 'center', seed: seed + 3 }), ...lettered('DESCRIPTION', colX + u * .9, hb, cc, 1.3, { seed: seed + 4 }));
-  let item = 0; rows.forEach((r, i) => { if (begins(r)) marks.push(...letter(String(++item), (X0 + colX) / 2, r.base, ic, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 20 + i })); });
+  const [hi, hd] = pick('list', [['ITEM', 'DESCRIPTION'], ['FIND NO.', 'NOMENCLATURE'], ['ITEM', 'NOMENCLATURE OR DESCRIPTION']], ['ITEM', 'DESCRIPTION']);
+  const hb = Y0 + hr / 2 + cc / 2; marks.push(...lettered(hi, (X0 + colX) / 2, hb, Math.min(cc, cc * (colX - X0 - u * .5) / textWidth(hi, cc)), 1.3, { align: 'center', seed: seed + 3 }), ...lettered(hd, colX + u * .9, hb, cc, 1.3, { seed: seed + 4 }));
+  let item = pick('item-base', [0, 3, 6, 10, 14], 0); rows.forEach((r, i) => { if (begins(r)) marks.push(...letter(String(++item), (X0 + colX) / 2, r.base, ic, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 20 + i })); });
   return { marks, letters: [] };
 }
 // pull: the general notes: "NOTES:" above, and the quotation as note 1, its numeral hung in the margin
 function pull({ lines, u, seed = 1, n = 1 }) {
   const { thin } = weights(u), L0 = lines[0], hc = Math.max(7.5, u * 1.05), nc = Math.max(7.5, u * 1.05), marks = [];
-  marks.push(...lettered('NOTES:', L0.left, L0.top - u * 1.3, hc, Math.max(1.3, thin), { seed }));
+  marks.push(...lettered(pick('notes', ['NOTES:', 'GENERAL NOTES:', 'NOTES:'], 'NOTES:'), L0.left, L0.top - u * 1.3, hc, Math.max(1.3, thin), { seed }));
   marks.push(...lettered(n + '.', L0.left - u * .9, L0.base, nc, Math.max(1.3, thin), { align: 'right', seed: seed + 3 }));
   return { marks, letters: [] };
 }
@@ -486,8 +509,9 @@ function nav({ box, entries, u, seed = 1 }) {
   marks.push(...rect([X0, Y0, X1, Y1], thick, { seed }), line([X0, top], [X1, top], thin, { seed: seed + 1 }), line([colX, Y0], [colX, Y1], thin, { seed: seed + 2 }));
   entries.slice(1).forEach((e, i) => marks.push(line([X0, e.top - rh * .1], [X1, e.top - rh * .1], thin, { seed: seed + 10 + i })));
   const hb = (Y0 + top) / 2 + cc / 2;
-  marks.push(...lettered('SHEET', (X0 + colX) / 2, hb, Math.min(cc, cc * (colX - X0 - u * .5) / textWidth('SHEET', cc)), 1.3, { align: 'center', seed: seed + 3 }), ...lettered('TITLE', colX + u * .9, hb, cc, 1.3, { seed: seed + 4 }));
-  entries.forEach((e, i) => marks.push(...letter(String(i + 1), (X0 + colX) / 2, e.base, ic, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 20 + i })));
+  const [sh, ti] = pick('index', [['SHEET', 'TITLE'], ['DWG', 'TITLE'], ['SHEET', 'DESCRIPTION']], ['SHEET', 'TITLE']), s0 = pick('sheet-base', [1, 1, 2, 3], 1);
+  marks.push(...lettered(sh, (X0 + colX) / 2, hb, Math.min(cc, cc * (colX - X0 - u * .5) / textWidth(sh, cc)), 1.3, { align: 'center', seed: seed + 3 }), ...lettered(ti, colX + u * .9, hb, cc, 1.3, { seed: seed + 4 }));
+  entries.forEach((e, i) => marks.push(...letter(String(i + s0), (X0 + colX) / 2, e.base, ic, Math.max(1.3, thin * .9), { align: 'center', seed: seed + 20 + i })));
   return { marks, letters: [] };
 }
 export const frames = { quote: a => quote({ tb: 1, ...a }), figure, code, pull, aside, nav };

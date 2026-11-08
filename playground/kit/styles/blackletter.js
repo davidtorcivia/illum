@@ -740,7 +740,8 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
     each(L, [c[0] - span * 2, c[1] - span * 2, c[0] + span * 2, c[1] + span * 2], (x, y, i) => { const u = (x - c[0]) * t[0] + (y - c[1]) * t[1], v = (x - c[0]) * n[0] + (y - c[1]) * n[1];
       if (Math.abs(v) > span * 1.4) return; const f = sm(-.4, .4, Math.abs(u) - (p + tb / 2 + gap)); L.M[i] *= f; if (L.red) L.red[i] *= f; });
     const ang = Math.atan2(-t[1], t[0]);
-    for (let q = -1; q <= 1; q++) { const pts = [], wm = [];
+    const hd = hand(), qs = hd?.bars === 2 ? [-.5, .5] : [-1, 0, 1];
+    for (const q of qs) { const pts = [], wm = [];
       for (let u = -1; u <= 1.001; u += .1) { const v = u * (A.hw + ov), bow = tb * .7 * (1 - u * u); pts.push([c[0] + n[0] * v + t[0] * (q * p + bow), c[1] + n[1] * v + t[1] * (q * p + bow)]); wm.push(Math.max(.35, 1 - u ** 10)); }
       over.push({ ...stroke(pts, tb, 'k', Math.max(.8, tb * .3)), angle: ang, press: pressOf(pts, wm) }); }
   }
@@ -755,7 +756,7 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
     for (let j = 0; j < h; j += 2) for (let i = 0; i < w; i += 2) if (M[j * w + i] > .5) { const x = L.x0 + i / res, y = L.y0 + j / res, sc = -x - Math.max(0, y - y0 - H * .5) * 3; if (!lp || sc > lp.sc) lp = { sc, p: [x, y] }; }
     const bez = (p0, p1, p2, p3) => Array.from({ length: 81 }, (_, k) => { const t = k / 80, u = 1 - t; return [0, 1].map(c => u * u * u * p0[c] + 3 * u * u * t * p1[c] + 3 * u * t * t * p2[c] + t * t * t * p3[c]); });
     for (let a = Math.min(x0 - edge - 8, H * .26); lp && a > H * .09; a *= .85) {
-      const p0 = [lp.p[0] + Wn * .3, lp.p[1]], xs = x0 - a, cr = H * (.068 + .014 * r()), fall = H * (.55 + .15 * r());
+      const hd = hand(), p0 = [lp.p[0] + Wn * .3, lp.p[1]], xs = x0 - a, cr = H * (.068 + .014 * r()), fall = H * (hd ? hd.fall + .08 * r() : .55 + .15 * r());
       const top = bez(p0, [p0[0] - a * .35, p0[1] + H * .05], [xs, p0[1] + H * .2], [xs, Math.max(p0[1] + H * .45, y1 - H * .1)]), q = top.at(-1);
       const end = [xs + a * .04, y1 + fall], down = resample([q, end], .6), dir = Math.atan2(end[1] - q[1], end[0] - q[0]);
       const curl = flourish(end, dir, [[cr * .5, 0, -1 / cr], [cr * Math.PI * 1.35, -1 / cr, -1 / (cr * .62)]], .5);
@@ -765,7 +766,9 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
       const wm = S2.map(v => Math.max(.3, Math.min(1, .35 + .65 * v / (H * .12), .3 + .7 * Math.max(0, Lc - v) / (lc * .9))));
       over.push({ ...stroke(c, Wn, 'k', Math.max(.9, Wn * .28)), press: pressOf(c, wm) });
       const tail = curl.slice(Math.round(curl.length * .4)), eye = tail.reduce((m, v) => [m[0] + v[0] / tail.length, m[1] + v[1] / tail.length], [0, 0]);
-      over.push(lozenge(eye, Math.max(1.6, cr * .34), 'r'));
+      // (the hand may bind the staff where it falls, a red knop on it, as the Constance breviary's staves are bound)
+      if (hd?.knop) { const m = [(q[0] + end[0]) / 2, (q[1] + end[1]) / 2]; over.push(lozenge(m, Math.max(2, Wn * 1.25), 'r')); }
+      over.push(...(hd?.eye === 'cross' ? cross4(eye, Math.max(1.1, cr * .2)) : [lozenge(eye, Math.max(1.6, cr * .34), 'r')]));
       staff = { a, dn: fall };
       break;
     }
@@ -784,7 +787,7 @@ function typeInitial({ ch = 'B', G, keep = [], big = true, level = 2, seed = 1, 
   if (b.crosses && staff) { const p = [x0 - staff.a * .42, y1 + staff.dn * .38], s = Math.max(1.3, H * .017), cr = cross4(p, s); if (!cr.some(m => hits(m.pts, keep, edge, bottom))) over.push(...cr); }
   // a red point in each counter the letter closes (a cross of four in the widest, on the richest page)
  
-  for (const [k, c] of countersOf(L, A, raw.ink, H, b.pts ?? 0).entries()) over.push(...(b.crosses && k === 0 ? cross4(c.p, Math.min(c.d * .3, H * .016)) : [lozenge(c.p, Math.min(c.d * .7, H * .042), 'r')]));
+  for (const [k, c] of countersOf(L, A, raw.ink, H, b.pts ?? 0).entries()) over.push(...(b.crosses && k === 0 ? cross4(c.p, Math.min(c.d * .3, H * .016)) : [lozenge(c.p, Math.min(c.d * .7, H * .042), hand()?.counters === 'k' ? 'k' : 'r')]));
  
   const marks = strands.length ? interlace(strands, Math.max(1, H * .008)).map(m => m.wm ? { ...m, press: pressOf(m.pts, m.wm) } : m) : [];
   return { letter: L, marks: [...marks, ...over], width };
@@ -812,6 +815,25 @@ initial.width = (ch, face = FACE, form = FORM) => { if (face && typeof face === 
 initial.load = ({ face, form = FORM } = {}) => form === 'cadel' ? null : loadFace(face);
 
 
+// ---- the rubricator's hand --------------------------------------------------------------------------------------------------
+// A page given its own seed (kit/illum.js sets blackletter.seeded) is one rubricator's hand, chosen from it once for the
+// whole page: how many stems his paraph has and whether he crowns it with a point; the point he ends a ruled line with
+// (three points, one, or a red and a black); the order of his strung lozenges; how tight he runs a cord; what he sets in
+// the middle of a chapter's rules (the knot, a cross of four points, a short plait) and at their ends; how many crossings
+// his book band takes; two or three bars on the initial, and the colour of the points in its counters. Without one (0)
+// the page is drawn as it always was.
+const hands = new Map();
+function hand() { const V = blackletter.seeded; if (!V) return null; if (hands.has(V)) return hands.get(V);
+  const r = rng(V, 'hand'), pick = a => a[(r() * a.length) | 0];
+  const h = { stems: pick([2, 2, 3]), crown: r() < .4, end: pick(['lozenge', 'triad', 'pair']), loz: pick([['k', 'r'], ['r', 'k'], ['k', 'k', 'r']]),
+    pitch: pick([.85, 1.05, 1.3]), centre: pick(['knot', 'cross', 'plait']), flank: pick(['triad', 'lozenge', 'cross']), crossings: pick([4, 6, 8]),
+    bars: pick([2, 3, 3]), eye: pick(['r', 'cross']), counters: pick(['r', 'k']), quote: pick(['knot', 'cross']),
+    fall: pick([.42, .6, .78]), knop: r() < .5 };
+  hands.set(V, h); return h; }
+// the ornament set at the end of a rule, as the hand makes it (p: where; s: the size of a point; d: which way the rule runs)
+const point = (p, s, d, kind) => kind === 'lozenge' ? [lozenge(p, s * 1.35, 'r')] : kind === 'cross' ? cross4(p, s * .62)
+  : kind === 'pair' ? [lozenge([p[0] - d * s * .9, p[1]], s * 1.1, 'k'), lozenge([p[0] + d * s * .5, p[1]], s * 1.35, 'r')] : triad(p, s, 'r');
+
 // ---- the rubricator's small marks ----------------------------------------------------------------------------------------------
 // A stem as textura writes it: in on the nib's diagonal, straight down, out on the diagonal (the lozenge head and foot)
 const stem = (x, y0, y1, W) => [add([x, y0], Q, -W * .35), [x, y0], [x, y1], add([x, y1], Q, W * .45)];
@@ -827,7 +849,10 @@ function paraph(x, base, u, seed, rich = .5) {
   out.push(stroke([[x + u * .62, top + u * .32], [x + u * .42, top + u * .62], [x + u * .6, top + u * .9]], W * .9, 'r', .5));
   out.push(stroke(stem(x + u * 1.02 + j(), top, base + u * .3, W * .82), W * .82, 'r', .5));
   out.push(stroke(stem(x + u * 1.42 + j(), top + u * .02, base + u * .12, W * .7), W * .7, 'r', .5));
-  out.push(stroke([[x + u * .5, top - u * .04], [x + u * 1.62, top - u * .08 + j()]], .9, 'r', .5));
+  const hd = hand();
+  if (hd?.stems === 3) out.push(stroke(stem(x + u * 1.78 + j(), top + u * .22, base - u * .1, W * .6), W * .6, 'r', .5));
+  out.push(stroke([[x + u * .5, top - u * .04], [x + u * (hd?.stems === 3 ? 1.95 : 1.62), top - u * .08 + j()]], .9, 'r', .5));
+  if (hd?.crown) out.push(lozenge([x + u * 1.02, top - u * .62], u * .3, 'k'));
   if (rich >= .75) out.push(stroke(tendril([x + u * 1.3, base + u * .4], Math.PI * .85, u * 1.8, 3.2 / u), u * .14, 'r', .4));
   return out;
 }
@@ -845,16 +870,21 @@ function cord(x0, x1, y, amp, n, w, cols = ['r', 'k'], gap = 1) {
   return cols.length > 1 ? interlace([run(0, cols[0]), { ...run(Math.PI, cols[1]), alt: false, z: -1 }], gap) : run(0, cols[0]).parts;   // one strand: painted in one pass, no breaks
 }
 // a row of lozenges strung on a red hairline, black and red in turn
-function lozenges(x0, x1, y, h, r) {
+// (seq: the hand's order of colours, the first the larger; default black and red in turn)
+function lozenges(x0, x1, y, h, r, seq = null) {
   const n = Math.max(1, Math.round((x1 - x0) / (h * 1.5))), p = (x1 - x0) / n, out = [rule([x0, y], [x1, y + (r() - .5) * .4], .55)];
-  for (let k = 0; k <= n; k++) out.push(lozenge([x0 + k * p + (r() - .5) * .3, y], h * (k % 2 ? .38 : .5), k % 2 ? 'r' : 'k'));
+  for (let k = 0; k <= n; k++) out.push(seq ? lozenge([x0 + k * p + (r() - .5) * .3, y], h * (seq[k % seq.length] === 'k' ? .5 : .4), seq[k % seq.length])
+    : lozenge([x0 + k * p + (r() - .5) * .3, y], h * (k % 2 ? .38 : .5), k % 2 ? 'r' : 'k'));
   return out;
 }
 const FILLERS = ['rule', 'cord', 'lozenges'];
 function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
   const r = rng(seed, 'filler'), h = yBase - yTop, mid = yTop + h * .55;
-  if (kind === 'cord') return cord(x0, x1, mid, h * .36, Math.max(2, Math.round((x1 - x0) / (h * 1.05))), Math.max(1.4, h * .3), rich >= .75 ? ['r', 'k'] : ['r'], .8);
-  if (kind === 'lozenges') return lozenges(x0, x1, mid, h, r);
+  const hd = hand();
+  if (kind === 'cord') return cord(x0, x1, mid, h * .36, Math.max(2, Math.round((x1 - x0) / (h * (hd?.pitch ?? 1.05)))), Math.max(1.4, h * .3), rich >= .75 ? ['r', 'k'] : ['r'], .8);
+  if (kind === 'lozenges') return lozenges(x0, x1, mid, h, r, hd?.loz);
+  if (hd && hd.end !== 'lozenge') { const out = [rule([x0, mid], [x1 - h * 1.1, mid + (r() - .5) * .5], .6), ...point([x1 - h * .55, mid], h * .3, 1, hd.end)];
+    if (rich >= .5) out.push(lozenge([x0 + h * .1, mid], h * .32, 'k')); return out; }
   // the rubricator's line run out to the measure, a lozenge where it stops, a black one where it starts on a richer page
   const out = [rule([x0, mid], [x1 - h * .4, mid + (r() - .5) * .5], .6), lozenge([x1 - h * .25, mid], h * .48, 'r')];
   if (rich >= .5) out.push(lozenge([x0 + h * .1, mid], h * .32, 'k'));
@@ -877,17 +907,19 @@ function plait(x0, x1, y, amp, n, W) {
   return interlace([strap(wave(1), { n: 2, W, g: W * .55, alt: true, taper: [.06, .06] }), strap(wave(-1), { n: 2, W, g: W * .55, taper: [.06, .06] })], W * .5);
 }
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8) {
-  const r = rng(seed, 'break'), out = [];
+  const r = rng(seed, 'break'), out = [], hd = hand();
   if (rank < 2) {   // a chapter: the knot, red rules out to each side ending in three points
     const R = u * 1.55, w = Math.min(measure * .14, u * 4.5);
-    out.push(...knot(cx, y, R, Math.max(1.3, u * .2), rich >= .25));
-    for (const s of [-1, 1]) { const a = cx + s * R * 1.25, b = cx + s * (R * 1.25 + w); out.push(rule([a, y], [b, y + (r() - .5) * .4], .55), ...triad([b + s * u * .7, y], u * .34, 'r')); }
+    if (hd?.centre === 'cross') out.push(...cross4([cx, y], u * .42), lozenge([cx, y], u * .34, 'k'));
+    else if (hd?.centre === 'plait') out.push(...plait(cx - R * 1.1, cx + R * 1.1, y, u * .55, 2, Math.max(1.4, u * .24)));
+    else out.push(...knot(cx, y, R, Math.max(1.3, u * .2), rich >= .25));
+    for (const s of [-1, 1]) { const a = cx + s * R * 1.25, b = cx + s * (R * 1.25 + w); out.push(rule([a, y], [b, y + (r() - .5) * .4], .55), ...(hd ? point([b + s * u * .7, y], u * .34, s, hd.flank) : triad([b + s * u * .7, y], u * .34, 'r'))); }
     return out;
   }
   // a book: the strapwork band across a third of the measure, a knot at each end, lozenges beyond
   const half = Math.min(measure * .26, u * 13), W = Math.max(1.6, u * .3);
-  out.push(...plait(cx - half, cx + half, y, u * .7, 6, W));
-  for (const s of [-1, 1]) { const e = cx + s * (half + u * 1.9); out.push(...knot(e, y, u * 1.05, Math.max(1.2, u * .17), true), ...triad([e + s * u * 2.2, y], u * .34, 'r')); }
+  out.push(...plait(cx - half, cx + half, y, u * .7, hd?.crossings ?? 6, W));
+  for (const s of [-1, 1]) { const e = cx + s * (half + u * 1.9); out.push(...knot(e, y, u * 1.05, Math.max(1.2, u * .17), true), ...(hd ? point([e + s * u * 2.2, y], u * .34, s, hd.flank) : triad([e + s * u * 2.2, y], u * .34, 'r'))); }
   return out;
 }
 
@@ -912,7 +944,9 @@ const frames = {
   quote: ({ x, lines, u, seed, rich = .5 }) => { const y0 = lines[0].top + u * .2, y1 = lines.at(-1).base + u * .5, out = [];
     out.push(rule([x, y0 - u * 1.2], [x, y1 + u * 1.2], u * .2), rule([x + u * .34, y0 - u * .7], [x + u * .34, y1 + u * .7], .55));
     for (const y of [y0, y1]) out.push(rule([x - u * .9, y], [x + u * 1.3, y], .55));
-    if (rich >= .25) out.push(...knot(x + u * .17, y0 - u * 2.1, u * .95, Math.max(1.1, u * .15), rich >= .5), ...triad([x + u * .17, y1 + u * 2], u * .3, 'r'));
+    const hd = hand();
+    if (rich >= .25) out.push(...(hd?.quote === 'cross' ? [...cross4([x + u * .17, y0 - u * 2.1], u * .36), lozenge([x + u * .17, y0 - u * 2.1], u * .3, 'k')] : knot(x + u * .17, y0 - u * 2.1, u * .95, Math.max(1.1, u * .15), rich >= .5)),
+      ...(hd ? point([x + u * .17, y1 + u * 2], u * .3, 1, hd.flank) : triad([x + u * .17, y1 + u * 2], u * .3, 'r')));
     return out; },
   // a figure: ruled double on four sides, crossing at the corners; the cord along its head between the rules
   figure: ({ box, u, seed, rich = .5 }) => { const B = [box[0] - u * 1.2, box[1] - u * 2.2, box[2] + u * 1.2, box[3] + u * 1.2], out = ruled(B, u);
@@ -920,13 +954,13 @@ const frames = {
     return out; },
   // code: the ruled block, single rules crossing at the corners, a black lozenge where they cross
   code: ({ box, u, seed, rich = .5 }) => { const out = ruled(box, u, { double: false, thin: .7, over: u * 1.4 });
-    if (rich >= .25) for (const [x, y] of [[box[0], box[1]], [box[2], box[1]], [box[2], box[3]], [box[0], box[3]]]) out.push(lozenge([x, y], u * .5, 'k'));
+    if (rich >= .25) [[box[0], box[1]], [box[2], box[1]], [box[2], box[3]], [box[0], box[3]]].forEach(([x, y], k) => out.push(lozenge([x, y], u * .5, hand()?.counters === 'r' && k % 2 ? 'r' : 'k')));
     return out; },
   // a pull quote: the chapter knot above and below
   pull: ({ cx, yTop, yBot, measure, u, seed, rich = .5 }) => [...breakMark(cx, yTop + u * .6, measure, 1, seed, rich, u), ...breakMark(cx, yBot + u * .1, measure, 1, seed + 7, rich, u)],
   // an aside: a thin red rule down its side crossed at its head; three red points over it, a black one under
   aside: ({ box, u, seed, rich = .5 }) => { const [x0, y0, , y1] = box, out = [rule([x0, y0 - u * .6], [x0, y1 + u * .2], .7), rule([x0 - u * .8, y0], [x0 + u * 4, y0], .55)];
-    if (rich >= .25) out.push(...triad([x0, y0 - u * 1.3], u * .3, 'r'), lozenge([x0, y1 + u * .7], u * .4, 'k'));
+    if (rich >= .25) out.push(...(hand() ? point([x0, y0 - u * 1.3], u * .3, 1, hand().flank) : triad([x0, y0 - u * 1.3], u * .3, 'r')), lozenge([x0, y1 + u * .7], u * .4, 'k'));
     return out; },
   // the contents: a strap down the margin, red between its copies, a hairline ribbon wound round it over and under; a red
   // lozenge on a short rule at each entry. On a phone, no margin: a cord over the list and under it

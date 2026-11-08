@@ -23,6 +23,12 @@ import { noise2 } from '../marks.js';
 const fnv = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.codePointAt(0), 16777619); return h >>> 0; };
 const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 const rng = (seed, name) => mulberry(fnv(name + ':' + seed));
+// A page given its own seed (kit/illum.js sets astrology.seeded; 0 when the page is left to its text's): the sign its first
+// chapter takes (and so every chapter's after it, round the contents, paraphs, fillers, breaks and frames), the aspect its
+// bands begin with, and how far the volvelle's plate is turned from the left. Unseeded: Aries, the sextile, not turned.
+const PAGE = { seed: -1 }, page = () => { const sd = astrology.seeded | 0; if (PAGE.seed !== sd) { const r = rng(sd, 'page');
+  Object.assign(PAGE, { seed: sd, z: sd ? r() * 12 | 0 : 0, a: sd ? r() * 5 | 0 : 0, turn: sd ? ((r() * 8 | 0) - 4 + (r() < .5 ? 0 : 1)) * Math.PI / 6 : 0 }); } return PAGE; };
+const Z = i => ZODIAC[(((i + page().z) % 12) + 12) % 12];   // the page's i-th sign (i: from its first chapter's)
 const TAU = 2 * Math.PI;
 const add = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k];
 const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
@@ -392,9 +398,9 @@ function smallVolvelle(c, R, name, W, seed, { cells = 36 } = {}) {
 // out over the degree ring to the sign of the ascendant; a rivet at the centre. The pointer is paper laid over the rings:
 // the circles and the cells under it are hidden (and a hair of paper either side of its edges), and its own edge is one
 // stroke of the pen, out to the point and back.
-function aspectVolvelle(c, R, W, seed, { start = 0, rich = .5 } = {}) {
+function aspectVolvelle(c, R, W, seed, { start = 0, rich = .5, turn = 0 } = {}) {
   const rS = R - W, rS0 = R * .8, rC1 = rS0 - W * 1.4, rC0 = rC1 - R * .07, rP = rC0 - W * 1.6, rI = rP - W * 1.4, els = [];
-  const tipR = rS0 + (rS - rS0) * .3, bw = R * .055, g = W * .5 + 1.2, ax = Math.PI;
+  const tipR = rS0 + (rS - rS0) * .3, bw = R * .055, g = W * .5 + 1.2, ax = Math.PI + turn;   // (turn: the plate's index moved round from the left, within (0, 2π))
   // the pointer in polar terms: its half-width at radius r (0 at the tip), and so the arc of angles it hides there
   const hw = r => r > tipR ? -1 : bw * (tipR - r) / (tipR - rP), hideArc = r => { const w = hw(r) + g; if (w <= 0) return [ax, ax]; const d = Math.asin(Math.min(1, w / r)); return [ax - d, ax + d]; };
   const under = p => { const r = Math.hypot(p[0] - c[0], p[1] - c[1]); if (r < rP - 1 || r > tipR + g) return false; let a = Math.atan2(p[1] - c[1], p[0] - c[0]); if (a < 0) a += TAU; const [a0, a1] = hideArc(r); return a >= a0 && a <= a1; };
@@ -404,13 +410,13 @@ function aspectVolvelle(c, R, W, seed, { start = 0, rich = .5 } = {}) {
   // stroke (from the edge out to the point and back to the edge), the ruled circle of the figure within
   const pa = Math.asin(bw / rP), pointer = [...arc(c, rP, ax + pa, ax + TAU - pa, 0), polar(c, rP, ax - pa), polar(c, tipR, ax), polar(c, rP, ax + pa), polar(c, rP, ax + pa + .04)];
   els.push({ marks: [sketch(pointer, W, { seed: seed + 6, swell: .3, enter: .9, leave: .85 }), circle(c, rI, W * .9, { seed: seed + 4 })] });
-  const A = polar(c, rI, Math.PI), h = R * .11, lines = [], rv = Math.max(2.4, R * .035), riv = [{ c, r: rv + W * .5 + 1 }];
+  const A = polar(c, rI, ax), h = R * .11, lines = [], rv = Math.max(2.4, R * .035), riv = [{ c, r: rv + W * .5 + 1 }];
   const asp = [['sextile', 60], ['square', 90], ['trine', 120], ['opposition', 180]];
-  for (const [name, deg] of asp) for (const s of deg === 180 ? [1] : [1, -1]) { const B = polar(c, rI, Math.PI + s * deg * Math.PI / 180), at = lerp(A, B, { 60: .62, 90: .66, 120: .7, 180: .4 }[deg]);
+  for (const [name, deg] of asp) for (const s of deg === 180 ? [1] : [1, -1]) { const B = polar(c, rI, ax + s * deg * Math.PI / 180), at = lerp(A, B, { 60: .62, 90: .66, 120: .7, 180: .4 }[deg]);
     clip(A, B, riv).forEach(([p, q], j) => lines.push(rule(p, q, W * .9, { seed: seed + 30 + deg + s + j })));
     els.push(sign(name, at, h, { col: 'r', seed: seed + deg + s })); }
   // the square and the trine inscribed, as the Clavis volvelle rules them through the place and its aspects
-  if (rich >= .5) { const P = d => polar(c, rI, Math.PI + d * Math.PI / 180);
+  if (rich >= .5) { const P = d => polar(c, rI, ax + d * Math.PI / 180);
     [[0, 90], [90, 180], [180, 270], [270, 360], [0, 120], [120, 240], [240, 360]].forEach(([a0, a1], j) => lines.push(rule(P(a0), P(a1), W * .8, { seed: seed + 80 + j })));
     // and on the richest page the sextile's hexagon too (its two sides from the place are the sextiles already ruled)
     if (rich >= 1) [[60, 120], [120, 180], [180, 240], [240, 300]].forEach(([a0, a1], j) => lines.push(rule(P(a0), P(a1), W * .8, { seed: seed + 90 + j }))); }
@@ -422,7 +428,7 @@ function aspectVolvelle(c, R, W, seed, { start = 0, rich = .5 } = {}) {
 
 // ---- the paraph: the chapter's sign ------------------------------------------------------------------------------------------
 function paraph(x, base, u, seed, rich = .5, k = null) {
-  const name = ZODIAC[(k ?? (rng(seed, 'sign')() * 12 | 0)) % 12], h = u * 1.75;
+  const name = k == null ? ZODIAC[rng(seed, 'sign')() * 12 | 0] : Z(k), h = u * 1.75;
   return sign(name, [x + u * .85, base - u * .5], h, { col: 'r', seed });
 }
 
@@ -433,13 +439,13 @@ function paraph(x, base, u, seed, rich = .5, k = null) {
 const FILLERS = ['aspects', 'signs', 'degrees'];
 function filler(x0, x1, yTop, yBase, kind, seed, rich = .5, k = 0) {
   const h = yBase - yTop, u = h, W = LW(u * .9), L = x1 - x0, y = yBase - h * .38;
-  if (kind === 'rule') { const s = h * 1.05, name = ZODIAC[k % 12], w = signWidth(name) * s;
+  if (kind === 'rule') { const s = h * 1.05, name = Z(k), w = signWidth(name) * s;
     return join({ marks: [rule([x0, y], [x1 - w - h * .5, y], W, { col: 'k', seed })] }, sign(name, [x1 - w / 2, y], s, { col: 'r', seed: seed + 1 })); }
   if (kind === 'signs') { const top = yBase - h * 1.08, bot = yBase + h * .22, ch = bot - top, cw = ch * 1.55, n = Math.max(1, Math.min(12, Math.floor((L - 2) / cw))), X1 = x1, X0 = X1 - n * cw, els = [];
     const marks = [rule([X0, top], [X1, top], W, { seed }), rule([X0, bot], [X1, bot], W, { seed: seed + 1 })];
     for (let i = 0; i <= n; i++) marks.push(pen([[X0 + i * cw, top], [X0 + i * cw, bot]], W, { seed: seed + 2 + i }));
     if (X0 - x0 > h * 2) marks.push(rule([x0, (top + bot) / 2], [X0 - h * .4, (top + bot) / 2], W, { seed: seed + 30 }));
-    for (let i = 0; i < n; i++) els.push(sign(ZODIAC[(k + i) % 12], [X0 + (i + .5) * cw, (top + bot) / 2], ch * .62, { col: 'r', seed: seed + 40 + i }));
+    for (let i = 0; i < n; i++) els.push(sign(Z(k + i), [X0 + (i + .5) * cw, (top + bot) / 2], ch * .62, { col: 'r', seed: seed + 40 + i }));
     return join({ marks }, ...els); }
   if (kind === 'degrees') { const bh = Math.max(5, h * .55), top = y - bh / 2, bot = y + bh / 2, cw = Math.max(5, bh * 2.3), n = Math.floor(L / cw), X0 = x1 - n * cw, polys = [], marks = [];
     marks.push(rule([X0, top], [x1, top], W, { seed }), rule([X0, bot], [x1, bot], W, { seed: seed + 1 }));
@@ -450,7 +456,7 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5, k = 0) {
   // aspects: from the end of the line, the five in their order, threaded on the rule as the volvelle's are (the rule runs
   // on through each, the red written over the black)
   const s = h * 1.05, step = s * 3.4, n = Math.max(1, Math.min(5, Math.floor((L - s) / step))), els = [];
-  for (let i = 0; i < n; i++) { const name = ASPECTS[(k + i) % 5], cx = x1 - (n - i - .5) * step + step * .3;
+  for (let i = 0; i < n; i++) { const name = ASPECTS[(k + i + page().a) % 5], cx = x1 - (n - i - .5) * step + step * .3;
     els.push(sign(name, [cx, y], name === 'sextile' ? s * 1.05 : s * .9, { col: 'r', seed: seed + i * 3 })); }
   const marks = [rule([x0, y], [x1, y], W, { seed: seed + 50 })];
   return join({ marks }, ...els);
@@ -461,14 +467,14 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5, k = 0) {
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, k = null, room = null) {
   const W = LW(u);
   if (rank < 2) {   // a small volvelle with the chapter's sign, on its ruled band: CAP. and the number one side, the sign's name the other
-    const R = u * 2.5, name = ZODIAC[(k ?? n) % 12], half = Math.min(measure * .46, u * 24), bh = u * 2.2, size = u * 1.05, els = [smallVolvelle([cx, y], R, name, W, seed)];
+    const R = u * 2.5, name = Z(k ?? n), half = Math.min(measure * .46, u * 24), bh = u * 2.2, size = u * 1.05, els = [smallVolvelle([cx, y], R, name, W, seed)];
     for (const s of [-1, 1]) { const a = cx + s * (R + u * .7), b = cx + s * half; els.push({ marks: [rule([a, y - bh / 2], [b, y - bh / 2], W, { seed: seed + 3 + s }), rule([a, y + bh / 2], [b, y + bh / 2], W, { seed: seed + 5 + s })] });
       if (rich >= .75) els.push({ marks: [pen([[b, y - bh / 2], [b, y + bh / 2]], W, { seed: seed + 7 + s })] }); }   // (finer: the band closed at its ends, a cell of the table)
     if (rich >= .25) els.push({ marks: [], letters: [{ text: 'CAP. ' + roman(n) + '.', x: cx - (R + u * .7 + half) / 2, base: y + size / 2, size, col: 'r' }, { text: LATIN[name], x: cx + (R + u * .7 + half) / 2, base: y + size / 2, size, col: 'r' }] });
     return join(...els);
   }
   const R = Math.min(u * 9.2, measure * .46, room ? (room[1] - room[0]) / 2 - W : Infinity);
-  return aspectVolvelle([cx, y], R, W, seed, { start: (k ?? 0) % 12, rich });
+  return aspectVolvelle([cx, y], R, W, seed, { start: ((k ?? 0) + page().z) % 12, rich, turn: page().turn });
 }
 
 // ---- the drop initial ---------------------------------------------------------------------------------------------------------
@@ -514,7 +520,7 @@ const frames = {
   quote: ({ box, u, seed, lines, rich = .5, n = 1 }) => { const W = LW(u), B = clear([box[0], box[1] - u * 1.6, box[2], box[3] + u * 1.4], lines, u * 1.05 + W);
     if (rich >= .75) { const cx = (B[0] + B[2]) / 2, gh = u * 1.4;
       return join({ marks: [...headRules(B[0], cx - gh, B[1], W, seed), ...headRules(cx + gh, B[2], B[1], W, seed + 10), ...headRules(B[0], B[2], B[3], W, seed + 3, -1), rule([B[0], B[1]], [B[0], B[3]], W, { seed: seed + 6 }), rule([B[2], B[1]], [B[2], B[3]], W, { seed: seed + 7 })] },
-        sign(ZODIAC[(n + 11) % 12], [cx, B[1] + W * 1.6], u * 1.4, { col: 'r', seed: seed + 12 })); }
+        sign(Z(n + 11), [cx, B[1] + W * 1.6], u * 1.4, { col: 'r', seed: seed + 12 })); }
     return { marks: [...headRules(B[0], B[2], B[1], W, seed), ...headRules(B[0], B[2], B[3], W, seed + 3, -1), rule([B[0], B[1]], [B[0], B[3]], W, { seed: seed + 6 }), rule([B[2], B[1]], [B[2], B[3]], W, { seed: seed + 7 })] }; },
   // a figure: set in the middle of a figure of heaven unrolled to its box: the twelve houses a band round it (three to a
   // side, the corners ruled in to the figure's), each house's sign and degree written along the band, the first house on
@@ -544,15 +550,15 @@ function octagonFrame({ box, cap, u, seed, rich = .5, n = 1, limit = null, room 
     for (let i = 0; i < m; i++, par++) { if (par % 2) continue; const quad = [lerp(p0, p1, i / m), lerp(p0, p1, (i + 1) / m), lerp(q0, q1, (i + 1) / m), lerp(q0, q1, i / m)], mid = lerp(lerp(quad[0], quad[1], .5), lerp(quad[2], quad[3], .5), .5);
       if (holes.some(h => Math.hypot(mid[0] - h.c[0], mid[1] - h.c[1]) < h.r + bh * 1.2)) continue; polys.push(quad); } }
   els.push({ marks }, { marks: [], letters: [{ polys, col: 'k', order: (x, y) => { const a = Math.atan2(y - (O[1] + O[3]) / 2, x - cx); return ((a + Math.PI / 2) % TAU + TAU) % TAU / TAU; } }] });
-  if (rich >= .25) [[O[1] + bh / 2, 0], [O[3] - bh / 2, 6]].forEach(([y, d], k) => { els.push({ marks: [circle([cx, y], rr, W, { seed: seed + 90 + k })] }); const z = ZODIAC[(n - 1 + d + 12) % 12]; els.push(sign(z, [cx, y], Math.min(rr * 1.05, rr * 1.45 / Math.max(1, signWidth(z) * (SCALE[z] ?? 1))), { col: 'r', seed: seed + 95 + k })); });
-  sides.forEach(([x, d], k) => { els.push({ marks: [circle([x, cy], rr, W, { seed: seed + 97 + k })] }); const z = ZODIAC[(n - 1 + d + 12) % 12]; els.push(sign(z, [x, cy], Math.min(rr * 1.05, rr * 1.45 / Math.max(1, signWidth(z) * (SCALE[z] ?? 1))), { col: 'r', seed: seed + 99 + k })); });
+  if (rich >= .25) [[O[1] + bh / 2, 0], [O[3] - bh / 2, 6]].forEach(([y, d], k) => { els.push({ marks: [circle([cx, y], rr, W, { seed: seed + 90 + k })] }); const z = Z(n - 1 + d + 12); els.push(sign(z, [cx, y], Math.min(rr * 1.05, rr * 1.45 / Math.max(1, signWidth(z) * (SCALE[z] ?? 1))), { col: 'r', seed: seed + 95 + k })); });
+  sides.forEach(([x, d], k) => { els.push({ marks: [circle([x, cy], rr, W, { seed: seed + 97 + k })] }); const z = Z(n - 1 + d + 12); els.push(sign(z, [x, cy], Math.min(rr * 1.05, rr * 1.45 / Math.max(1, signWidth(z) * (SCALE[z] ?? 1))), { col: 'r', seed: seed + 99 + k })); });
   return join(...els);
 }
 const housesFrameDef = {
   houses: ({ box, cap, u, seed, rich = .5, n = 1, limit = null }) => { const W = LW(u), I = [box[0] - u * .8, box[1] - u * .8, box[2] + u * .8, (cap ?? box[3]) + u * .8];
     // (the band down the sides as wide as the page's margins allow: on a phone a narrow band, its houses signed, not lettered)
     const g = u * 2.9, gs = limit ? Math.max(Math.min(u * .9, g), Math.min(g, I[0] - limit[0] - 3, limit[1] - I[2] - 3)) : g;
-    const O = [I[0] - gs, I[1] - g, I[2] + gs, I[3] + g], marks = [], els = [], r = rng(seed, 'cells'), h = Math.min(g * .44, u * 1.25), hs = Math.min(h, gs * .62), asc = (n * 3) % 12;
+    const O = [I[0] - gs, I[1] - g, I[2] + gs, I[3] + g], marks = [], els = [], r = rng(seed, 'cells'), h = Math.min(g * .44, u * 1.25), hs = Math.min(h, gs * .62), asc = (n * 3 + page().z) % 12;
     const cor = [[0, 1], [2, 1], [2, 3], [0, 3]], P = (B, [i, j]) => [B[i], B[j]];
     for (let k = 0; k < 4; k++) { const a = cor[k], b = cor[(k + 1) % 4]; marks.push(rule(P(O, a), P(O, b), W * 1.12, { seed: seed + k, run: W }), rule(P(I, a), P(I, b), W, { seed: seed + 4 + k, run: W * .5 }), rule(P(I, a), P(O, a), W, { seed: seed + 8 + k })); }
     const xs = [I[0], I[0] + (I[2] - I[0]) / 3, I[0] + (I[2] - I[0]) * 2 / 3, I[2]], ys = [I[1], I[1] + (I[3] - I[1]) / 3, I[1] + (I[3] - I[1]) * 2 / 3, I[3]], cells = [];
@@ -605,7 +611,7 @@ Object.assign(frames, {
         for (let i = 0; i < n2; i += 2) { const t0 = a0 + (a1 - a0) * i / n2, t1 = a0 + (a1 - a0) * (i + 1) / n2; polys.push([...arc(c, rO, t0, t1, 3), ...arc(c, rI, t1, t0, 3)]); }
         for (const e of [a0, a1]) els.push({ marks: [pen([polar(c, rI - (s < 0 ? 0 : bh * .7), e), polar(c, rO + (s < 0 ? bh * .7 : 0), e)], W, { seed: seed + 8 + e })] }); }
       els.push({ marks: [], letters: [{ polys, col: 'k', order: x => (x - (cx - half)) / (2 * half) }] });
-      if (gap) els.push(sign(ZODIAC[(n + (s > 0 ? 6 : 0)) % 12], [cx, yy], u * 1.5, { col: 'r', seed: seed + 12 + (s > 0) })); }
+      if (gap) els.push(sign(Z(n + (s > 0 ? 6 : 0)), [cx, yy], u * 1.5, { col: 'r', seed: seed + 12 + (s > 0) })); }
     return join(...els); },
   // an aside: a ruled box, its head a band lettered NOTA in red between two rules, the chapter's sign at its foot
   // (where the page leaves no room for the band above the words, the ruled box alone)
@@ -613,18 +619,18 @@ Object.assign(frames, {
     if (lines?.length && lines[0].top < hb + u * .4) return { marks: [...headRules(B[0], B[2], B[1], W, seed), rule([B[0], B[1]], [B[0], B[3]], W, { seed: seed + 3 }), rule([B[2], B[1]], [B[2], B[3]], W, { seed: seed + 4 }), rule([B[0], B[3]], [B[2], B[3]], W, { seed: seed + 5 })], letters: [] };
     els.push({ marks: [...headRules(B[0], B[2], B[1], W, seed), rule([B[0], hb], [B[2], hb], W, { seed: seed + 2 }), rule([B[0], B[1]], [B[0], B[3]], W, { seed: seed + 3 }), rule([B[2], B[1]], [B[2], B[3]], W, { seed: seed + 4 }), rule([B[0], B[3]], [B[2], B[3]], W, { seed: seed + 5 })],
       letters: [{ text: title, x: (B[0] + B[2]) / 2, base: (B[1] + W * 3.2 + hb) / 2 + size / 2, size, col: 'r' }] });
-    if (rich >= .5) { const name = ASPECTS[n % 5]; for (const s of [-1, 1]) els.push(sign(name, [(B[0] + B[2]) / 2 + s * (textWidth(title, size) / 2 + u * 2), (B[1] + W * 3.2 + hb) / 2], u * 1.1, { col: 'r', seed: seed + 8 + s })); }
+    if (rich >= .5) { const name = ASPECTS[(n + page().a) % 5]; for (const s of [-1, 1]) els.push(sign(name, [(B[0] + B[2]) / 2 + s * (textWidth(title, size) / 2 + u * 2), (B[1] + W * 3.2 + hb) / 2], u * 1.1, { col: 'r', seed: seed + 8 + s })); }
     // (finer: its foot rule broken at the middle for the chapter's sign)
     if (rich >= .75) { const cx = (B[0] + B[2]) / 2, gh = u * 1.3, m = els[0].marks; m.splice(m.length - 1, 1, rule([B[0], B[3]], [cx - gh, B[3]], W, { seed: seed + 5 }), rule([cx + gh, B[3]], [B[2], B[3]], W, { seed: seed + 6 }));
-      els.push(sign(ZODIAC[(n + 11) % 12], [cx, B[3]], u * 1.3, { col: 'r', seed: seed + 11 })); }
+      els.push(sign(Z(n + 11), [cx, B[3]], u * 1.3, { col: 'r', seed: seed + 11 })); }
     return join(...els); },
   // the contents: the ephemeris's day column down the margin, ruled double, each entry's sign in its cell, a rule between
   nav: ({ box, entries, x, u, seed, rich = .5, side = true }) => { const W = LW(u), els = [], marks = [];
     if (side) { const xa = x + u * 1.2, xb = x + u * 4.2, top = (entries[0]?.top ?? box[1]) - u * .5, bot = box[3] + u * .6;
       marks.push(rule([xa, top], [xa, bot], W, { seed }), rule([xb, top], [xb, bot], W, { seed: seed + 1 }), rule([xb + W * 3, top], [xb + W * 3, bot], W, { seed: seed + 2 }), rule([xa, top], [xb + W * 3, top], W, { seed: seed + 3 }), rule([xa, bot], [xb + W * 3, bot], W, { seed: seed + 4 }));
-      entries.forEach((e, k) => { if (k) marks.push(pen([[xa, e.top - u * .15], [xb, e.top - u * .15]], W * .9, { seed: seed + 10 + k })); els.push(sign(ZODIAC[k % 12], [(xa + xb) / 2, e.base - u * .5], u * 1.6, { col: 'r', seed: seed + 20 + k })); }); }
+      entries.forEach((e, k) => { if (k) marks.push(pen([[xa, e.top - u * .15], [xb, e.top - u * .15]], W * .9, { seed: seed + 10 + k })); els.push(sign(Z(k), [(xa + xb) / 2, e.base - u * .5], u * 1.6, { col: 'r', seed: seed + 20 + k })); }); }
     else { const y0 = box[1] - u * 2.4; marks.push(...headRules(box[0], Math.min(box[2], box[0] + u * 30), y0 - u * .6, W, seed));
-      entries.forEach((e, k) => els.push(sign(ZODIAC[k % 12], [box[0] - u * 1.6, e.base - u * .5], u * 1.5, { col: 'r', seed: seed + 20 + k }))); }
+      entries.forEach((e, k) => els.push(sign(Z(k), [box[0] - u * 1.6, e.base - u * .5], u * 1.5, { col: 'r', seed: seed + 20 + k }))); }
     return join({ marks }, ...els); },
 });
 

@@ -21,7 +21,7 @@
 //   audit   true: state.drawn holds every mark's outline for kit/audit.js (default: ?audit in the page's address). cache: false
 //           draws live every time (also ?nocache); baked: the URL of a bake made by tools/bake.mjs (or data-baked on root;
 //           default kit/bake.json, which a built site ships: tools/build-site.sh)
-//   seed    default: a hash of the text. on(state, info): 'drawn' (still: { grow, draw } ms), 'reading', 'written'
+//   seed    default: a hash of the text (one given varies a written style's choices too: S.seeded). on(state, info): 'drawn' (still: { grow, draw } ms), 'reading', 'written'
 //   initial, frame   a written style's options for its initials and its frames (Astrology's { set, title }, { form }); an
 //           element's own data-* (data-set, data-title, data-form) override them
 //   view    'specimen' (the style as a pattern book) | 'sweep' (every style's paraph over thirty seeds); the text hidden
@@ -222,7 +222,10 @@ function walk(root, sheet, c) {
   const chapters = [...root.querySelectorAll(sel.chapter)], heads = [...root.querySelectorAll(sel.heading)];
   const chapterOf = el => { const ch = el.closest(sel.chapter); return ch ? chapters.indexOf(ch) + 1 : heads.filter(h => h.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING).length; };
   c.u = u;
-  const later = (el, kind, y, make) => out.push({ el, kind, style: styleAt(el), y, written: true, make });
+  // (a written style is told, as it makes a case, the page's own seed when the host gave one (S.seeded; else 0): its
+  // choices, which forms, which variants, in what order, are drawn from it, so a page asked for by seed differs in more
+  // than its jitter; a page left to its text's seed is drawn as it always was)
+  const later = (el, kind, y, make) => { const key = styleAt(el); out.push({ el, kind, style: key, y, written: true, make: () => { STYLES[key].seeded = c.vary; return make(); } }); };
   // initials (03): the letter and the marks round it
   const keep = wordRects(root, o, 3, sel);
   root.querySelectorAll(sel.initial).forEach((span, k) => {
@@ -282,7 +285,7 @@ function walk(root, sheet, c) {
     // run out with a rule; a paragraph's only when a third of the measure is left, the kinds in turn)
     if (W8(el)) { const key = styleAt(el), S = G(key), L = linesOf(el, o, true).at(-1), at = { gap: .8, head: 3, rise: 1, ...S.fillAt }, u = uAt(el); if (!L) return;
       const head = /^H\d$/.test(el.tagName), x0 = L.right + u * at.gap, x1 = m8[2]; if (x1 - x0 < (head ? u * at.head : (m8[2] - m8[0]) * .3)) return;
-      const kinds = S.kinds(V(key), richAt(el)), kind = head ? 'rule' : kinds[nFillW++ % kinds.length];
+      const k0 = S.kinds(V(key), richAt(el)), kinds = c.vary ? shuffle(k0, c.vary) : k0, kind = head ? 'rule' : kinds[nFillW++ % kinds.length];
       return later(el, 'filler', top(el) + 1, () => ({ marks: S.filler(x0, x1, L.base - u * at.rise, L.base, kind, seed, richAt(el), chapterOf(el)) })); }
     const key = styleAt(el), S = G(key), RICH = richAt(el), SCALE = scaleAt(el), cs = getComputedStyle(el), fs = parseFloat(cs.fontSize), mt = metricOf(`${cs.fontStyle} ${cs.fontWeight} ${fs}px "EB Garamond"`), L = boxes(el, o, sel);
     if (!L.length) return;
@@ -376,6 +379,8 @@ function fitIn(m, [r0, r1]) {
   for (const t of m.letters ?? []) moveLetter(t, dy);
   return m;
 }
+// a list in an order drawn from a seed (the same list and seed, the same order)
+const shuffle = (a, seed) => { const r = stream(seed, 'order:' + a.join()), b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = (r() * (i + 1)) | 0; [b[i], b[j]] = [b[j], b[i]]; } return b; };
 const resampleLine = (p, ds) => { const out = [p[0]]; for (let i = 1; i < p.length; i++) { const a = p[i - 1], b = p[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(L / ds);
   for (let k = 1; k <= n; k++) out.push([a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n]); } return out; };
 
@@ -637,7 +642,7 @@ export function rubricate(root, opts = {}) {
 
   // the cases measured and the registry's marks made and scored (a written style's are made when their turn comes)
   function compose() {
-    const key = STYLES[o.style] ? o.style : 'gothic', sel = { ...SELECT, ...o.select }, SEED = (o.seed ?? fnv(text) % 1e7) >>> 0, scale = Math.max(.5, Math.min(2, +o.scale || 1)), rich = Math.max(0, Math.min(1, +o.rich || 0));
+    const key = STYLES[o.style] ? o.style : 'gothic', sel = { ...SELECT, ...o.select }, SEED = (o.seed ?? fnv(text) % 1e7) >>> 0, vary = o.seed != null && o.seed !== '' && SEED !== fnv(text) % 1e7 ? SEED || 1 : 0, scale = Math.max(.5, Math.min(2, +o.scale || 1)), rich = Math.max(0, Math.min(1, +o.rich || 0));
     const tm = themeMode(), own = o.ground === 'style' && !!STYLES[key].theme?.dark, DARK = own || tm === 'dark', setups = {};
     const pv = getComputedStyle(root).getPropertyValue('--paper'), PAPER = pv ? cssRgb(pv) : DARK ? [29, 26, 23] : [244, 238, 226];
     root.style.setProperty('--orn', scale);
@@ -647,7 +652,7 @@ export function rubricate(root, opts = {}) {
     if (mode === 'still') live.width = live.height = 0;   // nothing is shown part-written: no page-sized live layer
     for (const c of mode === 'still' ? [base] : [base, live]) { c.width = Math.round(sr.width * dpr); c.height = Math.round(sr.height * dpr); c.style.width = sr.width + 'px'; c.style.height = sr.height + 'px'; c.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0); }
     const wk = `${dpr}|${DARK}|${o.ink}`; if (pre?.wk === wk) W = pre; else { W?.destroy(); pre?.destroy(); W = o.ink !== 'pen' && supported() ? createWriter(host, base.getContext('2d'), { dpr, dark: DARK }) : null; } pre = null;
-    const c = { SEED, sel, style: key, rich, scale, gram, setups, kind: o.kind, mode: tm, own, DARK, PAPER, dpr, W, initial: o.initial ?? {}, frame: o.frame ?? {}, hand: { open: null }, g: base.getContext('2d'), host, base, audit: o.audit ?? /[?&]audit\b/.test(location.search) };
+    const c = { SEED, vary, sel, style: key, rich, scale, gram, setups, kind: o.kind, mode: tm, own, DARK, PAPER, dpr, W, initial: o.initial ?? {}, frame: o.frame ?? {}, hand: { open: null }, g: base.getContext('2d'), host, base, audit: o.audit ?? /[?&]audit\b/.test(location.search) };
     const t0 = performance.now(), w = o.view === 'specimen' ? { items: specimen(c), words: [], dropped: {} } : walk(root, host, c);
     w.items.forEach((it, i) => { it.i = i; });
     // a hand about to write: the medium made now, not in the first frame of writing. (A written style's still is laid
