@@ -35,7 +35,7 @@ DEBUG = 0
 CORMAX = .09            # the longest run down a corridor
 FILLMIN = .032          # the least room filled after the main stems (the rest: open black and dots)
 VMAX = .27              # the vine's greatest share of the block (his: .28-.40 round a lighter letter)
-KR = 450                # how fast a stem's curvature may change (per unit length, per unit length)
+KR = 300                # how fast a stem's curvature may change (per unit length, per unit length)
 RC = .035               # the least circle a stem sweeps round (less: it runs a corridor)
 FONT = '../gl-morris/GL-Morris.ttf'
 W = int(A * RES)
@@ -68,25 +68,54 @@ def stroke(P, hw):
     c = [Point(p).buffer(w, quad_segs=10) for p, w in zip(P, hw)]
     return unary_union([c[i].union(c[i + 1]).convex_hull for i in range(len(c) - 1)] or c)
 
-def leafshape(base, a, L, k, lobes, side, rng):
-    """his leaf: a blade along a spine that bends by k (radians over its length) and curls at the tip; fullest a third of
-    the way; the outer side (side) cut into lobes whose points lean to the tip, the inner side whole; a black midrib.
-    Returns the white."""
-    n = 60; t = np.linspace(0, 1, n); ang = a + k * t + side * np.clip(t - .7, 0, 1) ** 2 * 14   # (the tip curled back)
-    P = np.cumsum(np.stack([np.cos(ang), np.sin(ang)], 1), 0) * L / n + base
-    nv = np.stack([-np.sin(ang), np.cos(ang)], 1)
-    env = np.sin(np.clip(t, 0, 1) ** .75 * math.pi) ** .8 * L * .3
-    wo, wi = env * 1.1, env * .85
-    def lob(m, ph0, d):   # m lobes, each a rounded swell that ends in a point leaning to the tip
-        u = (np.clip((t - .08) / .8, 0, 1) * m + ph0) % 1
-        z = np.where((t > .1) & (t < .86), u ** .55 * (1 - u ** 12), 1)
-        return 1 - d + d * z
-    if lobes:
-        wo = wo * lob(lobes, 0, .6); wi = wi * lob(max(1, lobes - 1), .5, .35)
-    ring = np.vstack([P + side * nv * wo[:, None], (P - side * nv * wi[:, None])[::-1]])
-    g = Polygon(ring).buffer(0).buffer(L * .015, join_style='round').buffer(-L * .015, join_style='round')
-    rib = stroke(P[6:int(n * .72)], np.linspace(L * .016, L * .004, int(n * .72) - 6))
-    return g.difference(rib) if L > .13 else g   # (a small leaf without its rib: cut small it reads as an eye)
+# ---- our own foliage: a small family drawn with intent (each returns the white, in block units)
+def spine(base, a, L, k, curl=0., side=1, n=64):
+    """a curving axis: turning k radians over its length, its last third curling back by curl"""
+    t = np.linspace(0, 1, n); ang = a + k * t + side * curl * np.clip((t - .62) / .38, 0, 1) ** 2
+    P = base + np.concatenate([[0, 0]], 0) + np.cumsum(np.stack([np.cos(ang), np.sin(ang)], 1), 0) * L / n
+    return t, P, np.stack([-np.sin(ang), np.cos(ang)], 1)
+
+def outline(P, nv, wa, wb):
+    g = Polygon(np.vstack([P + nv * wa[:, None], (P - nv * wb[:, None])[::-1]])).buffer(0)
+    return g
+
+def blade(base, a, L, k, side, lobes=0, curl=1.1, wid=.17, both=False):
+    """a long curving pointed blade: drawn fine from its stalk, fullest a third of the way, to a fine point that curls
+    back; on its outer side (or both) one or two lobes, each a smooth swell that leans toward the tip"""
+    t, P, nv = spine(base, a, L, k, curl, side)
+    env = np.sin(np.clip(t, 0, 1) ** .7 * math.pi) ** 1.25 * L * wid
+    wo, wi = env.copy(), env * .9
+    for t0 in ([.3] if lobes == 1 else [.24, .46] if lobes == 2 else []):
+        w = .24; x = np.clip((t - t0) / w, 0, 1); bump = np.sin(math.pi * x ** .55) ** 2 * ((t > t0) & (t < t0 + w))
+        wo = wo + bump * L * .09
+        if both: wi = wi + bump * L * .08
+    g = outline(P, nv * side, wo, wi)
+    g = g.buffer(L * .008, join_style='round').buffer(-L * .008, join_style='round')
+    if L > .15: g = g.difference(stroke(P[8:40], np.linspace(L * .011, L * .003, 32)))   # (a fine midrib on a large one)
+    return g
+
+def trefoil(base, a, L, k, side):
+    """three lobes: a lobe each side low down, the long middle drawn on to a tip that curls back"""
+    return blade(base, a, L, k * .6, side, 1, curl=1.3, wid=.15, both=True)
+
+def bud(base, a, L):
+    """a closed bud: a pointed teardrop held by two curved sepals"""
+    t, P, nv = spine(base, a, L, 0., 0.)
+    env = np.sin(np.clip(t, 0, 1) ** .55 * math.pi) ** .9 * L * .2
+    g = outline(P, nv, env, env)
+    for sg in (1, -1): g = g.union(blade(base, a + sg * .3, L * .55, -sg * .5, -sg, 0, curl=.5, wid=.12))   # (sepals that hold it)
+    return g.buffer(L * .015, join_style='round').buffer(-L * .015, join_style='round')
+
+def tulip(base, a, L):
+    """a flower: a swelling cup crowned by three pointed petals, the outer two flaring and curling outward"""
+    t, P, nv = spine(base, a, L * .62, 0., 0.)
+    env = np.where(t < .25, L * .02 + t * L * .44, L * (.13 + .14 * np.sin(np.clip((t - .25) / .75, 0, 1) * math.pi * .55)))
+    cup = outline(P, nv, env, env); top = P[-1]; d = np.array([math.cos(a), math.sin(a)])
+    parts = [cup, blade(top - d * L * .12, a, L * .5, 0., 1, 0, curl=0.)]
+    for sg in (1, -1):
+        parts.append(blade(top - d * L * .14 + nv[-1] * sg * L * .1, a + sg * .42, L * .46, sg * .8, sg, 0, curl=.9))
+    g = unary_union(parts).buffer(L * .012, join_style='round').buffer(-L * .012, join_style='round')
+    return g
 
 class Block:
     def __init__(s, ch, seed):
@@ -198,16 +227,21 @@ class Block:
         L = np.r_[0, np.cumsum(np.hypot(*np.diff(P, axis=0).T))]; tot = L[-1]
         hw = np.minimum(np.where(nd.maximum_filter1d(s.M, 9) == 1, HWCOR, HWG[min(gen, 2)]), room * .95)   # (thinner in a corridor)
         hw = nd.gaussian_filter1d(hw, 4, mode='nearest'); hw = np.minimum(hw, np.maximum(room, HWMIN))
-        hw = np.minimum(hw, hw0 * (1 - .3 * L / max(tot, 1e-6)))                          # never wider than its root
+        hw = np.minimum(hw, hw0 * (1 - .55 * L / max(tot, 1e-6)))                         # tapering all the way from its root
+        hw = nd.gaussian_filter1d(hw, 7, mode='nearest')                                       # (no lumps: the width flows)
         tip = np.clip((tot - L) / min(.2 if gen == 0 else .12, tot * .6 + 1e-6), 0, 1) ** .7                 # taper to the tip
         x, y = int(P[0][0] * RES), int(P[0][1] * RES)
         if not (0 <= x < W and 0 <= y < RES) or s.kind[y, x] == 2: hw = hw * np.clip(.3 + L / .1, 0, 1)   # out of the border's corner: from a point
-        return np.maximum(HWMIN, hw * (.18 + .82 * tip))
+        hw = np.maximum(np.where(tip < 1, HWMIN, .0075), hw * (.18 + .82 * tip))   # (never a hairline but at the very tip)
+        if s.fork:   # a branch swells out of its parent: from the parent's width down to its own over its first .06
+            r = np.clip(L / .06, 0, 1); hw = np.maximum(hw, (s.fork * (1 - r) + hw * r) * (r < 1))
+        return hw
 
     def grow(s, p, th, side, budget, hw0, gen, fused):
         s.ghost = gen == 0; w = s.walk(p, th, side, budget, fused, gen)
         if w is None or len(w[0]) < (.1 if fused else .06) / DS: s.ghost = False; return None   # (no stubs: a shoot is a real stem or nothing)
-        P, T, S = w; hw = s.widths(P, hw0, gen); s.ghost = False; s.lens.append(round(len(P) * DS, 2))
+        P, T, S = w; P = np.vstack([P[:1], nd.gaussian_filter1d(P, 2.5, axis=0, mode='nearest')[1:-1], P[-1:]]) if len(P) > 8 else P   # (one confident stroke: no kinks)
+        s.fork = hw0 / .7 if fused and gen > 0 else 0.; hw = s.widths(P, hw0, gen); s.ghost = False; s.lens.append(round(len(P) * DS, 2))
         if DEBUG: print(f'  stem gen {gen} fused {int(fused)} len {len(P) * DS:.2f}/{budget:.2f} why {s.why} hw {hw.max():.3f}')
         g = stroke(P, hw)
         g = g.intersection(s.inner).difference(s.LC)
@@ -235,7 +269,7 @@ class Block:
     def fits(s, g, base, br):
         m = raster(g.difference(Point(base).buffer(br)))
         if DEBUG > 1: print('      fit', m.sum(), (m & s.occ).sum())
-        return m.sum() > 0 and (m & s.occ).sum() <= m.sum() * .02
+        return m.sum() > 0 and (m & s.occ).sum() <= m.sum() * .006   # (whole: never a leaf cut off by its neighbour)
 
     def ray(s, p, a, t0, tmax=.24):
         """how far the clear space runs from p along a (from t0), and how wide it is on the way"""
@@ -257,9 +291,10 @@ class Block:
         base = p + u * (hw + CH * 1.1)   # (a short stalk across the channel)
         L = min(Lmax, L * .95)
         while L >= Lmin:
-            k = -out * s.rng.uniform(.4, 1.2) if s.rng.random() < .75 else out * s.rng.uniform(.3, .7)
-            g = leafshape(base, a, L, k, int(s.rng.choice([2, 3, 3])) if L > .1 else 0, out, s.rng); c = None
-            g = unary_union([g, stroke(np.array([p, base + u * .01]), [max(hw * .7, HWMIN * 1.3), HWMIN * 1.3])])
+            k = -out * s.rng.uniform(.5, 1.0)   # (it curves with the growth)
+            if L > .13 and s.rng.random() < .35: g = trefoil(base, a, L, k, out)
+            else: g = blade(base, a, L, k, out, lobes=int(s.rng.choice([0, 1, 2])) if L > .12 else 0)
+            sw = max(hw * .8, .007); g = unary_union([g, stroke(np.array([p, base + u * L * .12]), [sw, sw * .75])])   # (a stalk as the stem flows into it)
             if s.fits(g, p, hw + CH + .004):
                 if DEBUG: print(f'    leaf {L:.3f}')
                 s.take(g.difference(s.LC)); return True
@@ -272,19 +307,19 @@ class Block:
         bud or its curl"""
         u = np.array([math.cos(th), math.sin(th)])
         room = s.d(p + u * .05)
-        if gen < 2 and s.tulips < 3 and room > .036 and (gen == 0 or s.rng.random() < .5):
-            L = min(.22, room * 3.4)
-            while L > .09:
-                g, c, _, _ = kleaf.tulip(p - u * .004, th, L)
-                if s.fits(g, p, hw + CH + .004): s.take(g.difference(c)); s.tulips += 1; return True
+        if gen < 2 and s.tulips < 3 and room > .04 and (gen == 0 or s.rng.random() < .5):
+            L = min(.2, room * 3.2)
+            while L > .1:
+                g = tulip(p - u * .004, th, L)
+                if s.fits(g, p, hw + CH + .004): s.take(g.difference(s.LC)); s.tulips += 1; return True
                 L *= .9
         if gen < 2 and room > .03: return s.leaf(p, th, -side, hw, Lmax=.22, fan=(-.3, .6))
-        if gen == 2 and room > .03 and s.rng.random() < .4:
-            L = min(.1, room * 2.5)
-            while L > .06:
-                g = kleaf.blade(kleaf.spine(p - u * .004, th, L * .8, 0, 0)[0], L * .55, 0, kind='petal')
-                if s.fits(g, p, hw + CH + .004): s.take(g); return True
-                L *= .85
+        if gen == 2 and room > .03 and s.rng.random() < .45:
+            L = min(.11, room * 2.6)
+            while L > .065:
+                g = bud(p - u * .004, th, L)
+                if s.fits(g, p, hw + CH + .004): s.take(g.difference(s.LC)); return True
+                L *= .88
         return True
 
     def knob(s, p, hw):
@@ -343,9 +378,9 @@ class Block:
         s.dots()
 
     def dots(s):
-        for _ in range(40):
+        for _ in range(22):
             j = np.argmax(s.D); y, x = divmod(j, W); r = s.D[y, x]
-            if r < .012: break
+            if r < .016: break   # (sparing: only in the open pools)
             s.take(Point(x / RES, y / RES).buffer(min(.009, r * .45), quad_segs=10), ch=CH * .8)
             s.update()
 
