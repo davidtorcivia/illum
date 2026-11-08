@@ -104,6 +104,28 @@ const out = document.getElementById('out'), fig = (el, cap) => { const f = docum
   S.print(cv.getContext('2d'), PIG, { dpr: res, order: ['k', 'g', 'v', 'b'] });
   const bg = document.createElement('div'); bg.style.background = `rgb(${VELLUM})`; bg.append(cv); fig(bg, 'measured hand, old printer (geometry alone)'); }
 { const cv = document.createElement('canvas'); paint(panel(true), cv); fig(cv, 'measured hand, film paint (crisp tint, one-sided mottle, one optic)'); }
+{ // paint as a physical film (tests/km-paint.js): the parchment's colour and relief in mm; each paint deposited with its
+  // brush's marks (the ground along the panel, the tint along each strand), levelled as a film levels, thicker in the pits;
+  // two-constant Kubelka–Munk over the skin, the ink an absorbing layer. 1 css px = .15 mm (the master's strand ≈ 1.4 mm)
+  const KM = await import('./km-paint.js'), t0 = performance.now();
+  const { S, C } = panel(true), w = S.w, h = S.h, mmPx = .15 / res;
+  const mask = ink => { const c = S.c.get(ink); const M = new Float32Array(w * h); if (!c) return M; const d = c.getImageData(0, 0, w, h).data; for (let q = 0; q < M.length; q++) M[q] = d[q * 4 + 3] / 255; return M; };
+  const { zp, Rp } = KM.parchment(w, h, mmPx, { colour: VELLUM });
+  // the strand's heading at a point: the nearest cord point's tangent (a grid of them)
+  const cell = 2, G = new Map(); C.forEach(c => { const n = c.pts.length; c.pts.forEach((p, k) => { const a = c.pts[(k + 2) % n], b = c.pts[(k - 2 + n) % n], key = Math.floor(p[0] / cell) + ',' + Math.floor(p[1] / cell); (G.get(key) ?? G.set(key, []).get(key)).push([p[0], p[1], Math.atan2(a[1] - b[1], a[0] - b[0])]); }); });
+  const heading = (xm, ym) => { const x = xm / .15, y = ym / .15, cx = Math.floor(x / cell), cy = Math.floor(y / cell); let best = 0, bd = 1e9;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (const p of G.get((cx + dx) + ',' + (cy + dy)) ?? []) { const d = (p[0] - x) ** 2 + (p[1] - y) ** 2; if (d < bd) { bd = d; best = p[2]; } } return best; };
+  const Mg = mask('g'), Mb = mask('b'), Mk = mask('k');
+  const lam = +(q.get('lam') ?? .45), sh = +(q.get('sh') ?? 1.5), mk = +(q.get('marks') ?? .6);
+  const dg = KM.film(Mg, zp, w, h, mmPx, { H: 34, dir: .05, along: 4, across: .35, seed: 5, lam, marks: mk });
+  const db = KM.film(Mb, zp, w, h, mmPx, { H: 28, dir: heading, along: 2.2, across: .25, seed: 9, marks: mk, lam });
+  const Rp0 = KM.lin(VELLUM), out = KM.compose(Rp, [
+    { pig: KM.pigment({ colour: [40, 24, 18], S: sh * 1.4 / 34, veil: .02 }, Rp0), d: dg },
+    { pig: KM.pigment({ colour: [96, 108, 136], S: sh / 28, veil: .035 }, Rp0), d: db },
+    { pig: KM.pigment({ colour: [62, 38, 24], ink: true }, Rp0), d: Mk }], w, h);
+  const tmp = new OffscreenCanvas(w, h); tmp.getContext('2d').putImageData(KM.toImage(out, w, h), 0, 0);
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.style.width = w / dpr + 'px'; const x = cv.getContext('2d'); x.filter = `blur(${(.35 * res / Z).toFixed(2)}px)`; x.drawImage(tmp, 0, 0);
+  fig(cv, `lam ${lam} mm, S·H ${sh}, marks ${mk}: paint as a film: KM over the skin, levelled (${Math.round(performance.now() - t0)} ms, bench CPU)`); }
 { const img = new Image(); img.src = './insular-refs/mz2.png'; img.style.width = '520px'; img.onerror = () => img.remove(); fig(img, 'f. 139r, the master (same strand scale, roughly)'); }
 document.body.dataset.timing = 'drawn';
 </script>
