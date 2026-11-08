@@ -112,7 +112,7 @@ kelmscott.vine = q.get('vine') ?? 'on';   // none: quotation and aside plain, th
 // ?line=drop (default): the initial in the line set as the Chaucer sets its small initials, two lines deep; ?line=inline:
 // in the line, as the markup has it
 if (q.get('line') !== 'inline') document.querySelectorAll('.ini.line').forEach(s => { s.classList.replace('line', 'drop'); s.dataset.lines = 2; });
-const r = rubricate(document.querySelector('.text'), { style: 'kelmscott', rich: q.get('rich') ?? .5, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
+const r = rubricate(document.querySelector('.text'), { style: 'kelmscott', variant: location.search, rich: q.get('rich') ?? .5, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
   // a line-filler wherever a heading's or a paragraph's last line leaves the gap (this text has no chapters to say so)
   select: { filler: 'h2, .text > p:not(.sub):not(.pull)' },
   on: (state, t) => { document.getElementById('seed').textContent = r.state.seed;

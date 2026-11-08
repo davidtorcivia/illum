@@ -112,7 +112,7 @@ import '../kit/styles/choirbook.js';
 const q = new URLSearchParams(location.search);
 if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
 if (!q.has('filigree')) { q.set('filigree', '1'); history.replaceState(null, '', '?' + q); }
-const r = rubricate(document.querySelector('.text'), { style: 'choirbook', rich: q.get('rich') ?? .25, select: { filler: 'none' },
+const r = rubricate(document.querySelector('.text'), { style: 'choirbook', variant: location.search, rich: q.get('rich') ?? .25, select: { filler: 'none' },
   on: (state, t) => { document.body.dataset.timing = t ? `all ${t.all} ms` : state; } });
 </script>
 <script type="module" src="../kit/theme-toggle.js"></script>

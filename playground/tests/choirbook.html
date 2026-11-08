@@ -148,7 +148,7 @@ const q = new URLSearchParams(location.search), sd = location.hash.match(/seed=(
 if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
 if (q.has('ghost')) document.body.classList.add('ghost');
 let RICH = Math.max(0, Math.min(1, parseFloat(q.get('rich') ?? '.5') || 0));
-const r = rubricate(document.querySelector('.text'), { style: 'choirbook', rich: RICH, seed: sd ? +sd : undefined, ink: q.get('ink') ?? 'medium',
+const r = rubricate(document.querySelector('.text'), { style: 'choirbook', variant: location.search, rich: RICH, seed: sd ? +sd : undefined, ink: q.get('ink') ?? 'medium',
   draw: q.has('draw') ? 'read' : 'still',
   // a line-filler wherever a heading's or a paragraph's last line leaves the gap (this text has no chapters to say so)
   select: { filler: 'h2, .text > p:not(.sub):not(.pull)' },

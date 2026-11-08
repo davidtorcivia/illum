@@ -137,6 +137,7 @@ if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.datase
 await nouveau.initial.load();
 const r = rubricate(document.querySelector('.text'), { style: 'nouveau', rich: q.get('rich') ?? .5, scale: q.get('scale') ?? 1, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
   select: { filler: 'h2, .text > p:not(.sub):not(.pull)' },
+  variant: location.search,   // (in the cache's key: the page's settings on the style module are not rubricate options)
   on: (state, t) => { document.getElementById('seed').textContent = r.state.seed;
     document.body.dataset.timing = t ? `in view ${t.view} ms, all ${t.all} ms (grow ${t.grow}, draw ${t.draw}), ${t.parts} parts` : state === 'written' ? 'drawn' : state; } });
 window.R = r;
