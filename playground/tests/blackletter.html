@@ -10,7 +10,7 @@
   drop initial's letter by kit/inkletter.js): the drop initial and a line initial, paraphs, line-fillers,
   a chapter and a book break, and the six frames. Text: Ruskin, The Stones of Venice II (1853), ch. VI, Project
   Gutenberg #30755 (as 03), and the notes of 07. ?draw writes it as you read (each ornament when its line comes 15% into view; the drop initial's letter written
-  along its strokes, its red flowing in under the black); ?theme=dark|light (default the reader's); ?rich=0..1; #seed=n;
+  along its strokes, its red flowing in under the black); ?theme=dark|light (default the reader's); ?rich=0..1; ?scale=.6..1.6 (the ornament's size); #seed=n;
   ?ink=pen (the stamped pen, as without WebGL2).
   The drop initial's letter is a blackletter typeface's capital (?face=cook|maguntia|grenze; tests/faces.html compares
   them), laid by the ink engine, with the rubricator's ornament round and through it; ?form=cadel draws the older
@@ -33,7 +33,7 @@
   h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
   p { margin: 0; }
   /* the gap the scribe left for the rubricator's paraph */
-  p.par { text-indent: 1.6em; }
+  p.par { text-indent: calc(1.6em * max(1, var(--orn, 1))); }   /* (wider for a larger paraph: ?scale) */
   hr { border: 0; height: 3.2em; margin: .4em 0; }
   hr[data-rank="2"] { height: 4.6em; }
   a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
@@ -137,7 +137,7 @@ import { rubricate } from '../kit/illum.js';
 const q = new URLSearchParams(location.search), sd = location.hash.match(/seed=(\d+)/)?.[1];
 if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');
 if (q.has('ghost')) document.body.classList.add('ghost');
-const r = rubricate(document.querySelector('.text'), { style: 'blackletter', rich: q.get('rich') ?? .5, seed: sd ? +sd : undefined, ink: q.get('ink') ?? 'medium',
+const r = rubricate(document.querySelector('.text'), { style: 'blackletter', rich: q.get('rich') ?? .5, scale: q.get('scale') ?? 1, seed: sd ? +sd : undefined, ink: q.get('ink') ?? 'medium',
   draw: q.has('draw') ? 'read' : 'still', initial: { face: q.get('face') ?? undefined, form: q.get('form') ?? undefined },
   // a line-filler wherever a heading's or a paragraph's last line leaves the gap (this text has no chapters to say so)
   select: { filler: 'h2, .text > p:not(.sub):not(.pull)' },

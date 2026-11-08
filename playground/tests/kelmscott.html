@@ -13,7 +13,7 @@
   small webfonts (playground/fonts/kelmscott/, fetched per letter), and printed again through the ink engine: the black's edge
   spreading into the white a little, as the press left it. ?draw engraves it as you read (each case when its line comes
   15% into view: the block's face laid black, the white cut into it along its stems; never scrolls); ?theme=light|dark;
-  ?rich=0..1; #seed=n; ?lines=n (the drop initial's depth; Morris's own six by default); ?paraph=red|black (the hedera); ?line=drop|inline (the L: two lines deep, or in the line); ?cut=positive|negative (dark: the
+  ?rich=0..1; ?scale=.6..1.6 (the ornament's size); #seed=n; ?lines=n (the drop initial's depth; Morris's own six by default); ?paraph=red|black (the hedera); ?line=drop|inline (the L: two lines deep, or in the line); ?cut=positive|negative (dark: the
   white line printed pale on the page, or the block pale with its cut dark); ?fill=none|knot (a paragraph's short line);
   ?break=knot|knotsil|band|traced|rose|grape|mirror (knot, default: the garden's plait, white in a band of the block's black;
   traced: the Water of the Wondrous Isles' column-vine feet); ?frame=band|grown (figure and code); ?code=rule|band|none;
@@ -34,7 +34,7 @@
   .sub { font-style: italic; margin: 0 0 2.4em; }
   h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
   p { margin: 0; }
-  p.par { text-indent: 1.8em; }
+  p.par { text-indent: calc(1.8em * max(1, var(--orn, 1))); }   /* (wider for a larger paraph: ?scale) */
   hr { border: 0; height: 3.4em; margin: .4em 0; }
   hr[data-rank="2"] { height: 9em; margin: 1em 0 0; }
   a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
@@ -154,7 +154,7 @@ kelmscott.vine = q.get('vine') ?? 'on';   // none: quotation and aside plain, th
 // ?line=drop (default): the initial in the line set as the Chaucer sets its small initials, two lines deep; ?line=inline:
 // in the line, as the markup has it
 if (q.get('line') !== 'inline') document.querySelectorAll('.ini.line').forEach(s => { s.classList.replace('line', 'drop'); s.dataset.lines = 2; });
-const r = rubricate(document.querySelector('.text'), { style: 'kelmscott', rich: q.get('rich') ?? .5, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
+const r = rubricate(document.querySelector('.text'), { style: 'kelmscott', rich: q.get('rich') ?? .5, scale: q.get('scale') ?? 1, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
   // a line-filler wherever a heading's or a paragraph's last line leaves the gap (this text has no chapters to say so)
   select: { filler: 'h2, .text > p:not(.sub):not(.pull)' },
   on: (state, t) => { document.getElementById('seed').textContent = r.state.seed;

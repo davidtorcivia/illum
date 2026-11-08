@@ -12,7 +12,7 @@
   in a brown-black, then written into in red: the signs as the period cut them (traced from the Clavis volvelle and
   Lilly's ephemeris), the capitals and lettering in IM FELL Double Pica, laid by the engine (kit/inkletter.js).
   Drawn by the one library: rubricate(text, { style: 'astrology' }) (kit/illum.js).
-  ?draw writes it as you read (each case when its line comes 15% into view; never scrolls); ?theme=light|dark; ?rich=0..1;
+  ?draw writes it as you read (each case when its line comes 15% into view; never scrolls); ?theme=light|dark; ?rich=0..1; ?scale=.6..1.6 (the ornament's size);
   #seed=n; ?set=square|volvelle (the drop initial: the square figure of heaven, or the round volvelle; data-set on the
   initial does the same); ?lines=n (the drop's depth, data-lines; the style's own is 6); ?title= (the line under the
   capital, 'Anno Dom: 1853'; data-title likewise); ?figure=octagon|houses (the figure's frame: Apian's checkered octagon,
@@ -33,7 +33,7 @@
   .sub { font-style: italic; margin: 0 0 2.4em; }
   h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
   p { margin: 0; }
-  p.par { text-indent: 1.8em; }
+  p.par { text-indent: calc(1.8em * max(1, var(--orn, 1))); }   /* (wider for a larger paraph: ?scale) */
   hr { border: 0; height: 3.4em; margin: .4em 0; }
   hr[data-rank="2"] { height: 9em; margin: 1em 0 0; }
   a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
@@ -138,7 +138,7 @@ document.documentElement.dataset.theme = q.get('theme') === 'dark' || (!q.get('t
 if (q.has('ghost')) document.body.classList.add('ghost');
 // ?lines=n: the drop n lines deep (data-lines; else the figure's own 6)
 if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.dataset.lines = Math.max(2, Math.min(9, +q.get('lines') || 4)));
-const r = rubricate(document.querySelector('.text'), { style: 'astrology', rich: q.get('rich') ?? .5, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
+const r = rubricate(document.querySelector('.text'), { style: 'astrology', rich: q.get('rich') ?? .5, scale: q.get('scale') ?? 1, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
   initial: { set: q.get('set') ?? undefined, title: q.get('title') ?? 'Anno Dom: 1853' }, frame: { form: q.get('figure') ?? undefined },
   // a line-filler wherever a heading's or a paragraph's last line leaves the gap (this text has no chapters to say so)
   select: { filler: 'h2, .text > p:not(.sub):not(.pull)' },

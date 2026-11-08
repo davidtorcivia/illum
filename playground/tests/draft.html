@@ -11,7 +11,7 @@
   lettering (Hershey Roman Simplex, written stroke by stroke by the ink engine, kit/writer.js), construction in non-repro
   blue; dark is the reverse print. Drawn by the one library: rubricate(text, { style: 'draft' }) (kit/illum.js).
   ?draw writes it as you read (each case when its line comes 15% into view, the blue construction first, then the ink;
-  never scrolls); ?theme=light|dark; ?rich=0..1; #seed=n; ?set=part|views|leroy (the drop initial: the part in section,
+  never scrolls); ?theme=light|dark; ?rich=0..1; ?scale=.6..1.6 (the ornament's size); #seed=n; ?set=part|views|leroy (the drop initial: the part in section,
   the default; a detail in two views; Leroy lettering on its guidelines); ?lines=n; ?audit.
 -->
 <style>
@@ -27,7 +27,7 @@
   .sub { font-style: italic; margin: 0 0 2.4em; }
   h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
   p { margin: 0; }
-  p.par { text-indent: 1.8em; }
+  p.par { text-indent: calc(1.8em * max(1, var(--orn, 1))); }   /* (wider for a larger paraph: ?scale) */
   hr { border: 0; height: 4.2em; margin: .4em 0; }
   hr[data-rank="2"] { height: 7.4em; margin: 1.4em 0 0; }
   a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
@@ -133,7 +133,7 @@ document.documentElement.dataset.theme = q.get('theme') === 'dark' || (!q.get('t
 if (q.has('ghost')) document.body.classList.add('ghost');
 // ?lines=n: the drop n lines deep (data-lines; else the style's own 5)
 if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.dataset.lines = Math.max(2, Math.min(9, +q.get('lines') || 4)));
-const r = rubricate(document.querySelector('.text'), { style: 'draft', rich: q.get('rich') ?? .5, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
+const r = rubricate(document.querySelector('.text'), { style: 'draft', rich: q.get('rich') ?? .5, scale: q.get('scale') ?? 1, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
   initial: { set: q.get('set') ?? undefined },
   // a line-filler wherever a paragraph's last line leaves the gap (this text has no chapters to say so)
   select: { filler: '.text > p:not(.sub):not(.pull)' },

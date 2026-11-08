@@ -975,7 +975,7 @@ export function vine2(kind, w, h, seed = 1, o = {}) {
       for (let i = 0; i <= N; i++) { const x = .15 + (x1 - .15) * i / N; pts.push([x, c0 + Math.sin(x / 2.1 * Math.PI + ph) * .07]); }
       const P = K.stem(pts, .075, .038, seed); let x = .7 + r() * .4, sd = r() < .5 ? 1 : -1;
       while (x < x1 - .6) { const i = Math.round((x - .15) / (x1 - .15) * N), p = P[i], ta = v2tang(P, i), t = x / aw;
-        if (r() < .14) { const a = ta + sd * .8, b = [p[0] + Math.cos(a) * .22, p[1] + Math.sin(a) * .22]; K.stalk(p, [p[0] + Math.cos(ta) * .12, p[1] + Math.sin(ta) * .12], b, .04, .03); K.tulip(b, a + sd * .2, .62 * (1 - t * .3)); }
+        if (r() < (o.buds ?? .14)) { const a = ta + sd * .8, b = [p[0] + Math.cos(a) * .22, p[1] + Math.sin(a) * .22]; K.stalk(p, [p[0] + Math.cos(ta) * .12, p[1] + Math.sin(ta) * .12], b, .04, .03); K.tulip(b, a + sd * .2, .62 * (1 - t * .3)); }
         else K.leaf(p, ta + sd * (.5 + r() * .15), (1.05 - .3 * t) * (.9 + r() * .2), -sd * .3);
         sd = -sd; x += 1.5 + r() * .7; }
       K.curl(P.at(-1), v2tang(P, P.length - 1), 1.25, -1, .045, 1.5); K.leaf(P[0], Math.PI + .5, .5, .2); }

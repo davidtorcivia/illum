@@ -14,7 +14,7 @@
 .sheet .sub { font-style: italic; margin: 0 0 2.4em; }
 .sheet h2 { font: 500 1em/1.6 "EB Garamond", serif; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
 .sheet p { margin: 0; }
-.sheet p.par { text-indent: 1.8em; }
+.sheet p.par { text-indent: calc(1.8em * max(1, var(--orn, 1))); }   /* (wider for a larger paraph: rubricate sets --orn, the ornament scale) */
 .sheet hr { border: 0; height: 3.4em; margin: .4em 0; }
 .sheet hr[data-rank="2"] { height: 9em; margin: 1em 0 0; }
 .sheet a { text-decoration-color: currentColor; text-decoration-thickness: .5px; text-underline-offset: .18em; }
@@ -40,7 +40,7 @@
 .sheet[data-style="blackletter"] { --rubric: rgb(170 44 28); }
 :root[data-theme="dark"] .sheet[data-style="blackletter"] { --rubric: rgb(232 110 86); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sheet[data-style="blackletter"] { --rubric: rgb(232 110 86); } }
-[data-style="blackletter"] p.par { text-indent: 1.6em; }
+[data-style="blackletter"] p.par { text-indent: calc(1.6em * max(1, var(--orn, 1))); }
 [data-style="blackletter"] hr { height: 3.2em; }
 [data-style="blackletter"] hr[data-rank="2"] { height: 4.6em; margin: .4em 0; }
 [data-style="blackletter"] blockquote { margin: 1.4em 0; padding: 0 0 0 2.4em; }

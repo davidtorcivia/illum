@@ -10,7 +10,7 @@
   print of the Tarot de Marseille: its woodcut line written by the ink engine (kit/writer.js), its stencil colours poured
   into the same medium (kit/inkletter.js) a little off the line, its lettering IM FELL laid by the engine. ?draw writes
   it as you read (each case when its line comes 15% into view: the line written first, then each colour laid in beneath
-  it by a brush sweeping across the stencil); ?theme=dark; ?rich=0..1; #seed=n; ?set=solid|contour (the drop initial:
+  it by a brush sweeping across the stencil); ?theme=dark; ?rich=0..1; ?scale=.6..1.6 (the ornament's size); #seed=n; ?set=solid|contour (the drop initial:
   the letter printed black, or cut as a contour with its body stencilled red); ?line=solid|contour (the initial in the
   line); ?title= (the drop card's foot band; data-title on the initial does the same); ?audit (with ?draw: window.__audit()
   lists how each case was made, in order).
@@ -29,7 +29,7 @@
   .sub { font-style: italic; margin: 0 0 2.4em; }
   h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
   p { margin: 0; }
-  p.par { text-indent: 1.8em; }
+  p.par { text-indent: calc(1.8em * max(1, var(--orn, 1))); }   /* (wider for a larger paraph: ?scale) */
   hr { border: 0; height: 3.4em; margin: .4em 0; }
   hr[data-rank="2"] { height: 9em; margin: 1em 0 0; }
   a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
@@ -132,7 +132,7 @@ import { rubricate } from '../kit/illum.js';
 const q = new URLSearchParams(location.search), sd = location.hash.match(/seed=(\d+)/)?.[1];
 document.documentElement.dataset.theme = q.get('theme') === 'dark' || (!q.get('theme') && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 if (q.has('ghost')) document.body.classList.add('ghost');
-const r = rubricate(document.querySelector('.text'), { style: 'tarot', rich: q.get('rich') ?? .5, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
+const r = rubricate(document.querySelector('.text'), { style: 'tarot', rich: q.get('rich') ?? .5, scale: q.get('scale') ?? 1, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
   initial: { set: q.get('set') ?? undefined, line: q.get('line') ?? undefined, title: q.get('title') ?? undefined },
   // a line-filler wherever a heading's or a paragraph's last line leaves the gap (this text has no chapters to say so)
   select: { filler: 'h2, .text > p:not(.sub):not(.pull)' },

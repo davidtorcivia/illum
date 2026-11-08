@@ -12,7 +12,7 @@
   (kit/writer.js) in a brown-black, a red and a verdigris; then written into: the band's names and the capitals in IM FELL
   Double Pica, the planetary signs in the scribe's own forms (traced from Wellcome MS 4670), laid by the engine
   (kit/inkletter.js). ?draw writes it as you read (each case when its line comes 15% into view: the compass and ruler
-  first, then the red, then the lettering, round the band as a hand goes); ?theme=dark; ?rich=0..1; #seed=n;
+  first, then the red, then the lettering, round the band as a hand goes); ?theme=dark; ?rich=0..1; ?scale=.6..1.6 (the ornament's size); #seed=n;
   ?set=ring|band (the drop initial's band: laid solid in the ink with its capitals cut out of it, the default; or the
   capitals written in red between black circles; data-set on the initial does the same); ?title= (the band's words;
   data-title likewise); ?audit (with ?draw: window.__audit() lists how each case was made, in order).
@@ -31,7 +31,7 @@
   .sub { font-style: italic; margin: 0 0 2.4em; }
   h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; color: var(--rubric); margin: 2.4em 0 .6em; }
   p { margin: 0; }
-  p.par { text-indent: 1.8em; }
+  p.par { text-indent: calc(1.8em * max(1, var(--orn, 1))); }   /* (wider for a larger paraph: ?scale) */
   hr { border: 0; height: 3.4em; margin: .4em 0; }
   hr[data-rank="2"] { height: 9em; margin: 1em 0 0; }
   a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
@@ -134,7 +134,7 @@ import { rubricate } from '../kit/illum.js';
 const q = new URLSearchParams(location.search), sd = location.hash.match(/seed=(\d+)/)?.[1];
 document.documentElement.dataset.theme = q.get('theme') === 'dark' || (!q.get('theme') && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 if (q.has('ghost')) document.body.classList.add('ghost');
-const r = rubricate(document.querySelector('.text'), { style: 'occult', rich: q.get('rich') ?? .5, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
+const r = rubricate(document.querySelector('.text'), { style: 'occult', rich: q.get('rich') ?? .5, scale: q.get('scale') ?? 1, seed: sd ? +sd : undefined, draw: q.has('draw') ? 'read' : 'still',
   initial: { set: q.get('set') ?? undefined, title: q.get('title') ?? undefined },
   // a line-filler wherever a heading's or a paragraph's last line leaves the gap (this text has no chapters to say so)
   select: { filler: 'h2, .text > p:not(.sub):not(.pull)' },

@@ -8,7 +8,8 @@
 //
 //   root    the text (an article); host: the positioned box the ink layers go in (default root.offsetParent)
 //   style   a key of STYLES; data-style on root or any element inside overrides, as do data-rich and data-scale
-//   rich    0..1, what the rubricator was paid to do; scale .5..2, the ornament's size independent of the text's
+//   rich    0..1, what the rubricator was paid to do; scale .5..2, the ornament's size independent of the text's (a
+//           written style's .6..1.6: its hand larger or smaller, size and weight together; a drop keeps its depth)
 //   theme   'auto' (data-theme on <html>, else the reader's system) | 'light' | 'dark'. The host owns --paper, --ink and
 //           --rubric; the ornament reads --paper and colours only its own marks. It sets --orn on root (the scale), for
 //           a host that wants its paragraph indent to widen with a larger paraph
@@ -62,7 +63,8 @@ let createWriter, supported = () => false, inkLetter, letterWriter, settle = () 
 // laid after the lines, not under them. Its `steady` kinds are never hurried as you read (Occult's drop initial); its
 // `inks` (an order of its colours) lay a still's lines ink by ink down the whole of what is drawn, as a copyist struck
 // every figure in black before taking up the red.
-// A drop initial is as deep as its host's data-lines, else its style's initial.lines (Astrology's figure: 6), else 3. A
+// A drop initial is as deep as its host's data-lines, else (on a narrow measure, under 28 ems) its style's initial.phone,
+// else its style's initial.lines (Astrology's figure: 6), else 3. A
 // written style's frame is given its element's data-* (a figure's data-form) and rubricate's `frame` options before its
 // measure. A print is told whether the case is written as you watch (animate): a still may lay small lettering of one ink
 // as one pour per cluster (Astrology's), written each is its own.
@@ -111,7 +113,9 @@ export function setInitials(root, { style, rich = .5, select = SELECT, initial: 
   const M = metric(), styleOf = s => STYLES[s.closest('[data-style]')?.dataset.style] ?? STYLES[style];
   for (const s of root.querySelectorAll(select.drop)) {
     const p = s.closest('p') ?? s.parentElement, cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), S = styleOf(s);
-    const bodyCap = fs * M.cap, base = (lh - (M.asc + M.desc) * fs) / 2 + M.asc * fs, n = +s.dataset.lines || S.initial?.lines || 3, F = ((n - 1) * lh + bodyCap) / M.cap, top = (n - 1) * lh + base - F * ((1 - M.asc - M.desc) / 2 + M.asc);
+    // (on a narrow measure, under 28 ems, the style's own narrow depth: a deep drop there leaves the words beside it a column of two or three)
+    const narrow = S.initial?.phone && root.clientWidth < fs * 28 && S.initial.phone, n = +s.dataset.lines || narrow || S.initial?.lines || 3;
+    const bodyCap = fs * M.cap, base = (lh - (M.asc + M.desc) * fs) / 2 + M.asc * fs, F = ((n - 1) * lh + bodyCap) / M.cap, top = (n - 1) * lh + base - F * ((1 - M.asc - M.desc) / 2 + M.asc);
     const lv = levelOf(s.closest('[data-rich]')?.dataset.rich ?? rich);
     if (S.initial?.width) { Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', display: 'block', width: (S.initial.width(s.textContent, io) * (F * M.cap)) + 'px',
       marginRight: Math.round(lh * (S.initial.margin ?? .38) + (S.initial.wider?.[lv] ?? 0)) + 'px', marginLeft: '0' }); continue; }
@@ -208,6 +212,10 @@ function walk(root, sheet, c) {
   const at = (el, name, def) => { const h = el.closest(`[data-${name}]`); return h && h !== root && root.contains(h) ? h.dataset[name] : def; };
   const styleAt = el => STYLES[at(el, 'style', c.style)] ? at(el, 'style', c.style) : c.style, richAt = el => Math.max(0, Math.min(1, +at(el, 'rich', c.rich) || 0)),
     scaleAt = el => Math.max(.5, Math.min(2, +at(el, 'scale', c.scale) || 1));
+  // a written style's ornament scale: its hand (u, the x-height its marks are drawn to) made larger or smaller, so each
+  // mark's size and weight go together, within .6..1.6 (a frame grows out into the margins, a paraph past its indent);
+  // a drop initial keeps the depth its host gave it
+  const uAt = el => u * Math.max(.6, Math.min(1.6, scaleAt(el)));
   const fs = parseFloat(getComputedStyle(root).fontSize), u = fs * metric().x, g = u * .3, dropped = {};
   const W8 = el => isWritten(STYLES[styleAt(el)]), m8 = rel(root, o), top = el => el.getBoundingClientRect().top - o.top;
   // the chapter an element is in: its section's number among the chapters, else the chapter headings (h2) before it
@@ -224,7 +232,7 @@ function walk(root, sheet, c) {
     // (initial.fills: the ornament is the float itself, a card, so its box is the float as laid, not the capital's width)
     if (S.initial?.width) { const box = capBox(span, o, (big ? S.initial.width : S.initial.line ?? S.initial.width)(span.textContent, c.initial)), seed = s(k);
       if (S.initial.fills) box[2] = box[0] + parseFloat(span.style.width);
-      return later(span, big ? 'drop' : 'initial', top(span), () => { const ini = S.initial({ ch: span.textContent, G: { box }, keep, big, level: levelOf(rk), rich: rk, seed, room: box[0] - 10, bottom: o.height - 30, res: c.dpr, u, ...c.initial, ...span.dataset });
+      return later(span, big ? 'drop' : 'initial', top(span), () => { const ini = S.initial({ ch: span.textContent, G: { box }, keep, big, level: levelOf(rk), rich: rk, seed, room: box[0] - 10, bottom: o.height - 30, res: c.dpr, u: uAt(span), scale: uAt(span) / u, ...c.initial, ...span.dataset });
         return { ...ini, letter: ini.letter?.M ? ini.letter : null }; }); }
     const G = glyphOf(span, o, 4), lh = parseFloat(getComputedStyle(span.closest('p') ?? root).lineHeight);
     const args = { G, keep, lh, u, big, level: levelOf(rk), rich: rk, seed: s(k), room: Math.max(0, G.box[0] - 14), bottom: o.height - 30 };
@@ -245,16 +253,16 @@ function walk(root, sheet, c) {
   // larger, it grows only as far as it stays off the words
   // (args: the frame's measure, w: for a written style, which sets its contents' rule further out and reads its lines exactly)
   const frame = (el, kind, args) => { const key = styleAt(el), f = STYLES[key].frames?.[kind], S = scaleAt(el); if (!f) return;
-    if (W8(el)) { const a = { ...c.frame, ...el.dataset, ...args(u, g, richAt(el), true) }; return later(el, kind, top(el), () => ({ marks: f(a) })); }
+    if (W8(el)) { const a = { ...c.frame, ...el.dataset, ...args(uAt(el), g * uAt(el) / u, richAt(el), true) }; return later(el, kind, top(el), () => ({ marks: f(a) })); }
     let k = Math.max(1, S), m; while (m = thick(f(args(u * k, g * k, richAt(el))), S), k > 1 && m.some(hits)) k = Math.max(1, k - .25);
     out.push({ el, kind, style: key, y: el.getBoundingClientRect().top - o.top, marks: m }); };
   root.querySelectorAll(sel.nav).forEach((nav, k) => { const list = nav.querySelector('ol, ul') ?? nav, nb = rel(list, o), side = nb[0] > 46;
     frame(nav, 'nav', (u, g, rich, w) => ({ box: nb, entries: [...nav.querySelectorAll('li')].map(li => linesOf(li, o, w)[0]), x: nb[0] - u * (w ? 3.2 : 2.2), u, g, seed: s(1 + k), rich, side })); });
-  // (and for a written style: the quotation's box, its footer's top and the page's edges, the figure's caption's foot
+  // (and for a written style: the quotation's box, its footer's top, the page's edges and its chapter's number, the figure's caption's foot
   // and its box (caption), the page's edges and the room its margins leave it [top, bottom], the chapter's number (a pull
   // quote's too), an aside's and code's lines)
   root.querySelectorAll(sel.quote).forEach((bq, k) => { const b = rel(bq, o), ft = bq.querySelector('footer');
-    frame(bq, 'quote', (u, g, rich, w) => ({ x: b[0] + u * .9, lines: linesOf(bq, o, w), u, g, seed: s(10 + k), rich, ...w && { box: b, foot: ft && rel(ft, o)[1], limit: [0, o.width] } })); });
+    frame(bq, 'quote', (u, g, rich, w) => ({ x: b[0] + u * .9, lines: linesOf(bq, o, w), u, g, seed: s(10 + k), rich, ...w && { box: b, foot: ft && rel(ft, o)[1], limit: [0, o.width], n: chapterOf(bq) || 1 } })); });
   root.querySelectorAll(sel.figure).forEach((fg, k) => frame(fg, 'figure', (u, g, rich, w) => { const cap = fg.querySelector('figcaption');
     const fr = rel(fg, o), cs = getComputedStyle(fg);
     return { box: rel(fg.querySelector('svg, img, canvas') ?? fg, o), u, g, seed: s(20 + k), rich, ...w && { cap: cap && rel(cap, o)[3], caption: cap && rel(cap, o), n: chapterOf(fg) || 1, limit: [0, o.width], room: [fr[1] - parseFloat(cs.marginTop), fr[3] + parseFloat(cs.marginBottom)] } }; }));
@@ -272,7 +280,7 @@ function walk(root, sheet, c) {
   const fillAfter = (el, col, seed) => {
     // a written style's: in the free end of the last line, out to the measure, when the gap is worth closing (a heading's
     // run out with a rule; a paragraph's only when a third of the measure is left, the kinds in turn)
-    if (W8(el)) { const key = styleAt(el), S = G(key), L = linesOf(el, o, true).at(-1), at = { gap: .8, head: 3, rise: 1, ...S.fillAt }; if (!L) return;
+    if (W8(el)) { const key = styleAt(el), S = G(key), L = linesOf(el, o, true).at(-1), at = { gap: .8, head: 3, rise: 1, ...S.fillAt }, u = uAt(el); if (!L) return;
       const head = /^H\d$/.test(el.tagName), x0 = L.right + u * at.gap, x1 = m8[2]; if (x1 - x0 < (head ? u * at.head : (m8[2] - m8[0]) * .3)) return;
       const kinds = S.kinds(V(key), richAt(el)), kind = head ? 'rule' : kinds[nFillW++ % kinds.length];
       return later(el, 'filler', top(el) + 1, () => ({ marks: S.filler(x0, x1, L.base - u * at.rise, L.base, kind, seed, richAt(el), chapterOf(el)) })); }
@@ -294,12 +302,12 @@ function walk(root, sheet, c) {
   // index: the part's real number (a card's numeral)
   // (a written style's: made when its turn comes, told the room the page leaves it, [top, bottom], and kept inside it)
   const brk = (el, cx, y, measure, rank, seed, index, room) => { const key = styleAt(el), S = G(key), SCALE = scaleAt(el), uw = fs * metricOf(FONT(400, 20)).x / 20;
-    if (W8(el)) return () => fitIn(asMade(S.breakMark(cx, y, measure, rank, seed, richAt(el), u, index ?? 1, room)), room);
+    if (W8(el)) return () => fitIn(asMade(S.breakMark(cx, y, measure, rank, seed, richAt(el), uAt(el), index ?? 1, room)), room);
     const L = S.breakMark(cx, y, measure / SCALE, rank, seed, richAt(el), uw, index ? { ...V(key), index } : V(key)); return scaled(L, S.flush ? cx - measure / 2 : cx, y, SCALE, S.flush ? cx - measure / (2 * SCALE) : cx); };
   const head = el => el.querySelector(':scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6');
   const paraph = (p, k, seed) => {
     // a written style's: centred in the indent the scribe left, on the first line's baseline
-    if (W8(p)) { const L = linesOf(p, o, true)[0], ind = parseFloat(getComputedStyle(p).textIndent), w = u * 1.65; if (!L) return;
+    if (W8(p)) { const L = linesOf(p, o, true)[0], ind = parseFloat(getComputedStyle(p).textIndent), u = uAt(p), w = u * 1.65; if (!L) return;
       return later(p, 'paraph', top(p), () => ({ marks: G(styleAt(p)).paraph(L.left - ind + (ind - w) / 2, L.base, u, seed, richAt(p), chapterOf(p), k) })); }
     const key = styleAt(p), cs = getComputedStyle(p), fs = parseFloat(cs.fontSize), mt = metricOf(FONT(400, fs)), L = boxes(p, o, sel); if (!L.length) return;
     const pr = p.getBoundingClientRect(), x = pr.left - o.left + fs * .32, base = L[0].t + mt.asc;

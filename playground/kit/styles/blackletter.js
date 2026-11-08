@@ -801,8 +801,10 @@ function boxBlur2(A, B, w, h, r) {
 }
 
 // the initial: the typeface's capital with the rubricator's ornament (form 'face', the default), or the procedural cadel
-// of strapwork bundles (form 'cadel')
-function initial(o) { return (o.form ?? FORM) === 'cadel' ? cadel(o) : typeInitial(o); }
+// of strapwork bundles (form 'cadel'). Its depth is the host's; the ornament scale (kit/illum.js) weights its pen: the
+// rubricator's strokes heavier or lighter round a letter of the same size
+function initial(o) { const m = (o.form ?? FORM) === 'cadel' ? cadel(o) : typeInitial(o), k = o.scale ?? 1;
+  return k === 1 || !m.marks ? m : { ...m, marks: m.marks.flat(3).map(s => ({ ...s, w: s.w * k })) }; }
 initial.wider = [0, 0, 0, 2, 4];
 initial.width = (ch, face = FACE, form = FORM) => { if (face && typeof face === 'object') ({ face = FACE, form = FORM } = face);   // (ch, { face, form }) as kit/illum.js asks
   return form === 'cadel' ? cadel.width(ch) : faceWidth(String(ch).normalize('NFD')[0].toUpperCase(), face); };

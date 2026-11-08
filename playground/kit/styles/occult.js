@@ -325,6 +325,9 @@ function sigil(cells, x0, y0, s, W, col = 'k', seed = 0) {
 // each entry its planet, so the paraphs are wayfinding)
 function paraph(x, base, u, seed, rich = .5, k = null) {
   const name = PLANETS[k ?? (rng(seed, 'planet')() * 7 | 0)], h = u * 1.9, w = signWidth(name) * h;
+  // (lavish: the sign smaller in a ring struck round it, the chapter's seal in little, as the hours' tables ring a day's planet)
+  if (rich >= 1) { const c = [x + u * .85, base + u * .12 - h / 2], hs = h * .74, ws = signWidth(name) * hs;
+    return join({ marks: [circle(c, h * .64, Math.max(1.2, LW(u) * .7), { seed: seed + 1 })] }, sign(name, c[0] - ws / 2, c[1] + hs / 2, hs, 'r', seed)); }
   return sign(name, x + u * .85 - w / 2, base + u * .12, h, 'r', seed);
 }
 
@@ -339,7 +342,8 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5, k = 0) {
   if (kind === 'band') {   // two rules and the names written between them
     const size = h * .82, y0 = yBase - size - h * .42, y1 = yBase + h * .42, start = (k + (r() * 7 | 0)) % 7, names = [];
     let t = ''; for (let i = 0; i < 14; i++) { const n = LATIN[CHALDEAN[(start + i) % 7]], next = t ? t + ' · ' + n : n; if (textWidth(next, size, 'roman') > L - size * 2) break; t = next; }
-    return { marks: [rule([x0, y0], [x1, y0], W, { seed }), rule([x0, y1], [x1, y1], W, { seed: seed + 1 })],
+    // (fine: the band closed at each end by a short rule, as the hours' tables close their rows)
+    return { marks: [rule([x0, y0], [x1, y0], W, { seed }), rule([x0, y1], [x1, y1], W, { seed: seed + 1 }), ...(rich >= .75 ? [rule([x0, y0], [x0, y1], W, { seed: seed + 2 }), rule([x1, y0], [x1, y1], W, { seed: seed + 3 })] : [])],
       letters: t ? [{ text: t, x: (x0 + x1) / 2, base: yBase, size, col: 'r' }] : [] };
   }
   if (kind === 'sigil') {   // sigils on the kamea, standing between two points on the line
@@ -404,7 +408,9 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, room = n
   if (rank < 2) {   // the chapter's seal on its band: two rules each side, lettered CAPVT and the chapter's number
     const R = u * 2.3, name = PLANETS[n % 7], half = Math.min(measure * .46, u * 24), bh = u * 2.3, size = u * 1.1, els = [seal([cx, y], R, name, W, seed)];
     for (const s of [-1, 1]) { const a = cx + s * (R + u * .7), b = cx + s * half;
-      els.push({ marks: [handRule([a, y - bh / 2], [b, y - bh / 2], W, { seed: seed + 3 + s }), handRule([a, y + bh / 2], [b, y + bh / 2], W, { seed: seed + 5 + s })] }); }
+      els.push({ marks: [handRule([a, y - bh / 2], [b, y - bh / 2], W, { seed: seed + 3 + s }), handRule([a, y + bh / 2], [b, y + bh / 2], W, { seed: seed + 5 + s })] });
+      // (fine: the band closed at its ends and a crosslet beyond each, as f. 54 parts its names)
+      if (rich >= .75) els.push({ marks: [handRule([b, y - bh / 2 - W], [b, y + bh / 2 + W], W, { seed: seed + 7 + s }), ...crosslet([b + s * u * 1.3, y], u * 1.3, W, 'r', seed + 9 + s)] }); }
     if (rich >= .25) { const left = 'CAPVT', right = ORD[n] ?? roman(n);
       els.push({ marks: [], letters: [{ text: left, x: cx - (R + u * .7 + half) / 2, base: y + size / 2, size, col: 'r' }, { text: right, x: cx + (R + u * .7 + half) / 2, base: y + size / 2, size, col: 'r' }] }); }
     return join(...els);
@@ -416,7 +422,9 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1, room = n
   const h = Math.min(u * 13.5, motto ? free - band : free), top = y - (h + (motto ? u * 3.2 : 0)) / 2, els = [monas(cx, top, h, W, seed)];
   if (motto) { const txt = 'QVI NON INTELLIGIT AVT TACEAT AVT DISCAT', size = Math.min(u * 1, measure * .9 / textWidth(txt, 1)), w = textWidth(txt, size) / 2 + u * 1.2, yb = top + h + u * 2.6;
     els.push({ marks: [handRule([cx - w, yb - size - u * .65], [cx + w, yb - size - u * .65], W, { seed: seed + 30 }), handRule([cx + w, yb + u * .65], [cx - w, yb + u * .65], W, { seed: seed + 31 })],
-      letters: [{ text: txt, x: cx, base: yb, size, col: 'r' }] }); }
+      letters: [{ text: txt, x: cx, base: yb, size, col: 'r' }] });
+    // (lavish: a crosslet either side of the motto)
+    if (rich >= 1) for (const s of [-1, 1]) els.push({ marks: crosslet([cx + s * (w + u * 1.3), yb - size / 2], u * 1.2, W, 'r', seed + 40 + s) }); }
   return join(...els);
 }
 
@@ -453,6 +461,9 @@ function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, set = 'ring', t
   for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2 - Math.PI / 2, n = [-Math.sin(a), Math.cos(a)];
     if (rich >= .5) for (const sd of [-1, 1]) els.push({ marks: crosslet(add(polar(c, Rg * .72, a), n, sd * cs * .95), cs, Math.max(1.2, W * .85), 'r', seed + 10 + q * 2 + sd) });
     else els.push({ marks: crosslet(polar(c, Rg * .72, a + Math.PI / 4), cs, Math.max(1.2, W * .85), 'r', seed + 10 + q) }); }
+  // (lavish: a crosslet in each corner of the square, outside the ring)
+  if (rich >= 1) for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2 - Math.PI * .75, d = (R + (S / 2 * Math.SQRT2 - gap * 2.5 - R) / 2);
+    els.push({ marks: crosslet(polar(c, d, a), S * .075, Math.max(1.2, W * .85), 'r', seed + 30 + q) }); }
   els.push({ marks: [], letters: [{ text: ch, x: c[0], base: c[1] + cap / 2, size: cap, col: 'r' }] });
   return { ...join(...els), width: S };
 }
@@ -466,8 +477,11 @@ initial.line = ch => textWidth(String(ch).normalize('NFD')[0].toUpperCase(), 1);
 const clear = (B, lines, d) => !lines?.length ? B : [Math.min(B[0], Math.min(...lines.map(l => l.left)) - d), B[1], Math.max(B[2], Math.max(...lines.map(l => l.right)) + d), B[3]];
 const frames = {
   // a quotation: the red double rule round it
-  quote: ({ box, u, seed, rich = .5, lines }) => { const W = LW(u), B = clear([box[0], box[1] - u * 1.4, box[2], box[3] + u * 1.2], lines, u * 1.05 + W);
-    return { marks: doubleRule(B, u * .45, W, u * .9, { col: 'r', seed }) }; },
+  // (fine: the chapter's seal breaking its head, the rules stopped short of it)
+  quote: ({ box, u, seed, rich = .5, lines, n = 1 }) => { const W = LW(u), B = clear([box[0], box[1] - u * 1.4, box[2], box[3] + u * 1.2], lines, u * 1.05 + W);
+    if (rich < .75) return { marks: doubleRule(B, u * .45, W, u * .9, { col: 'r', seed }) };
+    const c = [(B[0] + B[2]) / 2, B[1] + u * .22], R = u * 1.7;
+    return join({ marks: doubleRule(B, u * .45, W, u * .9, { col: 'r', seed }, [{ c, r: R + u * .45 }]) }, seal(c, R, PLANETS[n % 7], W, seed + 12)); },
   // a figure: the double rule round it, and in its corners the four seals of the planets that rule the chapter's first hours
   figure: ({ box, cap, u, seed, rich = .5, n = 1, limit = null }) => { const W = LW(u), R = u * 1.6, g = u * .45, B = [box[0] - u * 2, box[1] - u * 2, box[2] + u * 2, (cap ?? box[3]) + u * 1.6];
     if (limit) { B[0] = Math.max(B[0], limit[0] + R + 2); B[2] = Math.min(B[2], limit[1] - R - 2); }   // (limit: the page's edges, which a corner seal may not cross)
@@ -502,17 +516,21 @@ const frames = {
   // an aside: the red double rule round the note, NOTA lettered in a cartouche that breaks its head, a seal at its foot
   aside: ({ box, u, seed, rich = .5, n = 1, title = 'NOTA', lines }) => { const W = LW(u), B = clear(box, lines, u * 1.05 + W), cx = (B[0] + B[2]) / 2, size = u * 1.25, tw = textWidth(title, size) / 2 + u * 1.2;
     const sealC = [cx, B[3] - u * .22], sR = u * 1.7;
-    const els = [{ marks: doubleRule(B, u * .45, W, u * .9, { col: 'r', seed }, [{ box: [cx - tw - u * .45, B[1] - u * 1.65, cx + tw + u * .45, B[1] + u * 2.05] }, ...(rich >= .5 ? [{ c: sealC, r: sR + u * .45 }] : [])]) }];
+    const els = [{ marks: doubleRule(B, u * .45, W, u * .9, { col: 'r', seed }, [{ box: [cx - tw - u * (rich >= 1 ? 3 : .45), B[1] - u * 1.65, cx + tw + u * (rich >= 1 ? 3 : .45), B[1] + u * 2.05] }, ...(rich >= .5 ? [{ c: sealC, r: sR + u * .45 }] : [])]) }];
     // the cartouche: the head's rules broken and a small box round the word
     els.push({ marks: [rule([cx - tw, B[1] - u * 1.2], [cx + tw, B[1] - u * 1.2], W, { seed: seed + 5 }), rule([cx + tw, B[1] - u * 1.2], [cx + tw, B[1] + u * 1.6], W, { seed: seed + 6 }),
       rule([cx + tw, B[1] + u * 1.6], [cx - tw, B[1] + u * 1.6], W, { seed: seed + 7 }), rule([cx - tw, B[1] + u * 1.6], [cx - tw, B[1] - u * 1.2], W, { seed: seed + 8 })],
       letters: [{ text: title, x: cx, base: B[1] + u * .2 + size / 2, size, col: 'r' }] });
     if (rich >= .5) els.push(seal(sealC, sR, PLANETS[n % 7], W, seed + 12));
+    // (lavish: a crosslet either side of the cartouche)
+    if (rich >= 1) for (const s of [-1, 1]) els.push({ marks: crosslet([cx + s * (tw + u * 1.75), B[1] + u * .2], u * 1.2, W, 'r', seed + 20 + s) });
     return join(...els); },
   // the contents: a red double rule down the margin, each entry's planet beside it (its chapter's paraph is that sign)
   nav: ({ box, entries, x, u, seed, rich = .5, side = true }) => { const W = LW(u), els = [];
     if (side) els.push({ marks: [rule([x + u * .8, box[1] - u * 1.6], [x + u * .8, box[3] + u * 1.4], W, { col: 'r', seed }), rule([x + u * 1.3, box[1] - u * 1.6], [x + u * 1.3, box[3] + u * 1.4], W, { col: 'r', seed: seed + 1 })] });
     else els.push({ marks: [rule([box[0] - u * .2, box[1] - u * 1.6], [Math.min(box[2], box[0] + u * 26), box[1] - u * 1.6], W, { col: 'r', seed }), rule([box[0] - u * .2, box[1] - u * 2.1], [Math.min(box[2], box[0] + u * 26), box[1] - u * 2.1], W, { col: 'r', seed: seed + 1 })] });
+    // (lavish: a crosslet at the head and the foot of the double rule)
+    if (side && rich >= 1) for (const [y, k] of [[box[1] - u * 2.9, 0], [box[3] + u * 2.7, 1]]) els.push({ marks: crosslet([x + u * 1.05, y], u * 1.3, W, 'r', seed + 60 + k) });
     entries.forEach((e, k) => { const name = PLANETS[(k + 1) % 7], h = u * 1.7, w = signWidth(name) * h, px = side ? x + u * 2.5 : box[0] - u * 2.2;
       els.push(sign(name, px - w / 2, e.base + u * .1, h, 'r', seed + k)); });
     return join(...els); },

@@ -411,6 +411,11 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1) {
     if (rich >= .25) for (const sd of [-1, 1]) { const px = cx + sd * (half + u * 2.2);
       els.push(SUITS[k] === 'coin' ? coin([px, y], u * 1.3, P, seed + sd) : SUITS[k] === 'cup' ? cup([px, y + u * 1.45], u * 2.9, P, seed + sd)
         : SUITS[k] === 'sword' ? sword([px, y + u * .7], u * 3.1, P, seed + sd, sd * .35, { b: u * .22, g: u * .7 }) : baton(rot([px, y + u * 1.5], [px, y], sd * .45), rot([px, y - u * 1.5], [px, y], sd * .45), u * .5, P, seed + sd)); }
+    // (on a fine page a rule runs out from each suit, as the bands' rules run out from a pull quote's coin; on a lavish
+    // page the coin cards' vine, ending in its flower)
+    if (rich >= .75) for (const sd of [-1, 1]) { const a = cx + sd * (half + u * 4), b = cx + sd * Math.min(measure * .42, half + u * 14);
+      if (Math.abs(b - a) < u * 6) continue;
+      els.push(rich >= 1 ? vineTo([a, y], b, u * 1.05, seed + 30 + sd) : { marks: [cut([[a, y], [b, y]], W, { seed: seed + 30 + sd })], fills: [] }); }
     return join(...els);
   }
   // a book: two batons crossed in a flat saltire, bound where they cross by the woven lozenge, which lies over them: each
@@ -420,9 +425,13 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1) {
     // where the baton's axis meets the lozenge's edge (|dx|/la + |dy|/lb = 1), less a collar's breadth
     const k = 1 / (Math.abs(d[0]) / la + Math.abs(d[1]) / lb), Lk = Math.hypot(cx - e[0], y - e[1]) - k + w * .9;
     els.push(baton(e, add(e, d, Lk), w, LW(u), seed + sx * 3 + sy, { end: false })); }
+  // (on a lavish page the pip cards' flower grows up out of the lozenge, between the batons, c023)
+  if (rich >= 1) els.push(flower([cx, y - lb + u * .2], -Math.PI / 2, u * 4.6, LW(u), seed + 7));
   els.push(weave([cx, y], la, lb, LW(u), seed + 2));
   if (rich >= .25) { const txt = roman(n), size = u * 1.4, half = Math.max(textWidth(txt, size) / 2 + u * 1.6, u * 3), yb = y + b + u * 3.2;
-    els.push({ marks: band(cx - half, cx + half, yb - u * 1.2, yb + u * 1.2, W, seed + 3), fills: [], letters: [{ text: txt, x: cx, base: yb + size / 2, size }] }); }
+    els.push({ marks: band(cx - half, cx + half, yb - u * 1.2, yb + u * 1.2, W, seed + 3), fills: [], letters: [{ text: txt, x: cx, base: yb + size / 2, size }] });
+    // (on a fine page between two drops)
+    if (rich >= .75) els.push(drops(cx, textWidth(txt, size) / 2 + u * .4, yb - u * 1.2, yb + u * 1.2, LW(u), seed + 11)); }
   return join(...els);
 }
 
@@ -443,6 +452,16 @@ function place(name, [bx, by, bh], W, { mirror = false, clip = null, col = null,
   for (const [c, polys] of Object.entries(T.fills)) for (const P of polys) { const Q = P.map(X); fills.push(fill(col ?? c, [Q])); if (name === 'tear') marks.push(cut([...Q, Q[0]], W, { seed: seed + 50 })); }
   return { marks, fills };
 }
+
+// on a fine page (rich .75) a band's numeral (its middle cx, half its lettering's width tw) between two of Le Soleil's
+// drops, red and yellow, falling in the band (y0..y1)
+function drops(cx, tw, y0, y1, W, seed) { const th = (y1 - y0) * .62, tw2 = TRACE.tear.a * th, ty = (y0 + y1) / 2 - th / 2;
+  return join(...[[-1, 'r'], [1, 'y']].map(([sd, c], k) => place('tear', [cx + sd * (tw + th * .55) - (sd < 0 ? tw2 : 0), ty, th], Math.max(1.1, W * .75), { col: c, seed: seed + k, mirror: sd > 0 }))); }
+// on a lavish page (rich 1) the coin cards' vine from a to b (b: where it ends in its flower; the leaves and stem as the
+// filler's), laid either way along a line
+function vineTo(a, b, h, seed) { const L = Math.abs(b - a[0]), v = filler(0, L, -h, 0, 'vine', seed, .5), sd = Math.sign(b - a[0]), y = a[1] + h * .48;
+  const f = ([x, yy]) => [a[0] + sd * x, yy + y], mv = m => ({ ...m, pts: m.pts.map(f) });
+  return { marks: v.marks.flat(3).map(mv), fills: v.fills.map(F => ({ ...F, polys: F.polys.map(P => P.map(f)), lines: F.lines.map(mv) })), letters: [] }; }
 
 // ---- the drop initial -----------------------------------------------------------------------------------------------------------
 // A trump in miniature, as tall as the drop: the card's frame, the numeral band at its head with the book's number, the
@@ -498,14 +517,19 @@ const clear = (B, lines, [l, t, r, b]) => !lines?.length ? B : [Math.min(B[0], M
 const rect = (B, W, seed) => cut([[B[0], B[1]], [B[2], B[1]], [B[2], B[3]], [B[0], B[3]], [B[0], B[1] - W * .3]], W, { seed, wob: .14 });
 const frames = {
   // a quotation: a card round it, its footer (the attribution) in the title band at its foot
-  quote: ({ box, foot, lines, u, seed, rich = .5 }) => { const W = LW(u) * 1.25, B = clear([box[0], box[1] - u * 1.6, box[2], box[3] + u * 1.1], lines, [u * .9, u * 1.2, u * .9, u * 1.5]);
+  // (on a fine page a trump's: the numeral band at its head with the chapter's number between two drops)
+  quote: ({ box, foot, lines, u, seed, rich = .5, n = 1 }) => { const W = LW(u) * 1.25, B = clear([box[0], box[1] - u * 1.6, box[2], box[3] + u * 1.1], lines, [u * .9, u * 1.2, u * .9, u * 1.5]);
     const marks = [rect(B, W, seed)]; if (foot) marks.push(cut([[B[0], foot - u * .9], [B[2], foot - u * .9]], W, { seed: seed + 1 }));
-    return { marks, fills: [] }; },
+    if (rich < .75) return { marks, fills: [] };
+    const hb = u * 2.7, size = u * 1.4, cx = (B[0] + B[2]) / 2, txt = roman(n), T = [B[0], B[1] - hb, B[2], B[1]];
+    marks.push(cut([[T[0], T[1]], [T[2], T[1]], [T[2], T[3]], [T[0], T[3]], [T[0], T[1] - W * .3]], W, { seed: seed + 2, wob: .14 }));
+    return join({ marks, fills: [], letters: [{ text: txt, x: cx, base: T[1] + hb / 2 + size / 2, size }] }, drops(cx, textWidth(txt, size) / 2 + u * .5, T[1], T[3], LW(u), seed + 5)); },
   // a figure: the trump: the frame, the numeral band at its head, the title band (its caption) at its foot
   figure: ({ box, cap, u, seed, rich = .5, n = 1 }) => { const W = LW(u) * 1.3, hb = u * 3, B = [box[0] - u * 1.6, box[1] - u * 1.4 - hb, box[2] + u * 1.6, (cap ?? box[3]) + u * 1.3];
     const marks = [rect(B, W, seed), cut([[B[0], B[1] + hb], [B[2], B[1] + hb]], W, { seed: seed + 1 })];
     if (cap) marks.push(cut([[B[0], box[3] + u * 1.35], [B[2], box[3] + u * 1.35]], W, { seed: seed + 2 }));
-    const size = u * 1.5; return { marks, fills: [], letters: [{ text: roman(n), x: (B[0] + B[2]) / 2, base: B[1] + hb / 2 + size / 2, size }] }; },
+    const size = u * 1.5, el = { marks, fills: [], letters: [{ text: roman(n), x: (B[0] + B[2]) / 2, base: B[1] + hb / 2 + size / 2, size }] };
+    return rich >= .75 ? join(el, drops((B[0] + B[2]) / 2, textWidth(roman(n), size) / 2 + u * .5, B[1], B[1] + hb, LW(u), seed + 5)) : el; },
   // code: the pip card: the frame, its number turned in each side margin, reading up the left and down the right (c023)
   // (the flowers only where the page leaves them room above and below the code; the card grown off the words if need be)
   code: ({ box, lines, u, seed, rich = .5, n = 1 }) => { const W = LW(u) * 1.2, fl = Math.min(u * 4.3, (box[3] - box[1]) * .32), side = rich >= .25 ? u * 2.4 : u * .9;
@@ -519,7 +543,9 @@ const frames = {
   // a pull quote: the bands' rules above and below, a coin on each
   pull: ({ cx, yTop, yBot, measure, u, seed, rich = .5 }) => { const W = LW(u) * 1.15, half = Math.min(measure * .4, u * 18), R = u * 1.7, els = [];
     for (const [y, k] of [[yTop, 0], [yBot, 1]]) {
-      els.push({ marks: [cut([[cx - half, y], [cx - R - u * .5, y]], W, { seed: seed + k * 3 }), cut([[cx + R + u * .5, y], [cx + half, y]], W, { seed: seed + k * 3 + 1 })], fills: [] });
+      // (on a lavish page the coin cards' vine runs out from the coin either way, ending in its flower)
+      if (rich >= 1) els.push(vineTo([cx - R - u * .4, y], cx - half, u * 1.05, seed + 20 + k * 2), vineTo([cx + R + u * .4, y], cx + half, u * 1.05, seed + 21 + k * 2));
+      else els.push({ marks: [cut([[cx - half, y], [cx - R - u * .5, y]], W, { seed: seed + k * 3 }), cut([[cx + R + u * .5, y], [cx + half, y]], W, { seed: seed + k * 3 + 1 })], fills: [] });
       els.push(coin([cx, y], R, LW(u), seed + 10 + k)); }
     return join(...els); },
   // an aside: the card's left edge and its head band, a cup standing in the band
@@ -533,6 +559,7 @@ const frames = {
     // with Le Bateleur's curves, a tuft of his in each corner
     const size = u * 1.4, t = rich >= .25 ? `·${title}·` : title, r = rng(seed, 'aside'), els = [{ marks: [rect(B, W, seed), cut([[B[0], B[1] + hb], [B[2], B[1] + hb]], W, { seed: seed + 1 }), cut([[B[0], B[3] - fb], [B[2], B[3] - fb]], W, { seed: seed + 2 })], fills: [],
       letters: [{ text: roman(n), x: cx, base: B[1] + hb / 2 + size / 2, size }, { text: t, x: cx, base: B[3] - fb / 2 + size * .5, size: size * .92 }] }];
+    if (rich >= .75) els.push(drops(cx, textWidth(roman(n), size) / 2 + u * .5, B[1], B[1] + hb, LW(u), seed + 40));
     if (ground) { const fy1 = B[3] - fb, gh = u * 1.9, gt = fy1 - gh, cw = B[2] - B[0], wave = Array.from({ length: 49 }, (_, k) => { const f = k / 48; return [B[0] + f * cw, gt + Math.sin(f * Math.PI * 5) * u * .1 + (r() - .5) * u * .05]; });
       els.push({ marks: [cut(wave, LW(u) * .9, { seed: seed + 3 })], fills: [fill('y', [[...wave.map(([x, y]) => [Math.min(B[2] - W, Math.max(B[0] + W, x)), y]), [B[2] - W, fy1 - W * .5], [B[0] + W, fy1 - W * .5]]])] });
       // the hatching in three clusters (under each tuft and at the middle), not a repeat
@@ -588,6 +615,7 @@ function timeline(pr, kind, animate) {
 }
 initial.load = () => loadFace();
 initial.margin = .42;   // the gap to the words, in line heights
+initial.phone = 4;     // the card on a narrow measure as on the specimen page: four lines (at three its bands crowd the letter)
 initial.fills = true;   // the card is the float: its box is the float as the page laid it
 
 export const tarot = { label: 'Tarot', minGap: 2, theme: { rubric: 'rgb(160 64 40)', rubricDark: 'rgb(222 120 92)' },

@@ -1,6 +1,6 @@
 // See: one text in any of the styles. The viewer names the current style (it opens the catalogue; ‹ › step through the
 // list), shows still or written, and keeps the rest under Adjust. The catalogue is built from js/catalogue.js.
-import { mount, RICH } from './specimen.js';
+import { mount, RICH, SCALE } from './specimen.js';
 import { CATALOGUE, FAMILIES, byKey } from './catalogue.js';
 
 const $ = id => document.getElementById(id), esc = s => String(s).replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
@@ -23,6 +23,7 @@ function dress(st) {
   $('current-name').textContent = S.name; document.title = `${S.name} · See · illum`;
   $('credit').innerHTML = `${S.credit} <a href="sources.html#${S.key}">Sources</a>`;
   $('rich').innerHTML = '<legend>Richness</legend>' + seg('rich', RICH.slice(0, S.rich + 1).map((t, i) => [String(i), t]), String(Math.min(S.rich, Math.round(st.rich * 4))));
+  $('scale').innerHTML = '<legend>Ornament</legend>' + seg('scale', SCALE.map(([v, t]) => [String(v), t]), String(st.scale));
   $('own').innerHTML = (S.own ?? []).map(([k, label, o]) => Array.isArray(o)
     ? `<fieldset class="seg"><legend>${label}</legend>${seg(k, o, st[k] ?? o[0][0])}</fieldset>`
     : `<div class="text"><label for="o-${k}">${label}</label><input type="text" id="o-${k}" name="${k}" value="${esc(st[k] ?? o)}" autocomplete="off" spellcheck="false"></div>`).join('');
@@ -40,6 +41,7 @@ const step = d => { const i = CATALOGUE.findIndex(s => s.key === v.state.style);
 viewer.addEventListener('change', e => { const t = e.target, n = t.name;
   if (n === 'draw') v.update({ draw: t.value });
   else if (n === 'rich') v.update({ rich: +t.value / 4 });
+  else if (n === 'scale') v.update({ scale: +t.value });
   else if (n === 'set' || n === 'figure' || n === 'title' || (byKey[v.state.style].own ?? []).some(o => o[0] === n && o[3]?.mod)) v.update({ [n]: t.value });
   else if (t.id === 'size') v.update({ size: +t.value }); });
 panel.addEventListener('submit', e => e.preventDefault());
