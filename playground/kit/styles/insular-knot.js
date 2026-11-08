@@ -185,14 +185,21 @@ export class Sheet {
       return P; };
     const own = path(0), less = trap ? path(-trap) : own; this.op(ink, (g, d) => g.fill(d < 0 ? less : own, 'nonzero'));
   }
-  // pour every ink (order: bottom first) through the ink engine; tex(ink) -> grain amount (0: a flat coat, as the key)
-  print(bake, pal, { dpr = 2, order = this.order, seed = 1, tex = () => 0 } = {}) {
+  // pour every ink (order: bottom first) through the ink engine; tex(ink) -> grain amount (0: a flat coat, as the key).
+  // alias: { ink: other } pours an ink as part of another (the dots are the red lead, one pour). Each pour covers only the
+  // ink's own bounds (the medium's cost is its area).
+  print(bake, pal, { dpr = 2, order = this.order, seed = 1, tex = () => 0, alias = {} } = {}) {
+    const { w, h } = this;
     for (const ink of order) {
-      const g = this.c.get(ink); if (!g || !pal[ink]) continue;
-      const d = g.getImageData(0, 0, this.w, this.h).data, M = new Float32Array(this.w * this.h);
-      let any = false; for (let q = 0, p = 3; q < M.length; q++, p += 4) { const v = d[p] / 255; M[q] = v; if (v) any = true; }
-      if (!any) continue;
-      const L = { M, w: this.w, h: this.h, x0: this.box[0], y0: this.box[1], res: this.res }, amt = tex(ink);
+      if (alias[ink] || !pal[ink]) continue;
+      const gs = [ink, ...Object.keys(alias).filter(k => alias[k] === ink)].map(k => this.c.get(k)).filter(Boolean); if (!gs.length) continue;
+      const M = new Float32Array(w * h); let i0 = w, i1 = -1, j0 = h, j1 = -1;
+      for (const g of gs) { const d = g.getImageData(0, 0, w, h).data; for (let q = 0, p = 3; q < M.length; q++, p += 4) { const v = d[p] / 255; if (v > M[q]) M[q] = v; } }
+      for (let j = 0; j < h; j++) for (let i = 0, q = j * w; i < w; i++, q++) if (M[q] > 0) { if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j; }
+      if (i1 < 0) continue;
+      i0 = Math.max(0, i0 - 2); j0 = Math.max(0, j0 - 2); i1 = Math.min(w - 1, i1 + 2); j1 = Math.min(h - 1, j1 + 2);
+      const sw = i1 - i0 + 1, sh = j1 - j0 + 1, Ms = new Float32Array(sw * sh); for (let j = 0; j < sh; j++) Ms.set(M.subarray((j + j0) * w + i0, (j + j0) * w + i0 + sw), j * sw);
+      const L = { M: Ms, w: sw, h: sh, x0: this.box[0] + i0 / this.res, y0: this.box[1] + j0 / this.res, res: this.res }, amt = tex(ink);
       if (amt) grain(L, seed + ink.charCodeAt(0) * 31, amt);
       inkLetter(bake, { ...L, wet: amt ? (amt.wet ?? .08) : .05, dry: amt ? (amt.dry ?? .1) : .16 }, pal[ink], { dpr });
     }

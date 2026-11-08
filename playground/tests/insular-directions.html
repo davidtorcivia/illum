@@ -64,7 +64,7 @@ const dpr = Math.min(2, devicePixelRatio || 1), t0 = performance.now(), timing =
 function printed(dir, theme, piece, zoom = 1) {
   const { S, W, H } = piece, d = dpr * zoom, cv = document.createElement('canvas');
   cv.width = Math.ceil(W * d); cv.height = Math.ceil(H * d); cv.style.width = W * zoom + 'px'; cv.style.height = H * zoom + 'px';
-  S.print(cv.getContext('2d'), D.PAL[dir.pal][theme], { dpr: d, order: dir.order, seed, tex: dir.tex });
+  S.print(cv.getContext('2d'), D.PAL[dir.pal][theme], { dpr: d, order: dir.order, seed, tex: dir.tex, alias: dir.alias });
   return cv;
 }
 const DIRS = D.DIRS;

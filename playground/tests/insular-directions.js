@@ -328,41 +328,6 @@ function compartments(L, S, Bd, { u0, clear, seed, look }) {
   look.bars(S, bars.map(([A, s, w, half]) => { const [x, y, nx, ny] = A.at(s), tx = ny, ty = -nx; return { x, y, nx, ny, tx, ty, w, half }; }), Bd, L);
 }
 
-// ---- panels of a frame or a break: knot, key and knot in turn, between rules ------------------------------------------
-// A strip (along x, from x0, length len, thickness th, centred on y) laid as a row of panels joined by bars: the panels alternate
-// a plait with breaks and a key (step) pattern, as Lindisfarne's frames do. map() turns the strip's own frame onto the page
-// (so the same code lays the four sides of a frame). look: the inks and the cord drawing of the direction.
-function strip(S, map, len, th, seed, look, { ends = true } = {}) {
-  const u = th / 4, rnd = stream(seed, 'strip'), bar = Math.max(1, u * .55), poly = pts => pathOf(pts.map(map));
-  const rect = (x, y, w, h) => poly([[x, y], [x + w, y], [x + w, y + h], [x, y + h]]);
-  S.fill(rect(0, -th / 2, len, th), look.ground);
-  // panels: as many as fit, a key every other, each a whole number of cells
-  const cell = 2 * u, n = Math.max(1, Math.round((len - bar) / (cell * 4.5 + bar))), pw = (len - bar * (n + 1)) / n;
-  for (let i = 0; i < n; i++) {
-    const x = bar + i * (pw + bar), key = look.key && i % 2 === 1;
-    if (key) { keyPanel(S, map, x, -th / 2, pw, th, look); continue; }
-    const A = Math.max(1, Math.floor(pw / cell)), ox = x + (pw - A * cell) / 2, per = 2 + Math.floor(rnd() * 2), kind = Math.floor(rnd() * 3);
-    const wall = (wx, wy) => kind === 0 ? wy === 2 && (wx & 1) === 0 && (wx / 2) % per === 0 && wx > 0 && wx < 2 * A
-      : kind === 1 ? (wx & 1) === 1 && wy === 2 && ((wx - 1) / 2) % per === 1 : wy === 2 && (wx & 1) === 0 && wx > 0 && wx < 2 * A && (wx / 2) % 2 === 1;
-    const K = plait(A, 2, () => true, wall), C = measure(cords(K, { ox, oy: -th / 2, u, inset: .3, round: 1.08, edgeInset: .2 }), u);
-    for (const c of C) c.pts = c.pts.map(map);
-    look.knot(S, C, K, u, i);
-  }
-  // the bars between panels and the rules along the strip
-  for (let i = 0; i <= n; i++) S.fill(rect(i * (pw + bar), -th / 2, bar, th), look.rule);
-  const rl = Math.max(.8, u * .32); S.fill(rect(0, -th / 2 - rl, len, rl), look.rule); S.fill(rect(0, th / 2, len, rl), look.rule);
-  if (look.edge) { const e = Math.max(.9, u * .4); S.fill(rect(0, -th / 2 - rl - e, len, e), look.edge); S.fill(rect(0, th / 2 + rl, len, e), look.edge); }
-}
-// a key pattern: square keys, each a line wound in one and a half turns, turned a quarter at each cell (a step-and-key frieze)
-function keyPanel(S, map, x, y, w, h, look) {
-  const m = Math.max(1, Math.round(w / h)), s = w / m, lw = Math.max(.7, h * .085);
-  S.fill(pathOf([[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(map)), look.keyGround);
-  for (let i = 0; i < m; i++) { const cx = x + s * (i + .5), cy = y + h / 2, hs = Math.min(s, h) * .42, flip = i % 2 ? -1 : 1;
-    const K = [[-1, -1], [1, -1], [1, 1], [-.5, 1], [-.5, -.4], [.45, -.4], [.45, .45], [0, .45]].map(([a, b]) => [cx + a * hs * flip, cy + b * hs * flip]).map(map);
-    cordLine(S, K, [{ w: lw, ink: look.keyLine }], { taper: false });
-  }
-}
-
 // ---- A · Lindisfarne ------------------------------------------------------------------------------------------------------
 const LIND = {
   ground: 'k', rule: 'k', edge: 'y', key: true, keyGround: 'y', keyLine: 'k',
@@ -402,46 +367,6 @@ export function lindParaph(size, seed = 1, { res = 2, theme = 'light' } = {}) {
   S.dots([[x, cy - dr * 1.9, dr * 1.05, -.5, 1.1], [x, cy + dr * 1.9, dr * .95, -.5, 1.1], [x + dr * 3.1, cy, dr, -.5, 1.1]], 'd');
   return { S, W: Wd + 2 * pad, H: size + 2 * pad };
 }
-// the filler: a short panel of plait that closes on itself, then the three-dot positura (not a chain run to the margin)
-function shortPanel(len, ht, seed, look, res, { dots = 'd' } = {}) {
-  const pad = ht * .45, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), u = ht / 4.4, A = Math.max(2, Math.min(7, Math.floor((len - ht * 1.6) / (2 * u))));
-  const w = A * 2 * u + u * 1.2, x0 = pad + u * .6, y0 = pad + ht / 2 - 2 * u;
-  const P = new Path2D(); P.roundRect(x0 - u * .6, y0 - u * .6, w, 4 * u + u * 1.2, u * .7); S.fill(P, look.rule);
-  const P2 = new Path2D(); P2.roundRect(x0 - u * .3, y0 - u * .3, w - u * .6, 4 * u + u * .6, u * .5); S.fill(P2, look.ground);
-  const rnd = stream(seed, 'fill'), per = 2 + Math.floor(rnd() * 2);
-  const K = plait(A, 2, () => true, (x, y) => y === 2 && (x & 1) === 0 && x > 0 && x < 2 * A && (x / 2) % per === 0), C = measure(cords(K, { ox: x0, oy: y0, u, inset: .3, round: 1.08, edgeInset: .2 }), u);
-  look.knot(S, C, K, u, 1);
-  const dr = Math.max(.8, ht * .085), x = x0 + w + ht * .45, cy = pad + ht / 2;
-  S.dots([[x, cy - dr * 1.9, dr * 1.05, -.5, 1.1], [x, cy + dr * 1.9, dr * .95, -.5, 1.1], [x + dr * 3.1, cy, dr, -.5, 1.1]], dots);
-  return { S, W: len + 2 * pad, H: ht + 2 * pad, pad };
-}
-export const lindFiller = (len, ht, seed = 1, { theme = 'light', res = 2 } = {}) => shortPanel(len, ht * .95, seed, { ...LIND, rule: theme === 'dark' ? 'l' : 'k' }, res);
-// the break: a light strip of knot, key and knot panels, a row of dots above and below
-export function lindBand(len, ht, seed = 1, { theme = 'light', res = 2 } = {}) {
-  const th = Math.max(8, ht * .55), pad = th, S = new Sheet([0, 0, len + 2 * pad, th + 2 * pad], res), look = { ...LIND, rule: theme === 'dark' ? 'l' : 'k' };
-  strip(S, ([x, y]) => [pad + x, pad + th / 2 + y], len, th, seed, look);
-  const dr = Math.max(.75, th * .07), o = th / 2 + th * .3;
-  for (const sg of [-1, 1]) S.dots(dotsAlong([[pad, pad + th / 2 + sg * o], [pad + len, pad + th / 2 + sg * o]], dr * 2 * 1.85, dr, false, { load: 12 }), 'd');
-  return { S, W: len + 2 * pad, H: th + 2 * pad };
-}
-// the frame: four strips of panels, a square knot at each corner where they meet
-function framed(w, h, seed, look, res, { th, dots = 'd' }) {
-  const pad = th * 1.2, S = new Sheet([0, 0, w + 2 * pad, h + 2 * pad], res), x0 = pad, y0 = pad;
-  const sides = [[([x, y]) => [x0 + th / 2 + x, y0 + y], w - th], [([x, y]) => [x0 + th / 2 + x, y0 + h + y], w - th], [([x, y]) => [x0 + y, y0 + th / 2 + x], h - th], [([x, y]) => [x0 + w + y, y0 + th / 2 + x], h - th]];
-  sides.forEach(([m, l], i) => strip(S, m, l, th, seed + i * 7, look));
-  const u = th / 4;
-  for (const [cx, cy] of [[x0, y0], [x0 + w, y0], [x0, y0 + h], [x0 + w, y0 + h]]) {
-    const P = new Path2D(); P.rect(cx - th / 2 - u * .35, cy - th / 2 - u * .35, th + u * .7, th + u * .7); S.fill(P, look.rule); const P2 = new Path2D(); P2.rect(cx - th / 2, cy - th / 2, th, th); S.fill(P2, look.ground);
-    const K = plait(2, 2, () => true, (x, y) => (x === 2 && (y === 1 || y === 3)) || (y === 2 && (x === 1 || x === 3))), C = measure(cords(K, { ox: cx - th / 2, oy: cy - th / 2, u, inset: .3, round: 1.1, edgeInset: .2 }), u);
-    look.knot(S, C, K, u, 2);
-  }
-  if (dots) { const dr = Math.max(.75, th * .06), o = th / 2 + th * .35, P = [], pts = [[x0 - o, y0 - o], [x0 + w + o, y0 - o], [x0 + w + o, y0 + h + o], [x0 - o, y0 + h + o]];
-    for (let i = 0; i < 4; i++) { const a = pts[i], b = pts[(i + 1) % 4]; for (let s = 0; s < 1; s += .004) P.push([a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s]); }
-    S.dots(dotsAlong(P, dr * 2 * 1.85, dr, true, { load: 13 }), dots); }
-  return { S, W: w + 2 * pad, H: h + 2 * pad, pad };
-}
-export const lindFrame = (w, h, seed = 1, { theme = 'light', res = 2 } = {}) => framed(w, h, seed, { ...LIND, rule: theme === 'dark' ? 'l' : 'k' }, res, { th: Math.max(7, Math.min(10, h * .085)) });
-
 // ---- C · Durrow ---------------------------------------------------------------------------------------------------------
 // The broad ribbon (TCD MS 57, fol. 125v): pigment inside a reserved margin of vellum, a fine pen line at its edge, on a
 // brown-black ground; a ribbon changes colour (red lead, orpiment, verdigris) where it passes under another.
@@ -450,7 +375,6 @@ function ribbon(S, C, crossings, u, seed, { ground = 'gr', w = 1.1 } = {}) {
   const W = u * w, pen = Math.max(.45, u * .08), margin = Math.max(.5, u * .13), o = Math.floor(stream(seed, 'ribbon')() * 3);
   knot(S, C, crossings, { layers: [{ w: W, ink: 'k' }, { w: W - 2 * pen, ink: 'v' }, { w: W - 2 * pen - 2 * margin, ink: 'r' }], gap: Math.max(.4, u * .1), ground, colour: (t, k) => DUR[(o + t + k) % 3], breath: 1.4 });
 }
-const DURL = { ground: 'gr', rule: 'v', edge: 'k', key: true, keyGround: 'gr', keyLine: 'v', knot: (S, C, K, u, i) => ribbon(S, C, K.crossings, u, i * 13 + 1, { w: 1.06 }) };
 // The Durrow coil (fol. 86r): a disc of vellum wound with two pen lines (two arms half a turn apart, an Archimedean spiral at
 // a pitch the pen can hold), a pigment eye at its heart, a band of pigment round it and the pen line outside.
 function coil(S, c, R, a0, cw, { eye = 'y', band = 'r', pen = 'k' } = {}) {
@@ -486,34 +410,108 @@ export function durInitial(ch, H, seed = 1, { theme = 'light', res = 2 } = {}) {
   const dr = Math.max(.8, H * .0095); dotRows(L, S, dr, 1, seed);
   return { S, W: L.W, H: L.Ht, P: L.P, L };
 }
-// the paraph: the triple spiral as a ribbon, each arm its own pigment
-export function durParaph(size, seed = 1, { res = 2 } = {}) {
-  const pad = size * .2, R = size * .62, S = new Sheet([0, 0, 2 * R + 2 * pad, 2 * R + 2 * pad], res), c = [pad + R, pad + R], u = R / 3.2;
-  const W = u * 1.05, pen = Math.max(.4, u * .09), margin = Math.max(.45, u * .14), rot = stream(seed, 'tri')() * 6.28;
-  [0, 1, 2].forEach(k => { const a = rot + k * Math.PI * 2 / 3, p = [c[0] + Math.cos(a) * R * .05, c[1] + Math.sin(a) * R * .05];
-    cordLine(S, tendril(p, a, R * 1.45, .9 / R, 1 / (R * .12), 2.4, R / 140), [{ w: W, ink: 'k' }, { w: W - 2 * pen, ink: 'v' }, { w: W - 2 * pen - 2 * margin, ink: DUR[k] }]); });
-  const hub = new Path2D(); hub.arc(c[0], c[1], W * .55, 0, Math.PI * 2); S.fill(hub, 'k');
-  return { S, W: 2 * R + 2 * pad, H: 2 * R + 2 * pad };
+// ---- the small pieces: few, larger, well-made panels on fine rules --------------------------------------------------------
+// A broad pen's line (cut at NIB): heavy where it runs across the nib, a hair along it, lighter as it is set down and lifted.
+function nibLine(S, pts, w, ink, { min = .3 } = {}) {
+  // (one outline, left side out and right side back: a single path fills far faster than a quad per point)
+  const n = pts.length, l = [], r = [];
+  for (let i = 0; i < n; i++) { const a = pts[Math.max(0, i - 2)], b = pts[Math.min(n - 1, i + 2)], h = Math.atan2(b[1] - a[1], b[0] - a[0]), end = Math.min(1, .5 + .5 * Math.min(i, n - 1 - i) / 12);
+    const hw = w * end * (min + (1 - min) * Math.abs(Math.sin(h - NIB))) / 2, nx = -Math.sin(h), ny = Math.cos(h), [x, y] = pts[i]; l.push([x + nx * hw, y + ny * hw]); r.push([x - nx * hw, y - ny * hw]); }
+  S.fill(pathOf(l.concat(r.reverse())), ink);
 }
-export const durFiller = (len, ht, seed = 1, { res = 2 } = {}) => shortPanel(len, ht, seed, { ...DURL, rule: 'k' }, res);
-export function durBand(len, ht, seed = 1, { res = 2 } = {}) {
-  const th = Math.max(9, ht * .62), pad = th, S = new Sheet([0, 0, len + 2 * pad, th + 2 * pad], res);
-  strip(S, ([x, y]) => [pad + x, pad + th / 2 + y], len, th, seed, DURL);
-  const dr = Math.max(.8, th * .065), o = th / 2 + th * .32;
-  for (const sg of [-1, 1]) S.dots(dotsAlong([[pad, pad + th / 2 + sg * o], [pad + len, pad + th / 2 + sg * o]], dr * 2 * 1.9, dr, false, { load: 10 }), 'd');
+const rect = (x, y, w, h) => { const P = new Path2D(); P.rect(x, y, w, h); return P; };
+// a ruled line (horizontal or vertical) of parallel rules, outermost first, centred on the line; ink null: a gap of paper
+function rule(S, a, b, rules) {
+  const tot = rules.reduce((t, r) => t + r.w, 0), hz = Math.abs(a[1] - b[1]) < 1e-6; let o = -tot / 2;
+  for (const r of rules) { S.fill(hz ? rect(Math.min(a[0], b[0]), a[1] + o, Math.abs(b[0] - a[0]), r.w) : rect(a[0] + o, Math.min(a[1], b[1]), r.w, Math.abs(b[1] - a[1])), r.ink); o += r.w; }
+}
+// a closed knot of A × B cells (side 2u) at (x, y), set in its panel
+function knotPanel(S, x, y, A, B, u, wall, look, i = 0) {
+  look.panel(S, x - u * .45, y - u * .45, A * 2 * u + u * .9, B * 2 * u + u * .9);
+  const K = plait(A, B, () => true, wall ?? undefined), C = measure(cords(K, { ox: x, oy: y, u, inset: .3, round: 1.1, edgeInset: .2 }), u);
+  look.knot(S, C, K, u, i);
+}
+// the knot with a break at each end of its middle row (it closes as a lozenge-ended knot, not a plain plait)
+const endBreaks = A => (x, y) => y === 2 && (x === 1 || x === 2 * A - 1);
+// three dots, the positura ·:· turned on its side
+const triad = (S, x, cy, dr, ink = 'd') => S.dots([[x, cy - dr * 1.9, dr * 1.05, -.5, 1.1], [x, cy + dr * 1.9, dr * .95, -.5, 1.1], [x + dr * 3.1, cy, dr, -.5, 1.1]], ink);
+
+// The break: one panel at the centre, the rules running out from it to a positura at each end.
+function ruledBreak(len, ht, res, look, { seed = 1 } = {}) {
+  const th = Math.max(10, ht * .78), pad = th * .6, S = new Sheet([0, 0, len + 2 * pad, th + 2 * pad], res), cy = pad + th / 2, cx = pad + len / 2;
+  const pw = look.centre(S, cx, cy, th, seed), dr = Math.max(.8, th * .07);
+  for (const sg of [-1, 1]) { const x0 = cx + sg * (pw / 2 + th * .18), x1 = sg < 0 ? pad + dr * 4 : pad + len - dr * 4; rule(S, [x0, cy], [x1, cy], look.rules);
+    triad(S, sg < 0 ? x1 - dr * 4.2 : x1 + dr * 1.1, cy, dr); }
   return { S, W: len + 2 * pad, H: th + 2 * pad };
 }
-export const durFrame = (w, h, seed = 1, { res = 2 } = {}) => framed(w, h, seed, DURL, res, { th: Math.max(8, Math.min(11, h * .095)) });
+// The frame: fine rules round the text, a knot or a coil at each corner, a panel at the middle of each long side, a row of dots
+// outside.
+function ruledFrame(w, h, res, look, { seed = 1 } = {}) {
+  const c = Math.max(10, Math.min(15, h * .13)), pad = c * .9, S = new Sheet([0, 0, w + 2 * pad, h + 2 * pad], res), x0 = pad, y0 = pad, x1 = pad + w, y1 = pad + h;
+  for (const [a, b] of [[[x0, y0], [x1, y0]], [[x0, y1], [x1, y1]], [[x0, y0], [x0, y1]], [[x1, y0], [x1, y1]]]) rule(S, a, b, look.rules);
+  const dr = Math.max(.75, c * .065), o = c * .5 + dr * 2.6, P = [], pts = [[x0 - o, y0 - o], [x1 + o, y0 - o], [x1 + o, y1 + o], [x0 - o, y1 + o]];
+  for (let i = 0; i < 4; i++) { const a = pts[i], b = pts[(i + 1) % 4]; for (let t = 0; t < 1; t += .004) P.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+  S.dots(dotsAlong(P, dr * 2 * 1.9, dr, true, { load: 13 }), 'd');
+  for (const [x, y] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]) look.corner(S, x, y, c, seed);
+  if (w > c * 9) for (const y of [y0, y1]) look.centre(S, pad + w / 2, y, c, seed);
+  return { S, W: w + 2 * pad, H: h + 2 * pad, pad };
+}
+
+// ---- A · Lindisfarne: knots in black panels ruled in ink and orpiment, red dots ----------------------------------------------
+const lindLook = dark => { const rk = dark ? 'l' : 'k';
+  return { rules: [{ ink: rk, w: .7 }, { ink: 'y', w: 1.1 }, { ink: rk, w: .7 }],
+    panel: (S, x, y, w, h) => { S.fill(rect(x - 2.5, y - 2.5, w + 5, h + 5), rk); S.fill(rect(x - 1.8, y - 1.8, w + 3.6, h + 3.6), 'y'); S.fill(rect(x - .6, y - .6, w + 1.2, h + 1.2), 'k'); },
+    knot: LIND.knot,
+    corner: (S, x, y, c) => { const u = (c - 2) / 4; knotPanel(S, x - 2 * u, y - 2 * u, 2, 2, u, null, lindLook(dark), 0); },
+    centre: (S, x, y, th) => { const u = (th - 2) / 4, A = 4; knotPanel(S, x - A * u, y - 2 * u, A, 2, u, endBreaks(A), lindLook(dark), 1); return A * 2 * u + 5; } }; };
+export const lindBand = (len, ht, seed = 1, { theme = 'light', res = 2 } = {}) => ruledBreak(len, ht, res, lindLook(theme === 'dark'), { seed });
+export const lindFrame = (w, h, seed = 1, { theme = 'light', res = 2 } = {}) => ruledFrame(w, h, res, lindLook(theme === 'dark'), { seed });
+// the filler: a row of red dots at the pitch of f. 27r's field, closed by the positura
+export function lindFiller(len, ht, seed = 1, { res = 2 } = {}) {
+  const pad = ht * .4, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), cy = pad + ht / 2, dr = Math.max(.8, ht * .085), x1 = pad + len - dr * 5;
+  S.dots(dotsAlong([[pad, cy], [x1 - dr * 2.5, cy]], dr * 2 * 1.9, dr, false, { load: 12 }), 'd'); triad(S, x1, cy, dr * 1.1);
+  return { S, W: len + 2 * pad, H: ht + 2 * pad, pad };
+}
+
+// ---- C · Durrow: ribbon knots and coils on fine pen rules, red dots ----------------------------------------------------------
+const durLook = dark => { const rk = dark ? 'v' : 'k';
+  return { rules: [{ ink: rk, w: .65 }, { ink: null, w: 1.5 }, { ink: rk, w: .65 }],
+    panel: (S, x, y, w, h) => { S.fill(rect(x - 1.2, y - 1.2, w + 2.4, h + 2.4), rk); S.fill(rect(x - .5, y - .5, w + 1, h + 1), 'gr'); },
+    knot: (S, C, K, u, i) => ribbon(S, C, K.crossings, u, i * 13 + 1, { w: 1.06 }),
+    corner: (S, x, y, c, seed) => coil(S, [x, y], c * .5, seed + x * .1, 1, { eye: 'y', band: 'r', pen: rk }),
+    centre: (S, x, y, th, seed) => { const u = th / 4.6, A = 3; knotPanel(S, x - A * u, y - 2 * u, A, 2, u, endBreaks(A), durLook(dark), seed); return A * 2 * u + 2.4; } }; };
+export const durBand = (len, ht, seed = 1, { theme = 'light', res = 2 } = {}) => ruledBreak(len, ht, res, durLook(theme === 'dark'), { seed });
+export const durFrame = (w, h, seed = 1, { theme = 'light', res = 2 } = {}) => ruledFrame(w, h, res, durLook(theme === 'dark'), { seed });
+// the filler (fol. 86r, beside the text): a red pen line wound into a spiral, then rolling forward in loops to the margin
+export function durFiller(len, ht, seed = 1, { res = 2 } = {}) {
+  const pad = ht * .45, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), cy = pad + ht / 2, a = ht * .32, R = ht * .5, w = Math.max(1.1, ht * .15);
+  const loops = Math.max(1, Math.round((len - 2.4 * R) / (ht * .9))), run = scrollLine(null, pad + 2.1 * R, pad + len - w, a, loops, { d: 2.1 }).map(([x, y]) => [x, cy + y]);
+  // the spiral: wound from its eye out to the scroll's first point, leaving it along the scroll's heading
+  const p0 = run[0], h0 = Math.atan2(run[3][1] - p0[1], run[3][0] - p0[0]), a0 = h0 + Math.PI / 2, c = [p0[0] - Math.cos(a0) * R, p0[1] - Math.sin(a0) * R];
+  const sp = spiralLine(c, R, a0, 1.6, 1).reverse();
+  nibLine(S, sp.concat(run.slice(1)), w, 'd');
+  return { S, W: len + 2 * pad, H: ht + 2 * pad, pad };
+}
+// the paraph: two coils side by side, as fol. 86r's stem ends, ringed in red dots
+export function durParaph(size, seed = 1, { res = 2, theme = 'light' } = {}) {
+  const R = size * .44, pad = size * .3, W = 4 * R + 2 * pad, H = 2 * R + 2 * pad, S = new Sheet([0, 0, W, H], res), rk = theme === 'dark' ? 'v' : 'k';
+  coil(S, [pad + R, pad + R], R, 0, -1, { eye: 'y', band: 'r', pen: rk }); coil(S, [pad + 3 * R, pad + R], R, Math.PI, 1, { eye: 'r', band: 'y', pen: rk });
+  const dr = Math.max(.6, size * .045), o = R + dr * 2.4, P = [];
+  for (let t = 0; t <= 1; t += .005) { const a = Math.PI / 2 + t * Math.PI; P.push([pad + R + Math.cos(a) * o, pad + R + Math.sin(a) * o]); }
+  for (let t = 0; t <= 1; t += .005) { const a = -Math.PI / 2 + t * Math.PI; P.push([pad + 3 * R + Math.cos(a) * o, pad + R + Math.sin(a) * o]); }
+  S.dots(dotsAlong(P, dr * 2 * 1.9, dr, true, { load: 11 }), 'd');
+  return { S, W, H };
+}
 
 // ---- the directions -------------------------------------------------------------------------------------------------------
 // pigment coats (Sheet.print): orpiment dense with a coarse crystal tooth, verdigris thinner and granulating, red lead dense
 const COATS = { y: { base: .78, slow: .05, tooth: .06, grainPx: 1.1 }, g: { base: .7, slow: .1, tooth: .03, grainPx: .7, wet: .14 }, b: { base: .72, slow: .08, tooth: .03, grainPx: .8, wet: .12 },
   r: { base: .8, slow: .04, tooth: .03, grainPx: .6 }, v: { base: .74, slow: .05, tooth: .04, grainPx: .7 }, d: { base: .84, slow: .03, tooth: .02, grainPx: .5, wet: .12 }, gr: { base: .88, slow: .04, tooth: .03, grainPx: .9 } };
 export const DIRS = {
-  lind: { name: 'A · Lindisfarne', pal: 'lind', order: ['k', 'l', 'v', 'p', 'y', 'g', 'b', 'r', 'd'], tex: ink => COATS[ink] ?? 0,
+  lind: { name: 'A · Lindisfarne', pal: 'lind', alias: { d: 'r' }, order: ['k', 'l', 'v', 'p', 'y', 'g', 'b', 'r', 'd'], tex: ink => COATS[ink] ?? 0,
     note: 'The clear, measured book (BL Cotton MS Nero D IV, c. 715). The panel letter: Uncial Antiqua’s capital, grown a little, its outline laid by a quill (heavy where the edge runs across the nib, a hair along it), a band of orpiment, a hairline; each stroke carries a plait laid along its own curve, orpiment with a cord picked out in verdigris or blue, a finer red-lead interlace filling what is left (f. 139r), and each free stroke-end wound into a spiral. Closed counters carry the lozenge diaper of dots (f. 27r); two rows of dots run round the letter, each dot a touch of a brush reloaded every dozen, the pitch following the bend. Paraph: a knot broken at its heart and the three-dot positura. Filler: a short panel that closes on itself. Break and frame: panels of knot and key in turn between rules, a knot at each corner.',
     initial: lindInitial, paraph: lindParaph, filler: lindFiller, brk: lindBand, frame: lindFrame },
-  durrow: { name: 'C · Durrow', pal: 'durrow', order: ['gr', 'k', 'v', 'r', 'y', 'g', 'd'], tex: ink => COATS[ink] ?? 0,
+  durrow: { name: 'C · Durrow', pal: 'durrow', alias: { d: 'r' }, order: ['gr', 'k', 'v', 'r', 'y', 'g', 'd'], tex: ink => COATS[ink] ?? 0,
     note: 'The broad ribbon of the Book of Durrow (TCD MS 57, c. 680), and the dark mode’s own model: three pigments and black. Each ribbon a fill inside a reserved margin of bare vellum with a pen line at its edge, breathing along its length; it changes colour where it passes under another (fol. 125v). The letter outlined in vellum between quill lines, its body black, a broad ribbon plait along each stroke, a narrower one where the stroke thins, the ends wound into spirals; one close row of dots. Paraph: the triple spiral as a ribbon. Filler: a short ribbon panel. Break and frame: ribbon panels and vellum keys in turn. In dark mode the page is the ground already.',
     initial: durInitial, paraph: durParaph, filler: durFiller, brk: durBand, frame: durFrame },
 };
