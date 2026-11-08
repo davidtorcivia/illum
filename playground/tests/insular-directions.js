@@ -470,11 +470,11 @@ function ribbon(S, C, crossings, u, seed, { ground = 'gr', w = 1.1 } = {}) {
 }
 // The Durrow coil (fol. 86r): a disc of vellum wound with two pen lines (two arms half a turn apart, an Archimedean spiral at
 // a pitch the pen can hold), a pigment eye at its heart, a band of pigment round it and the pen line outside.
-function coil(S, c, R, a0, cw, { eye = 'y', band = 'r', pen = 'k' } = {}) {
-  const lw = Math.max(.42, R * .05), bw = Math.max(.8, R * .13), Ri = R - bw - lw, re = Math.max(lw * 2.2, Ri * .24);
+function coil(S, c, R, a0, cw, { eye = 'y', band = 'r', pen = 'k', lw = Math.max(.42, R * .05), pitch = Math.max(1.25, lw * 2.6), bw = Math.max(.8, R * .13) } = {}) {
+  const Ri = R - bw - lw, re = Math.max(lw * 2.2, Ri * (lw < R * .03 ? .36 : .24));   // (a fine-lined coil has a broad eye)
   const disc = (r, ink) => { const P = new Path2D(); P.arc(c[0], c[1], r, 0, Math.PI * 2); S.fill(P, ink); };
   disc(R + lw, pen); disc(R, band); disc(Ri + lw * .5, pen); disc(Ri, 'v'); disc(re, eye);
-  const turns = Math.max(1.25, Math.min(5, (Ri - re) / (2 * Math.max(1.25, lw * 2.6))));
+  const turns = Math.max(1.25, Math.min(12, (Ri - re) / (2 * pitch)));
   for (const off of [0, Math.PI]) { const o = [], n = Math.ceil(turns * 90);
     for (let i = 0; i <= n; i++) { const f = i / n, r = re + (Ri - re) * f, a = a0 + off + cw * f * turns * Math.PI * 2; o.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]); }
     cordLine(S, o, [{ w: lw, ink: pen }], { taper: true }); }
@@ -482,25 +482,55 @@ function coil(S, c, R, a0, cw, { eye = 'y', band = 'r', pen = 'k' } = {}) {
   const o = []; for (let i = 0; i <= 40; i++) { const f = i / 40, r = re * (1 - .8 * f), a = a0 + cw * f * Math.PI * 1.6; o.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]); }
   cordLine(S, o, [{ w: lw * 1.2, ink: pen }]);
 }
+// Measured on fol. 86r against the stroke's width sw (its I is drawn long, so the letter's height does not carry over):
+// the outline .018 sw, the orpiment band .09; the stem's columns of a two-strand twist, each ~.3 sw, the strands pale,
+// ~.10 sw, a hairline round them and a file of red dots down each (~.02 sw at ~.06); orpiment between the columns; the coils'
+// pen lines .014 sw at a pitch of .045 (six to eight turns); one row of red dashes .023 × .04 sw at a pitch of .10.
 export function durInitial(ch, H, seed = 1, { theme = 'light', res = 2 } = {}) {
   const L = swell(letterField(ch, H, { res, bold: H * .05, pad: .3 }), Math.max(2.4, H / 40)), S = new Sheet([0, 0, L.W, L.Ht], res);
-  const hair = Math.max(.45, H * .005), { frame, Bd } = rings(L, S, [{ w: Math.max(.8, H * .01), ink: 'k', pen: true }, { w: Math.max(1.4, H * .018), ink: 'y' }, { w: hair, ink: 'k', pen: true }], 'r');
-  const u0 = Math.max(2.4, H / 40); let nc = 0;
-  compartments(L, S, Bd, { u0, clear: frame + .3, seed, look: {
+  const px = 1 / res, sw = H * .165, hair = Math.max(.45 * px, sw * .011);
+  const { frame, Bd } = rings(L, S, [{ w: Math.max(.6 * px, sw * .018), ink: 'k', pen: .3 }, { w: sw * .09, ink: 'y' }, { w: hair, ink: 'k', pen: .3 }], 'r');
+  const u0 = Math.max(2.4, H / 40), clear = frame + .3; let nc = 0;
+  const uc0 = Math.max(1.5 * px, sw * .15), ax = .8, sep = Math.max(1.2 * px, sw * .07), dr = Math.max(.35 * px, sw * .009);
+  // one column: a two-strand twist (a plait one cell high) along the band at offset yc, pale strands on black, red dots down them
+  const column = (A, s0, s1, yc, uc) => { const W = uc * .74;
+    const nA = Math.floor((s1 - s0) / (2 * uc * ax)), x0 = s0 + ((s1 - s0) - nA * 2 * uc * ax) / 2; if (nA < 2) return false;   // (the twist drawn long: a cell .8 as long as it is wide)
+    const ok = (x, y) => { const [qx, qy] = onBand(A, x, y); return L.at(qx, qy, L.Din) >= clear + uc * .1; };
+    const inc = sizable(a => { const cx = x0 + (2 * a + 1) * uc * ax; return ok(cx, yc - uc * .8) && ok(cx, yc + uc * .8) && ok(cx - uc * .8, yc) && ok(cx + uc * .8, yc); }, nA, 1, 3);
+    const K = plait(nA, 1, inc); if (!K.threads.length) return false;
+    const C = measure(cords(K, { ox: x0, oy: yc - uc, u: uc, inset: .3, round: 1.08, edgeInset: .25, ds: Math.min(.5, uc * .3) }), uc);
+    for (const c of C) c.pts = c.pts.map(([x, y]) => onBand(A, x0 + (x - x0) * ax, y)); handOn(C, uc, W, seed + 7);
+    knot(S, C, K.crossings, { layers: [{ w: W, ink: 'k' }, { w: W - 2 * hair, ink: 'v' }], gap: 0, ground: 'k', breath: 1 });
+    // the dots: a file down each strand's middle, not where it runs under
+    const D = []; for (const c of C) { const un = c.ev.map((e, i) => e.cross && !e.over ? c.s[i] : null).filter(v => v != null), n = c.pts.length, step = sw * .06;
+      for (let s = step / 2; s < c.L; s += step) { if (un.some(v => Math.abs(((s - v + c.L * 1.5) % c.L) - c.L / 2) < W * .9)) continue; const p = c.pts[Math.floor(s / c.L * n) % n]; D.push([p[0], p[1], dr, 0, 1]); } }
+    S.dots(D, 'd'); return true; };
+  compartments(L, S, Bd, { u0, clear, seed, look: {
     cells: rows => [rows === 1 ? 5 : 6, 1.5],
     long: [{ ground: 'k', cord: 'v' }], short: [{ ground: 'y' }, { ground: 'r' }], solid: 'y',
-    block: () => {}, empty: i => i % 2 ? 'y' : 'r',
-    knot: (S, C, K, u, sch) => { const w = u * 1.02; knot(S, C, K.crossings, { layers: [{ w, ink: 'k' }, { w: w - Math.max(.4, u * .2), ink: 'v' }], gap: Math.max(.28, u * .09), ground: 'k', breath: 1.4 }); },
-    scroll: (S, pts, w) => { const W = Math.max(1, w * .4); cordLine(S, pts, [{ w: W, ink: 'k' }, { w: W - Math.max(.5, W * .36), ink: 'v' }]); },
+    empty: i => i % 2 ? 'y' : 'r',
+    // the long panels: as many columns as the panel holds, orpiment between them (the stem of fol. 86r)
+    fill: (S, A, s0, s1, p) => { if (p === 'S') return;
+      // (the columns as many as fit at about the measured width, then widened or narrowed a little to fill the panel)
+      const hp = Math.min(...[.25, .5, .75].map(f => A.at(s0 + (s1 - s0) * f)[4])) - clear, n = Math.max(1, Math.round((2 * hp + sep) / (2 * uc0 + sep)));
+      const uc = Math.max(uc0 * .75, Math.min(uc0 * 1.3, ((2 * hp - uc0 * .25 + sep) / n - sep) / 2)), lane = 2 * uc;
+      const tot = n * lane + (n - 1) * sep, ys = Array.from({ length: n }, (_, k) => -tot / 2 + lane / 2 + k * (lane + sep));
+      ys.forEach(y => column(A, s0, s1, y, uc));
+      for (let k = 0; k + 1 < n; k++) { const yb = ys[k] + lane / 2 + sep / 2, strip = (w, ink) => { const l = [], r = [];
+          for (let i = 0; i <= 40; i++) { const x = s0 + (s1 - s0) * i / 40; l.push(onBand(A, x, yb - w / 2)); r.push(onBand(A, x, yb + w / 2)); }
+          S.image(ink, masked(L, Bd, [l.concat(r.reverse())])); };
+        strip(sep, 'k'); strip(sep - 2 * hair, 'y'); } },
     jewel: (S, m, r) => { const [x, y, nx, ny] = m, P = new Path2D(), a = r * .5, b = r * .17;
       for (const [dx, dy] of [[nx, ny], [-nx, -ny], [ny, -nx], [-ny, nx]]) { const cx = x + dx * (a + r * .06), cy = y + dy * (a + r * .06); P.moveTo(cx - dx * a, cy - dy * a);
         for (const sg of [1, -1]) for (let k = sg > 0 ? 1 : 19; sg > 0 ? k <= 20 : k >= 0; k += sg) { const f = k / 10 - 1, h = sg * b * (1 - f * f); P.lineTo(cx + dx * a * f - dy * h, cy + dy * a * f + dx * h); } P.closePath(); }
       S.fill(P, 'v'); },
     bars: (S, B, Bd, L) => { const q = (b, w) => { const { x, y, nx, ny, tx, ty, half } = b; return [[x + tx * w / 2 + nx * half, y + ty * w / 2 + ny * half], [x - tx * w / 2 + nx * half, y - ty * w / 2 + ny * half], [x - tx * w / 2 - nx * half, y - ty * w / 2 - ny * half], [x + tx * w / 2 - nx * half, y + ty * w / 2 - ny * half]]; };
       S.image('k', masked(L, Bd, B.map(b => q(b, b.w * .6 + 2 * hair)))); S.image('y', masked(L, Bd, B.map(b => q(b, b.w * .6)))); },
-    roundel: (S, t) => coil(S, t.c, t.R + frame * .7, t.a0, t.cw, { eye: nc % 2 ? 'r' : 'y', band: nc++ % 2 ? 'y' : 'r' }),
+    roundel: (S, t) => coil(S, t.c, t.R + frame * .7, t.a0, t.cw, { eye: nc % 2 ? 'r' : 'y', band: nc++ % 2 ? 'y' : 'r', lw: Math.max(.4 * px, sw * .014), pitch: Math.max(1.2 * px, sw * .045), bw: sw * .07 }),
   } });
-  const dr = Math.max(.8, H * .0095); dotRows(L, S, dr, 1, seed);
+  // one row of red dashes, each drawn along the row
+  const dd = Math.max(.5 * px, sw * .018); for (const lp of ring(L, sw * .06)) S.dots(dotsAlong(lp, sw * .1, dd, true, { load: 11, bend: .15 }).map(d => { d[4] = 1.4; return d; }), 'd');
+  S.drift({ amp: H * .009, lam: H * .18, amp2: H * .0015, lam2: H * .04, mis: H * .0025, seed });
   return { S, W: L.W, H: L.Ht, P: L.P, L };
 }
 // ---- the small pieces: few, larger, well-made panels on fine rules --------------------------------------------------------
@@ -602,9 +632,9 @@ const COATS = { y: { base: .78, slow: .05, tooth: .06, grainPx: 1.1 }, g: { base
   r: { base: .8, slow: .04, tooth: .03, grainPx: .6 }, v: { base: .74, slow: .05, tooth: .04, grainPx: .7 }, d: { base: .84, slow: .03, tooth: .02, grainPx: .5, wet: .12 }, gr: { base: .88, slow: .04, tooth: .03, grainPx: .9 } };
 export const DIRS = {
   lind: { name: 'A · Lindisfarne', pal: 'lind', alias: { d: 'r' }, order: ['k', 'l', 'v', 'p', 'y', 'g', 'b', 'r', 'd'], tex: ink => COATS[ink] ?? 0,
-    note: 'The clear, measured book (BL Cotton MS Nero D IV, c. 715), after f. 139r. The panel letter: Uncial Antiqua’s capital, grown, outlined by a quill (heavy across the nib, a hair along it), an orpiment band and a hairline; its body divided by orpiment bars into compartments on red, black and purple grounds, a plait in the long ones (rows from the stroke’s width there), a closed knot or a cross of lentoids in the short, a running loop-scroll where the stroke is thin; a free end holds a roundel with a triple spiral, a bare tip a block of red. The diaper of dots in closed counters (f. 27r), two rows of red dots round it. Small pieces: a knot beside the positura, a row of dots, one knot panel on ruled lines, a frame of fine rules with corner knots. Dark: the ink line becomes pale vellum.',
+    note: 'The clear, measured book (BL Cotton MS Nero D IV, c. 715), after f. 139r. The panel letter: Uncial Antiqua’s capital, grown, outlined in ink, an orpiment band and a hairline (weights measured on f. 139r); its body divided by orpiment bars into compartments packed at the master’s scale: a fine red plait fitted to each panel’s own shape with square knots of blue or verdigris set in it, a closed knot in the short ones, the free ends a roundel with a triple spiral in a field of plait. Every cord carries the measured hand; the whole drawing wavers with the hand’s drift. The diaper of dots in closed counters (f. 27r), two rows of red dots round it. Small pieces: a knot beside the positura, a row of dots, one knot panel on ruled lines, a frame of fine rules with corner knots. Dark: the ink line becomes pale vellum.',
     initial: lindInitial, paraph: lindParaph, filler: lindFiller, brk: lindBand, frame: lindFrame },
   durrow: { name: 'C · Durrow', pal: 'durrow', alias: { d: 'r' }, order: ['gr', 'k', 'v', 'r', 'y', 'g', 'd'], tex: ink => COATS[ink] ?? 0,
-    note: 'The Book of Durrow (TCD MS 57, c. 680), after fol. 86r, and the dark mode’s own model: three pigments and black. The letter outlined in ink and orpiment over red lead, divided into long panels of pale plait on black (the stem’s columns) and plain blocks of orpiment and red (the stem’s heads); its free ends swell into coils, two pen lines wound round a pigment eye in a band of red or orpiment; one close row of red dots. Small pieces: two coils in a ring of dots, the red pen filler (a spiral, then loops rolling to the margin), a ribbon knot on fine double rules, coils at the frame’s corners.',
+    note: 'The Book of Durrow (TCD MS 57, c. 680), after fol. 86r, and the dark mode’s own model: three pigments and black. The letter outlined by a fine pen and orpiment over red lead (weights measured on fol. 86r against the stem), divided into long panels of columns of two-strand twist, pale strands with a file of red dots down each, orpiment between the columns (the stem), and plain blocks of orpiment and red (the stem’s heads); its free ends swell into coils of fine pen lines round a broad pigment eye; one row of red dashes. Small pieces: two coils in a ring of dots, the red pen filler (a spiral, then loops rolling to the margin), a ribbon knot on fine double rules, coils at the frame’s corners.',
     initial: durInitial, paraph: durParaph, filler: durFiller, brk: durBand, frame: durFrame },
 };
