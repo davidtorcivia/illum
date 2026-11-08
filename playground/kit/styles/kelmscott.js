@@ -83,7 +83,7 @@ const GLYPHS = {
   nW: { f: 'kelmscott-gen-nW.woff2', c: "W", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3540 B; kdonor6.py W V 1
   nX: { f: 'kelmscott-gen-nX.woff2', c: "X", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3316 B; kdonor6.py X K 3
   nY: { f: 'kelmscott-gen-nY.woff2', c: "Y", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3180 B; kdonor6.py Y V 1
-  // ?caps=gen2 (default), all 26: GL-Morris's letter (as gen), the vine grown in the gaps round it: two to four main stems sweeping behind the
+  // ?caps=gen2, all 26: GL-Morris's letter (as gen), the vine grown in the gaps round it: two to four main stems sweeping behind the
   // letter, branches and shoots off them, each thinner; a big lobed leaf in each large room; open black and dots (research/kelmscott/gen/kgap.py LETTER SEED)
   wA: { f: 'kelmscott-gen2-wA.woff2', c: "A", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 4052 B; kgap.py A 1
   wB: { f: 'kelmscott-gen2-wB.woff2', c: "B", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3840 B; kgap.py B 1
@@ -205,12 +205,12 @@ function silhouette(L) {
 // a capital of the page's face in red stays only as the fallback for a character outside A–Z.
 const ALIAS = { J: 'I', U: 'V' };
 const letterOf = ch => String(ch).normalize('NFD')[0].toUpperCase();
-// CAPS 'gen2' (default): every six-line letter A-Z generated: GL-Morris's letter (Morris's Troy capitals) with a vine grown in
+// CAPS 'gen2' (?caps=gen2): every six-line letter A-Z generated: GL-Morris's letter (Morris's Troy capitals) with a vine grown in
 // the gaps round it (gen: 3; research/kelmscott/gen/kgap.py), one consistent set. 'morris' (?caps=morris): his own traced
 // blocks where he cut one, generated where he did not. 'gen' (?caps=gen): GL-Morris's letter in his own block's vine, fitted
 // (gen: 2); 'grow': tools/kgrow.py's (gen: 1); 'graft' (?caps=graft): his blocks, and the grafted ones (m: 1; tools/kgraft.py).
-// 'garden' (?caps=garden): the letter and a garden grown in its gaps, drawn directly as vector (gen: 4; kelmscott-garden.js).
-let CAPS = 'gen2';
+// 'garden' (default): the letter and a garden grown in its gaps, drawn directly as vector (gen: 4; kelmscott-garden.js).
+let CAPS = 'garden';
 const GP = { gen: 'n', gen2: 'w', garden: 'q' };   // (the generated series' prefixes in GLYPHS)
 const shapeFor = (ch, deep) => { const gp = GP[CAPS]; if (deep && gp && GLYPHS[gp + ch]) return gp + ch; if (deep && CAPS === 'morris') { const m = 'v' + (GLYPHS['v' + ch] ? ch : ALIAS[ch] ?? ch); return GLYPHS[m] && !GLYPHS[m].m ? m : GLYPHS['w' + ch] ? 'w' + ch : null; } const c = GLYPHS['v' + ch] || GLYPHS['s' + ch] ? ch : ALIAS[ch] ?? ch; return deep ? (gp && GLYPHS[gp + c] ? gp + c : CAPS === 'grow' && GLYPHS['g' + c] ? 'g' + c : GLYPHS['v' + c] ? 'v' + c : GLYPHS['s' + c] ? 's' + c : null) : (GLYPHS['s' + c] ? 's' + c : GLYPHS['v' + c] ? 'v' + c : null); };
 const FACE = '600 100px "EB Garamond", Garamond, serif';
@@ -379,5 +379,5 @@ export const kelmscott = { label: 'Kelmscott', minGap: 2, theme: { rubric: 'rgb(
   set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : 'none'; },
   set darkCut(c) { DARK_CUT = c === 'negative' ? 'negative' : 'positive'; },
   set breaks(c) { BREAK = ['rose', 'grape', 'mirror'].includes(c) ? c : 'all'; },
-  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'morris', 'garden'].includes(c) ? c : 'gen2'; } };
+  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
 export default kelmscott;
