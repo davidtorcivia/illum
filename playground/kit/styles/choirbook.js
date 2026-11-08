@@ -303,7 +303,7 @@ const halve = L => { if (L.res <= 2.5) return L; const w = L.w >> 1, h = L.h >> 
 const FCACHE = new Map();
 export function filigrana(L0, seed, keep = [], level = 2, o = {}) {
   // (cached per letter, seed, size and the words' places round it: a resize that leaves the drop as it was re-lays nothing)
-  const key = [L0.w, L0.h, L0.x0.toFixed(1), L0.y0.toFixed(1), seed, level, keep.map(k => k.map(v => v.toFixed(0)).join(',')).join(';')].join('|');
+  const key = [L0.w, L0.h, L0.x0.toFixed(1), L0.y0.toFixed(1), seed, level, !!o.open, keep.map(k => k.map(v => v.toFixed(0)).join(',')).join(';')].join('|');
   if (FCACHE.has(key)) return FCACHE.get(key);
   const res0 = filigrana1(halve(L0), seed, keep, level, o); if (FCACHE.size > 64) FCACHE.clear(); FCACHE.set(key, res0); return res0;
 }
@@ -417,7 +417,7 @@ function filigrana1(L, seed, keep = [], level = 2, o = {}) {
           // its scrolls, alternately either side, each leaving it forward at an easy angle and winding in
           const qq = resample(pts, .5); let side = r() < .5 ? 1 : -1;
           for (let sA = sp * .6; sA < L2 - sp * .4; sA += sp * (.95 + r() * .2)) { const i = Math.min(qq.length - 2, Math.round(sA / .5)), a = qq[i - 1] ?? qq[i], b = qq[i + 1], tl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = [(b[0] - a[0]) / tl, (b[1] - a[1]) / tl], nn = [-t[1] * side, t[0] * side];
-            const avail = at(qq[i][0], qq[i][1]) - v2 - sp * .3, rho = Math.max(sp * .26, Math.min(sp * .5, (avail - sp * .42) / 2.1)), dd = sp * .42 + rho;
+            const avail = at(qq[i][0], qq[i][1]) - v2 - sp * .3, rho = Math.max(sp * .24, Math.min(sp * .5, (avail - sp * .42) / 2.1) * (.8 + r() * .35)), dd = sp * .42 + rho;
             const c = [qq[i][0] + nn[0] * dd + t[0] * sp * .55, qq[i][1] + nn[1] * dd + t[1] * sp * .55]; side = -side;
             if (avail < sp * .42 + rho * 2) continue; sector.push([c, { p: qq[i], t, id, depth: 1 }, rho]); }
         } else if (run.k >= 1 && L2 >= sp * .6) {
@@ -435,12 +435,13 @@ function filigrana1(L, seed, keep = [], level = 2, o = {}) {
   const bez = (A, B, C, D, u) => { const v = 1 - u; return [v * v * v * A[0] + 3 * v * v * u * B[0] + 3 * v * u * u * C[0] + u * u * u * D[0], v * v * v * A[1] + 3 * v * v * u * B[1] + 3 * v * u * u * C[1] + u * u * u * D[1]]; };
   // one scroll from anchor a to curl round c: leave the parent at an easy angle toward c, bend steadily, enter a circle
   // round c along its own direction and wind in a turn, the radius closing as a pen's spiral does
-  const scroll = (a, c, rho) => {
+  // (want: the way its curl turns, +1 or -1, when the work asks for it; else the way it bends already)
+  const scroll = (a, c, rho, want = 0) => {
     const v = [c[0] - a.p[0], c[1] - a.p[1]], dl = Math.hypot(...v), u = [v[0] / dl, v[1] / dl];
     let t = a.t[0] * u[0] + a.t[1] * u[1] >= 0 ? a.t : [-a.t[0], -a.t[1]];
     const side = Math.sign(t[0] * u[1] - t[1] * u[0]) || 1, off = .45 + r() * .25;   // (leaves its parent 25-40 degrees out, toward c)
     const d0 = [t[0] * Math.cos(off * side) - t[1] * Math.sin(off * side), t[0] * Math.sin(off * side) + t[1] * Math.cos(off * side)];
-    const turn = Math.sign(d0[0] * u[1] - d0[1] * u[0]) || side, n = [-u[1], u[0]], E = [c[0] - turn * rho * n[0], c[1] - turn * rho * n[1]];
+    const bend = Math.sign(d0[0] * u[1] - d0[1] * u[0]) || side, turn = want || bend, n = [-u[1], u[0]], E = [c[0] - turn * rho * n[0], c[1] - turn * rho * n[1]];
     const L = Math.hypot(E[0] - a.p[0], E[1] - a.p[1]); if (L < sp * .4) return null;
     const B = [a.p[0] + d0[0] * L * .4, a.p[1] + d0[1] * L * .4], C = [E[0] - u[0] * L * .35, E[1] - u[1] * L * .35], pts = [];
     const nb = Math.max(4, Math.ceil(L / .5)); for (let k = 0; k <= nb; k++) pts.push(bez(a.p, B, C, E, k / nb));
@@ -467,14 +468,16 @@ function filigrana1(L, seed, keep = [], level = 2, o = {}) {
     for (const [, a] of cand) { const pts = scroll(a, c, sp * (.26 + r() * .05)); if (pts && fits(pts, a)) { lay(pts, a); break; } } }
   // the fringe: along the inner contour, small scrolls hung into the bay one after another at his spacing, wherever there is
   // room for one (in a narrow bay they are all its work; in a broad one they line its edge)
-  for (const [pts, id] of edges) { const qq = resample(pts, .5), L2 = arclen(qq); let last = -1e9;
-    for (let sA = sp * .5; sA < L2 - sp * .3; sA += .5) { if (sA - last < sp * (1.2 + r() * .15)) continue; const i = Math.min(qq.length - 2, Math.max(1, Math.round(sA / .5))), a = qq[i - 1], b = qq[i + 1], tl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = [(b[0] - a[0]) / tl, (b[1] - a[1]) / tl];
+  // (never a stamped row: each scroll its own size, the spacing uneven, the turn mostly alternating but not by rule)
+  let fwPrev = 1;
+  for (const [pts, id] of edges) { const qq = resample(pts, .5), L2 = arclen(qq); let last = -1e9, gapNext = sp * 1.2;
+    for (let sA = sp * .5; sA < L2 - sp * .3; sA += .5) { if (sA - last < gapNext) continue; const i = Math.min(qq.length - 2, Math.max(1, Math.round(sA / .5))), a = qq[i - 1], b = qq[i + 1], tl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = [(b[0] - a[0]) / tl, (b[1] - a[1]) / tl];
       let nn = [-t[1], t[0]]; if (at(qq[i][0] + nn[0] * sp * .5, qq[i][1] + nn[1] * sp * .5) < at(qq[i][0] - nn[0] * sp * .5, qq[i][1] - nn[1] * sp * .5)) nn = [-nn[0], -nn[1]];
       // (the room ahead into the bay: as far as the depth keeps rising, less a gap)
       let room = 0; while (room < sp * 3 && at(qq[i][0] + nn[0] * (room + .5), qq[i][1] + nn[1] * (room + .5)) > at(qq[i][0] + nn[0] * room, qq[i][1] + nn[1] * room) - .05) room += .5;
-      const rho = Math.min(sp * .38, (room - sp * .3) / 2.4); if (rho < sp * .2) continue;
-      const fw = r() < .5 ? 1 : -1, c = [qq[i][0] + nn[0] * (sp * .25 + rho * 1.4) + t[0] * fw * sp * .35, qq[i][1] + nn[1] * (sp * .25 + rho * 1.4) + t[1] * fw * sp * .35];
-      const anc = { p: qq[i], t, id, depth: 0 }, sc = scroll(anc, c, rho); if (sc && fits(sc, anc)) { lay(sc, anc); last = sA; } } }
+      const rho = Math.min(sp * .38, (room - sp * .3) / 2.4) * (.72 + r() * .4); if (rho < sp * .19) continue;
+      const fw = r() < .72 ? -fwPrev : fwPrev, c = [qq[i][0] + nn[0] * (sp * .25 + rho * 1.4) + t[0] * fw * sp * .35, qq[i][1] + nn[1] * (sp * .25 + rho * 1.4) + t[1] * fw * sp * .35];
+      const anc = { p: qq[i], t, id, depth: 0 }, sc = scroll(anc, c, rho, fw * (r() < .8 ? 1 : -1)); if (sc && fits(sc, anc)) { lay(sc, anc); last = sA; fwPrev = fw; gapNext = sp * (1.05 + r() * .6); } } }
   const rest = att.filter(p => clear(p, RHO + sp * .45)); rest.sort((p, q) => nearAnchor(p, compAt(...p))[1] - nearAnchor(q, compAt(...q))[1]);
   att.splice(0, att.length, ...rest);
   for (const c of att) { if (ns >= MAXS) break; const comp = compAt(c[0], c[1]);
@@ -506,8 +509,9 @@ function filigrana1(L, seed, keep = [], level = 2, o = {}) {
         const R = sp * .26; if (!fitLen(p, nrm, R * 2, R * 2)) continue; const c2 = [p[0] + nrm[0] * R, p[1] + nrm[1] * R], rg = [], a0 = Math.atan2(-nrm[1], -nrm[0]); for (let q = 0; q <= 16; q++) { const an = a0 + q / 16 * 2.05 * Math.PI; rg.push([c2[0] + Math.cos(an) * R, c2[1] + Math.sin(an) * R]); } stroke(out.spikes, rg); }
       else { const ln = fitLen(p, nrm, sp * (1.0 + (k % 4 === 0 ? .35 : 0)) * (.92 + r() * .16), sp * .45); if (ln) stroke(out.spikes, [p, [p[0] + nrm[0] * ln, p[1] + nrm[1] * ln]], { end: 'taper' }); } } };
   side([X0, Y0], [X1, Y0], [0, -1], true); side([X0, Y1], [X1, Y1], [0, 1], true); side([X1, Y0], [X1, Y1], [1, 0], false);
+  if (o.open) side([X0, Y0], [X0, Y1], [-1, 0], false);   // (no margin panel: the box stands alone, worked all round)
   // the corners: his spray, a fleuron out along the diagonal (not on the margin's side)
-  for (const [cx, cy, sx, sy] of [[X1, Y0, 1, -1], [X1, Y1, 1, 1]]) { const d = [sx * .7071, sy * .7071], ln = fitLen([cx, cy], d, sp * 1.9, sp * .8); if (ln) fleuron([cx, cy], d, ln); }
+  for (const [cx, cy, sx, sy] of [[X1, Y0, 1, -1], [X1, Y1, 1, 1], ...(o.open ? [[X0, Y0, -1, -1], [X0, Y1, -1, 1]] : [])]) { const d = [sx * .7071, sy * .7071], ln = fitLen([cx, cy], d, sp * 1.9, sp * .8); if (ln) fleuron([cx, cy], d, ln); }
   // the order a hand writes them: the contour and frame, the eyes' spokes, the scrolls as they grew, the pearls, the spikes
   return [...out.frame, ...out.spokes, ...out.scrolls, ...out.pearls, ...out.spikes, ...out.dots];
 }
@@ -525,11 +529,14 @@ export function splitBody(L, seed) {
   if (!st) return { M: L, marks: [] };
   const a = st[0], b = st.at(-1), at = p => { const i = Math.floor((p[0] - x0) * res), j = Math.floor((p[1] - y0) * res); return i < 0 || j < 0 || i >= w || j >= h ? 0 : D[j * w + i] / res; };
   const half = resample(st, 1).map(at).sort((u, v) => u - v)[Math.floor(st.length * .5)] ?? H * .08, Lp = arclen(st), t = [(b[0] - a[0]) / Lp, (b[1] - a[1]) / Lp];
-  const out = Float32Array.from(M), gap = .65;
+  // (his channel, 467763's K: not the whole stem but a lens down its middle, about two fifths of its width, pointed at both
+  // ends, with a hair of parchment round it, so the letter still reads as one colour with a jewel set in it)
+  const out = Float32Array.from(M), gap = .6, ch = half * .42, s1 = Lp * .1, s2 = Lp * .9, lens = s0 => s0 <= s1 || s0 >= s2 ? 0 : ch * Math.pow(Math.sin(Math.PI * (s0 - s1) / (s2 - s1)), .6);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; if (!M[k]) continue; const x = x0 + (i + .5) / res, y = y0 + (j + .5) / res;
-    const s0 = (x - a[0]) * t[0] + (y - a[1]) * t[1], d = Math.abs(-(x - a[0]) * t[1] + (y - a[1]) * t[0]); if (s0 < -1 || s0 > Lp + 1) continue;
-    out[k] *= Math.min(1, Math.max(0, (d - half * .92 - gap) * 2)); }
-  return { M: { ...L, M: out }, marks: [{ pts: resample([a, b], .5), kind: 'split', w: half * 1.84, nib: -Math.atan2(t[0], t[1]) }] };
+    const s0 = (x - a[0]) * t[0] + (y - a[1]) * t[1], d = Math.abs(-(x - a[0]) * t[1] + (y - a[1]) * t[0]), hw = lens(s0); if (hw <= 0) continue;
+    out[k] *= Math.min(1, Math.max(0, (d - hw - gap) * 2)); }
+  const A = [a[0] + t[0] * s1, a[1] + t[1] * s1], Bp = [a[0] + t[0] * s2, a[1] + t[1] * s2];
+  return { M: { ...L, M: out }, marks: [{ pts: resample([A, Bp], .5), kind: 'split', w: ch * 2, nib: -Math.atan2(t[0], t[1]), press: f => Math.max(.05, Math.pow(Math.sin(Math.PI * f), .6)) }] };
 }
 
 // ---- the flourish ----------------------------------------------------------------------------------------------------------------
@@ -791,6 +798,10 @@ export function initial({ G: G0, keep, lh, big, level: li, seed, room: margin, b
   const redDrop = stream(seed >>> 0, 'colour')() < .6 || q0.get('colour') === 'red', blueForce = q0.get('colour') === 'blue';
   const pig = (big ? redDrop && !blueForce : !(redDrop && !blueForce)) ? 'minium' : 'azurite', ink = (isDark() ? INKS_DARK : INKS)[pig], [lx0, ly0, lx1, ly1] = G.box, Hl = ly1 - ly0, dark = isDark();
   const gap = big ? 2.6 : 2.1, roomL = Math.max(0, margin - gap * 3);
+  // the staff (the margin's column, its dome and the staff run down beside the text): the style's setting `staff` ('on', the
+  // default, or 'off'; the site's Adjust sets it on the module), ?staff=on|off over it. Off, a drop's box stands alone as his
+  // do, and a line initial keeps its small panel without the staff.
+  const staffOn = (q0.get('staff') ?? choirbook.staff ?? 'on') !== 'off';
   const grownBox = big && li >= 1 && (q0.get('work') ?? 'grown') === 'grown', bm = boxMargins(Hl), pr = grownBox ? bm[0] + Math.max(1.7, Hl * .05) * .62 + gap * .45 : gap * .7;   // (the grown box's frame stands off the letter: the panel stands off the frame)
   const panel = big ? [lx0 - Math.max(pr + gap * 4, Math.min(GEOM.panelW[li] * Hl + pr, roomL)), ly0 - GEOM.rise[li] * Hl, lx0 - pr, ly1]
     : [lx0 - Math.min(GEOM.small.panelW[li], roomL), ly0 - 1, lx0 - gap * .6, ly1 + 1];
@@ -806,17 +817,18 @@ export function initial({ G: G0, keep, lh, big, level: li, seed, room: margin, b
   // ?work=roundels: 467763's worked panels)
   const work = q.get('work') ?? 'grown', le = big && (work === 'le73' || work === 'grown') && li >= 1;
   const F = big && !le && (fq ?? BUDGETS[li].filigree) ? filigree(L, seed) : { M: L, full: L, marks: [] };
-  const marks = flourish({ glyph: F.full, panel, keep, staff, g: gap, seed, level: li, right, tp: le && work === 'grown' ? null : tp, own: le });   // (the grown box has its own frame on the text side)
-  if (le) marks.push(...(work === 'grown' ? filigrana(L, seed, keep, li) : counterWork(L, seed, gap, keep)));
+  const marks = big && !staffOn && le ? [] : flourish({ glyph: F.full, panel, keep, staff: staffOn ? staff : null, g: gap, seed, level: li, right, tp: le && work === 'grown' ? null : tp, own: le });   // (the grown box has its own frame on the text side)
+  if (le) marks.push(...(work === 'grown' ? filigrana(L, seed, keep, li, { open: !staffOn }) : counterWork(L, seed, gap, keep)));
   // his parted letters: about one in four of his large letters is split (?split=1|0 to force)
-  const sq = q0.get('split'), sp = big && (sq ? sq !== '0' : stream(seed >>> 0, 'split')() < .25) ? splitBody(F.M, seed) : null;
+  // (a split is his occasional choice, about one large letter in six, and only on a letter with a long upright stem to carry it)
+  const LTR = ch ? letterOf(ch) : identify(G0), sq = q0.get('split'), sp = big && (sq ? sq !== '0' : 'BDEFHKLMNPR'.includes(LTR) && stream(seed >>> 0, 'split')() < .17) ? splitBody(F.M, seed) : null;
   if (sp) { F.M = sp.M; F.marks = [...F.marks, ...sp.marks]; }
   const chInk = PIGMENTS[big ? 'minium' : 'azurite'].rgb;
   const otherInk = PIGMENTS[pig === 'minium' ? 'azurite' : 'minium'].rgb;
   // (dark: a channel carries no ink of its own, so kit/illum.js lays it in the palette's designed dark solid ('a' the red, 'b'
   // the blue, as the letter's own col) rather than lifting a pigment to a pastel)
   const chCol = s => s.kind === 'split' ? (pig === 'minium' ? 'b' : 'a') : (big ? 'a' : 'b');
-  const channel = F.marks.map((s, i) => ({ pts: s.pts, col: dark ? chCol(s) : 'b', ink: dark ? undefined : s.kind === 'split' ? otherInk : chInk, seed: seed + 7 * i, w: s.w, broad: .9, nib: s.nib, load: 1.1, dry: .08, swell: 0, start: s.kind === 'split' ? 'cut' : 'taper', end: s.kind === 'split' ? 'cut' : 'taper' }));
+  const channel = F.marks.map((s, i) => ({ pts: s.pts, col: dark ? chCol(s) : 'b', ink: dark ? undefined : s.kind === 'split' ? otherInk : chInk, seed: seed + 7 * i, w: s.w, broad: .9, nib: s.nib, load: 1.1, dry: .08, swell: 0, press: s.press, start: s.kind === 'split' ? 'cut' : 'taper', end: s.kind === 'split' ? 'cut' : 'taper' }));
   const reds = (F.reds ?? []).map(d => ({ dot: true, p: d.p, r: d.r, col: 'b', ink: chInk }));
   // dark: the letter laid flat in the style's own designed dark paint (its inkDark: 'b' is the drop's blue, 'a' the line
   // initial's red), its opacity pooled at the rim. (kit/illum.js lays a pigment letter on a dark page as the pigment
@@ -873,8 +885,9 @@ function stave(cx, y, measure, seed, rich, u) {
     else out.push(bead([px, y], 1.2, 'b')); }
   return out;
 }
+const staffOn = () => (new URLSearchParams(globalThis.location?.search ?? '').get('staff') ?? choirbook.staff ?? 'on') !== 'off';   // (the stave goes with the staff)
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8) {
-  return rank < 2 ? stave(cx, y, measure, seed, rich, u) : wBreak(cx, y, measure, rank, seed, rich, u, true);
+  return rank < 2 && staffOn() ? stave(cx, y, measure, seed, rich, u) : wBreak(cx, y, measure, rank, seed, rich, u, true);
 }
 
 // ---- frames ----------------------------------------------------------------------------------------------------------------------
@@ -901,7 +914,7 @@ const pullFrame = ({ cx, yTop, yBot, measure, u, seed, rich = .5 }) => [...break
 const frames = { quote: columnFrame, figure: figureFrame, code: codeFrame, pull: pullFrame, aside: asideFrame, nav: navFrame };
 
 // ---- the style -------------------------------------------------------------------------------------------------------------------
-export const choirbook = { label: 'Choir book', pair: ['red', 'blue'], alternate: true, minGap: 1.4,
+export const choirbook = { staff: 'on', label: 'Choir book', pair: ['red', 'blue'], alternate: true, minGap: 1.4,
   // vermilion and azurite as 03 had them; the notes in the book's brown-black
   ink: { red: { solid: [200, 66, 40], hair: RED_HAIR }, blue: { solid: [40, 70, 160], hair: [56, 84, 166] }, black: { solid: [44, 34, 27], hair: [58, 46, 36] }, flesh: { solid: [120, 52, 40], hair: [120, 52, 40] } },
   // dark (designed, not lifted): the pigments as they read on a stained or black leaf, brighter and more saturated than on

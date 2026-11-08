@@ -337,3 +337,16 @@ dark solid ('a'/'b'), not a lifted pastel. No illum.js edit was needed.
 - Words are rasterised once into a mask, in filigrana and in flourish (they were tested per cell).
 - filigrana is cached per letter, size, seed and the words around it, so a resize lays nothing again.
 - Drop initial: 190 → ~118 ms (filigrana ~44, flourish ~48, drawn ~20). Whole page: grow ~190–245 ms.
+
+**Fifth pass (the user: "the I seems to have two colours; J doesn't feel like a J; Y reads like V"; keep the staff as an option).**
+- J and Y are the face's own: J's hook descends and curves left, and Y is the uncial y with its tail. The third pass had made J
+  as I and cut Y's tail. A tail may now run .2 H below the line; letters that run past that are set smaller.
+- The split is his occasional choice. It appears on about one large letter in six, and only on letters with a long upright
+  stem (B D E F H K L M N P R). It is now a lens about two fifths of the stem's width, pointed at both ends, set in a hair of
+  parchment. Before, it was the whole stem in the other colour, which read as two colours. `?split=1|0` forces it either way.
+- The staff is a setting: `choirbook.staff = 'on' | 'off'` on the module (as Kelmscott's settings are), with `?staff=` over
+  it. Off: a drop's box stands alone, worked and spiked on all four sides with corner fleurons, and the chapter break becomes
+  06's device instead of the music stave. A line initial keeps its small panel but loses its staff. Catalogue entry for when
+  the style joins the site: `['staff', 'Music staff', [['on', 'On'], ['off', 'Off']], { mod: true }]`.
+- No stamped rows. Each fringe scroll has its own size (×.72–1.12) and spacing (1.05–1.65 sp). Its curl turns opposite to the
+  last about three times in four. The spine scrolls vary in size too.

@@ -34,8 +34,11 @@ def smin(a, b, k):   # polynomial smooth minimum (Quilez): the union of two fiel
     hh = np.clip(.5 + .5 * (b - a) / k, 0, 1); return b * (1 - hh) + a * hh - k * hh * (1 - hh)
 def smax(a, b, k): return -smin(-a, -b, k)
 
+# (the face's own J, a hook curving left below the line, and its uncial Y, forked arms on a stem whose tail descends and turns:
+# the third pass wrote J as I and cut Y's tail at the line, so they read as I and V)
+EDIT2 = {**EDIT, 'J': {}, 'Y': {}}
 def outline(font, ch, ref='I'):
-    f = TTFont(font); gs = f.getGlyphSet(); cm = f.getBestCmap(); E = EDIT.get(ch, {})
+    f = TTFont(font); gs = f.getGlyphSet(); cm = f.getBestCmap(); E = EDIT2.get(ch, {})
     pen = Flat(gs); gs[cm[ord(ref)]].draw(pen); Rf = np.vstack([np.array(c) for c in pen.C]); top, bot = Rf[:, 1].max(), Rf[:, 1].min(); U = top - bot
     pen = Flat(gs); gs[cm[ord(E.get('src', ch))]].draw(pen)
     C = [np.stack([np.array(c)[:, 0] / U, (top - np.array(c)[:, 1]) / U], 1) for c in pen.C if len(c) > 2]
@@ -147,7 +150,7 @@ if __name__ == '__main__':
     os.makedirs(outd, exist_ok=True); fam = TTFont(font)['name'].getDebugName(1)
     for ch in want:
         cont = letter(font, ch, seed)
-        yb = max(c[:, 1].max() for c in cont); dsc = E_('DESC', .09)
+        yb = max(c[:, 1].max() for c in cont); dsc = E_('DESC', .2)   # (a tail may run a fifth of the letter below the line: J's hook, Y's tail; then the letter is set smaller)
         if yb > 1 + dsc: k = (1 + dsc) / yb; cont = [c * k for c in cont]
         xs = np.concatenate([c[:, 0] for c in cont]); xl, xr = xs.min(), xs.max()
         curves = []
