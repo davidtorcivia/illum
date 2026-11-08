@@ -15,6 +15,7 @@
 //   breakMark(cx, y, measure, rank, seed, rich, u, n)   frames.{ quote, figure, code, pull, aside, nav }   palette.{ light, dark }
 //   print(made, { dpr, kind, u, y, seed, animate }) -> { pours, letters, runs, y0, seq }   timeline(printed, kind, animate)
 import { dist } from '../inkletter.js';
+import { noise2 } from '../marks.js';
 import { loadLetter, garden, drawGarden, bandOf, A as GARDEN_A } from './kelmscott-garden.js';
 
 // GLYPHS (tools/kfont.py; research/16 lists every source and box): per glyph its font file, its character, a (width /
@@ -175,12 +176,23 @@ function raster(b, res) {
     if (document.fonts.check(c.font, G.c)) c.fillText(G.c, 0, em); else console.warn('kelmscott: not loaded', b.g);   // (never a fallback face's box)
     c.restore(); }
   const d = c.getImageData(0, 0, w, h).data, M = new Float32Array(w * h); for (let i = 0; i < w * h; i++) M[i] = d[i * 4 + 3] / 255;
+  if (G?.garden) impress(M, w, h, res, b.seed ?? 1);
   if (G) { const open = G.k ? 0 : Math.max(0, MIN_WHITE - G.w * em), bold = G.k ? Math.max(0, MIN_LINE - G.k * em) : 0;
     if (open > .05) { const feat = new Uint8Array(w * h); for (let q = 0; q < w * h; q++) feat[q] = M[q] < .5; const D = dist(feat, w, h), o = Math.min(open, em * .02) * res;
       for (let q = 0; q < w * h; q++) if (M[q] > 0) M[q] *= Math.max(0, Math.min(1, D[q] - o + .5)); }
     if (bold > .05) { const feat = new Uint8Array(w * h); for (let q = 0; q < w * h; q++) feat[q] = M[q] >= .5; const D = dist(feat, w, h), o = bold / 2 * res;
       for (let q = 0; q < w * h; q++) M[q] = Math.max(M[q], Math.max(0, Math.min(1, o + .5 - D[q]))); } }
   const r = { M, w, h, x0, y0, res }; cache.set(key, r); if (cache.size > 64) cache.delete(cache.keys().next().value); return r;
+}
+// A garden block as a wood block prints: its edges not quite true (the antialiased rim pushed in or out a little by a slow
+// grain, so a line's margin wavers by a fraction of a px), and here and there in the broad black a speck where the
+// paper did not take the ink. The ink engine then pours it (grain, pooling, the faint spread at the edge).
+const grain = noise2(4441), salt = noise2(9173);
+function impress(M, w, h, res, seed) {
+  const o = (typeof seed === 'number' ? seed : 1) % 97 * 13.1;
+  for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) { const q = j * w + i, m = M[q];
+    if (m > .02 && m < .98) M[q] = Math.max(0, Math.min(1, m + (grain(i / res / 1.6 + o, j / res / 1.6) - .5) * .7));
+    else if (m >= .98 && M[q - 1] > .98 && M[q + 1] > .98 && M[q - w] > .98 && M[q + w] > .98 && salt(i / res / .9 + o, j / res / .9) > .86) M[q] = .45; }
 }
 // the silhouette: the black with the white it encloses filled (a flood of the paper from the box's edge)
 function silhouette(L) {
@@ -355,8 +367,8 @@ function print(made, { dpr = 1, animate = false, kind } = {}) {
   const res = dpr >= 1.5 ? 2 : 1, pours = [], letters = [], seq = [], dark = isDark() && DARK_CUT === 'positive';
   const pour = (p, d) => { pours.push(p); seq.push({ pour: p, d }); }, letter = (L, d) => { letters.push(L); seq.push({ letter: L, d }); };
   const pace = b => kind === 'drop' ? 4.2 : Math.min(1.6, .4 + (b.w + b.h) / 400);
-  for (const b of made.letters ?? []) { const L = raster(b, res), ink = { ...L, col: b.col, wet: .04, dry: .18 };
-    if (BLOCK(b.g) && dark && 'vnwq'.includes(b.g[0])) { const { W } = whiteOf(b, L), cut = { ...L, M: W, col: b.col, wet: .04, dry: .18 }; animate ? letter(cut, pace(b)) : pour(cut, 0); }
+  for (const b of made.letters ?? []) { const L = raster(b, res), gd = GLYPHS[b.g]?.garden, ink = { ...L, col: b.col, wet: gd ? .08 : .04, dry: gd ? .26 : .18 };
+    if (BLOCK(b.g) && dark && 'vnwq'.includes(b.g[0])) { const { W } = whiteOf(b, L), cut = { ...L, M: W, col: b.col, wet: ink.wet, dry: ink.dry }; animate ? letter(cut, pace(b)) : pour(cut, 0); }
     else if (BLOCK(b.g) && animate) { const { S, W } = whiteOf(b, L); letter({ ...L, M: S, col: b.col, wet: .02, dry: .1 }, kind === 'drop' ? .6 : .4); letter({ ...L, M: W, col: 'w', wet: .02, dry: 0 }, pace(b)); pour({ ...ink, wet: 0 }, .01); }
     else if (LINEART.has(b.g) && animate) letter(ink, Math.min(1.8, .5 + (b.w + b.h) / 500));
     else pour(ink, animate ? .15 : 0); }
