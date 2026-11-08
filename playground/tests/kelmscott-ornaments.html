@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kelmscott ornaments</title>
-<!-- The page ornaments grown by kit/styles/kelmscott-garden.js ornament() beside the traced ones they would replace.
-  ?theme=light|dark &k=4 (scale) -->
+<!-- The page ornaments grown by kit/styles/kelmscott-garden.js ornament() beside the traced ones they would replace; below,
+  the garden's bands (band, cornerBlock: the default breaks, frames, quotation strip, pull head and foot, line-filler).
+  ?theme=light|dark &k=4 (scale) &break=knot|knotsil|band -->
 <style>
   :root { --paper: rgb(244 238 226); --ink: #2b2119; }
   :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); }
@@ -40,6 +41,17 @@ newRow(); grown('filler', 220, 9, 3, {}, 'filler'); grown('filler', 160, 9, 5, {
 newRow(); { const [w, h, d] = glyph('hedera', 14); show(w, h, d, 'old paraph'); } grown('leaf', 16, 14, 2, {}, 'grown paraph');
 { const [w, h, d] = glyph('vine', 40); show(w, Math.min(h, 260), d, 'old vine'); } grown('vine', 34, 260, 4, { u: 9 }, 'grown vine');
 grown('corner', 40, 40, 6, {}, 'corner');
+// the garden's bands (the default since round nine): the case's own parts (kelmscott.js), each drawn as the press would lay it
+const laid = (letters, label) => { const L = letters.filter(b => b?.art), x0 = Math.min(...L.map(b => b.x)), y0 = Math.min(...L.map(b => b.y)), x1 = Math.max(...L.map(b => b.x + b.w)), y1 = Math.max(...L.map(b => b.y + b.h));
+  show(x1 - x0, y1 - y0, c => { c.translate(-x0, -y0); for (const b of L) { c.save(); b.art.draw(c, b.x, b.y, b); c.restore(); } }, label); };
+const u = 8.6, t1 = performance.now(); kelmscott.breaks = q.get('break') ?? 'knot';
+newRow(); laid(kelmscott.breakMark(300, 40, 600, 1, 3, .5, u, 1).letters, 'chapter (rank 1)'); laid(kelmscott.breakMark(300, 40, 600, 2, 4, .5, u, 1).letters, 'book (rank 2)');
+newRow(); laid(kelmscott.breakMark(300, 40, 600, 3, 5, .5, u, 1).letters, 'rank 3');
+newRow(); laid(kelmscott.frames.figure({ box: [40, 40, 400, 260], cap: 260, u, seed: 2 }).letters, 'figure'); laid(kelmscott.frames.code({ box: [0, 0, 420, 140], u, seed: 3 }).letters, 'code');
+laid(kelmscott.frames.quote({ box: [60, 20, 300, 200], lines: [{ left: 60, right: 300, top: 20, base: 40 }, { left: 60, right: 300, top: 180, base: 200 }], u, seed: 1 }).letters, 'quotation');
+newRow(); laid(kelmscott.frames.pull({ cx: 200, yTop: 40, yBot: 120, measure: 600, u, seed: 1 }).letters, 'pull quote, head and foot');
+laid(kelmscott.filler(0, 330, 0, 13, 'vine', 4, .5).letters, 'line-filler');
+t.push(performance.now() - t1);
 document.body.dataset.timing = t.map(v => v.toFixed(1)).join(' ');
 </script>
 </body>

@@ -15,8 +15,9 @@
   15% into view: the block's face laid black, the white cut into it along its stems; never scrolls); ?theme=light|dark;
   ?rich=0..1; #seed=n; ?lines=n (the drop initial's depth; Morris's own six by default); ?paraph=red|black (the hedera); ?line=drop|inline (the L: two lines deep, or in the line); ?cut=positive|negative (dark: the
   white line printed pale on the page, or the block pale with its cut dark); ?fill=none|knot (a paragraph's short line);
-  ?break=all|rose|grape|mirror (the breaks: the Water of the Wondrous Isles' column-vine feet); ?code=rule|none; ?vine=on|none (the column vine
-  down quotations and asides, its head and foot round the pull quote; none: plain, the pull quote between two sprigs);
+  ?break=knot|knotsil|band|traced|rose|grape|mirror (knot, default: the garden's plait, white in a band of the block's black;
+  traced: the Water of the Wondrous Isles' column-vine feet); ?frame=band|grown (figure and code); ?code=rule|band|none;
+  ?vine=on|traced|grown|none (the band down quotations and asides); ?pull=band|traced|grown; ?fill=plait|rope|grown|none|knot;
   ?audit.
 -->
 <style>
@@ -144,9 +145,10 @@ kelmscott.paraphCol = q.get('paraph') ?? 'red';
 kelmscott.darkCut = q.get('cut') ?? 'positive';
 kelmscott.caps = q.get('caps') ?? 'garden';   // the six-line letters: drawn as vector with a garden grown in the gaps (garden, default); grown in the gaps and fitted into fonts (gen2); his own where he cut one (morris); from his blocks (gen), grown (grow) or grafted (graft)
 kelmscott.fill = q.get('fill') ?? 'vine';   // a paragraph's free end: a grown vine (vine, default) | none | knot
-kelmscott.breaks = q.get('break') ?? 'all';   // (grown: the garden bands, not yet the default)
-kelmscott.pull = q.get('pull') ?? 'traced';   // the pull quote's head and foot: traced (default) | grown   // all (chapters: rose, mirrored rose in turn; books: grape) | rose | grape | mirror
+kelmscott.breaks = q.get('break') ?? 'knot';   // the garden's plait band (knot, default) | knotsil (drawn in ink) | band (a rinceau) | traced (Morris's column-vine feet) | rose | grape | mirror | grown
+kelmscott.pull = q.get('pull') ?? 'band';   // the pull quote's head and foot: traced (default) | grown   // all (chapters: rose, mirrored rose in turn; books: grape) | rose | grape | mirror
 kelmscott.code = q.get('code') ?? 'rule';
+kelmscott.frame = q.get('frame') ?? 'band';   // the figure's and the code's frame: the garden's band all round, a square at each corner (band) | the fine rule with sprays at the corners (grown)
 kelmscott.vine = q.get('vine') ?? 'on';   // none: quotation and aside plain, the pull quote between two sprigs   // a paragraph's short last line: left open, as Morris's text pages leave it (none), or closed with the running heads' knots (knot)   // dark: the cut printed pale on the dark page (positive), or the block pale with its cut dark (negative)
 // ?line=drop (default): the initial in the line set as the Chaucer sets its small initials, two lines deep; ?line=inline:
 // in the line, as the markup has it
