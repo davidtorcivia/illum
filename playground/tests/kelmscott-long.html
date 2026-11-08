@@ -101,7 +101,7 @@ if (q.has('ghost')) document.body.classList.add('ghost');
 if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.dataset.lines = Math.max(2, Math.min(9, +q.get('lines') || 6)));
 kelmscott.paraphCol = q.get('paraph') ?? 'red';
 kelmscott.darkCut = q.get('cut') ?? 'positive';
-kelmscott.caps = q.get('caps') ?? 'gen';   // the six-line letters Morris never cut: generated from his blocks (gen), grown (grow) or grafted (graft)
+kelmscott.caps = q.get('caps') ?? 'gen2';   // the six-line letters: all generated, grown in the gaps (gen2, default); his own where he cut one (morris); from his blocks (gen), grown (grow) or grafted (graft)
 kelmscott.fill = q.get('fill') ?? 'none';
 kelmscott.breaks = q.get('break') ?? 'all';   // all (chapters: rose, mirrored rose in turn; books: grape) | rose | grape | mirror
 kelmscott.code = q.get('code') ?? 'rule';

@@ -82,18 +82,34 @@ const GLYPHS = {
   nW: { f: 'kelmscott-gen-nW.woff2', c: "W", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3540 B; kdonor6.py W V 1
   nX: { f: 'kelmscott-gen-nX.woff2', c: "X", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3316 B; kdonor6.py X K 3
   nY: { f: 'kelmscott-gen-nY.woff2', c: "Y", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3180 B; kdonor6.py Y V 1
-  // ?caps=gen2: GL-Morris's letter (as gen), the vine grown in the gaps round it: two to four main stems sweeping behind the
+  // ?caps=gen2 (default), all 26: GL-Morris's letter (as gen), the vine grown in the gaps round it: two to four main stems sweeping behind the
   // letter, branches and shoots off them, each thinner; a big lobed leaf in each large room; open black and dots (research/kelmscott/gen/kgap.py LETTER SEED)
-  wD: { f: 'kelmscott-gen2-wD.woff2', c: "D", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3752 B; kgap.py D 3
-  wE: { f: 'kelmscott-gen2-wE.woff2', c: "E", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3648 B; kgap.py E 2
-  wG: { f: 'kelmscott-gen2-wG.woff2', c: "G", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3800 B; kgap.py G 1
-  wJ: { f: 'kelmscott-gen2-wJ.woff2', c: "J", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3660 B; kgap.py J 2
-  wQ: { f: 'kelmscott-gen2-wQ.woff2', c: "Q", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3732 B; kgap.py Q 3
-  wR: { f: 'kelmscott-gen2-wR.woff2', c: "R", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3876 B; kgap.py R 2
-  wU: { f: 'kelmscott-gen2-wU.woff2', c: "U", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3532 B; kgap.py U 3
-  wW: { f: 'kelmscott-gen2-wW.woff2', c: "W", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3992 B; kgap.py W 3
-  wX: { f: 'kelmscott-gen2-wX.woff2', c: "X", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3684 B; kgap.py X 2
-  wY: { f: 'kelmscott-gen2-wY.woff2', c: "Y", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3740 B; kgap.py Y 3
+  wA: { f: 'kelmscott-gen2-wA.woff2', c: "A", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3400 B; kgap.py A 2
+  wB: { f: 'kelmscott-gen2-wB.woff2', c: "B", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3480 B; kgap.py B 1
+  wC: { f: 'kelmscott-gen2-wC.woff2', c: "C", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3296 B; kgap.py C 3
+  wD: { f: 'kelmscott-gen2-wD.woff2', c: "D", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3488 B; kgap.py D 2
+  wE: { f: 'kelmscott-gen2-wE.woff2', c: "E", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3508 B; kgap.py E 1
+  wF: { f: 'kelmscott-gen2-wF.woff2', c: "F", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3140 B; kgap.py F 2
+  wG: { f: 'kelmscott-gen2-wG.woff2', c: "G", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3612 B; kgap.py G 1
+  wH: { f: 'kelmscott-gen2-wH.woff2', c: "H", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3452 B; kgap.py H 1
+  wI: { f: 'kelmscott-gen2-wI.woff2', c: "I", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3228 B; kgap.py I 2
+  wJ: { f: 'kelmscott-gen2-wJ.woff2', c: "J", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3316 B; kgap.py J 1
+  wK: { f: 'kelmscott-gen2-wK.woff2', c: "K", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3424 B; kgap.py K 1
+  wL: { f: 'kelmscott-gen2-wL.woff2', c: "L", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3280 B; kgap.py L 2
+  wM: { f: 'kelmscott-gen2-wM.woff2', c: "M", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3604 B; kgap.py M 2
+  wN: { f: 'kelmscott-gen2-wN.woff2', c: "N", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3076 B; kgap.py N 1
+  wO: { f: 'kelmscott-gen2-wO.woff2', c: "O", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3844 B; kgap.py O 3
+  wP: { f: 'kelmscott-gen2-wP.woff2', c: "P", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3452 B; kgap.py P 1
+  wQ: { f: 'kelmscott-gen2-wQ.woff2', c: "Q", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3292 B; kgap.py Q 1
+  wR: { f: 'kelmscott-gen2-wR.woff2', c: "R", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3652 B; kgap.py R 1
+  wS: { f: 'kelmscott-gen2-wS.woff2', c: "S", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3804 B; kgap.py S 1
+  wT: { f: 'kelmscott-gen2-wT.woff2', c: "T", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3720 B; kgap.py T 1
+  wU: { f: 'kelmscott-gen2-wU.woff2', c: "U", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3616 B; kgap.py U 2
+  wV: { f: 'kelmscott-gen2-wV.woff2', c: "V", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3604 B; kgap.py V 3
+  wW: { f: 'kelmscott-gen2-wW.woff2', c: "W", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3656 B; kgap.py W 2
+  wX: { f: 'kelmscott-gen2-wX.woff2', c: "X", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3660 B; kgap.py X 1
+  wY: { f: 'kelmscott-gen2-wY.woff2', c: "Y", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3308 B; kgap.py Y 3
+  wZ: { f: 'kelmscott-gen2-wZ.woff2', c: "Z", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3084 B; kgap.py Z 1
   hedera: { f: 'kelmscott-ornaments-hedera.woff2', c: "\ue000", a: 1.4, w: 0.0375, k: null },   // 960 B; Met 354288 photograph 1 [3216,998,3272,1038]
   sprig: { f: 'kelmscott-ornaments-sprig.woff2', c: "\ue001", a: 1.3784, w: 0.0788, k: null },   // 908 B; Met 354288 photograph 0 [2991,395,3042,432]
   knot: { f: 'kelmscott-ornaments-knot.woff2', c: "\ue002", a: 3.52, w: 0.0333, k: null },   // 2500 B; Met 354288 photograph 1 [3082,361,3258,411]
@@ -116,7 +132,7 @@ function loadGlyph(key) {
 // (ponytail: reads the document, not rubricate's root; pass the root in when the registry hands it over)
 function needed() {
   const keys = new Set(['hedera', 'sprig']), has = s => !!document.querySelector(s);
-  for (const s of document.querySelectorAll('.ini')) { const ch = letterOf(s.textContent); keys.add('v' + ch).add('s' + ch).add('g' + ch).add('n' + ch).add('w' + ch).add('v' + ALIAS[ch]).add('s' + ALIAS[ch]); }
+  for (const s of document.querySelectorAll('.ini')) { const ch = letterOf(s.textContent); keys.add(shapeFor(ch, true)).add(shapeFor(ch, false)); }   // (only the blocks the chosen caps set will lay: a six-line one and a line one)
   if (has('blockquote, aside') && !QUIET) keys.add('vine');
   if (has('.pull') && !QUIET) keys.add('headRose').add('footRose');
   if (has('hr, .break, .book, .chapter')) keys.add('footRose').add('footGrape');
@@ -182,12 +198,13 @@ function silhouette(L) {
 // a capital of the page's face in red stays only as the fallback for a character outside A–Z.
 const ALIAS = { J: 'I', U: 'V' };
 const letterOf = ch => String(ch).normalize('NFD')[0].toUpperCase();
-// CAPS 'gen' (default): a six-line letter Morris never cut is GL-Morris's letter in his own block's vine, fitted (gen: 2); 'grow': tools/kgrow.py's (gen: 1); 'graft'
-// (?caps=graft): the grafted one (m: 1; tools/kgraft.py); 'gen' (?caps=gen): GL-Morris's letter in his own block's vine, fitted (gen: 2);
-// 'gen2' (?caps=gen2): GL-Morris's letter with a vine grown in the gaps (gen: 3; research/kelmscott/gen/kgap.py)
-let CAPS = 'gen';
+// CAPS 'gen2' (default): every six-line letter A-Z generated: GL-Morris's letter (Morris's Troy capitals) with a vine grown in
+// the gaps round it (gen: 3; research/kelmscott/gen/kgap.py), one consistent set. 'morris' (?caps=morris): his own traced
+// blocks where he cut one, generated where he did not. 'gen' (?caps=gen): GL-Morris's letter in his own block's vine, fitted
+// (gen: 2); 'grow': tools/kgrow.py's (gen: 1); 'graft' (?caps=graft): his blocks, and the grafted ones (m: 1; tools/kgraft.py).
+let CAPS = 'gen2';
 const GP = { gen: 'n', gen2: 'w' };   // (the generated series' prefixes in GLYPHS)
-const shapeFor = (ch, deep) => { const gp = GP[CAPS]; if (deep && gp && GLYPHS[gp + ch]) return gp + ch; const c = GLYPHS['v' + ch] || GLYPHS['s' + ch] ? ch : ALIAS[ch] ?? ch; return deep ? (gp && GLYPHS[gp + c] ? gp + c : CAPS === 'grow' && GLYPHS['g' + c] ? 'g' + c : GLYPHS['v' + c] ? 'v' + c : GLYPHS['s' + c] ? 's' + c : null) : (GLYPHS['s' + c] ? 's' + c : GLYPHS['v' + c] ? 'v' + c : null); };
+const shapeFor = (ch, deep) => { const gp = GP[CAPS]; if (deep && gp && GLYPHS[gp + ch]) return gp + ch; if (deep && CAPS === 'morris') { const m = 'v' + (GLYPHS['v' + ch] ? ch : ALIAS[ch] ?? ch); return GLYPHS[m] && !GLYPHS[m].m ? m : GLYPHS['w' + ch] ? 'w' + ch : null; } const c = GLYPHS['v' + ch] || GLYPHS['s' + ch] ? ch : ALIAS[ch] ?? ch; return deep ? (gp && GLYPHS[gp + c] ? gp + c : CAPS === 'grow' && GLYPHS['g' + c] ? 'g' + c : GLYPHS['v' + c] ? 'v' + c : GLYPHS['s' + c] ? 's' + c : null) : (GLYPHS['s' + c] ? 's' + c : GLYPHS['v' + c] ? 'v' + c : null); };
 const FACE = '600 100px "EB Garamond", Garamond, serif';
 const capWidth = ch => { try { const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = FACE; const m = c.measureText(ch), H = c.measureText('H'); return (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / H.actualBoundingBoxAscent; } catch { return .8; } };
 function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, u = 8 }) {
@@ -354,5 +371,5 @@ export const kelmscott = { label: 'Kelmscott', minGap: 2, theme: { rubric: 'rgb(
   set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : 'none'; },
   set darkCut(c) { DARK_CUT = c === 'negative' ? 'negative' : 'positive'; },
   set breaks(c) { BREAK = ['rose', 'grape', 'mirror'].includes(c) ? c : 'all'; },
-  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen2'].includes(c) ? c : 'gen'; } };
+  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'morris'].includes(c) ? c : 'gen2'; } };
 export default kelmscott;

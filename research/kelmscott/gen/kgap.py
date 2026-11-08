@@ -26,7 +26,7 @@ MARG = .032             # the black border round everything
 CHL = .024              # the channel round the letter
 CH = .019               # the channel between vine shapes
 HWMAX = .03             # a stem's greatest half-width
-HWG = (.028, .017, .011)   # by rank: main stem, branch, shoot (each thinner)
+HWG = (.032, .02, .012)   # by rank: main stem, branch, shoot (each thinner)
 BUDGET = (1.6, .55, .26)   # how far each rank may grow
 HWCOR = .012            # in a corridor (no room to sweep)
 HWMIN = .0045           # a stem's tip
@@ -44,7 +44,7 @@ def letter(ch, cap=.79, base=.89, stem=.104):
     P = dict(khand.P, cap=cap, base=base)
     gi, ci, _ = khand.outline(FONT, 'I'); sw = khand.stem_width(khand.place(gi, ci, P), 1)
     g, capH, _ = khand.outline(FONT, ch); g = khand.place(g, capH, P).buffer((stem - sw) / 2, join_style='round', quad_segs=16)
-    b = g.bounds; f = min(.8 / (b[3] - b[1]), .82 / (b[2] - b[0]))   # (the letter in the block: .8 tall, or .82 wide if it is wide; centred)
+    b = g.bounds; f = min(.8 / (b[3] - b[1]), .86 / (b[2] - b[0]))   # (the letter in the block: .8 tall, or .86 wide if it is wide; centred)
     g = affinity.scale(g, f, f, origin=((b[0] + b[2]) / 2, (b[1] + b[3]) / 2)); b = g.bounds
     g = affinity.translate(g, A / 2 - (b[0] + b[2]) / 2, .5 - (b[1] + b[3]) / 2)
     g0, d = g, 0.
@@ -92,10 +92,12 @@ class Block:
     def __init__(s, ch, seed):
         s.rng = np.random.default_rng(seed * 7919 + ord(ch)); s.ch = ch
         s.L = letter(ch)
+        slight = s.L.area < .14; s.chl = CHL * (1.3 if slight else 1); s.vmax = VMAX - (.04 if slight else 0)   # (a slight letter, J Y Q: more room round it, less vine)
+        s.LC = s.L.buffer(s.chl)
         s.inner = box(MARG, MARG, A - MARG, 1 - MARG)
-        s.occ = raster(s.L.buffer(CHL)) | ~raster(s.inner)      # taken: the letter and its channel, the border
+        s.occ = raster(s.LC) | ~raster(s.inner)      # taken: the letter and its channel, the border
         s.occv = ~raster(s.inner); s.ghost = False              # (the same without the letter: a main stem passes behind it)
-        s.kind = np.where(raster(s.L.buffer(CHL)), 1, np.where(raster(s.inner), 0, 2))   # what a root grows from
+        s.kind = np.where(raster(s.LC), 1, np.where(raster(s.inner), 0, 2))   # what a root grows from
         s.vine = []                                              # white shapes
         s.update()
 
@@ -121,7 +123,7 @@ class Block:
     def walk(s, p, th, side, budget, fused, gen=1):
         """grows a centreline from p: points, headings, turning sides (s.M: 0 sweeping, 1 corridor, 2 behind the letter)"""
         P = [np.array(p, float)]; T = [th]; S = [side]; M = [0]; turned = 0.; age = 0.; R0 = s.rng.uniform(.24, .34) if gen == 0 else s.rng.uniform(.16, .24)
-        flip_at = s.rng.uniform(.35, .6) * math.pi; free_start = True; s.k0 = 0; run = 0.; jumped = 0; s.why = 'budget'; wave = 0.; flips = 0; kap = 0.
+        flip_at = s.rng.uniform(.35, .6) * math.pi; free_start = True; s.k0 = 0; run = 0.; jumped = 0; s.why = 'budget'; wave = 0.; flips = 0; kap = 0.; wlen = s.rng.uniform(.04, .08)
         def add(q, m): P.append(q); T.append(th); S.append(side); M.append(m)
         while age < budget:
             p = P[-1]; mode = 0
@@ -145,7 +147,8 @@ class Block:
                 if look(best) < HWMIN * 1.2: s.why = 'corridor-blocked'; break
                 run += DS
                 if run > (CORMAX * (3, 2, 1)[min(gen, 2)]): s.why = 'corridor-long'; break
-                dth = float(np.clip(best * .12, -DS / .05, DS / .05)); wave += DS; mode = 1   # (steered gently: a firm hand, no wobble)
+                dth = DS * side / .09 + float(np.clip(best * .08, -DS / .08, DS / .08)); wave += DS; mode = 1   # (a slow wave down the middle, eased: never a straight run)
+                if wave > wlen: side, wave, wlen = -side, 0., s.rng.uniform(.08, .13)
             else:
                 if abs(turned) > 1.6 * math.pi: s.why = 'curl'; break   # a full curl: done
                 dth = side * DS / r; run = 0.
@@ -176,6 +179,8 @@ class Block:
                         th -= dth; side = ns; turned = 0.; flips += 1; continue
                     s.why = 'self'; break
             add(q, mode); age += DS
+            if gen < 2 and s.tulips < 3 and age > budget * .35 and mode == 0 and s.d(q + u * .07) > .05 and s.rng.random() < .04:
+                s.why = 'flower'; break   # (it stops in open room, to flower there)
         s.M = np.array(M)
         return np.array(P), np.array(T), np.array(S)
 
@@ -205,7 +210,7 @@ class Block:
         P, T, S = w; hw = s.widths(P, hw0, gen); s.ghost = False; s.lens.append(round(len(P) * DS, 2))
         if DEBUG: print(f'  stem gen {gen} fused {int(fused)} len {len(P) * DS:.2f}/{budget:.2f} why {s.why} hw {hw.max():.3f}')
         g = stroke(P, hw)
-        g = g.intersection(s.inner).difference(s.L.buffer(CHL))
+        g = g.intersection(s.inner).difference(s.LC)
         s.take(g)
         tot = len(P) * DS
         # leaves on the outer side of curves, branches into the larger side
@@ -241,7 +246,7 @@ class Block:
             ds.append(d)
         return (len(ds) * .006, np.mean(ds) if ds else 0.)
 
-    def leaf(s, p, th, out, hw, Lmax=.22, fan=(.25, 1.45), Lmin=.075):
+    def leaf(s, p, th, out, hw, Lmax=.3, fan=(.25, 1.45), Lmin=.09):
         """a leaf on that side of the stem, turned into the most room and sized to it"""
         best = None
         for a in th + out * np.linspace(*fan, 7):
@@ -257,7 +262,7 @@ class Block:
             g = unary_union([g, stroke(np.array([p, base + u * .01]), [max(hw * .7, HWMIN * 1.3), HWMIN * 1.3])])
             if s.fits(g, p, hw + CH + .004):
                 if DEBUG: print(f'    leaf {L:.3f}')
-                s.take(g.difference(s.L.buffer(CHL))); return True
+                s.take(g.difference(s.LC)); return True
             L *= .88
         if DEBUG: print('    leaf failed')
         return False
@@ -267,9 +272,9 @@ class Block:
         bud or its curl"""
         u = np.array([math.cos(th), math.sin(th)])
         room = s.d(p + u * .05)
-        if gen == 0 and s.tulips < 2 and room > .045:
-            L = min(.2, room * 3.2)
-            while L > .1:
+        if gen < 2 and s.tulips < 3 and room > .036 and (gen == 0 or s.rng.random() < .5):
+            L = min(.22, room * 3.4)
+            while L > .09:
                 g, c, _, _ = kleaf.tulip(p - u * .004, th, L)
                 if s.fits(g, p, hw + CH + .004): s.take(g.difference(c)); s.tulips += 1; return True
                 L *= .9
@@ -320,14 +325,14 @@ class Block:
         # then calm: a shoot off the nearest stem into a room still large, never into every pocket
         tried = []; far = lambda g: all(np.hypot(*(g - t)) > .05 for t in tried)
         for _ in range(40):
-            if s.white() >= target or s.vinefrac() >= VMAX: break
+            if s.white() >= target or s.vinefrac() >= s.vmax: break
             G = [x for x in s.gaps(FILLMIN) if far(x[0])]
             if not G: break
             g, gap = G[0]; n0 = len(s.vine)
             q, fused = s.root(g)
             v = g - q; v /= np.hypot(*v) + 1e-9; side = rng.choice([-1, 1]); th = math.atan2(v[1], v[0]) - side * rng.uniform(.3, .6)
             # a large room by a stem: first one big leaf off the stem into it (his leaves are few and large)
-            if fused and gap >= .04 and s.dframe(g) > .06 and s.leaf(q, math.atan2(v[1], v[0]), side, HWMIN * 2, Lmax=.26, fan=(-.6, .6), Lmin=.1): s.update(); continue
+            if fused and gap >= .04 and s.dframe(g) > .06 and s.leaf(q, math.atan2(v[1], v[0]), side, HWMIN * 2, Lmax=.32, fan=(-.6, .6), Lmin=.1): s.update(); continue
             s.queue = [(q, th, side, BUDGET[1], HWG[1], 1, fused)]
             while s.queue:
                 p, th, side, budget, hw0, gen, *f = s.queue.pop(0)
@@ -382,5 +387,5 @@ if __name__ == '__main__':
     vw = raster(unary_union(B.vine).intersection(B.inner)).mean()
     from skimage.morphology import skeletonize
     vm = raster(unary_union(B.vine).intersection(B.inner)); vwid = np.percentile(nd.distance_transform_edt(vm)[skeletonize(vm)] * 2 / RES, [50, 90])
-    print(f'{ch} {seed} white {wf:.3f} vine {vw:.3f} vwidth {vwid[0]:.3f}/{vwid[1]:.3f} channel med {cm:.3f} p90 {c9:.3f} roots {B.roots} stems {len(B.lens)} longest {sorted(B.lens)[-3:]} jumps {B.jumps}')
+    print(f'{ch} {seed} white {wf:.3f} vine {vw:.3f} vwidth {vwid[0]:.3f}/{vwid[1]:.3f} channel med {cm:.3f} p90 {c9:.3f} roots {B.roots} stems {len(B.lens)} longest {sorted(B.lens)[-3:]} jumps {B.jumps} tulips {B.tulips}')
     json.dump({'name': f'w{ch}', 'a': A, 'polys': polys(black)}, open(f'{out}/{ch}-{seed}.json', 'w'))
