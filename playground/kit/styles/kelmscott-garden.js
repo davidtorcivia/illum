@@ -5,7 +5,7 @@
 // the marks are set first (a flower or two in the biggest rooms, then leaves by Poisson disc), stems are grown to reach
 // every one by space colonization from roots at the letter's edge and the block's foot, steering round the marks' rooms;
 // each stem is then one smooth tapering curve (the node chain splined, its width from how much it carries), a few curls
-// spring off into the open black, and dots go sparingly in what is left. Every shape is a designed outline (pointed leaf,
+// spring off into the open black; the black left over stays black (no strewn dots). Every shape is a designed outline (pointed leaf,
 // trefoil, rosette, tulip), white on the black, a narrow black gap kept round each. Nothing is rasterised and traced:
 // the only raster is the clearance field the growth steers by.
 //   loadLetter(ch) -> Promise   garden(ch, seed) -> geo (block units: height 1, width A, y down; cached)
@@ -470,7 +470,7 @@ function grow1(ch, seed, band, L) {
     if (!done) { giveUp(); FAI++; }
   }
   // dots, only in the small black left over
-  const dots = OPT.dots === false ? [] : poisson(AW, HB, .045, r, p => C(p) > .006 && occFree(p, .017)).filter(() => r() < .25).map(p => ({ p, rad: .0055 * (.9 + r() * .2) }));
+  const dots = [];   // (no scattered dots: the black left over stays black; every white thing is placed by the design)
   // 9. the square: its cut edge wanders a hair
   const sq = [], ew = noise1(seed ^ 0x2f), per = 2 * (AW + HB);
   for (let s = 0; s < per; s += .01) { let x, y, nx, ny; if (s < AW) { x = s; y = 0; nx = 0; ny = -1; } else if (s < AW + HB) { x = AW; y = s - AW; nx = 1; ny = 0; } else if (s < 2 * AW + HB) { x = AW - (s - AW - HB); y = HB; nx = 0; ny = 1; } else { x = 0; y = HB - (s - 2 * AW - HB); nx = -1; ny = 0; }
@@ -797,17 +797,15 @@ function knotBand(w, h, seed, o) {
     if (o.single && (k + (s > 0 ? 1 : 0)) % 2) continue;   // (single: a leaf at each crossing, up and down by turns)
     if (three) { put(up, room * .95, (r() - .5) * .2); put(up - .62, room * .7, .2); put(up + .62, room * .7, -.2); }
     else put(up + (r() - .5) * .3, room * 1.02, (r() < .5 ? 1 : -1) * .25); }
-  // (no growth: the plait is laid as designed, its eyes' flowers and its pockets' leaves with it, and the open black
-  // sprinkled with the garden's dots; the same shapes and the same hand as the initials, at a fraction of the cost)
+  // (no growth: the plait is laid as designed, its eyes' flowers and its pockets' leaves with it; the open black
+  // left bare; the same shapes and the same hand as the initials, at a fraction of the cost)
   const key = 'knot' + seed + ':' + aw.toFixed(3) + 'x' + hb.toFixed(3) + [o.amp, o.sw, o.per, o.rmax, ends, o.eye, o.single, o.bare, !!o.sil, o.odd].join(',');
   let geo = gcache.get(key);
   if (!geo) { const flowers = [], dots = [], eyes = [];
     for (let k = 0; k < nEye; k++) { const x = x0 + (k + .5) * per / 2, rad = Math.min(o.rmax ?? .1, amp - sw - CHL * .8) * (.92 + r() * .1); eyes.push([x, rad]);
       if (o.eye === 'dot') dots.push({ p: [x, c0], rad: (amp - sw) * .42 }); else flowers.push({ ...rosette(r, o.odd && k % 2 ? 4 : 5), c: [x, c0], rad: o.odd && k % 2 ? rad * .9 : rad, a: r() * 6 }); }   // (odd: a four-petalled flower in every other eye)
     const lb = lv.map(l => { const c = l.outline.reduce((a, q) => [a[0] + q[0] / l.outline.length, a[1] + q[1] / l.outline.length], [0, 0]); return [c[0], c[1], Math.max(...l.outline.map(q => Math.hypot(q[0] - c[0], q[1] - c[1]))), l]; });
-    if (!o.bare && !o.sil) { const free = ([x, y]) => [1, -1].every(s => Math.abs(y - yA(Math.max(x0, Math.min(x1, x)), s)) > wA(x) + .022) && eyes.every(([ex, rad]) => Math.hypot(x - ex, y - c0) > rad + .02)
-        && lb.every(([cx, cy, rr, l]) => Math.hypot(x - cx, y - cy) > rr + .018 || l.outline.every((q, j) => j % 3 || Math.hypot(q[0] - x, q[1] - y) > .018)) && (x > x0 + .02 && x < x1 - .02 || !ends);
-      dots.push(...poisson(aw, hb, .075, r, p => p[0] > MARG + .015 && p[0] < aw - MARG - .015 && p[1] > MARG + .015 && p[1] < hb - MARG - .015 && free(p), 10).filter(() => r() < .85).map(p => ({ p, rad: .0055 * (.9 + r() * .2) }))); }
+    // (no dots strewn in the black: the eyes' flowers and the pockets' leaves are all it holds)
     const sq = edgeOf(aw, hb, seed);
     geo = { letter: L, wind: 'nonzero', square: sq, stems: [], curls: [], leaves: lv, flowers, dots, heroes: [], stats: { kinds: { eyes: nEye, leaves: lv.length, dots: dots.length } } };
     gcache.set(key, geo); if (gcache.size > 64) gcache.delete(gcache.keys().next().value); }
@@ -834,7 +832,7 @@ export function cornerBlock(s, seed = 1, o = {}) {
 // ---- ?orn=vine2: the garden's running vine ------------------------------------------------------------------------------------
 // The second family of bands, more lyrical than the plait: a single stem running the length of the band with a swing that
 // wanders, and in each bay it leaves a different thing — a lobed vine leaf, a tulip on a curling stalk, a rosette, a bunch
-// of grapes, a tendril winding in on itself — so it never repeats; small leaves at its nodes; the black dotted; a white
+// of grapes, a tendril winding in on itself — so it never repeats; small leaves at its nodes; the black left bare; a white
 // fillet inside the block's edge. A break is a cartouche: a black body swelling to the middle, a rosette with its four
 // leaves at the heart, the vine running out each way and lighter as the body narrows, and from each point black tendrils
 // that leave the block and curl out onto the paper. A frame's corner a square with a flower and its leaves; a filler the
@@ -904,7 +902,7 @@ export function vine2(kind, w, h, seed = 1, o = {}) {
       const ends = o.ends ?? true, x0 = ends ? fi + .03 : 0, x1 = ends ? aw - fi - .03 : aw;
       const P = v2run(K, r, x0, x1, c0, half, { sg: r() < .5 ? 1 : -1, k: seed, per: o.per ?? 4.4, amp: .22, sw: half * .1, big: 1.25 });
       if (ends) { K.curl(P[0], Math.PI, half * 1.1, 1, half * .06); K.curl(P.at(-1), 0, half * 1.1, -1, half * .06); }
-      K.dots(fi, fi, aw - fi, hb - fi, p => p[1] > fi + .01 && p[1] < hb - fi - .01, .08, .006); }
+      }
     else if (kind === 'break') {
       // the cartouche: a body of the black swelling to its middle, its points running on as arms out onto the paper
       const c0 = hb / 2, bw = aw * (o.body ?? .58), bx0 = (aw - bw) / 2, bx1 = aw - bx0, H = hb / 2, hh = x => { const t = Math.min(1, Math.abs(x - aw / 2) / (bw / 2)); return H * Math.pow(1 - Math.pow(t, 2.1), .7); };
@@ -927,13 +925,13 @@ export function vine2(kind, w, h, seed = 1, o = {}) {
         const f = x => Math.max(.25, hh(x) / H);
         const P = v2run(K, r, lo, hi, c0, H - fi - .02, { sg: sd, per: 2.3, amp: .34, ampAt: f, swAt: f, sw: H * .07, k: seed + sd, kinds: o.kinds, halfAt: x => Math.max(0, hh(x) - fi - .02) / (H - fi - .02) });
         const e = sd < 0 ? P[0] : P.at(-1); K.curl(e, sd < 0 ? Math.PI : 0, H * .5, sd, H * .03); }
-      K.dots(bx0, 0, bx1, hb, p => Math.abs(p[1] - c0) < hh(p[0]) - fi - .012, .05, .0055); }
+      }
     else if (kind === 'corner') {   // a square: a rosette (or, o.tulip, a tulip) at the middle, leaves to the corners
       const a = aw, c = [a / 2, a / 2], fi = MARG + .01; g.square = edgeOf(a, a, seed); K.fillet([[fi * .6, fi * .6], [a - fi * .6, fi * .6], [a - fi * .6, a - fi * .6], [fi * .6, a - fi * .6], [fi * .6, fi * .6]], .0045);
       const rr = a / 2 - fi - .03;
       if (o.tulip) { K.tulip([c[0] + rr * .62, c[1] + rr * .62], -Math.PI * .75, rr * 1.55); K.leaf([c[0] + rr * .3, c[1] + rr * .3], -Math.PI * .25, rr * .85, .2); K.leaf([c[0] + rr * .3, c[1] + rr * .3], Math.PI * .75 + Math.PI, rr * .85, -.2); }
       else { K.rose(c, rr * .62, 5); for (let k = 0; k < 4; k++) { const an = Math.PI / 4 + k * Math.PI / 2; K.leaf([c[0] + Math.cos(an) * rr * .55, c[1] + Math.sin(an) * rr * .55], an, rr * .78, .1); } }
-      K.dots(fi, fi, a - fi, a - fi, () => true, .05, .005); }
+      }
     else if (kind === 'filler') {   // in ink: the vine along the line, thinning as it goes, leaves by turns, a bud or two, a curl at its end
       U = h; aw = w / U; hb = 1; const c0 = .58, N = Math.ceil(aw / .02), pts = [], ph = r() * 6.28, x1 = aw - .9;
       for (let i = 0; i <= N; i++) { const x = .15 + (x1 - .15) * i / N; pts.push([x, c0 + Math.sin(x / 2.1 * Math.PI + ph) * .07]); }

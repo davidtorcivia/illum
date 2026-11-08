@@ -191,14 +191,14 @@ function raster(b, res) {
   const r = { M, w, h, x0, y0, res }; cache.set(key, r); if (cache.size > 64) cache.delete(cache.keys().next().value); return r;
 }
 // A garden block as a wood block prints: its edges not quite true (the antialiased rim pushed in or out a little by a slow
-// grain, so a line's margin wavers by a fraction of a px), and here and there in the broad black a speck where the
-// paper did not take the ink. The ink engine then pours it (grain, pooling, the faint spread at the edge).
-const grain = noise2(4441), salt = noise2(9173);
+// grain, so a line's margin wavers by a fraction of a px). The ink engine then pours it (grain, pooling, the faint
+// spread at the edge).
+const grain = noise2(4441);
 function impress(M, w, h, res, seed) {
   const o = (typeof seed === 'number' ? seed : 1) % 97 * 13.1;
   for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) { const q = j * w + i, m = M[q];
     if (m > .02 && m < .98) M[q] = Math.max(0, Math.min(1, m + (grain(i / res / 1.6 + o, j / res / 1.6) - .5) * .7));
-    else if (m >= .98 && M[q - 1] > .98 && M[q + 1] > .98 && M[q - w] > .98 && M[q + w] > .98 && salt(i / res / .9 + o, j / res / .9) > .86) M[q] = .45; }
+  }   // (no specks where the paper missed the ink: at page size they read as random dots)
 }
 // the silhouette: the black with the white it encloses filled (a flood of the paper from the box's edge)
 function silhouette(L) {
@@ -314,7 +314,7 @@ function bandRow(x, y, W, h, U, seed, o = {}, at = []) { const out = [], sq = at
 // ?orn=vine2: the running vine family (kelmscott-garden.js vine2): breaks and the pull quote's head and foot a cartouche
 // whose arms curl out onto the paper; frames and the quotation the running vine in a band; corners a square with a flower;
 // fillers the vine in ink, tapering to a curl. rot: a quarter turn (a frame's side); fy: turned over (the pull's foot).
-let ORN = 'plait';   // (?orn=mix: the vine2 breaks, pull quote and fillers with the plait's frames and quotation band)
+let ORN = 'mix';   // (?orn=mix: the vine2 breaks, pull quote and fillers with the plait's frames and quotation band)
 const v2 = piece => ORN === 'vine2' || ORN === 'mix' && piece !== 'frame';
 const v2Art = (kind, x, y, W, h, seed, o = {}, rot = 0, fy = false) => { const v = vine2(kind, W, h, seed, o), my = kind === 'break' ? h * 1.1 : 3, mx = 3, [w2, h2] = rot ? [h, W] : [W, h];
   return { art: { draw: c => { c.translate(x, y); if (rot) { c.translate(w2 / 2, h2 / 2); c.rotate(rot * Math.PI / 2); c.translate(-(rot % 2 ? h2 : w2) / 2, -(rot % 2 ? w2 : h2) / 2); } if (fy) { c.translate(0, h); c.scale(1, -1); } v.draw(c, 0, 0); } },
@@ -471,5 +471,5 @@ export const kelmscott = { label: 'Kelmscott', minGap: 2, theme: { rubric: 'rgb(
   set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : c === 'none' ? 'none' : 'vine'; FILL_KIND = ['rope', 'grown'].includes(c) ? c : 'plait'; },
   set darkCut(c) { DARK_CUT = c === 'negative' ? 'negative' : 'positive'; },
   set breaks(c) { BREAK = c === 'traced' ? 'all' : ['all', 'rose', 'grape', 'mirror', 'grown', ...BANDS].includes(c) ? c : 'knot'; },
-  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; CODE_SIL = c !== 'band'; }, set orn(c) { ORN = ['vine2', 'mix'].includes(c) ? c : 'plait'; }, set frame(c) { FRAME = c === 'grown' ? 'grown' : 'band'; }, set vine(c) { QUIET = c === 'none'; VINE_KIND = c === 'traced' ? 'traced' : c === 'grown' ? 'grown' : 'band'; }, set pull(c) { PULL = c === 'grown' ? 'grown' : c === 'traced' ? 'traced' : 'band'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
+  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; CODE_SIL = c !== 'band'; }, set orn(c) { ORN = ['vine2', 'plait'].includes(c) ? c : 'mix'; }, set frame(c) { FRAME = c === 'grown' ? 'grown' : 'band'; }, set vine(c) { QUIET = c === 'none'; VINE_KIND = c === 'traced' ? 'traced' : c === 'grown' ? 'grown' : 'band'; }, set pull(c) { PULL = c === 'grown' ? 'grown' : c === 'traced' ? 'traced' : 'band'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
 export default kelmscott;
