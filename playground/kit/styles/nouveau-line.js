@@ -9,7 +9,7 @@
 // Everything is pure geometry (arrays of points), emitted in growth order; Path2D only when drawn, and a stroke drawn to
 // any fraction of its length is the same outline cut short (?draw later is a truncation, not another drawing).
 //   bspline(cp, n)  closed(cp, n)  even(pts, ds)  curl(pts, L, k1, pw)  stroke(pts, prof) -> S  path(S, f)  shape(pts) -> Path2D
-import { tendril } from '../marks.js';
+import { tendril, noise2 } from '../marks.js';
 
 // ---- curves ---------------------------------------------------------------------------------------------------------------
 // clamped uniform cubic B-spline through the end points: C2 everywhere (its curvature has no jump at a knot, unlike
@@ -76,8 +76,26 @@ function endW(d, e, hair) {   // d: px from the end
     return u < m ? e.fat * v + .15 * hair * (1 - v) : hair + (e.fat - hair) * v; }
   return hair;
 }
+// A hand's line rather than a mathematician's: the path walked again by its own heading, its curvature a little flattened
+// in one place and tightened in another (so a spiral's loops come out unequal, a sweep is not a clothoid), the drift that
+// leaves pulled back so it still arrives where it was going, and its end run on a touch past (an overshoot). Smooth still:
+// the curvature is scaled by a slow noise, never jittered. setHand(amt) turns it on for every stroke made after it.
+let HAND = 0, HN = 0; export const setHand = (amt, seed = 1) => { HAND = amt; HN = seed * 7919; };
+function handOf(p, ds, amt, sd, eye = false) {
+  const n = p.length; if (n < 8) return p; const nz = noise2(sd), L = (n - 1) * ds, H = [], K = [];
+  for (let i = 0; i < n - 1; i++) H.push(Math.atan2(p[i + 1][1] - p[i][1], p[i + 1][0] - p[i][0]));
+  for (let i = 0; i < n - 2; i++) { let d = H[i + 1] - H[i]; d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; K.push(d); }
+  const out = [p[0].slice()]; let h = H[0], x = p[0][0], y = p[0][1];
+  // (a spiral keeps its own winding at the eye, and does not overshoot it)
+  const over = eye ? 0 : amt * .06 * L, m = n - 1 + Math.round(Math.min(over, 6) / ds);
+  for (let i = 0; i < m; i++) { const s = i * ds, fade = eye ? Math.min(1, Math.max(0, (L * .82 - s) / (L * .12))) : 1, e = 1 + fade * (amt * 1.1 * (nz(s / 46, 0) - .5) + amt * .5 * (nz(s / 13, 9) - .5));
+    if (i > 0) h += (K[Math.min(i - 1, K.length - 1)] ?? 0) * e; x += Math.cos(h) * ds; y += Math.sin(h) * ds; out.push([x, y]); }
+  // pull the drift back: what the walk gained by the end of the original length is taken out gradually along it
+  const ex = out[n - 1][0] - p[n - 1][0], ey = out[n - 1][1] - p[n - 1][1];
+  return out.map((q, i) => { const t = Math.min(1, i / (n - 1)), f = t * t * (3 - 2 * t) * (1 - amt * .4); return [q[0] - ex * f, q[1] - ey * f]; });
+}
 export function stroke(pts, prof = {}, ds = .5) {
-  const p = even(pts, ds), n = p.length, hair = prof.hair ?? .6, w = new Float32Array(n), k = new Float32Array(n), L = (n - 1) * ds;
+  const p0 = even(pts, ds), p = HAND && !prof.exact ? handOf(p0, ds, HAND, HN++, !!prof.eye) : p0, n = p.length, hair = prof.hair ?? .6, w = new Float32Array(n), k = new Float32Array(n), L = (n - 1) * ds;
   for (let i = 1; i < n - 1; i++) {   // curvature by the turn of the chord over ±3 steps
     const a = p[Math.max(0, i - 3)], b = p[i], c = p[Math.min(n - 1, i + 3)];
     const h1 = Math.atan2(b[1] - a[1], b[0] - a[0]), h2 = Math.atan2(c[1] - b[1], c[0] - b[0]);
@@ -101,7 +119,7 @@ export function stroke(pts, prof = {}, ds = .5) {
   for (let i = 1; i < n; i++) w[i] = Math.min(w[i], w[i - 1] + ds * .6); for (let i = n - 2; i >= 0; i--) w[i] = Math.min(w[i], w[i + 1] + ds * .6);
   // an eye: a spiral's end wound into a solid seed at its centre of curvature (the comma of the Combinaisons' spirals)
   let eye = null; if (prof.eye) { const q = p[n - 1], o = p[n - 3], dx = q[0] - o[0], dy = q[1] - o[1], l = Math.hypot(dx, dy) || 1, kk = k[n - 2] || 1e-6;
-    eye = [q[0] - dy / l / kk, q[1] + dx / l / kk, Math.max(0, Math.abs(1 / kk) - w[n - 1] * .25) * prof.eye]; }
+    eye = [q[0] - dy / l / kk, q[1] + dx / l / kk, Math.min(w[n - 1] * 3, Math.max(0, Math.abs(1 / kk) - w[n - 1] * .25)) * prof.eye]; }
   return { p, w, ds, L, eye, hair, col: prof.col, ends: [prof.a?.kind ?? 'hair', prof.b?.kind ?? 'hair'] };
 }
 function smooth(w, r) { if (r < 1) return; const n = w.length, c = Float32Array.from(w);

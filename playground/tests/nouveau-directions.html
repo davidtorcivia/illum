@@ -62,6 +62,7 @@
 <main id="out"></main>
 <script type="module">
 import { DIRS, PAL, ORDER, KEYS, PENS, PALW, WASH, setLine } from './nouveau-directions.js';
+import { setHand } from '../kit/styles/nouveau-line.js';
 import { render } from '../kit/styles/nouveau-print.js';
 import { loadLetter } from '../kit/styles/nouveau-line.js';
 const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
@@ -71,9 +72,11 @@ const LET = {}; await Promise.all([...new Set(['B', ...letters])].map(async c =>
 await document.fonts.load('20px "EB Garamond"');
 const dpr = Math.min(2, devicePixelRatio || 1), PAD = 6, t0 = performance.now();
 const NOTES = {
+  brush: 'The same whiplash, its path walked again by a hand (its curvature flattened in one place and tightened in another, unequal loops, a small overshoot), laid with a pointed brush of nine hairs in the ink medium: the hairs spread where it swells, run dry and break on the quick passages, part and end one by one at the lift-off; the eye a pool.',
+  pochoir: 'The same hand-walked whiplash as the Combinaisons plates were coloured: pochoir, flat opaque gouache dabbed through a stencil, the dabs’ mottle inside, the edge a little ragged where the stencil lifted, each colour slipped so they overlap; no outline.',
   inked: 'The whip written by the ink engine’s pen (kit/medium.js Pen, via nouveau-ink.js inkWrite): a pointed pen following each line at a hand’s pace, slowing into turns and at the ends (where the ink pools) and quick through the long runs; the designed swells are its pressure; the spiral’s eye is wound in by the same movement and pools. The letter is printed. Compare Combinaisons pl. 11 and 58 above.',
   printed: 'As before, the flowers redrawn: the iris’s falls broad and drooping, the poppy an open bowl. Chromolithographed: a stone an ink, trapped, slipped, the key printed last.',
-  watercolour: 'The same drawing laid as watercolour (nouveau-ink.js washPour, in the same medium): each colour one transparent wash, the paper’s tooth catching the pigment, the pigment drawn to the wash’s edge as it dries, a back-run here and there, the shade glazed wet into wet over the colour; a finer sepia line over the washes.',
+  watercolour: 'Watercolour, after the user’s notes: the line confident (no waver) and bleeding where it was laid into a wash still wet (the water and the line in one sheet of the medium, so the ink runs out along the fibres), crisp where the paper was dry; the washes pool toward the lower right and lift where the brush ran dry. Before this pass: the same drawing laid as watercolour (nouveau-ink.js washPour, in the same medium): each colour one transparent wash, the paper’s tooth catching the pigment, the pigment drawn to the wash’s edge as it dries, a back-run here and there, the shade glazed wet into wet over the colour; a finer sepia line over the washes.',
   fouet: 'The line (Verneuil, Auriol and Mucha, Combinaisons ornementales, 1901; Obrist, 1895). The whip rises from the letter’s foot following its bowls at a fixed distance, a hairline doubling it for a stretch, lifts over the letter and winds into a spiral with a solid eye; a stem from the same root crosses it into a seed head. Pen pressure: heavier pulled down, lighter pushed up. Printed: each ink a stone, slipped a little off register, through the ink engine.',
   plante: 'The plant in a panel (Grasset, La plante et ses applications ornementales, 1896). The ground laid, the letter applied in rose with a contour that has a hand (heavier on the shadow side, fine at tips, lifting off in the light); the stem follows the letter’s bowls; blades twist to show their backs; the iris drawn after pl. 1 (narrow standards, frilled falls with their gold signal and veins, a darker stone on the shaded half), a furled bud over the letter’s shoulder. Chromolithographed: a stone an ink, trapped, slipped, the key printed last.',
 };
@@ -84,13 +87,16 @@ function printed(key, theme, piece, zoom = 1) {
   const M = new DOMMatrix().translate(PAD, PAD); for (const it of P.items) { const p = new Path2D(); p.addPath(it.path, M); it.path = p; if (it.cut && !it.cut.moved) { const c = new Path2D(); c.addPath(it.cut.path, M); it.cut = { ...it.cut, path: c, moved: 1 }; }
     if (it.S && !it.S.moved) { it.S.p = it.S.p.map(([x, y]) => [x + PAD, y + PAD]); if (it.S.eye) it.S.eye = [it.S.eye[0] + PAD, it.S.eye[1] + PAD, it.S.eye[2]]; it.S.moved = 1; } }
   const wc = VAR === 'watercolour';
-  render(P, cv.getContext('2d'), { dpr: d, pal: wc ? PALW[theme] : PAL[key][theme], seed, box: [0, 0, W + PAD * 2, H + PAD * 2], order: ORDER[key], keys: KEYS[key], slip: wc ? Math.max(.25, H * .002) : Math.max(.35, H * .004), pens: PENS[key], wash: wc ? WASH : null });
+  const po = VAR === 'pochoir';
+  render(P, cv.getContext('2d'), { dpr: d, pal: wc ? PALW[theme] : PAL[key][theme], seed, box: [0, 0, W + PAD * 2, H + PAD * 2], order: ORDER[key], keys: po ? ['letter', 'k'] : KEYS[key],
+    slip: wc ? Math.max(.25, H * .002) : po ? Math.max(.5, H * .006) : Math.max(.35, H * .004), trap: po ? .7 : .45, pens: po ? null : PENS[key], wash: wc ? WASH : null, brush: VAR === 'brush' ? 9 : 0, texture: po ? 'pochoir' : 'litho' });
   return cv;
 }
-let VAR = null;
-const VARIANTS = [['fouet', 'inked'], ['plante', 'printed'], ['plante', 'watercolour']].filter(([k, v]) => (!q.get('only') || q.get('only') === k) && (!q.get('var') || q.get('var') === v));
+let VAR = null, HANDAMT = 0;
+const mk = (f, ...a) => { setHand(HANDAMT, seed); return f(...a); };   // (each piece walks its hand from the same start, so 1× and 4× match)
+const VARIANTS = [['fouet', 'inked'], ['fouet', 'brush'], ['fouet', 'pochoir'], ['plante', 'printed'], ['plante', 'watercolour']].filter(([k, v]) => (!q.get('only') || q.get('only') === k) && (!q.get('var') || q.get('var') === v));
 for (const [key, variant] of VARIANTS) {
-  const D = DIRS[key]; VAR = variant; setLine(variant === 'watercolour' ? .62 : 1);
+  const D = DIRS[key]; VAR = variant; setLine(variant === 'watercolour' ? .62 : 1); HANDAMT = variant === 'brush' || variant === 'pochoir' ? .55 : 0;
   const sec = document.createElement('section'); sec.className = 'dir';
   sec.innerHTML = `<h2>${D.name} · ${variant}</h2><p class="note">${NOTES[variant]}</p><div class="pair"></div><div class="zoom"></div>`;
   document.getElementById('out').append(sec);
@@ -102,23 +108,23 @@ for (const [key, variant] of VARIANTS) {
     sec.querySelector('.pair').append(panel);
     const fs = parseFloat(getComputedStyle(text).fontSize), lh = parseFloat(getComputedStyle(text).lineHeight), n = +(q.get('lines') ?? 4);
     const capTop = (lh - fs) / 2 + fs * .27, H = (n - 1) * lh + fs * .62;
-    const ini = D.initial(LET.B, H, seed), ispan = text.querySelector('.ini');
+    const ini = mk(D.initial, LET.B, H, seed), ispan = text.querySelector('.ini');
     Object.assign(ispan.style, { width: ini.W + fs * .4 + 'px', height: n * lh + 'px', lineHeight: '1px', fontSize: '1px' });
     const place = (cv, x, y) => { cv.style.position = 'absolute'; cv.style.left = x - PAD + 'px'; cv.style.top = y - PAD + 'px'; cv.style.pointerEvents = 'none'; text.append(cv); };
     const tr = text.getBoundingClientRect(), ir = ispan.getBoundingClientRect();
     place(printed(key, theme, ini), ir.left - tr.left, ir.top - tr.top + capTop);
     const p = text.querySelector('p.fill'), rg = document.createRange(); rg.selectNodeContents(p); const last = [...rg.getClientRects()].at(-1);
     const x0 = last.right - tr.left + fs * .3, gw = tr.width - x0;
-    if (gw > fs * 2) { const fl = D.filler(gw, lh, seed); place(printed(key, theme, fl), x0, last.top - tr.top + (last.height - lh) / 2); }
-    const hr = text.querySelector('hr').getBoundingClientRect(), bw = Math.min(tr.width * .62, 360), bk = D.brk(bw, hr.height, seed);
+    if (gw > fs * 2) { const fl = mk(D.filler, gw, lh, seed); place(printed(key, theme, fl), x0, last.top - tr.top + (last.height - lh) / 2); }
+    const hr = text.querySelector('hr').getBoundingClientRect(), bw = Math.min(tr.width * .62, 360), bk = mk(D.brk, bw, hr.height, seed);
     place(printed(key, theme, bk), (tr.width - bw) / 2, hr.top - tr.top);
-    fig(printed(key, theme, D.initial(LET[theme === 'light' ? 'B' : letters[2] ?? 'R'], H, seed), 4), `initial, 4× (${theme})`, theme);
-    fig(printed(key, theme, D.filler(150, lh, seed), 4), `filler, 4× (${theme})`, theme);
-    fig(printed(key, theme, D.brk(bw, hr.height, seed), 2), `break, 2× (${theme})`, theme);
+    fig(printed(key, theme, mk(D.initial, LET[theme === 'light' ? 'B' : letters[2] ?? 'R'], H, seed), 4), `initial, 4× (${theme})`, theme);
+    fig(printed(key, theme, mk(D.filler, 150, lh, seed), 4), `filler, 4× (${theme})`, theme);
+    fig(printed(key, theme, mk(D.brk, bw, hr.height, seed), 2), `break, 2× (${theme})`, theme);
   }
   for (const theme of ['light', 'dark']) {
     const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
-    for (const ch of letters) row.append(printed(key, theme, D.initial(LET[ch], 3 * 32 + 12.4, seed + ch.charCodeAt(0))));
+    for (const ch of letters) row.append(printed(key, theme, mk(D.initial, LET[ch], 3 * 32 + 12.4, seed + ch.charCodeAt(0))));
     fig(row, `${letters.join(' ')}, page size (${theme})`, theme);
   }
 }

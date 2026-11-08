@@ -27,7 +27,7 @@ export const KEYS = { fouet: ['letter', 'whip', 'olive', 'k'], plante: ['k'] };
 export const PENS = { fouet: ['whip', 'olive'] };
 // B in watercolour: the same drawing, its colours laid as washes (nouveau-ink.js washPour), the key a finer sepia line
 export const PALW = { light: { ...PAL.plante.light, k: [98, 76, 54] }, dark: { ...PAL.plante.dark, k: [200, 178, 128] } };
-export const WASH = { all: { ink: .32, edge: 1, bloom: .5, gran: .28 }, ground: { ink: .2, bloom: 1, edge: .8, gran: .12 }, leafD: { soft: 1.2, ink: .34, bloom: 0 }, irisD: { soft: 1, ink: .36, bloom: 0 },
+export const WASH = { damp: ['leaf', 'leafB', 'iris', 'poppy', 'irisL'], all: { ink: .32, edge: 1, bloom: .5, gran: .28 }, ground: { ink: .2, bloom: 1, edge: .8, gran: .12 }, leafD: { soft: 1.2, ink: .34, bloom: 0 }, irisD: { soft: 1, ink: .36, bloom: 0 },
   irisLD: { soft: 1.2, ink: .3, bloom: 0 }, poppyD: { soft: 1, ink: .34, bloom: 0 }, poppyB: { soft: .8, ink: .4, bloom: 0 }, beard: { bloom: 0, ink: .42 }, letter: { ink: .4, bloom: .35 } };
 let LINE = 1; export const setLine = v => { LINE = v; };
 

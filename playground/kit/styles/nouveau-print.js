@@ -8,7 +8,7 @@
 // and crisp. Without WebGL2 the engine lays each stone flat.
 //   const P = new Plate(); P.fill('leaf', path, { cut, rule }); P.line(path)   render(P, bake, { dpr, pal, seed, box, slip, res })
 import { inkLetter } from '../inkletter.js';
-import { inkWrite, washPour } from './nouveau-ink.js';
+import { inkWrite, washPour, lineInto } from './nouveau-ink.js';
 import { noise2, stream } from '../marks.js';
 
 export class Plate {
@@ -53,6 +53,18 @@ function grain(L, seed, amt = 1) {
     O[q] *= v / (1 + .38 * rim * rim); }
   return { ...L, M: O };
 }
+// pochoir: the stencil brush dabbed straight down through the cut, so the colour is a mottle of round dabs, a little
+// heavier at the stencil's edge where the brush worked it in; the edge a little ragged where the stencil lifted and
+// colour crept under it
+function pochoirTex(L, seed) {
+  const { M, w, h, x0, y0, res } = L, B = blur(M, w, h, Math.max(1, Math.round(.6 * res))), rag = noise2(seed ^ 0x19), dab = noise2(seed ^ 0x33), dab2 = noise2(seed ^ 0x4f), O = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, b = B[q]; if (b <= 0) continue; const x = x0 + i / res, y = y0 + j / res;
+    O[q] = Math.max(0, Math.min(1, (b - .5 + .2 * (rag(x / 1.5, y / 1.5) - .5) + .1 * (rag(x / 5, y / 5 + 40) - .5)) * 2.6 + .5)); }
+  const R = Math.round(1.4 * res), Bl = blur(blur(O, w, h, R), w, h, R);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i; if (O[q] <= 0) continue; const x = x0 + i / res, y = y0 + j / res, rim = Math.max(0, 1 - Bl[q]) * 1.6;
+    O[q] *= (.54 + .15 * (dab(x / 1.1, y / 1.1) - .5) * 2 + .1 * (dab2(x / 3.2, y / 3.2) - .5) * 2 + .1 * rim) / (1 + .2 * rim * rim); }
+  return { ...L, M: O };
+}
 function blur(A, w, h, r) {
   if (r < 1) return A; const T = new Float32Array(w * h), O = new Float32Array(w * h), k = 2 * r + 1;
   for (let y = 0; y < h; y++) { let s = 0; for (let x = -r; x <= r; x++) s += A[y * w + Math.min(w - 1, Math.max(0, x))];
@@ -62,16 +74,22 @@ function blur(A, w, h, r) {
   return O;
 }
 // bake: a 2D context whose device px are page px × dpr, with no transform of its own (as rubricate's bake)
-export function render(P, bake, { dpr = 2, pal, seed = 1, box, slip = .6, trap = .45, res = Math.max(2, dpr), order, keys = ['k'], grainAmt = 1, pens = null, wash = null } = {}) {
+export function render(P, bake, { dpr = 2, pal, seed = 1, box, slip = .6, trap = .45, res = Math.max(2, dpr), order, keys = ['k'], grainAmt = 1, pens = null, wash = null, brush = 0, texture = 'litho' } = {}) {
   const r = stream(seed, 'register'), inks = order ? order.filter(c => P.inks.includes(c)) : P.inks.filter(c => c !== 'k').concat(P.inks.includes('k') ? ['k'] : []);
   for (const col of inks) {
     const key = keys.includes(col), a = r() * Math.PI * 2, sl = key ? [0, 0] : [Math.cos(a) * slip, Math.sin(a) * slip];
     // written: an ink whose lines are pen strokes (S) is written by the pen; whatever else is in it (a seed) is poured
     if (pens?.includes(col)) { const S = P.items.filter(it => it.col === col && it.S).map(it => it.S);
-      if (S.length && inkWrite(bake, S, rgbOf(pal[col]), { dpr, box, seed })) { const rest = new Plate(); rest.items = P.items.filter(it => !(it.col === col && it.S)); const L = stone(rest, col, box, res, [0, 0], 0); if (L) inkLetter(bake, { ...L, wet: .1, dry: .1 }, rgbOf(pal[col]), { dpr }); continue; } }
+      if (S.length && inkWrite(bake, S, rgbOf(pal[col]), { dpr, box, seed, brush })) { const rest = new Plate(); rest.items = P.items.filter(it => !(it.col === col && it.S)); const L = stone(rest, col, box, res, [0, 0], 0); if (L) inkLetter(bake, { ...L, wet: .1, dry: .1 }, rgbOf(pal[col]), { dpr }); continue; } }
     const L = stone(P, col, box, res, sl, key ? 0 : trap); if (!L) continue;
+    // watercolour: the line laid while some washes still stand wet (wash.damp: those inks; a slow noise decides which
+    // stretches of them the painter had not let dry), so there it bleeds
+    if (wash && col === 'k' && wash.damp) { const dm = new Float32Array(L.w * L.h), nz = noise2(seed ^ 0x3d);
+      for (const c of wash.damp) { const W = stone(P, c, box, res, [0, 0], 0); if (W) for (let q = 0; q < dm.length; q++) dm[q] = Math.max(dm[q], W.M[q]); }
+      for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) { const q = j * L.w + i, v = nz((L.x0 + i / res) / 22, (L.y0 + j / res) / 22); dm[q] *= Math.max(0, Math.min(1, (v - .42) * 5)); }
+      if (lineInto(bake, L, dm, rgbOf(pal[col]), { dpr })) continue; }
     if (wash && !key) { const o = wash[col] ?? {}; washPour(bake, L, rgbOf(pal[col]), { dpr, seed: seed + col.charCodeAt(0) * 7 + col.length, ...wash.all, ...o }); continue; }
-    const M = key ? L : grain(L, seed + col.length * 131 + col.charCodeAt(0), grainAmt);
+    const M = key ? L : texture === 'pochoir' ? pochoirTex(L, seed + col.charCodeAt(0) * 13) : grain(L, seed + col.length * 131 + col.charCodeAt(0), grainAmt);
     inkLetter(bake, { ...M, wet: key ? .05 : .08, dry: key ? .18 : .1 }, rgbOf(pal[col]), { dpr });
   }
 }
