@@ -10,7 +10,7 @@
 import { stream } from '../marks.js';
 import { bspline, curl, curlStart, even, stroke, path, shape, contour, placeLetter } from './nouveau-line.js';
 import { Plate } from './nouveau-print.js';
-import { iris, poppy, bud, blade, stem, umbel } from './nouveau-flora.js';
+import { iris, poppy, bud, blade, stem, umbel, organ } from './nouveau-flora.js';
 import { dist } from '../inkletter.js';
 
 export const PAL = {
@@ -84,7 +84,7 @@ function fouetInitial(J, H, seed) {
 }
 // two whips in counterpoint, the second turned half round the centre; a spiral with its eye at one end of each, a seed-
 // shaped swell at the other; a hairline doubling each for a stretch
-function fouetBreak(W, h, seed, rank = 1) {
+function counterBreak(W, h, seed, rank = 1) {
   const hair = hairOf(h * 1.7), cy = h / 2, P = new Plate();
   for (const [s, ink] of [[-1, 'olive'], [1, 'whip']]) {
     const T = q => s > 0 ? q : [W - q[0], h - q[1]];
@@ -98,7 +98,7 @@ function fouetBreak(W, h, seed, rank = 1) {
   if (rank > 1) { const r = stream(seed, 'fouet-u'), nd = [W / 2, cy - h * .06]; pen(P, 'olive', stroke(bspline([[W / 2 + h * .05, cy + h * .14], [W / 2, cy + h * .04], nd], 10), { hair: hair * .8, a: { kind: 'taper', len: h * .1 } })); umbel(P, nd, -Math.PI / 2 - .1, h * .3, r, { n: 9, fan: 1.6, ink: 'olive', kw: hair * 1.2 }); }
   return { P, W, H: h };
 }
-function fouetFiller(w, h, seed) {
+function spiralFiller(w, h, seed) {
   const hair = hairOf(h * 4), y = h * .62, L = Math.min(w, h * 9), P = new Plate();
   const pts = curl(bspline([[0, y], [L * .3, y + h * .12], [L * .62, y - h * .1], [L - h * 1.1, y - h * .04]], 20), -1.2, h * .075);
   pen(P, 'whip', stroke(pts, { hair, a: { kind: 'taper', len: h * .8 }, b: { kind: 'club', len: h * .5, fat: hair * 2 }, eye: 1, press: .5 }));
@@ -185,6 +185,7 @@ function smallInitial(kind, J, H, seed) {
 // The paraph: a sign in the indent, its foot on the baseline (h tall, w wide). B: a nodding poppy bud on its hooked stem
 // with one leaf; A: a little whip, a seed-shaped swell at its foot, winding into an eye.
 function paraphPiece(kind, w, h, seed) {
+  if (kind === 'fouet') return fouetParaph(w, h, seed);
   const r = stream(seed, 'paraph'), P = new Plate();
   if (kind === 'fouet') { const hair = Math.max(.55, h * .03);
     pen(P, 'whip', stroke(curl(bspline([[w * .12, h * .96], [w * .3, h * .62], [w * .62, h * .5], [w * .78, h * .28]], 16), -1, h * .09), { hair, a: { kind: 'point', len: h * .4, fat: hair * 3.6 }, b: { kind: 'club', len: h * .2, fat: hair * 2 }, eye: 1, press: .5 }));
@@ -199,6 +200,7 @@ function paraphPiece(kind, w, h, seed) {
 // beside the lines, a furled bud at the head; A: a whip coming down from a spiral at the head, doubled for a stretch,
 // ending in a seed-shaped swell at the foot.
 function marginPiece(kind, w, h, seed) {
+  if (kind === 'fouet') return fouetMargin(w, h, seed);
   const r = stream(seed, 'margin'), P = new Plate(), x = w * .55;
   if (kind === 'fouet') { const hair = Math.max(.6, w * .028);
     const pts = curlStart(bspline([[x + w * .1, w * .5], [x - w * .12, h * .25], [x + w * .1, h * .55], [x - w * .1, h * .8], [x + w * .05, h - w * .2]], 30), -1.2, w * .09).reverse();
@@ -215,6 +217,7 @@ function marginPiece(kind, w, h, seed) {
 // corners curling into small spirals, as the Combinaisons frame their plates; B adds a leafy sprig with a bud at the foot
 // corner. t: the room each side.
 function framePiece(kind, bw, bh, t, seed, light = false) {
+  if (kind === 'fouet') return fouetFrame(bw, bh, t, seed, light);
   const r = stream(seed, 'frame'), P = new Plate(), W = bw + 2 * t, H = bh + 2 * t, g = t * .55, ink = kind === 'fouet' ? 'whip' : 'k', hair = Math.max(.5, t * (light ? .035 : .05));
   const X0 = g, Y0 = g, X1 = W - g, Y1 = H - g, c = t * .42;
   const side = (a, b, e) => { const S = stroke(curl(bspline([a, [(a[0] * 2 + b[0]) / 3, (a[1] * 2 + b[1]) / 3], [(a[0] + 2 * b[0]) / 3, (a[1] + 2 * b[1]) / 3], b], 20), e, c * .32), { hair, a: { kind: 'taper', len: c }, b: { kind: 'club', len: c * .8, fat: hair * 2 }, eye: 1 }); pen(P, ink, S); };
@@ -222,3 +225,133 @@ function framePiece(kind, bw, bh, t, seed, light = false) {
   return { P, W, H };
 }
 export { fouetInitial, fouetBreak, fouetFiller, planteInitial, planteBreak, planteFiller, smallInitial, paraphPiece, marginPiece, framePiece, solidOf, hairOf };
+
+// ==== le fouet's vocabulary ======================================================================================================
+// After the Combinaisons ornementales (pl. 11, 17, 30, 58), Obrist's Peitschenhieb and Guimard's cast iron: every piece a
+// small composition, chosen by the seed among several, the rank deciding which are open to it. A whip: a hairline that
+// swells where it ends (a seed-shaped point, a club, a spiral with its eye); an olive counter-strand; buds and seed pods
+// hung from them, never strewn.
+const W_ = (P, ink, pts, o = {}) => { const S = stroke(pts, o); pen(P, ink, S); return S; };
+// a pointed bud (or a seed pod) at the end of a line, along its last heading: an olive body with a whip-coloured sheath
+function podAt(P, S, len, r, ink = 'olive') {
+  const e = S.p.at(-1), q = S.p.at(-Math.min(S.p.length, 10)), a = Math.atan2(e[1] - q[1], e[0] - q[0]), T = (u, v) => [e[0] + Math.cos(a) * u * len - Math.sin(a) * v * len, e[1] + Math.sin(a) * u * len + Math.cos(a) * v * len];
+  const O = organ({ axisCp: [T(-.05, 0), T(.4, (r() - .5) * .08), T(1, 0)], W: len * .2, ea: .7, eb: 1.3, asym: .8 + r() * .3, r }); if (O) P.fill(ink, shape(O.loop), { knock: false, at: e });
+  const C = organ({ axisCp: [T(-.12, 0), T(.15, 0), T(.42, 0)], W: len * .16, ea: .8, eb: 1.1, r }); if (C) P.fill('whip', shape(C.loop), { knock: false, at: e });
+}
+const ptAlong = (S, f) => S.p[Math.min(S.p.length - 1, Math.round(f * (S.p.length - 1)))];
+// a thorn: a short shoot off a line at f, out to one side, ending in a pod
+function thorn(P, S, f, side, len, r, hair) {
+  const i = Math.round(f * (S.p.length - 1)), a = S.p[Math.max(0, i - 3)], b = S.p[Math.min(S.p.length - 1, i + 3)], j = S.p[i], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, t = [dx / l, dy / l], n = [-t[1] * side, t[0] * side];
+  const T = W_(P, 'olive', bspline([j, [j[0] + (t[0] * .5 + n[0] * .5) * len, j[1] + (t[1] * .5 + n[1] * .5) * len], [j[0] + (t[0] * .9 + n[0] * .9) * len, j[1] + (t[1] * .9 + n[1] * .9) * len]], 12), { hair: hair * .7, a: { kind: 'taper', len: len * .3 } });
+  podAt(P, T, len * .55, r);
+}
+// ---- breaks ----
+// vesica: two strands interlaced, crossing twice round a lens; in the lens a bud on its stalk (rank 2: a seed head)
+function vesicaBreak(W, h, seed, rank) {
+  const r = stream(seed, 'vesica'), P = new Plate(), hair = hairOf(h * 1.7), cy = h * .52, lens = h * (.26 + r() * .06), sk = (r() - .5) * .06;
+  const A = [[.06, .45], [.17, .32], [.29, 0], [.4, -1.25], [.6, -1.25], [.71, 0], [.83, .38], [.94, -.1]].map(([x, y], i) => [W * x, cy + y * lens + (i === 3 ? sk * h : 0)]);
+  const SA = W_(P, 'whip', curlStart(bspline(A, 26), -1.2, h * .05), { hair, b: { kind: 'point', len: h * .4, fat: hair * 5 }, swell: .5, press: .5 });
+  const B = A.map(([x, y]) => [x, 2 * cy - y]).map(([x, y], i) => i === 7 ? [x - W * .02, y - h * .06] : [x, y]);
+  W_(P, 'olive', curl(bspline(B.slice().reverse(), 26), 1.1, h * .05).reverse(), { hair: hair * .85, a: { kind: 'club', len: h * .2, fat: hair * 2 }, b: { kind: 'point', len: h * .35, fat: hair * 4 }, eye: 0 });
+  const st = W_(P, 'whip', bspline([[W * .5, cy + lens * .85], [W * .5 + h * .02, cy + lens * .1], [W * .5, cy - lens * .45]], 12), { hair: hair * .7, a: { kind: 'taper', len: h * .1 } });
+  if (rank > 1) umbel(P, st.p.at(-1), -Math.PI / 2, lens * .85, r, { n: 9, fan: 1.7, ink: 'olive', kw: hair * 1.1 }); else podAt(P, st, lens * .7, r, 'whip');
+  return { P, W, H: h };
+}
+// Obrist's loop: one whip from a seed-shaped swell, thrown into a long oblong loop that crosses itself, on in an S to a
+// spiral; two thorns with their pods off it
+function loopBreak(W, h, seed) {
+  const r = stream(seed, 'loop'), P = new Plate(), hair = hairOf(h * 1.7), cy = h * .55, m = r() < .5 ? 1 : -1, X = x => m > 0 ? x : W - x;
+  const cp = [[.04, .3], [.2, .26], [.34, .02], [.44, -.34], [.4, -.5], [.3, -.44], [.27, -.22], [.35, .1], [.5, .3], [.66, .24], [.8, .02], [.88, -.16]].map(([x, y]) => [X(W * x), cy + h * y]);
+  const S = W_(P, 'whip', curl(bspline(cp, 30), m * 1.2, h * .055), { hair, a: { kind: 'point', len: h * .45, fat: hair * 5.5 }, b: { kind: 'club', len: h * .25, fat: hair * 2 }, eye: 1, swell: .5, press: .5 });
+  thorn(P, S, .52, -m, h * .3, r, hair); thorn(P, S, .76, m, h * .26, r, hair);
+  return { P, W, H: h };
+}
+// the bundle (pl. 30): strands sweeping out both ways from one root, bundled and parting, each ending its own way (a
+// spiral, a pod, a seed-shaped swell); from the root a stalk rising to a seed head
+function bundleBreak(W, h, seed, rank) {
+  const r = stream(seed, 'bundle'), P = new Plate(), hair = hairOf(h * 1.7), root = [W / 2, h * .84];
+  for (const m of [-1, 1]) for (let k = 0; k < 3; k++) {
+    const X = x => W / 2 + m * x, reach = W * (.46 - k * .1 - r() * .02), y = h * (.8 - k * .06), ink = k === 1 ? 'olive' : 'whip';
+    const cp = [root, [X(W * .06), h * .9 - k * h * .02], [X(reach * .5), y + h * .04], [X(reach * .85), y - h * .1], [X(reach), y - h * .32 - k * h * .04]];
+    let pts = bspline(cp, 24); if (k === 0) pts = curl(pts, m * 1.1, h * .05);
+    const S = W_(P, ink, pts, { hair: hair * (1 - k * .15), a: { kind: 'taper', len: h * .1 }, b: k === 0 ? { kind: 'club', len: h * .2, fat: hair * 2 } : { kind: 'point', len: h * .25, fat: hair * 3.5 }, eye: k === 0 ? 1 : 0, press: .4 });
+    if (k === 2) podAt(P, S, h * .16, r);
+  }
+  const st = W_(P, 'olive', bspline([root, [W / 2 + h * .03, h * .55], [W / 2, h * (rank > 1 ? .26 : .34)]], 14), { hair: hair * .8, a: { kind: 'taper', len: h * .1 } });
+  umbel(P, st.p.at(-1), -Math.PI / 2, h * (rank > 1 ? .28 : .2), r, { n: rank > 1 ? 11 : 7, fan: 1.8, ink: 'olive', kw: hair * 1.1 });
+  return { P, W, H: h };
+}
+// the end (rank 3): a frieze across the measure, a whip in long waves with a counter-strand crossing it, pods hung
+// alternately above and below at its crests, a spiral at each end
+function friezeBreak(W, h, seed) {
+  const r = stream(seed, 'frieze'), P = new Plate(), hair = hairOf(h * 1.7), cy = h * .5, n = Math.max(3, Math.round(W / (h * 3.4))), amp = h * .24;
+  const A = [], B = []; for (let i = 0; i <= n * 2; i++) { const x = W * (.06 + .88 * i / (n * 2)), s = i % 2 ? 1 : -1; A.push([x, cy + s * amp]); B.push([x, cy - s * amp * .7]); }
+  const SA = W_(P, 'whip', curlStart(curl(bspline(A, 16), 1.2, h * .05), -1.2, h * .05), { hair, eye: 1, b: { kind: 'club', len: h * .2, fat: hair * 2 }, press: .4 });
+  W_(P, 'olive', bspline(B, 16), { hair: hair * .75, a: { kind: 'point', len: h * .3, fat: hair * 3 }, b: { kind: 'point', len: h * .3, fat: hair * 3 } });
+  for (let i = 1; i < n * 2; i += 2) { const x0 = W * (.06 + .88 * i / (n * 2)), base = SA.p.reduce((m, p) => Math.abs(p[0] - x0) < Math.abs(m[0] - x0) ? p : m), x = base[0], s = base[1] > cy ? 1 : -1;   // (hung from the strand where it is, so never apart from it)
+    const st = W_(P, 'whip', bspline([base, [x + h * .05 * s, base[1] + s * h * .1], [x + h * .03, base[1] + s * h * .2]], 10), { hair: hair * .7, a: { kind: 'taper', len: h * .05 } }); podAt(P, st, h * .2, r); }
+  return { P, W, H: h };
+}
+function fouetBreak(W, h, seed, rank = 1) {
+  if (rank > 2) return friezeBreak(W, h, seed);
+  const forms = rank > 1 ? [bundleBreak, vesicaBreak, loopBreak] : [counterBreak, vesicaBreak, loopBreak, bundleBreak];
+  return forms[seed % forms.length](W, h, seed, rank);
+}
+// ---- fillers ----
+function podFiller(w, h, seed) {   // a whip ending in a pointed bud, a thorn off it
+  const r = stream(seed, 'podf'), P = new Plate(), hair = hairOf(h * 4), y = h * .62, L = Math.min(w, h * 9);
+  const S = W_(P, 'whip', bspline([[0, y], [L * .35, y + h * .1], [L * .7, y - h * .08], [L - h * .9, y - h * .3]], 20), { hair, a: { kind: 'taper', len: h * .8 }, press: .5 });
+  podAt(P, S, h * .5, r); thorn(P, S, .55, -1, h * .4, r, hair);
+  return { P, W: L, H: h };
+}
+function cordFiller(w, h, seed) {   // two strands twisted round each other, ending one in a spiral and one in a swell
+  const r = stream(seed, 'cord'), P = new Plate(), hair = hairOf(h * 4), y = h * .6, L = Math.min(w, h * 9), a = h * .12, A = [], B = [];
+  for (let i = 0; i <= 6; i++) { const x = L * .9 * i / 6, s = i % 2 ? 1 : -1; A.push([x, y + s * a * (i ? 1 : 0)]); B.push([x, y - s * a * (i ? 1 : 0)]); }
+  W_(P, 'whip', curl(bspline(A, 14), -1.1, h * .07), { hair, a: { kind: 'taper', len: h * .6 }, b: { kind: 'club', len: h * .3, fat: hair * 2 }, eye: 1 });
+  W_(P, 'olive', bspline([...B, [L * .97, y - h * .2]], 14), { hair: hair * .8, a: { kind: 'taper', len: h * .6 }, b: { kind: 'point', len: h * .5, fat: hair * 3 } });
+  return { P, W: L, H: h };
+}
+function seedFiller(w, h, seed) {   // a whip rising to a small seed head
+  const r = stream(seed, 'seedf'), P = new Plate(), hair = hairOf(h * 4), y = h * .66, L = Math.min(w, h * 8);
+  const S = W_(P, 'whip', bspline([[0, y], [L * .4, y + h * .08], [L * .75, y - h * .02], [L - h * .5, y - h * .25]], 20), { hair, a: { kind: 'taper', len: h * .8 }, press: .5 });
+  umbel(P, S.p.at(-1), -Math.PI / 2 + .35, h * .45, r, { n: 7, fan: 1.6, ink: 'olive', kw: hair * 1.1 });
+  return { P, W: L, H: h };
+}
+function fouetFiller(w, h, seed) { return [spiralFiller, podFiller, cordFiller, seedFiller][seed % 4](w, h, seed); }
+// ---- the paraph ----
+function fouetParaph(w, h, seed) {
+  const r = stream(seed, 'fpar'), P = new Plate(), hair = Math.max(.55, h * .03), k = seed % 3;
+  if (k === 0) W_(P, 'whip', curl(bspline([[w * .12, h * .96], [w * .3, h * .62], [w * .62, h * .5], [w * .78, h * .28]], 16), -1, h * .09), { hair, a: { kind: 'point', len: h * .4, fat: hair * 3.6 }, b: { kind: 'club', len: h * .2, fat: hair * 2 }, eye: 1, press: .5 });
+  else if (k === 1) W_(P, 'whip', curlStart(curl(bspline([[w * .25, h * .75], [w * .45, h * .5], [w * .6, h * .35]], 12), -1.1, h * .08), -1.1, h * .08), { hair, eye: 1, b: { kind: 'club', len: h * .2, fat: hair * 2 }, press: .5 });
+  else { const S = W_(P, 'whip', bspline([[w * .15, h * .98], [w * .2, h * .5], [w * .55, h * .2], [w * .8, h * .3]], 14), { hair, a: { kind: 'point', len: h * .35, fat: hair * 3 } }); podAt(P, S, h * .4, r); }
+  return { P, W: w, H: h };
+}
+// ---- the margin ----
+function fouetMargin(w, h, seed) {
+  const r = stream(seed, 'fmar'), P = new Plate(), x = w * .55, hair = Math.max(.6, w * .028), m = seed % 2 ? 1 : -1;
+  const S = W_(P, 'whip', curlStart(bspline([[x + w * .1, w * .5], [x - w * .12 * m, h * .25], [x + w * .1 * m, h * .55], [x - w * .1 * m, h * .8], [x + w * .05, h - w * .6]], 30), -1.2, w * .09).reverse().reverse(), { hair, a: { kind: 'club', len: w * .5, fat: hair * 2 }, eye: 0, press: .45, swell: .4 });
+  thorn(P, S, .35, m, w * .7, r, hair); thorn(P, S, .62, -m, w * .6, r, hair);
+  umbel(P, S.p.at(-1), Math.PI / 2, w * .45, r, { n: 7, fan: 1.6, ink: 'olive', kw: hair });
+  return { P, W: w, H: h };
+}
+// ---- the frame: Guimard's ----
+// the sides bowed a little in, each drawn on past its corner into a curl that turns outward (as the Métro's posts turn
+// over at their heads), the two diagonal corners knotted: a tight loop with a pod on a short shoot
+function fouetFrame(bw, bh, t, seed, light) {
+  const r = stream(seed, 'gframe'), P = new Plate(), W = bw + 2 * t, H = bh + 2 * t, g = t * .55, hair = Math.max(.5, t * (light ? .03 : .04)), X0 = g, Y0 = g, X1 = W - g, Y1 = H - g, c = t * .42;
+  // one feature at each corner: the top and bottom sides run on into a curl at their far corner; the sides end tapering
+  // into a knot at the near one (a tight loop with its eye and a pod on a shoot), the knots at opposite corners
+  const bow = Math.min(t * .3, Math.min(bw, bh) * .02);
+  const side = (pts, ink, o) => W_(P, ink, pts, { hair, a: { kind: 'taper', len: c * 1.4 }, ...o });
+  const run = (a, b, bv) => { const m = [(a[0] + b[0]) / 2 + bv[0], (a[1] + b[1]) / 2 + bv[1]]; return bspline([a, [(a[0] * 3 + m[0]) / 4, (a[1] * 3 + m[1]) / 4], m, [(b[0] * 3 + m[0]) / 4, (b[1] * 3 + m[1]) / 4], b], 24); };
+  side(curl(run([X0 + c * 1.6, Y0], [X1 - c * .2, Y0], [0, bow]), 1.1, c * .3), 'whip', { b: { kind: 'club', len: c * .8, fat: hair * 2 }, eye: 1 });
+  side(curl(run([X1 - c * 1.6, Y1], [X0 + c * .2, Y1], [0, -bow]), 1.1, c * .3), 'whip', { b: { kind: 'club', len: c * .8, fat: hair * 2 }, eye: 1 });
+  side(run([X1, Y0 + c * 1.4], [X1, Y1 - c * 1.6], [-bow, 0]), 'olive', { b: { kind: 'taper', len: c * 1.4 } });
+  side(run([X0, Y1 - c * 1.4], [X0, Y0 + c * 1.6], [bow, 0]), 'olive', { b: { kind: 'taper', len: c * 1.4 } });
+  for (const [cx, cy, s] of [[X0, Y0, 1], [X1, Y1, -1]]) {
+    W_(P, 'whip', curl(bspline([[cx + s * c * .2, cy + s * c * 1.7], [cx - s * c * .1, cy + s * c * .5], [cx + s * c * .4, cy - s * c * .25], [cx + s * c * 1.2, cy + s * c * .1]], 14), s * -1.1, c * .22), { hair: hair * .9, a: { kind: 'taper', len: c * .6 }, b: { kind: 'club', len: c * .5, fat: hair * 1.8 }, eye: 1 });
+    if (!light) { const T = W_(P, 'olive', bspline([[cx - s * c * .05, cy - s * c * .05], [cx - s * c * .55, cy - s * c * .45], [cx - s * c * 1.1, cy - s * c * .5]], 10), { hair: hair * .7, a: { kind: 'taper', len: c * .3 } }); podAt(P, T, c * .9, r); }
+  }
+  return { P, W, H };
+}
+export { fouetParaph, fouetMargin, fouetFrame };

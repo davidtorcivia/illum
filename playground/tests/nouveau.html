@@ -9,7 +9,7 @@
   and the other styles' specimens, drawn by the one library: rubricate(text, { style: 'nouveau' }) (kit/illum.js; this page
   puts the style in the registry, as kelmscott.html does). Two directions: ?kind=plante (default: the plant in a panel, after
   Grasset) | fouet (the whiplash, after the Combinaisons ornementales and Obrist); ?paint=watercolour (default) | printed
-  (la plante); ?fpaint=wash (default) | gouache (le fouet). ?draw grows it as you read; ?theme=light|dark; ?rich=0..1;
+  (la plante); ?fpaint=gouache (default) | wash (le fouet); ?darkpaint=body (default) | toned. ?draw grows it as you read; ?theme=light|dark; ?rich=0..1;
   ?scale=; ?lines=n (the drop's depth); #seed=n.
 -->
 <style>
@@ -131,7 +131,7 @@ STYLES.nouveau = nouveau;   // (in the registry, as kelmscott.html does; kit/ill
 
 const q = new URLSearchParams(location.search), sd = location.hash.match(/seed=(\d+)/)?.[1];
 document.documentElement.dataset.theme = q.get('theme') === 'dark' || (!q.get('theme') && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-nouveau.kind = q.get('kind') ?? 'plante'; nouveau.paint = q.get('paint') ?? 'watercolour'; nouveau.fpaint = q.get('fpaint') ?? 'wash'; nouveau.darkPaint = q.get('darkpaint') ?? 'toned';
+nouveau.kind = q.get('kind') ?? 'plante'; nouveau.paint = q.get('paint') ?? 'watercolour'; nouveau.fpaint = q.get('fpaint') ?? 'gouache'; nouveau.darkPaint = q.get('darkpaint') ?? 'body';
 document.getElementById('redraw').href = '?' + new URLSearchParams([...q.entries(), ['draw', '']]).toString().replace(/=$/, '') + location.hash;
 if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.dataset.lines = Math.max(2, Math.min(9, +q.get('lines') || 4)));
 await nouveau.initial.load();

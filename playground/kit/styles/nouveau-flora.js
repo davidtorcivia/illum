@@ -30,7 +30,7 @@ export function organ({ axisCp, W, ea = .6, eb = 1, asym = 1, frill = null, r = 
   return { loop, halves: [[...L, ...ax.slice().reverse()], [...R, ...ax.slice().reverse()]], axis: ax, at, W };
 }
 // the key line round a shape, with its hand
-const KEY = (P, loop, w, o = {}) => P.line(contour(loop, { w, lo: o.lo ?? .3, lift: o.lift ?? .35, inset: .35, tip: 1.8 }), { ...(o.cut ? { cut: o.cut } : {}), at: o.at ?? loop[0] });
+const KEY = (P, loop, w, o = {}) => P.line(contour(loop, { w, lo: o.lo ?? .3, lift: o.lift ?? .35, inset: .35, tip: 1.8 }), { ...(o.cut ? { cut: o.cut } : {}), at: o.at ?? loop[0], reach: o.reach });
 // a vein: a fine line along the organ from t0 to t1 at fraction f of its half-width, fading at both ends
 function vein(P, O, t0, t1, f, w, col, cut) {
   const pts = []; for (let k = 0; k <= 16; k++) pts.push(O.at(t0 + (t1 - t0) * k / 16, f * (1 - .25 * k / 16)));
@@ -39,11 +39,11 @@ function vein(P, O, t0, t1, f, w, col, cut) {
 // a filled organ: its colour, its shaded half in the darker tint, its veins, its key
 function lay3(P, O, ink, shade, kw, o = {}) {
   if (!O) return;   // (an organ too small to have a shape at this size is left out)
-  const at = O.axis[0];
-  P.fill(ink, shape(O.loop), { cut: o.cut, at });
-  if (shade) P.fill(shade, shape(O.halves[o.shadeSide ?? 1]), { knock: false, cut: o.cut, trap: 0, at });
+  const at = O.axis[0], reach = O.loop.reduce((m, p) => Math.max(m, Math.hypot(p[0] - at[0], p[1] - at[1])), 0) + 2;
+  P.fill(ink, shape(O.loop), { cut: o.cut, at, reach });
+  if (shade) P.fill(shade, shape(O.halves[o.shadeSide ?? 1]), { knock: false, cut: o.cut, trap: 0, at, reach });
   for (const v of o.veins ?? []) vein(P, O, v[0], v[1], v[2], kw * (v[3] ?? .32), o.veinInk ?? shade ?? 'k', o.cut);
-  KEY(P, O.loop, kw, { ...o, at });
+  KEY(P, O.loop, kw, { ...o, at, reach });
 }
 const J = (r, a) => (r() - .5) * 2 * a;
 
@@ -125,11 +125,12 @@ export function blade(P, axisCp, W, r, o = {}) {
   const piece = (i0, i1, ink, sh) => { if (i1 - i0 < 3) return; const L = [], R = [];
     for (let i = i0; i <= i1; i++) { const w = Math.abs(sw[i]) * (i === i0 && i0 > 0 ? 0 : 1); L.push([ax[i][0] + N[i][0] * w, ax[i][1] + N[i][1] * w]); R.push([ax[i][0] - N[i][0] * w * .85, ax[i][1] - N[i][1] * w * .85]); }
     const loop = [...L, ...R.reverse().slice(1, -1)];
-    P.fill(ink, shape(loop), { cut, at: ax[i0] });
-    if (sh) P.fill(sh, shape([...R.slice().reverse(), ...ax.slice(i0, i1 + 1).reverse()]), { knock: false, cut, trap: 0, at: ax[i0] });
+    const reach = loop.reduce((m, p) => Math.max(m, Math.hypot(p[0] - ax[i0][0], p[1] - ax[i0][1])), 0) + 2;
+    P.fill(ink, shape(loop), { cut, at: ax[i0], reach });
+    if (sh) P.fill(sh, shape([...R.slice().reverse(), ...ax.slice(i0, i1 + 1).reverse()]), { knock: false, cut, trap: 0, at: ax[i0], reach });
     for (const f of [.45, -.45, 0]) { const pts = []; for (let i = i0 + 2; i <= i1 - 2; i++) { const w = Math.abs(sw[i]) * f * (f < 0 ? .85 : 1); pts.push([ax[i][0] + N[i][0] * w, ax[i][1] + N[i][1] * w]); }
       if (pts.length > 4) { const S = stroke(pts, { hair: k * (f ? .22 : .3), a: { kind: 'taper', len: 6 }, b: { kind: 'taper', len: pts.length * .4 } }); P.fill(sh ?? 'leafD', path(S), { knock: false, cut, S }); } }
-    KEY(P, loop, k, { cut, lift: .3, at: ax[i0] }); };
+    KEY(P, loop, k, { cut, lift: .3, at: ax[i0], reach }); };
   piece(0, Math.min(cross, m - 1), o.ink ?? 'leaf', 'leafD');
   if (cross < m - 1) piece(cross, m - 1, 'leafB', null);
 }

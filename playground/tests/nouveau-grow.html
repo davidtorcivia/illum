@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nouveau growth</title>
+<!--
+  Nouveau's growth (?draw), frame by frame: a piece printed by the style (kit/styles/nouveau.js print, pour.paint) and its
+  reveal (pour.grow.fn) composed as rubricate's sweepIn composes them, at f = 0 … 1, in a strip. ?kind= ?paint= ?fpaint=
+  ?theme=dark ?piece=drop|break|filler ?n=frames ?zoom=
+-->
+<style>
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; } :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); }
+  html { background: var(--paper); } body { margin: 0; padding: 24px; color: var(--ink); font: italic 13px/1.4 serif; }
+  .strip { display: flex; flex-wrap: wrap; gap: 10px; } figure { margin: 0; }
+</style>
+</head>
+<body>
+<div class="strip" id="out"></div>
+<script type="module">
+import nouveau from '../kit/styles/nouveau.js';
+const q = new URLSearchParams(location.search);
+document.documentElement.dataset.theme = q.get('theme') === 'dark' ? 'dark' : 'light';
+nouveau.kind = q.get('kind') ?? 'plante'; nouveau.paint = q.get('paint') ?? 'watercolour'; nouveau.fpaint = q.get('fpaint') ?? 'gouache';
+await nouveau.initial.load();
+const u = 9.6, zoom = +(q.get('zoom') ?? 2), d = Math.min(2, devicePixelRatio || 1) * zoom, n = +(q.get('n') ?? 10), piece = q.get('piece') ?? 'drop';
+const made = piece === 'break' ? nouveau.breakMark(200, 50, 400, 2, 3, .5, u) : piece === 'filler' ? nouveau.filler(0, 300, 30, 30 + u, 'vine', 2, .5)
+  : nouveau.initial({ ch: q.get('ch') ?? 'B', G: { box: [10, 10, 0, 10 + 108.4] }, big: true, seed: 7, u });
+const pr = nouveau.print(made, { dpr: d, kind: piece === 'drop' ? 'drop' : 'part', animate: true });
+// (the layers composed as rubricate composes them: each its own full print, shown through its own mask)
+const P0 = pr.pours[0], X0 = Math.floor(Math.min(...pr.pours.map(p => p.x0)) * d), Y0 = Math.floor(Math.min(...pr.pours.map(p => p.y0)) * d), w = Math.ceil(P0.w / P0.res * d) + 4, h = Math.ceil(P0.h / P0.res * d) + 4;
+const fulls = pr.pours.map(p => { const full = new OffscreenCanvas(w, h), fg = full.getContext('2d');
+  p.paint({ save() {}, restore() {}, setTransform() {}, set globalCompositeOperation(v) {}, drawImage(c, ...a) { if (a.length === 8) fg.drawImage(c, a[0], a[1], a[2], a[3], a[4] - X0, a[5] - Y0, a[6], a[7]); else fg.drawImage(c, a[0] * d - X0, a[1] * d - Y0, a[2] * d, a[3] * d); } }, { dpr: d }); return full; });
+for (let i = 0; i <= n; i++) { const f = i / n, cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.style.width = w / Math.min(2, devicePixelRatio || 1) + 'px'; const g = cv.getContext('2d');
+  pr.pours.forEach((p, j) => { const k = new OffscreenCanvas(w, h).getContext('2d'); k.setTransform(d, 0, 0, d, -X0, -Y0); p.grow.fn(k, f); const L = new OffscreenCanvas(w, h).getContext('2d'); L.drawImage(fulls[j], 0, 0); L.globalCompositeOperation = 'destination-in'; L.drawImage(k.canvas, 0, 0); g.drawImage(L.canvas, 0, 0); });
+  const fig = document.createElement('figure'); fig.append(cv); fig.append(Object.assign(document.createElement('figcaption'), { textContent: 'f ' + f.toFixed(2) })); document.getElementById('out').append(fig); }
+document.body.dataset.timing = 'drawn';
+</script>
+</body>
+</html>

@@ -15,7 +15,7 @@ export class Plate {
   constructor() { this.items = []; }
   // a shape in an ink; cut: { path, w } knocks a channel (the path filled and stroked w wide) out of what is already laid in
   // this ink (and of this shape); rule: 'evenodd' for a ribbon
-  fill(col, path, o = {}) { this.items.push({ col, path, rule: o.rule ?? 'nonzero', cut: o.cut, knock: o.knock ?? col !== 'k', trap: o.trap, S: o.S, at: o.at }); return this; }
+  fill(col, path, o = {}) { this.items.push({ col, path, rule: o.rule ?? 'nonzero', cut: o.cut, knock: o.knock ?? col !== 'k', trap: o.trap, S: o.S, at: o.at, reach: o.reach }); return this; }
   line(path, o = {}) { return this.fill(o.col ?? 'k', path, { rule: 'evenodd', ...o, knock: false }); }
   get inks() { const s = []; for (const it of this.items) if (!s.includes(it.col)) s.push(it.col); return s; }
 }
