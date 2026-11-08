@@ -75,18 +75,20 @@ function paraph(x, base, u, seed, rich = .5) {
 }
 // a paragraph's free end: the filler drawn for a line (lh: a line's height); a heading's run-out, a short one
 function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
-  if (kind === 'none') return { marks: [], letters: [] };
+  if (kind === 'none' || (kind === 'rule' && rich < .25)) return { marks: [], letters: [] };   // (the plainest page: its heads not run out)
   const u = yBase - yTop, lh = u * 3.3, room = x1 - x0 - u * .4, L = kind === 'rule' ? Math.min(room, u * 16) : Math.min(room, u * 44);
-  if (L < u * (kind === 'rule' ? 5 : 9)) return { marks: [], letters: [] };
+  if (L < u * (kind === 'rule' ? 5 : rich >= 1 ? 7 : 9)) return { marks: [], letters: [] };   // (lavish: a shorter gap closed too)
   const y = yBase - lh * .64, f = KIND === 'fouet' ? PC.fouetFiller : PC.planteFiller;
   return { marks: [], letters: [piece(x0 + u * .2, y, L, lh, () => hand(() => f(L, lh, seed), seed), seed)] };
 }
 // three ranks: a part (rank 1, half the measure), a chapter or book (rank 2, wider and taller, the seed head or the two
-// irises), the end (rank 3, across the measure)
+// irises), the end (rank 3, across the measure). The budget: plain, a part's break smaller; fine, a part's break in a
+// chapter's form; lavish, a chapter's wider still
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8) {
-  const W = rank > 2 ? measure * .92 : rank > 1 ? Math.min(measure * .72, u * 62) : Math.min(measure * .52, u * 42), h = u * (rank > 1 ? 7 : 5.6);
+  const rk = rank === 1 && rich >= .75 ? 2 : rank, wide = rich >= 1 ? 1.12 : 1;
+  const W = rk > 2 ? measure * .92 : rk > 1 ? Math.min(measure * .72 * wide, u * 62 * wide) : Math.min(measure * .52, u * 42) * (rich < .25 ? .8 : 1), h = u * (rk > 1 ? 7 : 5.6);
   const f = KIND === 'fouet' ? PC.fouetBreak : PC.planteBreak;
-  return { marks: [], letters: [piece(cx - W / 2, y - h / 2, W, h, () => hand(() => f(W, h, seed, rank), seed), seed)] };
+  return { marks: [], letters: [piece(cx - W / 2, y - h / 2, W, h, () => hand(() => f(W, h, seed, rk), seed), seed)] };
 }
 
 // ---- frames ----------------------------------------------------------------------------------------------------------------------
@@ -96,14 +98,17 @@ const margin = (xl, top, bot, u, seed) => { const w = Math.min(u * 3, Math.max(u
 const frameAround = ([X0, Y0, X1, Y1], t, seed, light) => { const bw = X1 - X0, bh = Y1 - Y0;
   return [piece(X0 - t, Y0 - t, bw + 2 * t, bh + 2 * t, () => hand(() => PC.framePiece(KIND, bw, bh, t, seed, light), seed), seed)]; };
 const frames = {
-  quote: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .25 ? [] : margin(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
-  aside: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .25 ? [] : margin(L[0], L[1], L[3] + u * .3, u, seed + 4) }; },
+  // (the budget: plain, the figure and code ruled lightly and nothing more; modest, the pull quote's pair; usual, the
+  // margins of quotations and asides, the figure's full frame; fine, the code's full frame, the pull quote's pair in a
+  // chapter's form; lavish, those wider, the figure's frame deeper)
+  quote: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : margin(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
+  aside: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : margin(L[0], L[1], L[3] + u * .3, u, seed + 4) }; },
   pull: ({ cx, yTop, yBot, measure, u, seed = 1, rich = .5 }) => { if (rich < .25) return { marks: [], letters: [] };
-    const W = Math.min(measure * .42, u * 30), h = u * 4.4, f = KIND === 'fouet' ? PC.fouetBreak : PC.planteBreak;
-    return { marks: [], letters: [piece(cx - W / 2, yTop - h * .8, W, h, () => hand(() => f(W, h, seed + 2, 1), seed + 2), seed), piece(cx - W / 2, yBot - h * .25, W, h, () => hand(() => f(W, h, seed + 7, 1), seed + 7), seed)] }; },
-  figure: ({ box, cap, u, seed = 1, limit = [-1e9, 1e9], rich = .5 }) => { const room = Math.min(box[0] - limit[0], limit[1] - box[2]) - 2, t = Math.max(u * 1.2, Math.min(room, u * 2.8));
-    return { marks: [], letters: frameAround([box[0], box[1], box[2], cap ?? box[3]], t, seed, rich < .25) }; },
-  code: ({ box, u, seed = 1, rich = .5 }) => ({ marks: [], letters: frameAround([box[0] + u * 2.2, box[1] + u * 2.2, box[2] - u * 2.2, box[3] - u * 2.2], u * 2, seed + 2, true) }),
+    const rk = rich >= .75 ? 2 : 1, W = Math.min(measure * .42, u * 30) * (rich >= 1 ? 1.15 : 1), h = u * 4.4, f = KIND === 'fouet' ? PC.fouetBreak : PC.planteBreak;
+    return { marks: [], letters: [piece(cx - W / 2, yTop - h * .8, W, h, () => hand(() => f(W, h, seed + 2, rk), seed + 2), seed), piece(cx - W / 2, yBot - h * .25, W, h, () => hand(() => f(W, h, seed + 7, rk), seed + 7), seed)] }; },
+  figure: ({ box, cap, u, seed = 1, limit = [-1e9, 1e9], rich = .5 }) => { const room = Math.min(box[0] - limit[0], limit[1] - box[2]) - 2, t = Math.max(u * 1.2, Math.min(room, u * (rich >= 1 ? 3.4 : 2.8)));
+    return { marks: [], letters: frameAround([box[0], box[1], box[2], cap ?? box[3]], t, seed, rich < .5) }; },
+  code: ({ box, u, seed = 1, rich = .5 }) => ({ marks: [], letters: frameAround([box[0] + u * 2.2, box[1] + u * 2.2, box[2] - u * 2.2, box[3] - u * 2.2], u * 2, seed + 2, rich < .75) }),
   nav: ({ box, entries, u, seed = 1 }) => { const h = u * 1.7, w = u * 1.4;
     return { marks: [], letters: entries.filter(Boolean).map((e, i) => piece(Math.max(4, box[0] - u * 1.2 - w), e.base - h * .96, w, h, () => hand(() => PC.paraphPiece(KIND, w, h, seed + i), seed + i), seed + i)) }; },
 };
