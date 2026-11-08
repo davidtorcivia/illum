@@ -6,7 +6,7 @@
 # What it copies (from playground/, which stays the source of truth; never edit the copies):
 #   playground/kit/{illum,registry,all,marks,wayfinding,initials,frames,penwork,writer,medium,inkletter,cache,spray}.js  -> site/kit/
 #   playground/kit/styles/*.js                                                               -> site/kit/styles/
-#   playground/fonts/ and fonts/kelmscott/ (faces, letter outlines and licences)                 -> site/fonts/
+#   playground/fonts/, fonts/kelmscott/ and fonts/nouveau/ (faces, letter outlines and licences) -> site/fonts/
 # The styles find their faces at new URL('../../fonts/', import.meta.url), so kit/ and fonts/ must stay siblings.
 #
 # The site's own faces (site/faces/) are not copied: they are subsets made once with fontTools and kept in site/:
@@ -24,9 +24,11 @@ for m in illum registry all marks wayfinding initials frames penwork writer medi
 cp "$src"/kit/styles/*.js "$site/kit/styles/"
 cp "$src"/fonts/*.woff2 "$src"/fonts/*.txt "$site/fonts/"
 mkdir -p "$site/fonts/kelmscott"; cp "$src"/fonts/kelmscott/*.woff2 "$src"/fonts/kelmscott/*.json "$src"/fonts/kelmscott/*.txt "$site/fonts/kelmscott/"
+# (Nouveau's letters are outlines read at run time; its .ttf files are the sources they were exported from, not shipped)
+mkdir -p "$site/fonts/nouveau"; cp "$src"/fonts/nouveau/*.json "$src"/fonts/nouveau/Bocklin-LICENSE.txt "$site/fonts/nouveau/"
 # the library's hash (kit/cache.js keys every remembered or baked ornament by it): every module and face as shipped, so a
 # reader's browser need not read them all to know whether what it remembers is still current
-echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 "$site"/fonts/kelmscott/* | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
+echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 "$site"/fonts/kelmscott/* "$site"/fonts/nouveau/* | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
 
 # the ornament baked (tools/bake.mjs), so a first visit is drawn from it rather than by the ink engine: every page at 1440
 # and 390, light and dark, dpr 1 and 2, served from site/ itself on a spare port; into site/kit/bake.json and site/kit/bake/,

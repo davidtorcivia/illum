@@ -11,6 +11,7 @@ import './styles/astrology.js';
 import './styles/tarot.js';
 import './styles/blackletter.js';
 import './styles/kelmscott.js';
+import './styles/nouveau.js';
 import { loadAll } from './illum.js';
 await loadAll();   // (all here already: this only puts them in the registry, in its order)
 export * from './illum.js';
