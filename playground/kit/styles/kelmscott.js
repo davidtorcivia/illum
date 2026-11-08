@@ -15,6 +15,7 @@
 //   breakMark(cx, y, measure, rank, seed, rich, u, n)   frames.{ quote, figure, code, pull, aside, nav }   palette.{ light, dark }
 //   print(made, { dpr, kind, u, y, seed, animate }) -> { pours, letters, runs, y0, seq }   timeline(printed, kind, animate)
 import { dist } from '../inkletter.js';
+import { loadLetter, garden, drawGarden, bandOf, A as GARDEN_A } from './kelmscott-garden.js';
 
 // GLYPHS (tools/kfont.py; research/16 lists every source and box): per glyph its font file, its character, a (width /
 // height), w (the 5th percentile of its white lines' widths, a fraction of its height) and k (the median of its black
@@ -118,12 +119,17 @@ const GLYPHS = {
   headRose: { f: 'kelmscott-ornaments-headRose.woff2', c: "\ue005", a: 6.7073, w: 0.0274, k: 0.0371 },   // 8028 B; Water of the Wondrous Isles leaf n22, isolated [77,112,2277,440]
   vine: { f: 'kelmscott-ornaments-vine.woff2', c: "\ue006", a: 0.1913, w: 0.002, k: 0.0031 },   // 3328 B; Water of the Wondrous Isles leaf n21, isolated [29,46,900,4600]
 };
+// ?caps=garden, all 26: drawn directly as vector geometry by kit/styles/kelmscott-garden.js (GL-Morris's letter, a garden grown in
+// the gaps by space colonization; fonts/kelmscott/garden-X.json, the letter's outline, ~2.5 KB). No font: garden: 1. (w: large,
+// so raster() never pares its white: the garden grows coarser on its own when the block is small on the device.)
+for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') GLYPHS['q' + ch] = { c: ch, a: GARDEN_A, w: .05, k: null, m: 1, gen: 4, garden: 1 };
 
 // ---- the fonts --------------------------------------------------------------------------------------------------------------
 const fontDir = new URL('../../fonts/kelmscott/', import.meta.url);
 const famOf = key => 'kelmscott-' + key, loading = new Map();
 function loadGlyph(key) {
   if (!GLYPHS[key]) return Promise.resolve();
+  if (GLYPHS[key].garden) return loadLetter(GLYPHS[key].c);
   if (!loading.has(key)) loading.set(key, new FontFace(famOf(key), `url(${new URL(GLYPHS[key].f, fontDir)})`).load().then(f => { document.fonts.add(f); return f; }).catch(e => console.warn('kelmscott:', e)));
   return loading.get(key);
 }
@@ -152,13 +158,14 @@ const MIN_WHITE = 1.25, MIN_LINE = 1.3;   // px: no white line cut, and no black
 // black thickened to MIN_LINE, as a smaller block is cut with a bolder line.
 const cache = new Map();
 function raster(b, res) {
-  const key = [b.g, b.text, b.rect, b.x, b.y, b.w, b.h, b.em, b.v, b.sx, res, b.flip, b.flipY].join('|'); if (cache.has(key)) return cache.get(key);
+  const key = [b.g, b.text, b.rect, b.x, b.y, b.w, b.h, b.em, b.v, b.sx, res, b.flip, b.flipY, b.seed].join('|'); if (cache.has(key)) return cache.get(key);
   const pad = 3, x0 = Math.floor(b.x - pad), y0 = Math.floor(b.y - pad), w = Math.ceil((b.x + b.w + pad - x0) * res), h = Math.ceil((b.y + b.h + pad - y0) * res);
   const c = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true }); c.setTransform(res, 0, 0, res, -x0 * res, -y0 * res); c.fillStyle = '#000';
   const G = b.g && GLYPHS[b.g], em = b.em ?? b.h;
   if (b.rect) c.fillRect(b.x, b.y, b.w, b.h);
   else if (b.text) { c.font = FACE; const m = c.measureText(b.text), k = b.h / c.measureText('H').actualBoundingBoxAscent;
     c.save(); c.translate(b.x + m.actualBoundingBoxLeft * k, b.y + b.h); c.scale(k, k); c.fillText(b.text, 0, 0); c.restore(); }
+  else if (G.garden) { const geo = garden(G.c, b.seed ?? 1, bandOf(b.h * res)); if (geo) drawGarden(c, geo, b.x, b.y, b.h, res); else console.warn('kelmscott: garden not loaded', G.c); }   // (vector, drawn as it stands)
   else { const [v0] = b.v ?? [0, 1];
     c.save(); c.beginPath(); c.rect(b.x, b.y, b.w, b.h); c.clip();
     // the glyph's em box placed so that its row v0 is at the box's top (or, turned over, at its bottom), mirrored if asked
@@ -202,8 +209,9 @@ const letterOf = ch => String(ch).normalize('NFD')[0].toUpperCase();
 // the gaps round it (gen: 3; research/kelmscott/gen/kgap.py), one consistent set. 'morris' (?caps=morris): his own traced
 // blocks where he cut one, generated where he did not. 'gen' (?caps=gen): GL-Morris's letter in his own block's vine, fitted
 // (gen: 2); 'grow': tools/kgrow.py's (gen: 1); 'graft' (?caps=graft): his blocks, and the grafted ones (m: 1; tools/kgraft.py).
+// 'garden' (?caps=garden): the letter and a garden grown in its gaps, drawn directly as vector (gen: 4; kelmscott-garden.js).
 let CAPS = 'gen2';
-const GP = { gen: 'n', gen2: 'w' };   // (the generated series' prefixes in GLYPHS)
+const GP = { gen: 'n', gen2: 'w', garden: 'q' };   // (the generated series' prefixes in GLYPHS)
 const shapeFor = (ch, deep) => { const gp = GP[CAPS]; if (deep && gp && GLYPHS[gp + ch]) return gp + ch; if (deep && CAPS === 'morris') { const m = 'v' + (GLYPHS['v' + ch] ? ch : ALIAS[ch] ?? ch); return GLYPHS[m] && !GLYPHS[m].m ? m : GLYPHS['w' + ch] ? 'w' + ch : null; } const c = GLYPHS['v' + ch] || GLYPHS['s' + ch] ? ch : ALIAS[ch] ?? ch; return deep ? (gp && GLYPHS[gp + c] ? gp + c : CAPS === 'grow' && GLYPHS['g' + c] ? 'g' + c : GLYPHS['v' + c] ? 'v' + c : GLYPHS['s' + c] ? 's' + c : null) : (GLYPHS['s' + c] ? 's' + c : GLYPHS['v' + c] ? 'v' + c : null); };
 const FACE = '600 100px "EB Garamond", Garamond, serif';
 const capWidth = ch => { try { const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = FACE; const m = c.measureText(ch), H = c.measureText('H'); return (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / H.actualBoundingBoxAscent; } catch { return .8; } };
@@ -212,7 +220,7 @@ function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, u = 8 }) {
   if (!g) return { marks: [], letters: [{ text: ch, x: x0, y: y0, w: capWidth(ch) * H, h: H, col: 'r' }], width: capWidth(ch) * H };
   // (the float is as wide as the letter's white-vine block; a two-line block, wider, is set a little smaller to fit it)
   const h = big && x1 > x0 ? Math.min(H, (x1 - x0) / GLYPHS[g].a) : H;
-  return { marks: [], letters: [block(g, x0, y0 + (H - h) / 2, h)], width: widthOf(g, h) };
+  return { marks: [], letters: [block(g, x0, y0 + (H - h) / 2, h, 'k', GLYPHS[g].garden ? { seed } : {})], width: widthOf(g, h) };
 }
 initial.width = ch => { const g = shapeFor(letterOf(ch), true); return g ? GLYPHS[g].a : capWidth(letterOf(ch)); };
 initial.line = ch => { const g = shapeFor(letterOf(ch), false); return g ? GLYPHS[g].a : capWidth(letterOf(ch)); };
@@ -325,7 +333,7 @@ export const palette = {
 //     two-line initial is printed pale in the dark either way: its scalloped edge, flooded, leaves its white in specks.
 //   A line drawing (the vine, a head, a foot): poured; drawn, written along its stems (letterWriter), as the vine grows.
 //   A type ornament (a leaf, a sprig, a knot), a rule, a capital: stamped.
-const BLOCK = g => /^[vsgnw][A-Z]$/.test(g ?? ''), LINEART = new Set(['vine', 'headRose', 'footRose', 'footGrape']);
+const BLOCK = g => /^[vsgnwq][A-Z]$/.test(g ?? ''), LINEART = new Set(['vine', 'headRose', 'footRose', 'footGrape']);
 let DARK_CUT = 'positive';
 const isDark = () => { try { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; } };
 // (a white-vine block's face is the box of its own black, a little inside it so its antialiased rim is not left as a pale
@@ -348,7 +356,7 @@ function print(made, { dpr = 1, animate = false, kind } = {}) {
   const pour = (p, d) => { pours.push(p); seq.push({ pour: p, d }); }, letter = (L, d) => { letters.push(L); seq.push({ letter: L, d }); };
   const pace = b => kind === 'drop' ? 4.2 : Math.min(1.6, .4 + (b.w + b.h) / 400);
   for (const b of made.letters ?? []) { const L = raster(b, res), ink = { ...L, col: b.col, wet: .04, dry: .18 };
-    if (BLOCK(b.g) && dark && 'vnw'.includes(b.g[0])) { const { W } = whiteOf(b, L), cut = { ...L, M: W, col: b.col, wet: .04, dry: .18 }; animate ? letter(cut, pace(b)) : pour(cut, 0); }
+    if (BLOCK(b.g) && dark && 'vnwq'.includes(b.g[0])) { const { W } = whiteOf(b, L), cut = { ...L, M: W, col: b.col, wet: .04, dry: .18 }; animate ? letter(cut, pace(b)) : pour(cut, 0); }
     else if (BLOCK(b.g) && animate) { const { S, W } = whiteOf(b, L); letter({ ...L, M: S, col: b.col, wet: .02, dry: .1 }, kind === 'drop' ? .6 : .4); letter({ ...L, M: W, col: 'w', wet: .02, dry: 0 }, pace(b)); pour({ ...ink, wet: 0 }, .01); }
     else if (LINEART.has(b.g) && animate) letter(ink, Math.min(1.8, .5 + (b.w + b.h) / 500));
     else pour(ink, animate ? .15 : 0); }
@@ -371,5 +379,5 @@ export const kelmscott = { label: 'Kelmscott', minGap: 2, theme: { rubric: 'rgb(
   set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : 'none'; },
   set darkCut(c) { DARK_CUT = c === 'negative' ? 'negative' : 'positive'; },
   set breaks(c) { BREAK = ['rose', 'grape', 'mirror'].includes(c) ? c : 'all'; },
-  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'morris'].includes(c) ? c : 'gen2'; } };
+  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'morris', 'garden'].includes(c) ? c : 'gen2'; } };
 export default kelmscott;
