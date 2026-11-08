@@ -16,7 +16,7 @@
 //   print(made, { dpr, kind, u, y, seed, animate }) -> { pours, letters, runs, y0, seq }   timeline(printed, kind, animate)
 import { dist } from '../inkletter.js';
 import { noise2 } from '../marks.js';
-import { loadLetter, garden, drawGarden, bandOf, ornament, band, cornerBlock, A as GARDEN_A } from './kelmscott-garden.js';
+import { loadLetter, garden, drawGarden, bandOf, ornament, band, cornerBlock, vine2, A as GARDEN_A } from './kelmscott-garden.js';
 
 // GLYPHS (tools/kfont.py; research/16 lists every source and box): per glyph its font file, its character, a (width /
 // height), w (the 5th percentile of its white lines' widths, a fraction of its height) and k (the median of its black
@@ -268,6 +268,8 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
   // garden: a heading's run-out, one leaf in red; a paragraph's free end, a slim vine along the line, leaves alternating, ending
   // in a curl (or, richer, a bud), only where the gap is worth closing (eighteen x-heights or more)
   if (CAPS === 'garden' && kind === 'rule') return { marks: [], letters: [leafArt(x0 + u * .2, yBase - u * 1.25, u * 1.3, 'r', seed % 7)] };
+  if (CAPS === 'garden' && kind === 'vine' && v2('filler')) { const L = Math.min(x1 - x0, u * 60); if (L < u * 10) return { marks: [], letters: [] };   // (vine2: the vine in ink, tapering to a curl)
+    const h = Math.round(u * 1.5 * 2) / 2, W = Math.round(L - u * .4); return { marks: [], letters: [v2Art('filler', x1 - W, yBase - h * .8, W, h, seed % 13 + 1)] }; }
   if (CAPS === 'garden' && kind === 'vine' && FILL_KIND !== 'grown') { const L = Math.min(x1 - x0, u * 60); if (L < u * 10) return { marks: [], letters: [] };   // (the plait in the free end of the line: a rope of the band, a cord's height)
     const h = Math.round(u * 1.3 * 2) / 2, W = Math.round(L - u * .4); return { marks: [], letters: [bandArt(x1 - W, yBase - h * .82, W, h, h / .42, seed % 13 + 1, { knot: 1, sil: FILL_KIND === 'plait', eye: 'dot', per: 3, sw: .024, bare: 1 })] }; }
   if (CAPS === 'garden' && kind === 'vine') { const L = Math.min(x1 - x0, u * 60); if (L < u * 18) return { marks: [], letters: [] };   // (about a third of a measure free, or left open)
@@ -309,8 +311,23 @@ function blockArt(x, y, s, U, seed, o = {}) { const b = cornerBlock(s, seed, { U
 function bandRow(x, y, W, h, U, seed, o = {}, at = []) { const out = [], sq = at.map(f => x + f * (W - h)).sort((a, b) => a - b);
   let x0 = x; [...sq, x + W].forEach((xs, i) => { if (xs - x0 > h * 1.5) out.push(bandArt(x0, y, xs - x0, h, U, seed + i, o)); if (i < sq.length) { out.push(blockArt(xs, y, h, U, seed + 7, o)); x0 = xs + h; } });
   return out; }
+// ?orn=vine2: the running vine family (kelmscott-garden.js vine2): breaks and the pull quote's head and foot a cartouche
+// whose arms curl out onto the paper; frames and the quotation the running vine in a band; corners a square with a flower;
+// fillers the vine in ink, tapering to a curl. rot: a quarter turn (a frame's side); fy: turned over (the pull's foot).
+let ORN = 'plait';   // (?orn=mix: the vine2 breaks, pull quote and fillers with the plait's frames and quotation band)
+const v2 = piece => ORN === 'vine2' || ORN === 'mix' && piece !== 'frame';
+const v2Art = (kind, x, y, W, h, seed, o = {}, rot = 0, fy = false) => { const v = vine2(kind, W, h, seed, o), my = kind === 'break' ? h * 1.1 : 3, mx = 3, [w2, h2] = rot ? [h, W] : [W, h];
+  return { art: { draw: c => { c.translate(x, y); if (rot) { c.translate(w2 / 2, h2 / 2); c.rotate(rot * Math.PI / 2); c.translate(-(rot % 2 ? h2 : w2) / 2, -(rot % 2 ? w2 : h2) / 2); } if (fy) { c.translate(0, h); c.scale(1, -1); } v.draw(c, 0, 0); } },
+    key: 'v2' + [kind, W.toFixed(1), h.toFixed(1), seed, rot, fy, JSON.stringify(o)].join('|'), x: x - (rot ? my : mx), y: y - (rot ? mx : my), w: w2 + 2 * (rot ? my : mx), h: h2 + 2 * (rot ? mx : my), col: kind === 'filler' ? 'k' : 'g', seed }; };
+const v2Frame = ([X0, Y0, X1, Y1], t, seed) => { const W = X1 - X0 + 2 * t, H = Y1 - Y0 + 2 * t, x = X0 - t, y = Y0 - t, out = [];
+  [[x, y, 0], [x + W - t, y, 1], [x + W - t, y + H - t, 2], [x, y + H - t, 3]].forEach(([cx, cy, k]) => out.push(v2Art('corner', cx, cy, t, t, seed + 3 + (k % 2), { tulip: k % 2 }, k)));
+  out.push(v2Art('band', x + t, y, W - 2 * t, t, seed + 5, { ends: false }), v2Art('band', x + t, y + H - t, W - 2 * t, t, seed + 6, { ends: false }));
+  out.push(v2Art('band', x, y + t, H - 2 * t, t, seed + 7, { ends: false }, 1), v2Art('band', x + W - t, y + t, H - 2 * t, t, seed + 8, { ends: false }, 1));
+  return out; };
 const knotOpt = (o = {}) => ({ knot: BREAK !== 'band' && BREAK !== 'sil' ? 1 : 0, sil: BREAK.endsWith('sil'), fills: 0, ...o });
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1) {
+  if (v2('break') && CAPS === 'garden') { const W = rank > 2 ? measure : Math.min(measure * (rank > 1 ? .84 : .64), u * (rank > 1 ? 72 : 52)), h = Math.round(u * (rank > 1 ? 6.2 : 5));
+    return { marks: [], letters: [v2Art('break', cx - W / 2, y - h / 2, W, h, seed % 11 + 1, { body: rank > 2 ? .7 : rank > 1 ? .62 : .58 })] }; }
   if (BANDS.includes(BREAK)) { const W = Math.min(measure, rank > 2 ? measure : rank > 1 ? Math.min(measure * .8, u * 66) : Math.min(measure * .5, u * 44)), h = Math.round(u * (rank > 1 ? 5.2 : 4.1)), sd = seed % 11 + 1;
     return { marks: [], letters: bandRow(cx - W / 2, y - h / 2, W, h, u * UB, sd, knotOpt({ odd: n % 2 }), rank > 2 ? [0, .5, 1] : rank > 1 ? [.5] : []) }; }
   if (BREAK === 'grown') { const big = rank > 1, W = Math.min(measure * (big ? .7 : .5), u * (big ? 56 : 40)), h = W / (big ? 5.2 : 5.4), o = ornament('band', W, h, seed % 11, { rank: big ? 2 : 1, centre: !big && n % 2 === 0 ? 'bud' : null });
@@ -365,22 +382,25 @@ const bandFrame = ([X0, Y0, X1, Y1], t, seed, o = {}) => { const U = t / .4, W =
   out.push(bandArt(x, y + t, H - 2 * t, t, U, seed + 6, op, 1), bandArt(x + W - t, y + t, H - 2 * t, t, U, seed + 6, op, 1));
   return out; };
 // down a quotation's or an aside's margin: the band stood on end, from its first line's top to its last line's foot
-const bandDown = (xl, top, bot, u, seed) => { const t = Math.round(u * 1.9), H = bot - top, x = xl - u * 1.1 - t; return H < t * 3 ? [] : [bandArt(x, top, H, t, t / .4, seed % 9 + 1, knotOpt(), 1)]; };
+const bandDown = (xl, top, bot, u, seed) => { if (v2('frame')) { const t = Math.round(u * 2.4), H = bot - top, x = xl - u * 1.1 - t; return H < t * 3 ? [] : [v2Art('band', x, top, H, t, seed % 9 + 1, {}, 1)]; } const t = Math.round(u * 1.9), H = bot - top, x = xl - u * 1.1 - t; return H < t * 3 ? [] : [bandArt(x, top, H, t, t / .4, seed % 9 + 1, knotOpt(), 1)]; };
 const sprigAt = (cx, y, u) => { const h = u * 1.4, w = widthOf('sprig', h); return block('sprig', cx - w / 2, y - h / 2, h, 'r'); };
 const frames = {
   quote: ({ box, lines, u, seed = 1 }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : VINE_KIND === 'band' && CAPS === 'garden' ? bandDown(L[0], L[1] - u * .9, L[3] + u * .25, u, seed) : VINE_KIND === 'traced' ? vineDown(L[0], L[1], box?.[3] ?? L[3], u) : grownVine(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
   aside: ({ box, lines, u, seed = 1 }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : VINE_KIND === 'band' && CAPS === 'garden' ? bandDown(L[0], L[1] - u * .9, L[3] + u * .25, u, seed + 4) : VINE_KIND === 'traced' ? vineDown(L[0], L[1], L[3] + u * .3, u) : grownVine(L[0], L[1], L[3] + u * .3, u, seed) }; },
-  pull: ({ cx, yTop, yBot, measure, u, seed = 1 }) => { if (PULL === 'band' && CAPS === 'garden' && !QUIET) { const W = Math.min(measure * .4, u * 30), h = Math.round(u * 3.4), U = u * UB;   // (a short band over it and under it)
+  pull: ({ cx, yTop, yBot, measure, u, seed = 1 }) => { if (v2('break') && CAPS === 'garden' && !QUIET) { const W = Math.min(measure * .46, u * 34), h = Math.round(u * 4);
+      return { marks: [], letters: [v2Art('break', cx - W / 2, yTop - h * 1.15, W, h, seed % 9 + 2, { body: .56 }), v2Art('break', cx - W / 2, yBot + h * .15, W, h, seed % 9 + 2, { body: .56 }, 0, true)] }; }
+    if (PULL === 'band' && CAPS === 'garden' && !QUIET) { const W = Math.min(measure * .4, u * 30), h = Math.round(u * 3.4), U = u * UB;   // (a short band over it and under it)
       return { marks: [], letters: [...bandRow(cx - W / 2, yTop - h * 1.05, W, h, U, seed % 9 + 2, knotOpt()), ...bandRow(cx - W / 2, yBot + h * .05, W, h, U, seed % 9 + 3, knotOpt())] }; }
     if (PULL === 'grown' && !QUIET) { const W = Math.min(measure * .42, u * 26), h = W / 5.4;
       return { marks: [], letters: [art(ornament('band', W, h, seed % 11 + 3, { rank: 1 }), cx - W / 2, yTop - h * .75, 'k', 'pullh' + W.toFixed(1), seed), art(ornament('band', W * .8, h * .8, seed % 11 + 5, { rank: 1, centre: 'bud' }), cx - W * .4, yBot - h * .15, 'k', 'pullf' + W.toFixed(1), seed)] }; }
     if (QUIET) return { marks: [], letters: [sprigAt(cx, yTop, u), sprigAt(cx, yBot, u)] }; const W = Math.min(measure * .46, u * 30), hh = W / GLYPHS.headRose.a, fh = W * .9 / GLYPHS.footRose.a;
     return { marks: [], letters: [block('headRose', cx - W / 2, yTop - hh * .85, hh), block('footRose', cx - W * .45, yBot - fh * .05, fh)] }; },
   figure: ({ box, cap, u, seed = 1, limit = [-1e9, 1e9] }) => { const room = Math.min(box[0] - limit[0], limit[1] - box[2]) - 2, B = [box[0], box[1], box[2], cap ?? box[3]], o = Math.max(4, Math.min(room - (CAPS === 'garden' ? u : 0), u * (CAPS === 'garden' ? 1.9 : 1.1)));   // (garden: room kept for the corner rosettes)
+    if (CAPS === 'garden' && v2('frame')) { const t = Math.round(Math.min(u * 3, Math.max(u * 1.4, room - 4))), g = Math.max(2, Math.min(room - t - 2, u * 1.2)); return { marks: [], letters: v2Frame([B[0] - g, B[1] - g, B[2] + g, B[3] + g], t, seed % 7 + 1) }; }
     if (CAPS === 'garden' && FRAME === 'band') { const t = Math.round(Math.min(u * 2.6, Math.max(u * 1.2, room - 4))), g = Math.max(2, Math.min(room - t - 2, u * 1.2));   /* (a narrow page: the band slimmer and closer, never past its edge) */ return { marks: [], letters: bandFrame([B[0] - g, B[1] - g, B[2] + g, B[3] + g], t, seed % 7 + 1) }; }
     if (CAPS === 'garden') return { marks: [], letters: grownFrame([B[0] - o, B[1] - o, B[2] + o, B[3] + o], u * 5.5, 1.2, seed) };
     return { marks: [], letters: [...ruled([B[0] - o, B[1] - o, B[2] + o, B[3] + o], 2.4), ...ruled([B[0] - o + 4.4, B[1] - o + 4.4, B[2] + o - 4.4, B[3] + o - 4.4], 1.3)] }; },
-  code: ({ box, u, seed = 1 }) => CODE === 'none' ? { marks: [], letters: [] } : CAPS === 'garden' && FRAME === 'band' ? { marks: [], letters: bandFrame([box[0] + u * 2.2, box[1] + u * 2.2, box[2] - u * 2.2, box[3] - u * 2.2], Math.round(u * 2), seed % 7 + 2, { sil: CODE_SIL }) } : CAPS === 'garden' ? { marks: [], letters: grownFrame([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], u * 4, 1, seed) } : { marks: [], letters: ruled([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], 1.3) },
+  code: ({ box, u, seed = 1 }) => CODE === 'none' ? { marks: [], letters: [] } : CAPS === 'garden' && v2('frame') ? { marks: [], letters: v2Frame([box[0] + u * 2.4, box[1] + u * 2.4, box[2] - u * 2.4, box[3] - u * 2.4], Math.round(u * 2.2), seed % 7 + 2) } : CAPS === 'garden' && FRAME === 'band' ? { marks: [], letters: bandFrame([box[0] + u * 2.2, box[1] + u * 2.2, box[2] - u * 2.2, box[3] - u * 2.2], Math.round(u * 2), seed % 7 + 2, { sil: CODE_SIL }) } : CAPS === 'garden' ? { marks: [], letters: grownFrame([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], u * 4, 1, seed) } : { marks: [], letters: ruled([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], 1.3) },
   nav: ({ box, entries, u }) => { const h = u * 1.2, w = CAPS === 'garden' ? h * 1.07 : widthOf('hedera', h);
     return { marks: [], letters: entries.filter(Boolean).map((e, i) => CAPS === 'garden' ? leafArt(Math.max(4, box[0] - u * 1.1 - w), e.base - h * .95, h, 'r', i % 7) : block('hedera', Math.max(4, box[0] - u * 1.1 - w), e.base - h * .92, h, 'r')) }; },
 };
@@ -451,5 +471,5 @@ export const kelmscott = { label: 'Kelmscott', minGap: 2, theme: { rubric: 'rgb(
   set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : c === 'none' ? 'none' : 'vine'; FILL_KIND = ['rope', 'grown'].includes(c) ? c : 'plait'; },
   set darkCut(c) { DARK_CUT = c === 'negative' ? 'negative' : 'positive'; },
   set breaks(c) { BREAK = c === 'traced' ? 'all' : ['all', 'rose', 'grape', 'mirror', 'grown', ...BANDS].includes(c) ? c : 'knot'; },
-  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; CODE_SIL = c !== 'band'; }, set frame(c) { FRAME = c === 'grown' ? 'grown' : 'band'; }, set vine(c) { QUIET = c === 'none'; VINE_KIND = c === 'traced' ? 'traced' : c === 'grown' ? 'grown' : 'band'; }, set pull(c) { PULL = c === 'grown' ? 'grown' : c === 'traced' ? 'traced' : 'band'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
+  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; CODE_SIL = c !== 'band'; }, set orn(c) { ORN = ['vine2', 'mix'].includes(c) ? c : 'plait'; }, set frame(c) { FRAME = c === 'grown' ? 'grown' : 'band'; }, set vine(c) { QUIET = c === 'none'; VINE_KIND = c === 'traced' ? 'traced' : c === 'grown' ? 'grown' : 'band'; }, set pull(c) { PULL = c === 'grown' ? 'grown' : c === 'traced' ? 'traced' : 'band'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
 export default kelmscott;

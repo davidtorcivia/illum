@@ -494,7 +494,7 @@ export function drawGarden(c, geo, x, y, h, res = 1, sil = false) {   // (sil: t
   const px = 1 / (h * res);   // one device px, in block units
   c.save(); c.translate(x, y); c.scale(h, h);
   c.fillStyle = '#000';
-  if (!sil) { const sq = new Path2D(); ringPath(sq, geo.square); c.globalCompositeOperation = 'source-over'; c.fill(sq); }
+  if (!sil) { const sq = new Path2D(); ringPath(sq, geo.square); c.globalCompositeOperation = 'source-over'; c.fill(sq); geo.ground?.forEach(g => { const P = new Path2D(); ringPath(P, g); c.fill(P); }); }   // (ground: more of the block's black, a cartouche's arms)
   c.globalCompositeOperation = sil ? 'source-over' : 'destination-out';
   const Lp = new Path2D(); geo.letter.forEach(q => ringPath(Lp, q)); c.fill(Lp, geo.wind ?? 'evenodd');
   // (each shape filled on its own: two outlines that overlap with opposite windings would cancel in one nonzero path)
@@ -829,4 +829,121 @@ export function cornerBlock(s, seed = 1, o = {}) {
   const key = 'corner' + seed + ':' + a.toFixed(3); let geo = gcache.get(key);
   if (!geo) { geo = { letter: L, wind: 'nonzero', square: edgeOf(a, a, seed), stems: [], curls: [], leaves: lv, flowers: [{ ...rosette(r), c, rad, a: r() * 6 }], dots: [], heroes: [] }; gcache.set(key, geo); }
   return { w: s, h: s, geo, draw(cx, x = 0, y = 0) { if (!geo) return; const T = cx.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(cx, geo, x, y, U, res, !!o.sil); } };
+}
+
+// ---- ?orn=vine2: the garden's running vine ------------------------------------------------------------------------------------
+// The second family of bands, more lyrical than the plait: a single stem running the length of the band with a swing that
+// wanders, and in each bay it leaves a different thing — a lobed vine leaf, a tulip on a curling stalk, a rosette, a bunch
+// of grapes, a tendril winding in on itself — so it never repeats; small leaves at its nodes; the black dotted; a white
+// fillet inside the block's edge. A break is a cartouche: a black body swelling to the middle, a rosette with its four
+// leaves at the heart, the vine running out each way and lighter as the body narrows, and from each point black tendrils
+// that leave the block and curl out onto the paper. A frame's corner a square with a flower and its leaves; a filler the
+// vine in ink alone, tapering, ending in a curl. All laid as designed from the garden's shapes and hand (no growth).
+//   vine2(kind, w, h, seed, o) -> { w, h, geo, draw(c, x, y) }   kinds: 'band' 'break' 'corner' 'filler'
+const v2tang = (q, i) => { const a = q[Math.max(0, i - 1)], b = q[Math.min(q.length - 1, i + 1)]; return Math.atan2(b[1] - a[1], b[0] - a[0]); };
+function v2kit(r) {
+  const g = { letter: [], wind: 'nonzero', stems: [], curls: [], leaves: [], flowers: [], dots: [], heroes: [], ground: [] };
+  // (what is laid, as discs in a grid of .04 cells, the few large ones in a list)
+  const cells = new Map(), big = [], C4 = .04, occ = { push: e => { if (e[2] > .04) big.push(e); else { const k = (e[0] / C4 | 0) * 4099 + (e[1] / C4 | 0); (cells.get(k) ?? cells.set(k, []).get(k)).push(e); } } };
+  const K = {
+    g, occ,
+    free: (p, rr) => { const hit = ([x, y, R]) => Math.hypot(p[0] - x, p[1] - y) <= R + rr; if (big.some(hit)) return false; const i0 = p[0] / C4 | 0, j0 = p[1] / C4 | 0, n = Math.ceil((rr + .04) / C4);
+      for (let i = i0 - n; i <= i0 + n; i++) for (let j = j0 - n; j <= j0 + n; j++) if (cells.get(i * 4099 + j)?.some(hit)) return false; return true; },
+    mark: (p, rr) => occ.push([p[0], p[1], rr]),
+    stem(pts, w0, w1, k = 1) { const ws = pts.map((_, i) => w0 + (w1 - w0) * i / Math.max(1, pts.length - 1)); const [P, W] = hand(pts, ws, k); g.stems.push({ pts: P, w: W }); P.forEach((p, i) => i % 6 || occ.push([p[0], p[1], W[i]])); return P; },
+    stalk(P0, P1, P2, w0, w1) { const q = quad(P0, P1, P2, 24); g.curls.push({ pts: q, w: q.map((_, i) => w0 + (w1 - w0) * i / 24) }); q.forEach((p, i) => i % 4 || occ.push([p[0], p[1], w0])); return q; },
+    curl(p, a, L, sg, w0, ball = 1.3) { const pts = tendril(p, a, L, sg * 1.5 / L, sg * 11 / L, 1.7, L / 70); g.curls.push({ pts, w: pts.map((_, i) => w0 * (1 - .55 * i / pts.length)), ball: ball ? w0 * ball : 0 }); pts.forEach((q, i) => i % 5 || occ.push([q[0], q[1], w0])); return pts; },
+    leaf(b, a, L, bend = 0) { const sh = leafShape(r, bend), o = lay(sh.outline, b, a, L); g.leaves.push({ outline: o, rib: lay(sh.axis.slice(2, 15), b, a, L), W: sh.W * L }); for (let t = .3; t < 1; t += .2) occ.push([b[0] + Math.cos(a) * L * t, b[1] + Math.sin(a) * L * t, L * .18]); return o; },
+    vleaf(b, a, L) { const v = vineLeaf(r), o = lay(v.outline, b, a, L); v.veins.forEach(q => g.leaves.push({ outline: o, rib: lay(q, b, a, L), W: L * .3 })); occ.push([b[0] + Math.cos(a) * L * .4, b[1] + Math.sin(a) * L * .4, L * .5]); },
+    tulip(b, a, L) { const t = tulip(r); g.flowers.push({ outline: lay(t.outline, b, a, L), cuts: t.cuts.map(q => lay(q, b, a, L)) }); occ.push([b[0] + Math.cos(a) * L * .55, b[1] + Math.sin(a) * L * .55, L * .45]); },
+    rose(c, rad, n = 5) { g.flowers.push({ ...rosette(r, n), c, rad, a: r() * 6 }); occ.push([c[0], c[1], rad]); },
+    grapes(p, a, gr) { const ca = Math.cos(a), sa = Math.sin(a);
+      for (const [row, n] of [[0, 3], [1, 3], [2, 2], [3, 2], [4, 1]]) for (let j = 0; j < n; j++) { const x = row * gr * 1.75 + gr, y = (j - (n - 1) / 2) * gr * 2.1 + (row % 2 ? gr * .25 : 0); g.dots.push({ p: [p[0] + x * ca - y * sa, p[1] + x * sa + y * ca], rad: gr * (.95 + r() * .1) }); }
+      occ.push([p[0] + ca * gr * 4, p[1] + sa * gr * 4, gr * 4.5]); },
+    fillet(pts, w) { g.stems.push({ pts, w: pts.map(() => w) }); },
+    dots(x0, y0, x1, y1, inside, sp, rr) { for (const p of poisson(x1 - x0, y1 - y0, sp, r, q => { const p = [q[0] + x0, q[1] + y0]; return inside(p) && K.free(p, sp * .45); }, 10)) if (r() < .8) g.dots.push({ p: [p[0] + x0, p[1] + y0], rad: rr * (.85 + r() * .3) }); },
+  };
+  return K;
+}
+// the running vine between x0 and x1 about the line c0, its room `half` either side: the stem, a thing in each bay, leaves
+// at the nodes. sg0: which way the stem first swings. Returns the stem.
+function v2run(K, r, x0, x1, c0, half, o = {}) {
+  const per = half * (o.per ?? 2.7), n = Math.max(1, Math.round((x1 - x0) / (per / 2))), amp = half * (o.amp ?? .36), sw = o.sw ?? half * .075, N = Math.max(40, Math.ceil((x1 - x0) / .004)), sg0 = o.sg ?? 1;
+  const k3 = 2 + (r() * 3 | 0), wob = (r() - .5) * .05, ph0 = r() * 6.28, ampAt = o.ampAt ?? (() => 1);
+  const pts = []; for (let i = 0; i <= N; i++) { const t = i / N, tt = t + wob * Math.sin(2 * Math.PI * k3 * t + ph0) * Math.sin(Math.PI * t), x = x0 + (x1 - x0) * t; pts.push([x, c0 + sg0 * amp * ampAt(x) * Math.sin(Math.PI * n * tt)]); }
+  const swAt = o.swAt ?? (() => 1), P = K.stem(pts, sw * swAt(x0), sw * swAt(x1), o.k ?? 1);
+  const kinds = o.kinds ?? ['vleaf', 'tulip', 'curl', 'rose', 'vleaf', 'grapes', 'tulip', 'curl'], picks = []; let last = '';
+  for (let k = 0; k < n; k++) { let kd; do kd = kinds[r() * kinds.length | 0]; while (kd === last && kinds.length > 1); picks.push(last = kd); }
+  for (let k = 0; k < n; k++) {
+    const i = Math.round((k + .5) / n * N), p = P[Math.min(N, i)], up = p[1] < c0, sg = up ? 1 : -1, edge = c0 + sg * half * (o.halfAt ?? (() => 1))(p[0] + per * .04), R0 = Math.abs(edge - (p[1] + sg * sw)) / 2, R = R0 * (o.big ?? 1);
+    if (R0 < half * .16) continue;
+    const bc = [p[0] + per * .04, p[1] + sg * (sw + R0 * (o.big ?? 1) ** .5)], is = Math.max(1, Math.round((k + .5 - .32) / n * N)), q0 = P[is], ta = v2tang(P, is), kd = picks[k];
+    const toward = (len) => { const a = Math.atan2(bc[1] - q0[1], bc[0] - q0[0]); return [q0[0] + Math.cos(a) * len, q0[1] + Math.sin(a) * len, a]; };
+    if (kd === 'rose') { const rad = R * .78, d = Math.hypot(bc[0] - q0[0], bc[1] - q0[1]), e = [bc[0] - (bc[0] - q0[0]) / d * rad * .85, bc[1] - (bc[1] - q0[1]) / d * rad * .85];
+      K.stalk(q0, [q0[0] + Math.cos(ta) * d * .5, q0[1] + Math.sin(ta) * d * .5], e, sw * .75, sw * .45); K.rose(bc, rad, r() < .3 ? 4 : 5);
+      K.leaf(e, Math.atan2(e[1] - q0[1], e[0] - q0[0]) + sg * 2.2, R * .7, -sg * .2); }
+    else if (kd === 'tulip') { const L = R * 1.75, ba = -sg * Math.PI / 2 * -1 + (r() - .5) * .3, b = [bc[0] - Math.cos(ba) * L * .45, bc[1] - Math.sin(ba) * L * .45];
+      K.stalk(q0, [q0[0] + Math.cos(ta) * R * 1.2, q0[1] + Math.sin(ta) * R * 1.2], b, sw * .75, sw * .45); K.tulip(b, ba, L); K.leaf(b, ba + Math.PI * .62 * (r() < .5 ? 1 : -1), R * .7, .2); }
+    else if (kd === 'vleaf') { const L = R * 2.05, a = Math.atan2(bc[1] - q0[1], bc[0] - q0[0]) + sg * .25, b = [bc[0] - Math.cos(a) * L * .42, bc[1] - Math.sin(a) * L * .42];
+      K.stalk(q0, [q0[0] + Math.cos(ta) * R * .8, q0[1] + Math.sin(ta) * R * .8], b, sw * .7, sw * .45); K.vleaf(b, a, L); }
+    else if (kd === 'grapes') { const gr = R * .2, a = sg * Math.PI / 2 + (r() - .5) * .3, top = [bc[0] - Math.cos(a) * gr * 4, bc[1] - Math.sin(a) * gr * 4];
+      K.stalk(q0, [q0[0] + Math.cos(ta) * R, q0[1] + Math.sin(ta) * R], top, sw * .7, sw * .45); K.grapes(top, a, gr); K.curl(top, a + Math.PI * .75, R * 1.3, -1, sw * .4); }
+    else { const L = R * 3.1, [, , a] = toward(1); K.curl(q0, a - sg * .2, L, sg, sw * .65); K.leaf(q0, ta + sg * .5, R * .75, sg * .2); }
+  }
+  // the nodes: where the stem crosses its line, a small leaf each side, leaning on along it
+  for (let k = 1; k < n; k++) { const i = Math.round(k / n * N), p = P[i], ta = v2tang(P, i), L = half * .42 * ampAt(p[0]) ** .5;
+    for (const sd of [1, -1]) { const a = ta + sd * .75, tip = [p[0] + Math.cos(a) * L, p[1] + Math.sin(a) * L]; if (K.free(tip, L * .1)) K.leaf(p, a, L, -sd * .2); } }
+  return P;
+}
+export function vine2(kind, w, h, seed = 1, o = {}) {
+  const key = 'v2' + kind + seed + ':' + w.toFixed(1) + 'x' + h.toFixed(1) + JSON.stringify(o); let rec = gcache.get(key);
+  if (!rec) { const r = stream(seed, 'vine2' + kind), K = v2kit(r), g = K.g; LW = BANDS[0].LW;
+    let U = o.U ?? h / .42, aw = w / U, hb = h / U;
+    if (kind === 'band') { const c0 = hb / 2, fi = MARG + .012, half = hb / 2 - fi - .008;
+      g.square = edgeOf(aw, hb, seed); K.fillet([[0, fi * .62], [aw, fi * .62]], .0045); K.fillet([[0, hb - fi * .62], [aw, hb - fi * .62]], .0045);
+      const ends = o.ends ?? true, x0 = ends ? fi + .03 : 0, x1 = ends ? aw - fi - .03 : aw;
+      const P = v2run(K, r, x0, x1, c0, half, { sg: r() < .5 ? 1 : -1, k: seed, per: o.per ?? 4.4, amp: .22, sw: half * .1, big: 1.25 });
+      if (ends) { K.curl(P[0], Math.PI, half * 1.1, 1, half * .06); K.curl(P.at(-1), 0, half * 1.1, -1, half * .06); }
+      K.dots(fi, fi, aw - fi, hb - fi, p => p[1] > fi + .01 && p[1] < hb - fi - .01, .08, .006); }
+    else if (kind === 'break') {
+      // the cartouche: a body of the black swelling to its middle, its points running on as arms out onto the paper
+      const c0 = hb / 2, bw = aw * (o.body ?? .58), bx0 = (aw - bw) / 2, bx1 = aw - bx0, H = hb / 2, hh = x => { const t = Math.min(1, Math.abs(x - aw / 2) / (bw / 2)); return H * Math.pow(1 - Math.pow(t, 2.1), .7); };
+      const top = [], bot = []; for (let i = 0; i <= 160; i++) { const x = bx0 + bw * i / 160; top.push([x, c0 - hh(x)]); bot.push([x, c0 + hh(x)]); }
+      g.square = [...top, ...bot.reverse()];
+      // the white fillet inside its edge
+      const fi = .022, ins = x => Math.max(0, hh(x) - fi), ft = [], fb = []; for (let i = 0; i <= 160; i++) { const x = bx0 + fi * 2.2 + (bw - fi * 4.4) * i / 160; ft.push([x, c0 - ins(x)]); fb.push([x, c0 + ins(x)]); }
+      K.fillet([...ft, ...fb.reverse(), ft[0]], .004);
+      // the arms: from each point two tendrils of the black, the greater curling up and over, the lesser down, a leaf on the greater
+      for (const sd of [-1, 1]) { const tip = [sd < 0 ? bx0 + bw * .06 : bx1 - bw * .06, c0], L = (bx0 + bw * .06) * (1.2 + r() * .12), a0 = sd < 0 ? Math.PI : 0, L2 = L * .5;
+        const arm = tendril(tip, a0 - sd * .1, L, sd * .5 / L, sd * 13 / L, 1.9, L / 90), aw0 = H * .15;
+        const ws = arm.map((_, i) => aw0 * Math.pow(1 - i / arm.length, .9) + .004), arm2 = tendril(arm[Math.round(arm.length * .12)], a0 - sd * .35, L2, -sd * 1.2 / L2, -sd * 14 / L2, 1.9, L / 90), ws2 = arm2.map((_, i) => aw0 * .55 * Math.pow(1 - i / arm2.length, .9) + .003);
+        for (const [A, W2] of [[arm, ws], [arm2, ws2]]) { g.ground.push(ribbon(A, W2)); const e = A.at(-1), rr = W2.at(-1) * 2.2; g.ground.push(Array.from({ length: 16 }, (_, k) => [e[0] + Math.cos(k / 16 * 6.283) * rr, e[1] + Math.sin(k / 16 * 6.283) * rr])); }
+        const j = Math.round(arm.length * .3), sh = leafShape(r, -sd * .25); g.ground.push(lay(sh.outline, arm[j], v2tang(arm, j) - sd * .55, H * .72)); }
+      // the heart: a rosette, four leaves about it
+      const rad = H * .4, cx = aw / 2; K.rose([cx, c0], rad, 5);
+      for (let k = 0; k < 4; k++) { const a = Math.PI / 4 + k * Math.PI / 2, b = [cx + Math.cos(a) * rad * .92, c0 + Math.sin(a) * rad * .92]; K.leaf(b, a, H * .42, (k % 2 ? 1 : -1) * .15); }
+      // the vine out each way, its swing and weight following the body
+      for (const sd of [-1, 1]) { const xa = cx + sd * rad * 1.05, xb = sd < 0 ? bx0 + bw * .07 : bx1 - bw * .07, lo = Math.min(xa, xb), hi = Math.max(xa, xb);
+        const f = x => Math.max(.25, hh(x) / H);
+        const P = v2run(K, r, lo, hi, c0, H - fi - .02, { sg: sd, per: 2.3, amp: .34, ampAt: f, swAt: f, sw: H * .07, k: seed + sd, kinds: o.kinds, halfAt: x => Math.max(0, hh(x) - fi - .02) / (H - fi - .02) });
+        const e = sd < 0 ? P[0] : P.at(-1); K.curl(e, sd < 0 ? Math.PI : 0, H * .5, sd, H * .03); }
+      K.dots(bx0, 0, bx1, hb, p => Math.abs(p[1] - c0) < hh(p[0]) - fi - .012, .05, .0055); }
+    else if (kind === 'corner') {   // a square: a rosette (or, o.tulip, a tulip) at the middle, leaves to the corners
+      const a = aw, c = [a / 2, a / 2], fi = MARG + .01; g.square = edgeOf(a, a, seed); K.fillet([[fi * .6, fi * .6], [a - fi * .6, fi * .6], [a - fi * .6, a - fi * .6], [fi * .6, a - fi * .6], [fi * .6, fi * .6]], .0045);
+      const rr = a / 2 - fi - .03;
+      if (o.tulip) { K.tulip([c[0] + rr * .62, c[1] + rr * .62], -Math.PI * .75, rr * 1.55); K.leaf([c[0] + rr * .3, c[1] + rr * .3], -Math.PI * .25, rr * .85, .2); K.leaf([c[0] + rr * .3, c[1] + rr * .3], Math.PI * .75 + Math.PI, rr * .85, -.2); }
+      else { K.rose(c, rr * .62, 5); for (let k = 0; k < 4; k++) { const an = Math.PI / 4 + k * Math.PI / 2; K.leaf([c[0] + Math.cos(an) * rr * .55, c[1] + Math.sin(an) * rr * .55], an, rr * .78, .1); } }
+      K.dots(fi, fi, a - fi, a - fi, () => true, .05, .005); }
+    else if (kind === 'filler') {   // in ink: the vine along the line, thinning as it goes, leaves by turns, a bud or two, a curl at its end
+      U = h; aw = w / U; hb = 1; const c0 = .58, N = Math.ceil(aw / .02), pts = [], ph = r() * 6.28, x1 = aw - .9;
+      for (let i = 0; i <= N; i++) { const x = .15 + (x1 - .15) * i / N; pts.push([x, c0 + Math.sin(x / 2.1 * Math.PI + ph) * .07]); }
+      const P = K.stem(pts, .075, .038, seed); let x = .7 + r() * .4, sd = r() < .5 ? 1 : -1;
+      while (x < x1 - .6) { const i = Math.round((x - .15) / (x1 - .15) * N), p = P[i], ta = v2tang(P, i), t = x / aw;
+        if (r() < .14) { const a = ta + sd * .8, b = [p[0] + Math.cos(a) * .22, p[1] + Math.sin(a) * .22]; K.stalk(p, [p[0] + Math.cos(ta) * .12, p[1] + Math.sin(ta) * .12], b, .04, .03); K.tulip(b, a + sd * .2, .62 * (1 - t * .3)); }
+        else K.leaf(p, ta + sd * (.5 + r() * .15), (1.05 - .3 * t) * (.9 + r() * .2), -sd * .3);
+        sd = -sd; x += 1.5 + r() * .7; }
+      K.curl(P.at(-1), v2tang(P, P.length - 1), 1.25, -1, .045, 1.5); K.leaf(P[0], Math.PI + .5, .5, .2); }
+    rec = { geo: g, U, aw, hb }; gcache.set(key, rec); if (gcache.size > 64) gcache.delete(gcache.keys().next().value); }
+  const { geo, U } = rec;
+  return { w, h, geo, draw(c, x = 0, y = 0) { const T = c.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(c, geo, x, y, U, res, kind === 'filler' || !!o.sil); } };
 }
