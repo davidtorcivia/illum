@@ -86,7 +86,7 @@ function hand(pts, ws, k) {
     const a2 = pts[Math.max(0, i - 3)], b2 = pts[Math.min(n - 1, i + 3)], t1 = Math.atan2(pts[i][1] - a2[1], pts[i][0] - a2[0]), t2 = Math.atan2(b2[1] - pts[i][1], b2[0] - pts[i][0]);
     let dt = Math.abs(((t2 - t1 + 9.42) % 6.283) - 3.14); const ds = S[Math.min(n - 1, i + 3)] - S[Math.max(0, i - 3)] || 1, curv = dt / ds;
     const env = Math.min(1, S[i] / .03, (L - S[i]) / .03), off = (wob(S[i] / .07) - .5) * 2 * .0016 * env;
-    P.push([pts[i][0] - dy / l * off, pts[i][1] + dx / l * off]); W2.push(ws[i] * (1 + .36 * (pr(S[i] / .045) - .5)) * (1 + Math.min(.3, curv * .006))); }
+    P.push([pts[i][0] - dy / l * off, pts[i][1] + dx / l * off]); W2.push(ws[i] * (1 + .08 * (pr(S[i] / .12) - .5))); }
   return [P, W2];
 }
 // ---- the garden -------------------------------------------------------------------------------------------------------------
@@ -172,12 +172,12 @@ function grow1(ch, seed, band) {
   let nCurl = 0; const LK = B.LK;
   scrolls.forEach((sc, id) => { let acc = 0, side = r() < .5 ? 1 : -1, next = .07 + r() * .03;
     for (let i = 1; i < sc.pts.length - 8; i++) { const a = sc.pts[i - 1], b = sc.pts[i]; acc += Math.hypot(b[0] - a[0], b[1] - a[1]); if (acc < next) continue;
-      const t = [b[0] - a[0], b[1] - a[1]], tl = Math.hypot(t[0], t[1]) || 1, k = LK * (1.25 + r() * .15), off = HS + k * .95, p = [b[0] - t[1] / tl * side * off, b[1] + t[0] / tl * side * off];
-      next = acc + .065 + r() * .025;
-      if (C(p) > k * .62 && !nearScroll(p, k * .85) && heroes.every(h => Math.hypot(p[0] - h.p[0], p[1] - h.p[1]) > h.rad + k * 2 + GAP)) { marks.push({ p, kind: 'leaf', kill: k + .002, room: k * .6, len: k * 2, big: 1 }); side = -side; } } });
+      const t = [b[0] - a[0], b[1] - a[1]], tl = Math.hypot(t[0], t[1]) || 1, k = LK * (1.55 + r() * .15), off = HS + k * .9, p = [b[0] - t[1] / tl * side * off, b[1] + t[0] / tl * side * off];
+      next = acc + .1 + r() * .03;
+      if (C(p) > k * .62 && !nearScroll(p, k * .85) && heroes.every(h => Math.hypot(p[0] - h.p[0], p[1] - h.p[1]) > h.rad + k * 2 + GAP)) { marks.push({ p, kind: 'sprig', kill: k + .002, room: k * .55, len: k * 2, big: 1 }); side = -side; } } });
   const leafOK0 = p => marks.every(m => !m.big || Math.hypot(p[0] - m.p[0], p[1] - m.p[1]) > m.room + LK * 1.4 + GAP) && !nearScroll(p, LK + HS) && r() < .4 + .6 * Math.exp(-dScroll(p) / .14);
   const leafOK = p => C(p) > LK * .62 && leafOK0(p) && heroes.every(h => Math.hypot(p[0] - h.p[0], p[1] - h.p[1]) > h.rad + LK * 2 + GAP);
-  poisson(A, 1, LK * 2 + GAP * .7, r, leafOK).forEach(p => { const k = LK * (.9 + r() * .2); const curl = r() < .2 && nCurl++ < 5; marks.push({ p, kind: curl ? 'curl' : 'leaf', kill: k + .002, room: k * (curl ? .75 : .6), len: k * 2 }); });
+  poisson(A, 1, LK * 2.5 + GAP * .7, r, leafOK).forEach(p => { const curl = r() < .2 && nCurl++ < 5, k = LK * (curl ? 1 : 1.4 + r() * .2); marks.push({ p, kind: curl ? 'curl' : 'sprig', kill: k + .002, room: k * (curl ? .75 : .55), len: k * 2 }); });
 
   // 3. the roots: a few in each room that holds a mark, at the letter's edge (a stem coming out from behind it), lowest first
   const N = [], need = new Map();
@@ -204,7 +204,7 @@ function grow1(ch, seed, band) {
   const G = .03, gw = Math.ceil(A / G) + 1, gh = Math.ceil(1 / G) + 1, cells = Array.from({ length: gw * gh }, () => []);
   const cellOf = p => Math.max(0, Math.min(gh - 1, p[1] / G | 0)) * gw + Math.max(0, Math.min(gw - 1, p[0] / G | 0));
   scrolls.forEach(sc => { const base = N.length; sc.pts.forEach((p, i) => { const nx = sc.pts[Math.min(i + 1, sc.pts.length - 1)], pr = sc.pts[Math.max(0, i - 1)], l = Math.hypot(nx[0] - pr[0], nx[1] - pr[1]) || 1;
-    N.push({ p, parent: i ? base + i - 1 : -1, dir: [(nx[0] - pr[0]) / l, (nx[1] - pr[1]) / l], t: 0, root: !i, scroll: 1, bend: -sc.sg * BEND, nk: i < sc.pts.length - 1 ? 1 : 0 }); }); sc.tip = N.length - 1; });
+    N.push({ p, parent: i ? base + i - 1 : -1, dir: [(nx[0] - pr[0]) / l, (nx[1] - pr[1]) / l], t: 0, root: !i, scroll: 1, bend: -sc.sg * BEND, nk: i < sc.pts.length - 1 ? 1 : 0, kid: i < sc.pts.length - 1 ? [(nx[0] - p[0]) / (Math.hypot(nx[0] - p[0], nx[1] - p[1]) || 1), (nx[1] - p[1]) / (Math.hypot(nx[0] - p[0], nx[1] - p[1]) || 1)] : null }); }); sc.tip = N.length - 1; });
   const roots = N.splice(0), addNode = n => { N.push(n); cells[cellOf(n.p)].push(N.length - 1); }; roots.forEach(addNode);
   const nearest = (p, max) => { const ci = p[0] / G | 0, cj = p[1] / G | 0, rr = Math.ceil(max / G); let best = -1, bd = max;
     for (let j = Math.max(0, cj - rr); j <= Math.min(gh - 1, cj + rr); j++) for (let i = Math.max(0, ci - rr); i <= Math.min(gw - 1, ci + rr); i++)
@@ -242,8 +242,12 @@ function grow1(ch, seed, band) {
     for (const [k, { v, t, by }] of pull) {
       const n = N[k], l = Math.hypot(v[0], v[1]) || 1, wa = (wander(n.p[0] * 6, n.p[1] * 6) - .5) * 1.1;
       const od = rot(n.dir, Math.cos(n.bend), Math.sin(n.bend)); const cw = Fxy(n.p[0], n.p[1]), gp = cw < .05 ? grad(n.p) : null, pw = gp ? (.05 - cw) / .05 * .6 : 0; let d = [v[0] / l + od[0] * .9 - od[1] * wa + (gp ? gp[0] * pw : 0), v[1] / l + od[1] * .9 + od[0] * wa + (gp ? gp[1] * pw : 0)]; const m = Math.hypot(d[0], d[1]) || 1; d = [d[0] / m, d[1] / m];
-      let q = null;
-      for (const turn of [0, .35, -.35, .7, -.7, 1.1, -1.1]) { const dd = rot(d, Math.cos(turn), Math.sin(turn)), p2 = [n.p[0] + dd[0] * D, n.p[1] + dd[1] * D];
+      // (the turn a step may take is held: a stem runs on within a gentle bend; a new branch leaves its stem at 25-45
+      // degrees, on the side away from the stem's own way on. No step turns a corner.)
+      let q = null; const b0 = Math.atan2(n.dir[1], n.dir[0]), nrm = x => ((x + 9.4248) % 6.2832) - 3.1416; let ph = nrm(Math.atan2(d[1], d[0]) - b0), lo, hi;
+      if (n.nk >= 1 && n.kid) { const ka = nrm(Math.atan2(n.kid[1], n.kid[0]) - b0); lo = -1.3; hi = 1.3; ph = Math.max(lo, Math.min(hi, ph)); if (Math.abs(ph - ka) < .3) ph = ka + (ph >= ka ? .3 : -.3); }
+      else { lo = n.parent < 0 ? -1.4 : -.7; hi = -lo; ph = Math.max(lo, Math.min(hi, ph)); }
+      for (const dt of [0, .12, -.12, .24, -.24]) { const a2 = b0 + Math.max(lo, Math.min(hi, ph + dt)), dd = [Math.cos(a2), Math.sin(a2)], p2 = [n.p[0] + dd[0] * D, n.p[1] + dd[1] * D];
         if (!blocked(p2, t)) { q = p2; d = dd; break; } }
       const [nb, nd] = q ? nearest(q, D) : [-1, 0];
       // (two stems never run into one another: nothing near the step but this stem's own last few nodes and their shoots)
@@ -254,7 +258,7 @@ function grow1(ch, seed, band) {
         if (moved) continue; }
       if (!q || nb >= 0 && nb !== k && nd < D * .7) { const f = (fails.get(k) ?? 0) + 1; fails.set(k, f);
         if (f > 2) { dead.add(k); by.forEach(a => { a.best = null; relook(a); }); } continue; }
-      n.nk = (n.nk ?? 0) + 1; addNode({ p: q, parent: k, dir: d, t: it + 1, bend: n.nk > 1 ? -n.bend : n.bend });
+      if (!n.nk) n.kid = d; n.nk = (n.nk ?? 0) + 1; addNode({ p: q, parent: k, dir: d, t: it + 1, bend: n.nk > 1 ? -n.bend : n.bend });
     }
     for (const a of alive) look(a, seen); seen = N.length;
     idle = N.length === before ? idle + 1 : 0;
@@ -278,6 +282,27 @@ function grow1(ch, seed, band) {
     occ = occOf(N.flatMap((n, i) => used[i] ? [[n.p[0], n.p[1], hwOf(sz[i]), -2]] : [])); }
   // 5. the marks, each where its stem reached it: the leaf from the stem's end toward the mark and through it
   const leaves = [], flowers = [], curls = [];
+  const bez = (P0, P1, P2, u) => { const v = 1 - u; return [v * v * P0[0] + 2 * v * u * P1[0] + u * u * P2[0], v * v * P0[1] + 2 * v * u * P1[1] + u * u * P2[1]]; };
+  const curve = (P0, a0, a1, L, w0, w1) => { const P2 = [P0[0] + Math.cos(a1) * L, P0[1] + Math.sin(a1) * L], P1 = [P0[0] + Math.cos(a0) * L * .5, P0[1] + Math.sin(a0) * L * .5], n = Math.max(3, Math.ceil(L / .004)), pts = [], w = [];
+    for (let i = 0; i <= n; i++) { pts.push(bez(P0, P1, P2, i / n)); w.push(w0 + (w1 - w0) * i / n); } return { pts, w }; };
+  const strokeOK = (st, from, own) => st.pts.every((p, i) => Math.hypot(p[0] - from[0], p[1] - from[1]) < own + st.w[i] + GAP * .7 || C(p) > st.w[i] + .002 && occFree(p, st.w[i] + GAP * .6));
+  const leafAt = (b, a, L, sd) => { const sh = leafShape(r, sd * (.15 + r() * .15)), o = lay(sh.outline, b, a, L);
+    return o.every((p, j) => j % 2 || Math.hypot(p[0] - b[0], p[1] - b[1]) < L * .2 || C(p) > -.002 && occFree(p, GAP * .55)) ? { outline: o, rib: lay(sh.axis.slice(2, 15), b, a, L), W: sh.W * L, a, L, b } : null; };
+  let put = (p, rr) => occAdd(p, rr), SPR = 0, FIL = 0, FAI = 0;
+  function sprig(b, a, L, sd) {
+    const twig = curve(b, a, a + sd * .35, L * .7, HW0 * 1.2, HW0 * .75); if (!strokeOK(twig, b, HW1)) return null;
+    const tl = (u) => { const i = Math.min(twig.pts.length - 2, Math.round(u * (twig.pts.length - 1))), p = twig.pts[i], q = twig.pts[i + 1]; return [p, Math.atan2(q[1] - p[1], q[0] - p[0])]; };
+    const parts = [], lv = [];
+    const [pe, ae] = tl(1), end = leafAt(twig.pts.at(-1), ae, L * .55 * (.9 + r() * .2), sd); if (!end) return null; lv.push(end);
+    for (const [u, s2] of [[.34, -sd], [.62, sd]]) { const [q, at] = tl(u), pet = curve(q, at + s2 * .8, at + s2 * .5, L * .14, HW0 * .7, HW0 * .55);
+      if (!strokeOK(pet, q, twig.w[0])) continue; const pe2 = pet.pts.at(-1), lf = leafAt(pe2, at + s2 * .55, L * .46 * (.85 + r() * .25), s2);
+      if (!lf || lv.some(o => o.outline.some((p, j) => j % 3 === 0 && lf.outline.some((q2, k2) => k2 % 3 === 0 && Math.hypot(p[0] - q2[0], p[1] - q2[1]) < GAP * .6)))) continue; parts.push(pet); lv.push(lf); }
+    // laid: the twig and its petioles as strokes, the leaves (all moved with the twig onto its stem as drawn)
+    const tw = { b, pts: twig.pts, w: twig.w }; curls.push(tw); twig.pts.forEach((p, i) => i % 2 || put(p, twig.w[i]));
+    parts.forEach(pt => { curls.push({ follow: tw, pts: pt.pts, w: pt.w }); pt.pts.forEach((p, i) => i % 2 || put(p, pt.w[i])); });
+    lv.forEach(l => { leaves.push({ follow: tw, outline: l.outline, rib: l.rib, W: l.W }); for (let t = .25; t <= .95; t += .14) put([l.b[0] + Math.cos(l.a) * l.L * t, l.b[1] + Math.sin(l.a) * l.L * t], l.L * .17); });
+    SPR++; return true;
+  }
   for (const m of reached) {
     if (m.kind === 'tip') { m.ok = 1; const sp = N[m.node].p; curls.push({ pts: [sp, sp], w: [HW0, HW0], ball: HW0 * 2.2 }); continue; }
     const b = N[m.node].p, a = Math.atan2(m.p[1] - b[1], m.p[0] - b[0]);
@@ -291,6 +316,11 @@ function grow1(ch, seed, band) {
         let ok = true; for (let k = 6; k < pts.length && ok; k++) if (C(pts[k]) < .002 || !occFree(pts[k], HW0 + GAP * .5)) ok = false;
         if (!ok) continue; curls.push({ b, pts, w: pts.map((_, k) => HW0 * (1 - .3 * k / pts.length)), ball: HW0 * 2 }); pts.forEach((q, k) => k % 3 || occAdd(q, HW0)); done = m.ok = 1; break; }
       if (done) continue; }
+    // a sprig: the branch divides once more, a twig curving off it carries a leaf at its end and two along it, alternating,
+    // each on a short curved petiole (tried bending either way, then smaller; else a single leaf)
+    if (m.kind === 'sprig') { let sp = null;
+      for (const [sd, f] of [[turn, 1], [-turn, 1], [turn, .82], [-turn, .82], [turn, .66], [-turn, .66], [turn, .52], [-turn, .52]]) { sp = sprig(b, a, m.len * f, sd); if (sp) break; }
+      if (sp) { m.ok = 1; continue; } m.len = LK * 2; }
     // (laid toward its mark; if it would touch the letter's channel or another shape, turned a little, or made smaller)
     const sh = leafShape(r, (r() < .75 ? turn : -turn) * (.18 + r() * .14));
     let best = null;
@@ -332,8 +362,11 @@ function grow1(ch, seed, band) {
       if (tl > 0 && (ti[0] * dq[0] + ti[1] * dq[1]) > 0) { const P1 = [F0[0] + ti[0] / tl * d * .45, F0[1] + ti[1] / tl * d * .45];
         for (let i = 1; i < k; i++) { const t = i / k, u = 1 - t; chain[i] = [u * u * F0[0] + 2 * u * t * P1[0] + t * t * Q[0], u * u * F0[1] + 2 * u * t * P1[1] + t * t * Q[1]]; } } }
     // corners cut (Chaikin, on every third node): a stem that turns sharply where a fork pulled it turns on a curve
-    let pts = chain.map((p, i) => [p[0], p[1], ws[i]]).filter((_, i, a) => i % 3 === 0 || i === a.length - 1);
-    for (let it = 0; it < 3 && pts.length > 2; it++) { const o = [pts[0]];
+    for (let i = 1; i < ws.length; i++) ws[i] = Math.min(ws[i], ws[i - 1]);   // (a stem only ever thins toward its tip)
+    if (!s.root) { const fk = M[s.ids[0]].parent, pw = hwOf(size[fk]) * (M[fk].scroll ? 1.45 : 1), top = Math.min(pw * .85, ws[0] * 1.7); let sd = 0;
+      for (let i = 0; i < chain.length; i++) { if (i) sd += Math.hypot(chain[i][0] - chain[i - 1][0], chain[i][1] - chain[i - 1][1]); if (sd > .025) break; ws[i] += (top - ws[i]) * (1 - sd / .025) ** 2; } }
+    let pts = chain.map((p, i) => [p[0], p[1], ws[i]]).filter((_, i, a) => i % 4 === 0 || i === a.length - 1);
+    for (let it = 0; it < 4 && pts.length > 2; it++) { const o = [pts[0]];
       for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1]; o.push(a.map((v, k) => v * .75 + b[k] * .25), a.map((v, k) => v * .25 + b[k] * .75)); }
       o.push(pts.at(-1)); pts = o; }
     let wsm = pts.map(p => p[2]); pts = pts.map(p => [p[0], p[1]]); [pts, wsm] = hand(pts, wsm, stems.length + 1);
@@ -343,7 +376,8 @@ function grow1(ch, seed, band) {
   { const sp = occOf(stems.flatMap(s => s.pts)), sh = (q, d) => q.forEach(p => { p[0] += d[0]; p[1] += d[1]; });
     for (const f of [...leaves, ...curls, ...flowers]) { if (!f.b) continue; let bd = .025, bp = null; const i0 = f.b[0] / OG | 0, j0 = f.b[1] / OG | 0;
       for (let i = i0 - 1; i <= i0 + 1; i++) for (let j = j0 - 1; j <= j0 + 1; j++) for (const p of sp.get(okey(i, j)) ?? []) { const d = Math.hypot(p[0] - f.b[0], p[1] - f.b[1]); if (d < bd) { bd = d; bp = p; } }
-      if (!bp) continue; const d = [bp[0] - f.b[0], bp[1] - f.b[1]]; for (const q of [f.outline, f.rib, f.pts, ...(f.cuts ?? [])]) if (q) sh(q, d); } }
+      if (!bp) continue; const d = [bp[0] - f.b[0], bp[1] - f.b[1]]; f.d = d; for (const q of [f.outline, f.rib, f.pts, ...(f.cuts ?? [])]) if (q) sh(q, d); }
+    for (const f of [...leaves, ...curls]) if (f.follow?.d) for (const q of [f.outline, f.rib, f.pts]) if (q) sh(q, f.follow.d); }
   occ = occOf(discs); stems.forEach((s, k) => s.pts.forEach((p, i) => i % 2 || occAdd(p, s.w[i], 1 + k)));
   // 7. curls: off the stems into the open black, a tendril whose curvature rises smoothly to a tight turn
   const cands = []; stems.forEach(s => { for (let i = 6; i < s.pts.length - 6; i += 5) cands.push([s, i]); });
@@ -368,7 +402,7 @@ function grow1(ch, seed, band) {
   const open = new Int32Array(W * H); let nOpen = 0; for (let q = 0; q < W * H; q += 2) if (F[q] >= .004) open[nOpen++] = q;
   for (let pass = 0; pass < 160; pass++) {
     // (the cells still open, kept in a list that only shrinks as the gaps fill)
-    let qb = -1, eb = 0; for (let m = 0; m < nOpen;) { const q = open[m], e = Math.min(Dw[q], F[q] + CHL), gl = GT * (1 + .35 * Math.min(1, dScroll([(q % W + .5) / R, ((q / W | 0) + .5) / R]) / .3)); if (tried[q] || e <= gl) { open[m] = open[--nOpen]; continue; } if (e - gl > eb) { eb = e - gl; qb = q; } m++; }
+    let qb = -1, eb = 0; for (let m = 0; m < nOpen;) { const q = open[m], e = Math.min(Dw[q], F[q] + CHL), gl = GT * (1 + .0 * Math.min(1, dScroll([(q % W + .5) / R, ((q / W | 0) + .5) / R]) / .3)); if (tried[q] || e <= gl) { open[m] = open[--nOpen]; continue; } if (e - gl > eb) { eb = e - gl; qb = q; } m++; }
     if (qb >= 0) eb = Math.min(Dw[qb], F[qb] + CHL);
     if (qb < 0) break;
     const P0 = [(qb % W + .5) / R, ((qb / W | 0) + .5) / R], rad = eb;
@@ -382,10 +416,11 @@ function grow1(ch, seed, band) {
     let done = false;
     for (const [, k, i] of src.slice(0, 40)) { if (done) break;
       const S = k >= 0 ? stems[k].pts[i] : i; if (!sees(S, P0)) continue;
-      const len = kind === 'rose' ? 0 : Math.min(1.7 * LK, Math.max(.022, rad * 1.5)), fr = kind === 'rose' ? Math.min(rad - GAP * .6, .042) : 0;
+      const len = kind === 'rose' ? 0 : Math.min(2.1 * LK, Math.max(.024, rad * 1.7)), fr = kind === 'rose' ? Math.min(rad - GAP * .6, .042) : 0;
       const a = Math.atan2(P0[1] - S[1], P0[0] - S[0]), Bt = kind === 'rose' ? [P0[0] - Math.cos(a) * (fr + .003), P0[1] - Math.sin(a) * (fr + .003)] : kind === 'curl' ? [P0[0] - Math.cos(a) * rad * .45, P0[1] - Math.sin(a) * rad * .45] : [P0[0] - Math.cos(a) * len * .5, P0[1] - Math.sin(a) * len * .5];
-      const d = Math.hypot(Bt[0] - S[0], Bt[1] - S[1]); if (d < .008) continue;
+      const d = Math.hypot(Bt[0] - S[0], Bt[1] - S[1]); if (d < (k < 0 ? .02 : .008)) continue;
       let t = k >= 0 ? tangentAt(stems[k], i) : grad(S); if (t[0] * (Bt[0] - S[0]) + t[1] * (Bt[1] - S[1]) < 0) { if (k < 0) continue; t = [-t[0], -t[1]]; }
+      if (k >= 0 && (t[0] * (Bt[0] - S[0]) + t[1] * (Bt[1] - S[1])) / d < .15) continue;   // (a shoot leaves its stem at a shallow angle, or not from there)
       const bow = (r() - .5) * .5 * d, C1 = [S[0] + t[0] * d * .45 - t[1] * bow, S[1] + t[1] * d * .45 + t[0] * bow], n = Math.max(3, Math.ceil(d / .004)), w0 = k >= 0 ? Math.min(stems[k].w[i] * .8, HW1 * .65) : HW1 * .45, pts = [], ws = [];
       for (let j = 0; j <= n; j++) { const u = j / n, v = 1 - u; pts.push([v * v * S[0] + 2 * v * u * C1[0] + u * u * Bt[0], v * v * S[1] + 2 * v * u * C1[1] + u * u * Bt[1]]); ws.push(w0 + (HW0 - w0) * u); }
       const own = k >= 0 ? stems[k].w[i] : 0; let ok = true;
@@ -396,6 +431,7 @@ function grow1(ch, seed, band) {
       if (kind === 'rose') { const c = [end[0] + Math.cos(ea) * (fr + .002), end[1] + Math.sin(ea) * (fr + .002)]; if (C(c) > fr - .004 && occFree(c, fr + GAP * .6)) mark = () => { flowers.push({ ...rosette(r), c, rad: fr, a: ea }); add(c, fr); }; }
       else if (kind === 'curl') { const sg = r() < .5 ? 1 : -1, L = rad * 2.4, cp = tendril(end, ea, L, sg * 5, sg * Math.min(90, 2.6 / rad), 1.2, .0025);
         if (cp.slice(4).every(p => C(p) > .002 && occFree(p, HW0 + GAP * .5))) mark = () => { curls.push({ pts: cp, w: cp.map((_, j) => HW0 * (1 - .3 * j / cp.length)), ball: HW0 * 1.8 }); cp.forEach((q, j) => j % 3 || add(q, HW0)); }; }
+      else if (rad > .042 && (put = add, sprig(end, ea, Math.min(LK * 2.6, rad * 2.2), r() < .5 ? 1 : -1))) mark = () => {};
       else { const sh = leafShape(r, (r() < .5 ? 1 : -1) * (.18 + r() * .14));
         for (const [da, f] of [[0, 1], [.3, 1], [-.3, 1], [.6, .85], [-.6, .85], [0, .7], [.9, .7], [-.9, .7], [1.3, .65], [-1.3, .65], [1.6, .55], [-1.6, .55]]) { const o = lay(sh.outline, end, ea + da, len * f);
           if (o.every((p, j) => j % 2 || Math.hypot(p[0] - end[0], p[1] - end[1]) < len * .22 || C(p) > -.002 && occFree(p, GAP * .55))) { const aa = ea + da, L2 = len * f;
@@ -405,8 +441,8 @@ function grow1(ch, seed, band) {
       if (k < 0) { const g = grad(S); let e = 0; while (e < .06 && Fxy(S[0] - g[0] * e, S[1] - g[1] * e) > -CHL + 1e-4) e += .003; e += .003;
         for (let j = 1, m = Math.ceil(e / .004); j <= m; j++) { pts.unshift([S[0] - g[0] * e * j / m, S[1] - g[1] * e * j / m]); ws.unshift(w0); } }
       { const [hp, hw] = hand(pts, ws, stems.length + 1); pts.splice(0, pts.length, ...hp); ws.splice(0, ws.length, ...hw); }
-      stems.push({ pts, w: ws, root: k < 0 }); pts.forEach((p, j) => j % 2 || add(p, ws[j], stems.length)); mark(); done = true; }
-    if (!done) giveUp();
+      stems.push({ pts, w: ws, root: k < 0 }); pts.forEach((p, j) => j % 2 || add(p, ws[j], stems.length)); mark(); done = true; FIL++; }
+    if (!done) { giveUp(); FAI++; }
   }
   // dots, only in the small black left over
   const dots = poisson(A, 1, .045, r, p => C(p) > .006 && occFree(p, .017)).filter(() => r() < .25).map(p => ({ p, rad: .0055 * (.9 + r() * .2) }));
@@ -415,7 +451,7 @@ function grow1(ch, seed, band) {
   for (let s = 0; s < per; s += .01) { let x, y, nx, ny; if (s < A) { x = s; y = 0; nx = 0; ny = -1; } else if (s < A + 1) { x = A; y = s - A; nx = 1; ny = 0; } else if (s < 2 * A + 1) { x = A - (s - A - 1); y = 1; nx = 0; ny = 1; } else { x = 0; y = 1 - (s - 2 * A - 1); nx = -1; ny = 0; }
     const e = (ew(s * 14) - .5) * .0026; sq.push([x + nx * e, y + ny * e]); }
   const bare = [...need.keys()].some(id => marks.filter(m => m.comp0 === id).length >= 3 && !reached.some(m => m.comp0 === id));
-  return { stats: { marks: marks.length, reached: reached.length, full: !bare && reached.length >= marks.length * .5 }, ch, seed, letter: L, square: sq, stems, curls, leaves, flowers, dots, heroes };
+  return { stats: { grown: marks.filter(m => m.node !== undefined).length, marks: marks.length, reached: reached.length, sprigs: SPR, fills: FIL, fails: FAI, kinds: marks.reduce((o, m) => (o[m.kind] = (o[m.kind] ?? 0) + 1, o), {}), full: !bare && reached.length >= marks.length * .5 }, ch, seed, letter: L, square: sq, stems, curls, leaves, flowers, dots, heroes };
 }
 
 // ---- drawing ----------------------------------------------------------------------------------------------------------------
