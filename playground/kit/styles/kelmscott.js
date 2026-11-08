@@ -71,17 +71,17 @@ const GLYPHS = {
   gX: { f: 'kelmscott-grown-gX.woff2', c: "X", a: 0.97, w: 0.0085, k: null, m: 1, gen: 1 },   // 4492 B; tools/kgrow.py: tools/kgrow.py X 2
   gY: { f: 'kelmscott-grown-gY.woff2', c: "Y", a: 0.97, w: 0.0089, k: null, m: 1, gen: 1 },   // 4740 B; tools/kgrow.py: tools/kgrow.py Y 1
   // ?caps=gen: the letter from GL-Morris (Morris's Troy capitals; Gutenberg Labo, licence in fonts/kelmscott/GL-Morris-LICENSE.txt),
-  // the vine his own block's, fitted and varied (research/kelmscott/gen: kdonor5.py LETTER DONOR SEED)
-  nD: { f: 'kelmscott-gen-nD.woff2', c: "D", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3508 B; kdonor5.py D O 1
-  nE: { f: 'kelmscott-gen-nE.woff2', c: "E", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 4544 B; kdonor5.py E C 1
-  nG: { f: 'kelmscott-gen-nG.woff2', c: "G", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 4452 B; kdonor5.py G C 1
-  nJ: { f: 'kelmscott-gen-nJ.woff2', c: "J", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 5180 B; kdonor5.py J I 1
-  nQ: { f: 'kelmscott-gen-nQ.woff2', c: "Q", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3796 B; kdonor5.py Q O 1
-  nR: { f: 'kelmscott-gen-nR.woff2', c: "R", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 4312 B; kdonor5.py R P 1
-  nU: { f: 'kelmscott-gen-nU.woff2', c: "U", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 4312 B; kdonor5.py U V 1
-  nW: { f: 'kelmscott-gen-nW.woff2', c: "W", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 4324 B; kdonor5.py W V 1
-  nX: { f: 'kelmscott-gen-nX.woff2', c: "X", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 4804 B; kdonor5.py X K 3
-  nY: { f: 'kelmscott-gen-nY.woff2', c: "Y", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 4432 B; kdonor5.py Y V 1
+  // the vine his own block's, fitted and varied (research/kelmscott/gen: kdonor6.py LETTER DONOR SEED)
+  nD: { f: 'kelmscott-gen-nD.woff2', c: "D", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 2756 B; kdonor6.py D O 1
+  nE: { f: 'kelmscott-gen-nE.woff2', c: "E", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3796 B; kdonor6.py E C 1
+  nG: { f: 'kelmscott-gen-nG.woff2', c: "G", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3872 B; kdonor6.py G C 1
+  nJ: { f: 'kelmscott-gen-nJ.woff2', c: "J", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3344 B; kdonor6.py J L 1
+  nQ: { f: 'kelmscott-gen-nQ.woff2', c: "Q", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3040 B; kdonor6.py Q O 1
+  nR: { f: 'kelmscott-gen-nR.woff2', c: "R", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3560 B; kdonor6.py R P 1
+  nU: { f: 'kelmscott-gen-nU.woff2', c: "U", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3344 B; kdonor6.py U V 1
+  nW: { f: 'kelmscott-gen-nW.woff2', c: "W", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3540 B; kdonor6.py W V 1
+  nX: { f: 'kelmscott-gen-nX.woff2', c: "X", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3316 B; kdonor6.py X K 3
+  nY: { f: 'kelmscott-gen-nY.woff2', c: "Y", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3180 B; kdonor6.py Y V 1
   hedera: { f: 'kelmscott-ornaments-hedera.woff2', c: "\ue000", a: 1.4, w: 0.0375, k: null },   // 960 B; Met 354288 photograph 1 [3216,998,3272,1038]
   sprig: { f: 'kelmscott-ornaments-sprig.woff2', c: "\ue001", a: 1.3784, w: 0.0788, k: null },   // 908 B; Met 354288 photograph 0 [2991,395,3042,432]
   knot: { f: 'kelmscott-ornaments-knot.woff2', c: "\ue002", a: 3.52, w: 0.0333, k: null },   // 2500 B; Met 354288 photograph 1 [3082,361,3258,411]
