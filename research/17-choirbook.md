@@ -297,3 +297,43 @@ thinner (light lines on dark read heavier).
 **Hooks kit/illum.js would need**: (1) a mark's own dark ink without `lift` (illum.js lifts every `s.ink` on a dark page); (2) a
 pigment letter painted on dark with texture (paintField composited for a dark ground, e.g. `letter.pigmentDark`), instead of a
 flat colour or this two-coat workaround.
+
+## 4j. Fourth pass: the letter as one brush field; the penwork finer; speed
+
+**The letter** (user: "blobby, bad ends or areas where lines meet; computer assembly instead of intentional strokes").
+The cause was tools/lombhand.py's method: every member redrawn as a chain of capsules and the union taken with the face and
+the terminals, so outlines bulged wherever pieces overlapped and drops sat stuck on. tools/lombbrush.py makes each letter as
+one signed distance field instead:
+1. The face cleaned. George Williams' Lombardic is opened by a disc (radius .013 H). What the opening removes is hairline.
+   A hairline piece that meets the members twice, or that closes a counter, is a join and stays. A piece that meets them once
+   is a spur and goes. This removes every nib, flick and whisker (K, P, T, A, X), including the S/G/F beaks' hairs.
+2. The weight. The cleaned face's distance field is moved out by a smooth field: heavy members are carried toward his full
+   paint (.104 H half-width), hairlines are left alone, and nothing grows past .42 of a neighbouring gap. The field is spread
+   from the medial axis and blurred along the member (.07 H), so a stroke swells and thins as one stroke. Every member stays
+   at least .0144 H wide, so a fine join never breaks.
+3. The ends. Of the spurs, at most 3 reach out to the letter's edge and become full drops, never two within .22 H and never
+   where a drop would stand beside a beak or float on a stalk (S, G, F, C, K, P boxes). They are taken from the head and the
+   foot in turn. A drop grows out of the member along the spur's own direction, swelling at once. Each drop is joined by a
+   smooth minimum (fillet radius .014 H), never a union. No hooks.
+4. The finish. The field is smoothed at .0045 H, its zero set is taken by marching squares at 1100 px per H, and it is fitted
+   with cubic Beziers (tolerance .0007 H).
+
+Set: `research/choirbook/hand3`, fonts `playground/fonts/choirbook/hand3` (27.6 kB, the default); `?lombard=hand2` gives the
+third pass. Short: Q's tail and h's leg keep the face's small closing curl. A few stems keep the face's own slight waver.
+B's upper bowl ends in its uncial curl, as his does.
+
+**Penwork**:
+- Finer and paler: line .24 (was .3); inks [102, 130, 200] blue and [222, 136, 112] red.
+- Counters fuller: up to three scrolls a sector, hung from the nearer spoke; the fill spacing is 1.0 sp.
+- Frame ornaments shrink to the room they have, rather than being dropped, when text stands beside or below the box.
+- Corners and finials are his fleuron: a spike with two scrolls turning back from its foot.
+- Measured: coverage .225, gap .008/.013/.024 H, width .0058 H (his B .135, .020/.042/.073, .0089).
+
+**Dark channel**: a split letter's channel now carries no `ink` in dark. kit/illum.js then lays it in the palette's designed
+dark solid ('a'/'b'), not a lifted pastel. No illum.js edit was needed.
+
+**Speed**:
+- The work is laid out at 2 cells a px (the mask is halved).
+- Words are rasterised once into a mask, in filigrana and in flourish (they were tested per cell).
+- filigrana is cached per letter, size, seed and the words around it, so a resize lays nothing again.
+- Drop initial: 190 → ~118 ms (filigrana ~44, flourish ~48, drawn ~20). Whole page: grow ~190–245 ms.

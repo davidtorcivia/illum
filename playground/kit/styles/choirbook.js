@@ -296,10 +296,21 @@ function middles({ M, w, h, x0, y0, res }, spur) {
 // the box's margins round the letter's ink, [left, top, right, bottom] in px (his B: the frame stands off the letter most on
 // the left, where the drops of its serifs reach, least on the right and the top)
 export const boxMargins = H => { const sp = Math.max(1.7, H * .05); return [sp * 1.1, sp * .7, sp * .75, sp * .9]; };
-export function filigrana(L, seed, keep = [], level = 2, o = {}) {
+// (the work is laid out on a grid of 2 cells a px: the letter's mask, made at 4, averaged down; its lines are smoothed after)
+const halve = L => { if (L.res <= 2.5) return L; const w = L.w >> 1, h = L.h >> 1, M = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = 2 * j * L.w + 2 * i; M[j * w + i] = (L.M[k] + L.M[k + 1] + L.M[k + L.w] + L.M[k + L.w + 1]) / 4; }
+  return { ...L, M, w, h, res: L.res / 2 }; };
+const FCACHE = new Map();
+export function filigrana(L0, seed, keep = [], level = 2, o = {}) {
+  // (cached per letter, seed, size and the words' places round it: a resize that leaves the drop as it was re-lays nothing)
+  const key = [L0.w, L0.h, L0.x0.toFixed(1), L0.y0.toFixed(1), seed, level, keep.map(k => k.map(v => v.toFixed(0)).join(',')).join(';')].join('|');
+  if (FCACHE.has(key)) return FCACHE.get(key);
+  const res0 = filigrana1(halve(L0), seed, keep, level, o); if (FCACHE.size > 64) FCACHE.clear(); FCACHE.set(key, res0); return res0;
+}
+function filigrana1(L, seed, keep = [], level = 2, o = {}) {
   const { M, w, h, x0, y0, res } = L, ink = new Uint8Array(w * h); let bx0 = w, by0 = h, bx1 = 0, by1 = 0;
   for (let k = 0; k < w * h; k++) if (M[k] > .5) { ink[k] = 1; const i = k % w, j = k / w | 0; if (i < bx0) bx0 = i; if (i > bx1) bx1 = i; if (j < by0) by0 = j; if (j > by1) by1 = j; }
-  const H = (by1 - by0) / res, r = stream(seed, 'filigrana'), sp = Math.max(1.7, H * .05), LW = .3;
+  const H = (by1 - by0) / res, r = stream(seed, 'filigrana'), sp = Math.max(1.7, H * .05), LW = .24;   // (his hairline is finer and paler than 03's)
   const small = H < 60;   // (a phone's drop: his thinning rule, fewer and plainer parts)
   const out = { frame: [], spokes: [], scrolls: [], pearls: [], spikes: [], dots: [] };
   const Px = (i, j) => [x0 + (i + .5) / res, y0 + (j + .5) / res];
@@ -312,7 +323,10 @@ export function filigrana(L, seed, keep = [], level = 2, o = {}) {
   const fm = boxMargins(H), fb = [x0 + bx0 / res - fm[0], y0 + by0 / res - fm[1], x0 + (bx1 + 1) / res + fm[2], y0 + (by1 + 1) / res + fm[3]];
   // the bays: the box less the letter (a gap off the paint) and less the words
   const Din = edt(ink, w, h), off = sp * .22 * res, bay = new Uint8Array(w * h);
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i, [x, y] = Px(i, j); if (!ink[k] && Din[k] > off && x > fb[0] && x < fb[2] && y > fb[1] && y < fb[3] && !inWords(x, y)) bay[k] = 1; }
+  const words = new Uint8Array(w * h); for (const k of keep) { const i0 = Math.max(0, Math.floor((k[0] - 1 - x0) * res)), i1 = Math.min(w - 1, Math.ceil((k[2] + 1 - x0) * res)), j0 = Math.max(0, Math.floor((k[1] - 1 - y0) * res)), j1 = Math.min(h - 1, Math.ceil((k[3] + 1 - y0) * res));
+    for (let j = j0; j <= j1; j++) words.fill(1, j * w + i0, j * w + i1 + 1); }
+  const fi0 = Math.max(0, Math.ceil((fb[0] - x0) * res - .5)), fi1 = Math.min(w - 1, Math.floor((fb[2] - x0) * res - .5)), fj0 = Math.max(0, Math.ceil((fb[1] - y0) * res - .5)), fj1 = Math.min(h - 1, Math.floor((fb[3] - y0) * res - .5));
+  for (let j = fj0; j <= fj1; j++) for (let i = fi0; i <= fi1; i++) { const k = j * w + i; if (!ink[k] && Din[k] > off && !words[k]) bay[k] = 1; }
   const notBay = new Uint8Array(w * h); for (let k = 0; k < w * h; k++) notBay[k] = !bay[k];
   const Db = edt(notBay, w, h); for (let k = 0; k < w * h; k++) Db[k] /= res;   // (px from the bay's edge)
   const at = (x, y) => { const i = Math.round((x - x0) * res - .5), j = Math.round((y - y0) * res - .5); return i < 0 || j < 0 || i >= w || j >= h ? 0 : Db[j * w + i]; };
@@ -382,12 +396,12 @@ export function filigrana(L, seed, keep = [], level = 2, o = {}) {
         if (arclen(pts) < sp * .8) continue; const sid = ++nid; stroke(out.spokes, pts, { end: 'cut' }); occAdd(pts, sid); addAnchors(pts, sid, 'spoke', 1);
         // (in the sector after it, a scroll hung from this spoke, curling out at three fifths of the way to the contour)
         const b2 = a + Math.PI / ns, db = [Math.cos(b2), Math.sin(b2)]; let rim = re; while (rim < c.rad * 3 && at(cx + db[0] * rim, cy + db[1] * rim) > v2 + sp * .2) rim += .5;
-        const span = rim - re - sp * .4, frs = span > sp * 2.6 ? [.3 + r() * .08, .72 + r() * .08] : span > sp * 1.2 ? [.55 + r() * .1] : [];
+        const span = rim - re - sp * .4, frs = span > sp * 3.4 ? [.22 + r() * .06, .52 + r() * .06, .82 + r() * .05] : span > sp * 2.2 ? [.3 + r() * .08, .72 + r() * .08] : span > sp * 1.1 ? [.55 + r() * .1] : [];
         for (const fr of frs) sector.push([cx + db[0] * (re + span * fr), cy + db[1] * (re + span * fr)]); }
       eyeComp.add(c.id);
     }
   }
-  const RHO = sp * (small ? .4 : .33), SPAN = sp * (small ? 1.4 : 1.12);
+  const RHO = sp * (small ? .38 : .3), SPAN = sp * (small ? 1.3 : 1.0);
   // the spines: down the middle of every bay that has no eye (the ridge of its depth), a long line where the bay is broad,
   // with scrolls hung from it on alternate sides at his spacing; where it narrows, pearls strung down the middle instead
   { const coreM = new Float32Array(w * h); for (let k = 0; k < w * h; k++) coreM[k] = bay[k] && !eyeComp.has(lab[k]) && Db[k] >= v2 + sp * .5 ? 1 : 0;
@@ -472,23 +486,28 @@ export function filigrana(L, seed, keep = [], level = 2, o = {}) {
   // 3. the frame's outer side: pearls set on it and spikes radiating between them; a finial at the middle of top and foot;
   // the left side (the margin's panel stands there) and wherever words stand left bare
   const [X0, Y0, X1, Y1] = fb.outer, e = 0;   // (from the frame's outer line)
-  const side = (a, b, nrm, finial) => { const L2 = Math.hypot(b[0] - a[0], b[1] - a[1]), step = sp * 1.45, n = Math.max(2, Math.round(L2 / step)), mid = n / 2;
+  // (an ornament standing out from the frame is shrunk to the room it has before it is left out: a line of text under the
+  // box shortens the foot's spikes, it does not strip them)
+  const fitLen = (p, d, want, min) => { for (let f = 1; f >= min / want - 1e-9; f -= .12) { const L3 = want * f; let ok = true;
+      for (let u = .3; u <= 1.001; u += .35) if (inWords(p[0] + d[0] * L3 * u, p[1] + d[1] * L3 * u, 1.2)) { ok = false; break; }
+      if (ok) return L3; } return 0; };
+  // a fleuron: a spike with a pair of small scrolls springing from its foot and turning back toward the frame (his finials, and
+  // at the corners, his diagonal sprays)
+  const fleuron = (p, d, ln) => { const tg = [-d[1], d[0]], tip = [p[0] + d[0] * ln, p[1] + d[1] * ln], rr = Math.min(sp * .55, ln * .26);
+    stroke(out.spikes, [p, [p[0] + d[0] * ln * .55 + tg[0] * .12, p[1] + d[1] * ln * .55 + tg[1] * .12], tip], { end: 'taper' });
+    for (const sg of [-1, 1]) { const c2 = [p[0] + d[0] * ln * .3 + tg[0] * sg * rr * 1.05, p[1] + d[1] * ln * .3 + tg[1] * sg * rr * 1.05], a0 = Math.atan2(-tg[1] * sg, -tg[0] * sg), tw = Math.sign(d[0] * tg[1] * sg - d[1] * tg[0] * sg) || 1, pts = [];
+      for (let q = 0; q <= 30; q++) { const f = q / 30, th = a0 + tw * f * Math.PI * 1.55, R = rr * (1 - .5 * f); pts.push([c2[0] + Math.cos(th) * R, c2[1] + Math.sin(th) * R]); }
+      stroke(out.spikes, pts, { end: 'taper' }); } };
+  const side = (a, b, nrm, finial) => { const L2 = Math.hypot(b[0] - a[0], b[1] - a[1]), step = sp * 1.3, n = Math.max(2, Math.round(L2 / step)), mid = Math.round(n / 2);
     for (let k = 1; k < n; k++) { const t = k / n, p = [a[0] + (b[0] - a[0]) * t + nrm[0] * e, a[1] + (b[1] - a[1]) * t + nrm[1] * e];
-      if (inWords(p[0] + nrm[0] * sp, p[1] + nrm[1] * sp, 2) || inWords(p[0], p[1], 2)) continue;
-      const tg = [(b[0] - a[0]) / L2, (b[1] - a[1]) / L2];
-      if (finial && Math.abs(k - mid) < .6) {   // the finial: a tall spike, a pair of small scrolls springing from its foot
-        const ln = sp * 2.4, tip = [p[0] + nrm[0] * ln, p[1] + nrm[1] * ln]; stroke(out.spikes, [p, [p[0] + nrm[0] * ln * .5 + tg[0] * .15, p[1] + nrm[1] * ln * .5 + tg[1] * .15], tip], { end: 'taper' });
-        for (const sg of [-1, 1]) { const pts = []; for (let q = 0; q <= 26; q++) { const f = q / 26, th = f * Math.PI * 1.5, R = sp * .62 * (1 - .45 * f);
-            const base = [p[0] + nrm[0] * sp * .35, p[1] + nrm[1] * sp * .35], cx2 = [base[0] + tg[0] * sg * sp * .62, base[1] + tg[1] * sg * sp * .62];
-            const ang = Math.atan2(-tg[1] * sg, -tg[0] * sg) - sg * th * (nrm[1] > 0 || nrm[0] > 0 ? -1 : 1); pts.push([cx2[0] + Math.cos(ang) * R + nrm[0] * f * sp * .35, cx2[1] + Math.sin(ang) * R + nrm[1] * f * sp * .35]); }
-          stroke(out.spikes, pts, { end: 'taper' }); }
-        continue; }
+      if (inWords(p[0], p[1], 1.2)) continue;
+      if (finial && k === mid) { const ln = fitLen(p, nrm, sp * 2.3, sp * .9); if (ln) { fleuron(p, nrm, ln); continue; } }
       if ((k + (finial ? 0 : 1)) % 2) {   // a pearl, sitting on the line
-        const R = sp * .3, c2 = [p[0] + nrm[0] * R, p[1] + nrm[1] * R], rg = [], a0 = Math.atan2(-nrm[1], -nrm[0]); for (let q = 0; q <= 16; q++) { const an = a0 + q / 16 * 2.05 * Math.PI; rg.push([c2[0] + Math.cos(an) * R, c2[1] + Math.sin(an) * R]); } stroke(out.spikes, rg); }
-      else { const ln = sp * (1.05 + (k % 4 === 0 ? .35 : 0)) * (.92 + r() * .16); stroke(out.spikes, [p, [p[0] + nrm[0] * ln, p[1] + nrm[1] * ln]], { end: 'taper' }); } } };
+        const R = sp * .26; if (!fitLen(p, nrm, R * 2, R * 2)) continue; const c2 = [p[0] + nrm[0] * R, p[1] + nrm[1] * R], rg = [], a0 = Math.atan2(-nrm[1], -nrm[0]); for (let q = 0; q <= 16; q++) { const an = a0 + q / 16 * 2.05 * Math.PI; rg.push([c2[0] + Math.cos(an) * R, c2[1] + Math.sin(an) * R]); } stroke(out.spikes, rg); }
+      else { const ln = fitLen(p, nrm, sp * (1.0 + (k % 4 === 0 ? .35 : 0)) * (.92 + r() * .16), sp * .45); if (ln) stroke(out.spikes, [p, [p[0] + nrm[0] * ln, p[1] + nrm[1] * ln]], { end: 'taper' }); } } };
   side([X0, Y0], [X1, Y0], [0, -1], true); side([X0, Y1], [X1, Y1], [0, 1], true); side([X1, Y0], [X1, Y1], [1, 0], false);
-  // the corners: a spike out along the diagonal (not on the margin's side)
-  for (const [cx, cy, sx, sy] of [[X1, Y0, 1, -1], [X1, Y1, 1, 1]]) { const ln = sp * 1.5, p = [cx, cy], q = [cx + sx * ln * .7071, cy + sy * ln * .7071]; if (!inWords(q[0], q[1], 2)) stroke(out.spikes, [p, q], { end: 'taper' }); }
+  // the corners: his spray, a fleuron out along the diagonal (not on the margin's side)
+  for (const [cx, cy, sx, sy] of [[X1, Y0, 1, -1], [X1, Y1, 1, 1]]) { const d = [sx * .7071, sy * .7071], ln = fitLen([cx, cy], d, sp * 1.9, sp * .8); if (ln) fleuron([cx, cy], d, ln); }
   // the order a hand writes them: the contour and frame, the eyes' spokes, the scrolls as they grew, the pearls, the spikes
   return [...out.frame, ...out.spokes, ...out.scrolls, ...out.pearls, ...out.spikes, ...out.dots];
 }
@@ -531,7 +550,10 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
   const onLetter = (x, y) => { const i = Math.round((x - gx) * res), j = Math.round((y - gy) * res); return i >= 0 && j >= 0 && i < gw && j < gh && ink[j * gw + i]; };
   const inWords = (x, y, pad = 0) => keep.some(k => x >= k[0] - pad && x <= k[2] + pad && y >= k[1] - pad && y <= k[3] + pad);
   const blocked = new Uint8Array(W * H);
-  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const x = X0 + i + .5, y = Y0 + j + .5; blocked[j * W + i] = onLetter(x, y) || inWords(x, y); }
+  for (const k of keep) { const i0 = Math.max(0, Math.ceil(k[0] - X0 - .5)), i1 = Math.min(W - 1, Math.floor(k[2] - X0 - .5)), j0 = Math.max(0, Math.ceil(k[1] - Y0 - .5)), j1 = Math.min(H - 1, Math.floor(k[3] - Y0 - .5));
+    for (let j = j0; j <= j1; j++) if (i1 >= i0) blocked.fill(1, j * W + i0, j * W + i1 + 1); }   // (the words, laid once)
+  { const i0 = Math.max(0, Math.floor(gx - X0)), i1 = Math.min(W - 1, Math.ceil(gx + gw / res - X0)), j0 = Math.max(0, Math.floor(gy - Y0)), j1 = Math.min(H - 1, Math.ceil(gy + gh / res - Y0));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (onLetter(X0 + i + .5, Y0 + j + .5)) blocked[j * W + i] = 1; }
   const CL = clearance(X0, Y0, W, H, blocked, 16);
   const accept = (pts, kind, o = {}) => { out.push({ pts, kind, ...o }); CL.stamp(pts); };
   const room = (pts, d) => pts.every(p => CL.get(p[0], p[1]) >= d);
@@ -700,7 +722,7 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
 // 03's geometry and inks exactly (kit/initials.js gothic), the text-side panel from the usual budget up
 const GEOM = { panelW: [.3, .4, .52, .6, .68], rise: [0, .03, .06, .14, .22], staff: [1.4, 3.2, 5.5, 7, 9], wider: [0, 0, 4, 6, 9],
   small: { panelW: [5, 7, 8.5, 10, 12], staff: [.7, 1.2, 1.6, 2.2, 3] } };
-const INKS = { azurite: [214, 116, 90], minium: [78, 106, 182] }, INKS_DARK = { azurite: [240, 126, 94], minium: [112, 148, 242] };   // (dark: lightness over .64, so kit/illum.js's lift leaves them as designed)   // (the penwork's: a fine pen's line reads lighter than the paint)
+const INKS = { azurite: [222, 136, 112], minium: [102, 130, 200] }, INKS_DARK = { azurite: [240, 126, 94], minium: [112, 148, 242] };   // (dark: lightness over .64, so kit/illum.js's lift leaves them as designed)   // (the penwork's: a fine pen's line reads lighter than the paint)
 // the dark page's paints: the pigment laid flat (kit/illum.js lifts it), its body thick where the brush pooled at the
 // edge and thinner over the middle, so it reads laid, not printed
 PIGMENTS.cbAzureDark ??= { rgb: [52, 88, 206], gran: .03, rim: .42 };
@@ -723,10 +745,10 @@ function pooled(L, seed) {
 // would stand, and floats it as wide as itself. The host sets its initials in the face (CSS: .ini { font-family: "Choir
 // Lombard", "EB Garamond" }); initial.load() fetches the letters the page uses before anything is measured.
 export const FAMILY = 'Choir Lombard';
-// (the letters: George Williams' Lombardic, painted by his hand, tools/lombhand.py, research/17 §4h and §4i; ?lombard=gen: the letters
-// generated from the hand's stroke model alone, tools/lombgen.py; ?lombard=hand: the second pass (the ends before the third pass); ?lombard=hand1: the first face+hand pass; ?lombard=traced: the letters traced from his book, for study)
+// (the letters: George Williams' Lombardic painted by his hand as one brush field, tools/lombbrush.py, research/17 §4j; ?lombard=gen: the letters
+// generated from the hand's stroke model alone, tools/lombgen.py; ?lombard=hand2: the third pass (tools/lombhand.py, ends drawn as drops on capsule strokes); ?lombard=hand: the second pass; ?lombard=hand1: the first face+hand pass; ?lombard=traced: the letters traced from his book, for study)
 const LOMB = new URLSearchParams(globalThis.location?.search ?? '').get('lombard');
-const fontDir = new URL({ traced: '../../fonts/choirbook/traced/', gen: '../../fonts/choirbook/', hand1: '../../fonts/choirbook/hand1/', hand: '../../fonts/choirbook/hand/' }[LOMB] ?? '../../fonts/choirbook/hand2/', import.meta.url), loaded = new Set();
+const fontDir = new URL({ traced: '../../fonts/choirbook/traced/', gen: '../../fonts/choirbook/', hand1: '../../fonts/choirbook/hand1/', hand: '../../fonts/choirbook/hand/', hand2: '../../fonts/choirbook/hand2/' }[LOMB] ?? '../../fonts/choirbook/hand3/', import.meta.url), loaded = new Set();
 export async function loadLetters(chars) {
   await Promise.all([...new Set(chars)].filter(c => /^[A-Z]$/.test(c) && !loaded.has(c)).map(async c => {
     const f = new FontFace(FAMILY, `url(${new URL(`choir-lombard-${c}.woff2`, fontDir)})`, { unicodeRange: 'U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'), weight: '100 900' });
@@ -791,7 +813,10 @@ export function initial({ G: G0, keep, lh, big, level: li, seed, room: margin, b
   if (sp) { F.M = sp.M; F.marks = [...F.marks, ...sp.marks]; }
   const chInk = PIGMENTS[big ? 'minium' : 'azurite'].rgb;
   const otherInk = PIGMENTS[pig === 'minium' ? 'azurite' : 'minium'].rgb;
-  const channel = F.marks.map((s, i) => ({ pts: s.pts, col: 'b', ink: s.kind === 'split' ? otherInk : chInk, seed: seed + 7 * i, w: s.w, broad: .9, nib: s.nib, load: 1.1, dry: .08, swell: 0, start: s.kind === 'split' ? 'cut' : 'taper', end: s.kind === 'split' ? 'cut' : 'taper' }));
+  // (dark: a channel carries no ink of its own, so kit/illum.js lays it in the palette's designed dark solid ('a' the red, 'b'
+  // the blue, as the letter's own col) rather than lifting a pigment to a pastel)
+  const chCol = s => s.kind === 'split' ? (pig === 'minium' ? 'b' : 'a') : (big ? 'a' : 'b');
+  const channel = F.marks.map((s, i) => ({ pts: s.pts, col: dark ? chCol(s) : 'b', ink: dark ? undefined : s.kind === 'split' ? otherInk : chInk, seed: seed + 7 * i, w: s.w, broad: .9, nib: s.nib, load: 1.1, dry: .08, swell: 0, start: s.kind === 'split' ? 'cut' : 'taper', end: s.kind === 'split' ? 'cut' : 'taper' }));
   const reds = (F.reds ?? []).map(d => ({ dot: true, p: d.p, r: d.r, col: 'b', ink: chInk }));
   // dark: the letter laid flat in the style's own designed dark paint (its inkDark: 'b' is the drop's blue, 'a' the line
   // initial's red), its opacity pooled at the rim. (kit/illum.js lays a pigment letter on a dark page as the pigment
