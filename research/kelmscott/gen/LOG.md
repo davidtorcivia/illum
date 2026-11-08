@@ -1,0 +1,13 @@
+# kcarve log
+- out8 (step 8a): carve-first; curved rooms; branches always turning; envk .42; white .39-.41; letter + right-hand leaves good. font fonts8/kelmscott-carve-cR.woff2 (from that step, seed 3).
+- out8 (step 8b): thicker stems .05, fewer leaves, foot <=3, buds/flames: REGRESSION (white .32-.37, sparse). snapshot out8/kcarve-step8b.py.
+- out9 (step 9): planned network from the medial axis of the ground; letter .80 scale, lighter.
+- out9 (step 9) result: white .41-.47 (scale .74-.78) but the medial network becomes a thick halo ring round the letter (the ground's medial axis round a big letter is a loop). Not better than step 8a. Files out9/ (seed files overwritten across the two scales; last writer unknown).
+- out10 (step 10): donor composition: his block's stem network (skeleton of his vine, stems/branches with widths) mapped onto our letter (box half-eased), behind our letter where it crosses; kcarve leaves (every .09), ends, tulips, tendrils.
+- out10 result: white .47-.48 (P donor .479-.480, K donor .467-.471): first in/near his range with his density; reads as a Morris-like block at page size; at 4x busier than his (leaf rooms as angular shards, stems fragmented, little open black). Fonts fonts10/kelmscott-donor-R{P,K}.woff2. Beats step 8a on density/composition.
+- out11 (step 11): his whole vine (stems, terminals, open black, dots, edges) warped onto our letter (eased box map), cut behind our letter with channel, ends rounded, gaps grown over by tendrils; smooth refit.
+- out11 result: white .26-.35 (less than his: our letter smaller, his letter's area left as black/tendrils, cut pieces). By eye at page size the closest to his yet (his own shapes, edges, open black, dots); E and G (from his C) strongest; X, Y fragmented where his stems were cut by our strokes. Fonts fonts11/kelmscott-donor-two-*.woff2.
+- out12 (step 12): letter .86; his stems carried across his letter's room and behind ours; per-seed variation: mirror, smooth bend (.015), a third of his terminals re-grown as our leaf/bud/tulip; tendrils.
+- out12 fix: tendrils capped at .11 and always curling (no straight hairlines).
+- out12 fix 2: only stems >= .018 wide carried across his letter's room, at most .16, gently curving (the straight hairlines were thin carried shoots).
+- out12 result: white .35-.40; no stray hairlines; E G R read as his set at page size; seeds give distinct blocks (mirror + bend + regrown terminals); X Y still fragmentary. Fonts fonts12/kelmscott-gen-*.woff2 (32 KB for 7).
