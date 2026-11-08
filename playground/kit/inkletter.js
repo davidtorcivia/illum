@@ -201,6 +201,9 @@ function boxBlur(A, w, h, r) {
 // scratch layer of the page's size there, then laid on the page beneath what is there (destination-over; a print's own
 // solid black, col 'k', over it) as a stencil brush sweeps across its longer side, a dab at a time, each cell once.
 // (Moved from tests/tarot.html unchanged.) .at(f) f 0..1, .done()
+// (a window laid over the page after those already there, so a piece's later inks show over its earlier ones as they will
+// when laid)
+const stack = (el, ov) => { let at = el; while (at.nextSibling?.dataset?.grow) at = at.nextSibling; ov.dataset.grow = '1'; at.after(ov); };
 export function sweepIn(bake, p, rgb, { dpr = 2 } = {}) {
   let sc = null, T = null, order = null, at = 0, tmp = null, X0 = 0, Y0 = 0, TT = null, CL = null, ov = null, fin = false, gk = null, solid = null, faceOf = null;
   const open = () => { const pad = 8; X0 = Math.floor((p.x0 - pad) * dpr); Y0 = Math.floor((p.y0 - pad) * dpr); const w = Math.ceil((p.w / p.res + 2 * pad) * dpr), h = Math.ceil((p.h / p.res + 2 * pad) * dpr);
@@ -225,7 +228,7 @@ export function sweepIn(bake, p, rgb, { dpr = 2 } = {}) {
           for (let k = 0; k < 3; k++) im.data[q * 4 + k] = Cb[k][q] / a; im.data[q * 4 + 3] = Math.round(255 * Math.min(1, fv)); }
         solid = new OffscreenCanvas(w, h); solid.getContext('2d').putImageData(im, 0, 0); };   // (made in an idle moment of its own)
       if (el?.parentNode) { ov = document.createElement('canvas'); ov.width = w; ov.height = h; ov.setAttribute('aria-hidden', 'true');
-        Object.assign(ov.style, { position: 'absolute', left: el.offsetLeft + X0 / dpr + 'px', top: el.offsetTop + Y0 / dpr + 'px', width: w / dpr + 'px', height: h / dpr + 'px', pointerEvents: 'none' }); el.after(ov); }
+        Object.assign(ov.style, { position: 'absolute', left: el.offsetLeft + X0 / dpr + 'px', top: el.offsetTop + Y0 / dpr + 'px', width: w / dpr + 'px', height: h / dpr + 'px', pointerEvents: 'none' }); stack(el, ov); }
       return; }
     // the brush's way: across the stencil's longer side, in dabs (a cell's time: how far along, and a dab's jitter)
     // (p.press: a printed block's impression, not a stencil brush: the ink comes up as the platen rolls across it, along
@@ -238,7 +241,7 @@ export function sweepIn(bake, p, rgb, { dpr = 2 } = {}) {
     order = Int32Array.from(cells.map((c, k) => k).sort((a, b) => t[a] - t[b]).map(k => cells[k])); T = { w, h };
     if (pr) { TT = Float32Array.from(t); CL = Int32Array.from(cells); const el = bake.canvas;   // (the impression shown in a window of its own over the page, laid when it is done)
       if (el?.parentNode) { ov = document.createElement('canvas'); ov.width = w; ov.height = h; ov.setAttribute('aria-hidden', 'true');
-        Object.assign(ov.style, { position: 'absolute', left: el.offsetLeft + X0 / dpr + 'px', top: el.offsetTop + Y0 / dpr + 'px', width: w / dpr + 'px', height: h / dpr + 'px', pointerEvents: 'none' }); el.after(ov); } } };
+        Object.assign(ov.style, { position: 'absolute', left: el.offsetLeft + X0 / dpr + 'px', top: el.offsetTop + Y0 / dpr + 'px', width: w / dpr + 'px', height: h / dpr + 'px', pointerEvents: 'none' }); stack(el, ov); } } };
   // the impression: each cell's ink comes up over a short while about its moment (smoothstep), so the block darkens evenly
   // from the paper, in soft clouds of the grain, behind the roll's front; then laid once into the page, exactly as a still
   const SOFT = .36, press = f => { if (fin) return; if (!sc) open(); if (!ov) return; const { w, h } = T, im = new ImageData(w, h), F = Math.min(1, f) * (p.press.roll + p.press.grain + SOFT);

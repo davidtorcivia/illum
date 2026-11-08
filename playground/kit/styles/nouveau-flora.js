@@ -89,7 +89,7 @@ export function poppy(P, at, s, a, r, o = {}) {
   const th0 = r() * .5 - .25 + Math.PI / 4, pet = [0, 1, 2, 3].map(i => th0 + i * Math.PI / 2 + J(r, .12)).sort((p, q) => Math.sin(p) - Math.sin(q));
   for (const th of pet) { const L = .5 + J(r, .05), dd = J(r, .25);
     const cp = [[0, 0], [Math.cos(th + dd * .3) * L * .35, Math.sin(th + dd * .3) * L * .35], [Math.cos(th + dd * .2) * L * .75, Math.sin(th + dd * .2) * L * .75], [Math.cos(th) * L, Math.sin(th) * L]].map(([u, v]) => T(u, v));
-    const O = organ({ axisCp: cp, W: s * (.27 + J(r, .03)), ea: .5, eb: .22, asym: .85 + r() * .3, frill: { amp: s * .014, n: 20, from: .5 }, r });
+    const O = organ({ axisCp: cp, W: s * (.3 + J(r, .02)), ea: .5, eb: .34, asym: .9 + r() * .2, frill: { amp: s * .008, n: 11, from: .55 }, r });
     lay3(P, O, 'poppy', 'poppyD', k, { cut, shadeSide: Math.cos(th) > 0 ? 1 : 0, veins: [[.32, .9, .45, .26], [.3, .92, 0, .26], [.32, .9, -.45, .26]] });
     const bl = organ({ axisCp: [cp[0], cp[1], [cp[0][0] + (cp[2][0] - cp[0][0]) * .55, cp[0][1] + (cp[2][1] - cp[0][1]) * .55]], W: s * .12, ea: .5, eb: .8, r });
     if (bl) P.fill('poppyB', shape(bl.loop), { knock: false, cut, trap: 0 }); }

@@ -38,7 +38,11 @@ function echo(Lt, d, y0, y1, solid) {
   const g = new OffscreenCanvas(w * sc, h * sc).getContext('2d', { willReadFrequently: true }); g.setTransform(sc, 0, 0, sc, -x0 * sc, -y0 * sc); g.fill(solid);
   const im = g.getImageData(0, 0, w * sc, h * sc).data, xs = [];
   for (let j = 0; j < h * sc; j++) { let xr = -1; for (let i = w * sc - 1; i >= 0; i--) if (im[(j * w * sc + i) * 4 + 3] > 100) { xr = i; break; } xs.push(xr < 0 ? null : x0 + xr / sc + d); }
-  let pts = xs.map((x, j) => x == null ? null : [x, y0 + j / sc]).filter(Boolean);
+  // (closed over a quarter of the cap: a notch narrower than that, a C's mouth, an E's arms, an M's shoulder, is bridged, so
+  // the echo runs past it, not into it where the channel round the letter would cut it to pieces)
+  const R = Math.round((Lt.bottom - Lt.top) * .25 * sc), win = (A, f) => A.map((_, j) => { let m = null; for (let k = Math.max(0, j - R); k <= Math.min(A.length - 1, j + R); k++) if (A[k] != null) m = m == null ? A[k] : f(m, A[k]); return A[j] == null ? null : m; });
+  const cl = win(win(xs, Math.max), Math.min);
+  let pts = cl.map((x, j) => x == null ? null : [x, y0 + j / sc]).filter(Boolean);
   for (let pass = 0; pass < 4; pass++) pts = pts.map((p, i) => { let x = 0, m = 0; for (let k = -6; k <= 6; k++) { const o = pts[i + k]; if (o) { x += o[0]; m++; } } return [x / m, p[1]]; });
   return pts.reverse();
 }
@@ -67,7 +71,8 @@ function fouetInitial(J, H, seed) {
   const root = [ec[0][0] + H * .02, H * .995];
   const mainCp = [root, ...ec, [rx + H * .03, Lt.top - H * .02], [rx - H * .02, top + H * .02], [lx + Lt.w * .45, top - H * .005], [H * .1, top + H * .02], [H * .055, top + H * .1]];
   const main = curl(bspline(mainCp, 30), -1.15, H * .03);
-  pen(P, 'whip', stroke(main, { hair, a: { kind: 'point', len: H * .2, fat: hair * 6 }, b: { kind: 'club', len: H * .14, fat: hair * 2.4 }, eye: 1, swell: .6, press: .55 }), { cut });
+  const Sm = stroke(main, { hair, a: { kind: 'point', len: H * .2, fat: hair * 6 }, b: { kind: 'club', len: H * .14, fat: hair * 2.4 }, eye: 1, swell: .6, press: .55 });
+  pen(P, 'whip', Sm, { cut });
   // the doubling: a hairline beside the whip along the bowls, taken up and put down again
   const run2 = echo(Lt, H * .13, Lt.top + cap * .35, base - cap * .3, solid);
   if (run2.length > 8) pen(P, 'whip', stroke(sample(run2, 5), { hair: hair * .7, a: { kind: 'taper', len: H * .08 }, b: { kind: 'point', len: H * .07, fat: hair * 2.2 } }), { cut });
@@ -76,9 +81,10 @@ function fouetInitial(J, H, seed) {
   const second = bspline([[root[0] + H * .03, H * .995], [mid[0] + H * .13, base - cap * .25], [mid[0] + H * .02, mid[1] - H * .02], [rx + H * .1, Lt.top + cap * .2], node], 30);
   pen(P, 'olive', stroke(second, { hair: hair * .9, a: { kind: 'taper', len: H * .1 }, press: .35 }), { cut });
   umbel(P, node, -Math.PI / 2 - .3, H * .15, r, { n: 9, fan: 1.7, ink: 'olive', kw: hair * 1.3 });
-  // a shoot off the whip, as Obrist's thorns: a short curve out into a seed-shaped bud
-  const j = main[Math.round(main.length * .42)], sh = bspline([j, [j[0] + H * .05, j[1] + H * .01], [j[0] + H * .12, j[1] - H * .02], [j[0] + H * .16, j[1] - H * .08]], 16);
-  pen(P, 'whip', stroke(sh, { hair: hair * .8, a: { kind: 'taper', len: H * .04 }, b: { kind: 'point', len: H * .09, fat: hair * 3.6 } }), { cut });
+  // a shoot off the whip, as Obrist's thorns: a short curve out into a seed-shaped bud (from the whip as the hand drew it,
+  // which wanders off the planned line)
+  const j0 = main[Math.round(main.length * .42)], j = Sm.p.reduce((b, q) => Math.hypot(q[0] - j0[0], q[1] - j0[1]) < Math.hypot(b[0] - j0[0], b[1] - j0[1]) ? q : b), sh = bspline([j, [j[0] + H * .05, j[1] + H * .01], [j[0] + H * .12, j[1] - H * .02], [j[0] + H * .16, j[1] - H * .08]], 16);
+  pen(P, 'whip', stroke(sh, { hair: hair * .8, a: { kind: 'hair' }, b: { kind: 'point', len: H * .09, fat: hair * 3.6 } }), { cut });
   P.fill('letter', Lt.path);
   return { P, W, H };
 }
@@ -147,8 +153,8 @@ function planteBreak(W, h, seed, rank = 1) {
     const S = stem(P, pts, { w: lw * .8, foot: 'hair' }), e = S.p.at(-1), q = S.p.at(-10);
     if (rank > 1) iris(P, e, h * .44, Math.atan2(e[1] - q[1], e[0] - q[0]) + m * .25, r, { kw: lw * .7 }); else bud(P, e, h * .26, Math.atan2(e[1] - q[1], e[0] - q[0]), r, { kw: lw * .8 });
   }
-  stem(P, bspline([[cx, by + h * .03], [cx, by - h * .24], [cx, by - h * .5]], 10), { w: lw * .9, foot: 'point', footLen: h * .12 });
-  poppy(P, [cx, by - h * .52], h * .6, -Math.PI / 2, r, { kw: lw * .85 });
+  stem(P, bspline([[cx, by + h * .03], [cx, by - h * .2], [cx, by - h * .335]], 10), { w: lw * .9, foot: 'point', footLen: h * .12 });
+  poppy(P, [cx, by - h * .52], h * .62, -Math.PI / 2, r, { kw: lw * .85 });
   return { P, W, H: h };
 }
 function planteFiller(w, h, seed) {
