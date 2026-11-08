@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kelmscott ornaments</title>
+<!-- The page ornaments grown by kit/styles/kelmscott-garden.js ornament() beside the traced ones they would replace.
+  ?theme=light|dark &k=4 (scale) -->
+<style>
+  :root { --paper: rgb(244 238 226); --ink: #2b2119; }
+  :root[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); }
+  html { background: var(--paper); } body { margin: 0; padding: 24px; color: var(--ink); font: 13px/1.4 serif; }
+  .row { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-end; margin-bottom: 26px; }
+  figure { margin: 0; } figcaption { font-style: italic; opacity: .7; }
+</style>
+</head>
+<body>
+<script type="module">
+import { ornament } from '../kit/styles/kelmscott-garden.js';
+import kelmscott from '../kit/styles/kelmscott.js';
+const q = new URLSearchParams(location.search), dark = q.get('theme') === 'dark', K = +(q.get('k') ?? 1), dpr = devicePixelRatio;
+document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+const ink = dark ? [226, 216, 198] : [38, 31, 27], G = kelmscott.GLYPHS;
+let row; const newRow = () => document.body.append(row = Object.assign(document.createElement('div'), { className: 'row' }));
+function show(w, h, draw, label) {
+  const cv = document.createElement('canvas'); cv.width = Math.ceil(w * K * dpr); cv.height = Math.ceil(h * K * dpr); cv.style.width = w * K + 'px'; cv.style.height = h * K + 'px';
+  const c = cv.getContext('2d'); c.scale(K * dpr, K * dpr); draw(c); c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = 'source-in'; c.fillStyle = `rgb(${ink})`; c.fillRect(0, 0, cv.width, cv.height);
+  const f = document.createElement('figure'); f.append(cv, Object.assign(document.createElement('figcaption'), { textContent: label })); row.append(f);
+}
+const glyph = (k, w, mirror) => { const a = G[k].a, h = w / a; return [w, h, c => { c.font = `${h}px "kelmscott-${k}"`;
+  if (!mirror) c.fillText(G[k].c, 0, h); else { const st = { footRose: .37 }[k], half = (1 - st) * w; c.save(); c.beginPath(); c.rect(w / 2, 0, half, h); c.clip(); c.fillText(G[k].c, w / 2 - st * w, h); c.restore(); c.save(); c.translate(w, 0); c.scale(-1, 1); c.beginPath(); c.rect(w / 2, 0, half, h); c.clip(); c.fillText(G[k].c, w / 2 - st * w, h); c.restore(); } }]; };
+await Promise.all(['footRose', 'footGrape', 'hedera', 'sprig', 'vine'].map(kelmscott.loadGlyph));
+const t = [];
+const grown = (kind, w, h, seed, opt, label) => { const t0 = performance.now(), o = ornament(kind, w, h, seed, opt); t.push(performance.now() - t0); show(w, h, c => o.draw(c, 0, 0), label); };
+// breaks: book (grape), chapter (rose), chapter in turn (mirrored rose)
+for (const [old, mir, rank, centre, name] of [['footGrape', false, 2, null, 'book'], ['footRose', false, 1, null, 'chapter'], ['footRose', true, 1, 'bud', 'chapter, in turn']]) {
+  newRow(); const W = old === 'footGrape' ? 420 : 300, [w, h, d] = glyph(old, W, mir); show(w, h, d, `old ${name}`);
+  grown('band', W, rank > 1 ? 74 : 56, 7 + rank, { rank, centre }, `grown ${name}`); }
+newRow(); grown('filler', 220, 9, 3, {}, 'filler'); grown('filler', 160, 9, 5, { bud: 1 }, 'filler, bud'); grown('filler', 300, 9, 8, {}, 'filler, long');
+newRow(); { const [w, h, d] = glyph('hedera', 14); show(w, h, d, 'old paraph'); } grown('leaf', 16, 14, 2, {}, 'grown paraph');
+{ const [w, h, d] = glyph('vine', 40); show(w, Math.min(h, 260), d, 'old vine'); } grown('vine', 34, 260, 4, { u: 9 }, 'grown vine');
+grown('corner', 40, 40, 6, {}, 'corner');
+document.body.dataset.timing = t.map(v => v.toFixed(1)).join(' ');
+</script>
+</body>
+</html>

@@ -16,7 +16,7 @@
 //   print(made, { dpr, kind, u, y, seed, animate }) -> { pours, letters, runs, y0, seq }   timeline(printed, kind, animate)
 import { dist } from '../inkletter.js';
 import { noise2 } from '../marks.js';
-import { loadLetter, garden, drawGarden, bandOf, A as GARDEN_A } from './kelmscott-garden.js';
+import { loadLetter, garden, drawGarden, bandOf, ornament, A as GARDEN_A } from './kelmscott-garden.js';
 
 // GLYPHS (tools/kfont.py; research/16 lists every source and box): per glyph its font file, its character, a (width /
 // height), w (the 5th percentile of its white lines' widths, a fraction of its height) and k (the median of its black
@@ -151,6 +151,11 @@ function needed() {
 // one glyph laid h px tall (its em) with its top left at x, y
 const block = (g, x, y, h, col = 'k', o = {}) => ({ g, x, y, w: GLYPHS[g].a * h, h, col, em: h, ...o });
 const widthOf = (g, h) => GLYPHS[g].a * h;
+// a grown ornament (kelmscott-garden.js ornament()) laid with its box's top left at x, y: its mask made with a margin round
+// it (a leaf may reach past its box); sx, sy turn it about its origin (a frame's corners)
+const art = (o, x, y, col, key, seed, sx = 1, sy = 1) => { if (!o) return null; const m = Math.max(o.w, o.h) * (sx < 0 || sy < 0 ? 1 : .35), X0 = sx < 0 ? x - o.w - m * .3 : x - m * .3, Y0 = sy < 0 ? y - o.h - m * .3 : y - m * .3;
+  return { art: { draw: c => { c.translate(x, y); c.scale(sx, sy); o.draw(c, 0, 0); } }, key: key + '|' + sx + sy, x: X0, y: Y0, w: o.w + m * .6, h: o.h + m * .6, col, seed }; };
+const leafArt = (x, y, h, col, seed) => art(ornament('leaf', h * 1.07, h, seed), x, y, col, 'leaf' + h.toFixed(1) + seed, seed);
 const MIN_WHITE = 1.25, MIN_LINE = 1.3;   // px: no white line cut, and no black line drawn, finer than this
 
 // A glyph's coverage at `res` cells a px, drawn with fillText (the em is the glyph's height, its foot on the baseline).
@@ -159,11 +164,12 @@ const MIN_WHITE = 1.25, MIN_LINE = 1.3;   // px: no white line cut, and no black
 // black thickened to MIN_LINE, as a smaller block is cut with a bolder line.
 const cache = new Map();
 function raster(b, res) {
-  const key = [b.g, b.text, b.rect, b.x, b.y, b.w, b.h, b.em, b.v, b.sx, res, b.flip, b.flipY, b.seed].join('|'); if (cache.has(key)) return cache.get(key);
+  const key = [b.g, b.text, b.rect, b.art && b.key, b.x, b.y, b.w, b.h, b.em, b.v, b.sx, res, b.flip, b.flipY, b.seed].join('|'); if (cache.has(key)) return cache.get(key);
   const pad = 3, x0 = Math.floor(b.x - pad), y0 = Math.floor(b.y - pad), w = Math.ceil((b.x + b.w + pad - x0) * res), h = Math.ceil((b.y + b.h + pad - y0) * res);
   const c = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true }); c.setTransform(res, 0, 0, res, -x0 * res, -y0 * res); c.fillStyle = '#000';
   const G = b.g && GLYPHS[b.g], em = b.em ?? b.h;
-  if (b.rect) c.fillRect(b.x, b.y, b.w, b.h);
+  if (b.art) { c.save(); b.art.draw(c, b.x, b.y, b); c.restore(); }   // (a grown ornament, drawn as vector in ink)
+  else if (b.rect) c.fillRect(b.x, b.y, b.w, b.h);
   else if (b.text) { c.font = FACE; const m = c.measureText(b.text), k = b.h / c.measureText('H').actualBoundingBoxAscent;
     c.save(); c.translate(b.x + m.actualBoundingBoxLeft * k, b.y + b.h); c.scale(k, k); c.fillText(b.text, 0, 0); c.restore(); }
   else if (G.garden) { const geo = garden(G.c, b.seed ?? 1, bandOf(b.h * res)); if (geo) drawGarden(c, geo, b.x, b.y, b.h, res); else console.warn('kelmscott: garden not loaded', G.c); }   // (vector, drawn as it stands)
@@ -176,7 +182,7 @@ function raster(b, res) {
     if (document.fonts.check(c.font, G.c)) c.fillText(G.c, 0, em); else console.warn('kelmscott: not loaded', b.g);   // (never a fallback face's box)
     c.restore(); }
   const d = c.getImageData(0, 0, w, h).data, M = new Float32Array(w * h); for (let i = 0; i < w * h; i++) M[i] = d[i * 4 + 3] / 255;
-  if (G?.garden) impress(M, w, h, res, b.seed ?? 1);
+  if (G?.garden || b.art) impress(M, w, h, res, b.seed ?? 1);
   if (G) { const open = G.k ? 0 : Math.max(0, MIN_WHITE - G.w * em), bold = G.k ? Math.max(0, MIN_LINE - G.k * em) : 0;
     if (open > .05) { const feat = new Uint8Array(w * h); for (let q = 0; q < w * h; q++) feat[q] = M[q] < .5; const D = dist(feat, w, h), o = Math.min(open, em * .02) * res;
       for (let q = 0; q < w * h; q++) if (M[q] > 0) M[q] *= Math.max(0, Math.min(1, D[q] - o + .5)); }
@@ -224,7 +230,7 @@ const letterOf = ch => String(ch).normalize('NFD')[0].toUpperCase();
 // 'garden' (default): the letter and a garden grown in its gaps, drawn directly as vector (gen: 4; kelmscott-garden.js).
 let CAPS = 'garden';
 const GP = { gen: 'n', gen2: 'w', garden: 'q' };   // (the generated series' prefixes in GLYPHS)
-const shapeFor = (ch, deep) => { const gp = GP[CAPS]; if (deep && gp && GLYPHS[gp + ch]) return gp + ch; if (deep && CAPS === 'morris') { const m = 'v' + (GLYPHS['v' + ch] ? ch : ALIAS[ch] ?? ch); return GLYPHS[m] && !GLYPHS[m].m ? m : GLYPHS['w' + ch] ? 'w' + ch : null; } const c = GLYPHS['v' + ch] || GLYPHS['s' + ch] ? ch : ALIAS[ch] ?? ch; return deep ? (gp && GLYPHS[gp + c] ? gp + c : CAPS === 'grow' && GLYPHS['g' + c] ? 'g' + c : GLYPHS['v' + c] ? 'v' + c : GLYPHS['s' + c] ? 's' + c : null) : (GLYPHS['s' + c] ? 's' + c : GLYPHS['v' + c] ? 'v' + c : null); };
+const shapeFor = (ch, deep) => { const gp = GP[CAPS]; if (!deep && CAPS === 'garden' && GLYPHS['q' + ch]) return 'q' + ch; if (deep && gp && GLYPHS[gp + ch]) return gp + ch; if (deep && CAPS === 'morris') { const m = 'v' + (GLYPHS['v' + ch] ? ch : ALIAS[ch] ?? ch); return GLYPHS[m] && !GLYPHS[m].m ? m : GLYPHS['w' + ch] ? 'w' + ch : null; } const c = GLYPHS['v' + ch] || GLYPHS['s' + ch] ? ch : ALIAS[ch] ?? ch; return deep ? (gp && GLYPHS[gp + c] ? gp + c : CAPS === 'grow' && GLYPHS['g' + c] ? 'g' + c : GLYPHS['v' + c] ? 'v' + c : GLYPHS['s' + c] ? 's' + c : null) : (GLYPHS['s' + c] ? 's' + c : GLYPHS['v' + c] ? 'v' + c : null); };
 const FACE = '600 100px "EB Garamond", Garamond, serif';
 const capWidth = ch => { try { const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = FACE; const m = c.measureText(ch), H = c.measureText('H'); return (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / H.actualBoundingBoxAscent; } catch { return .8; } };
 function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, u = 8 }) {
@@ -245,8 +251,9 @@ initial.load = () => Promise.all(needed().map(loadGlyph));
 // The leaf in the indent, its foot on the baseline, a little taller than the x-height, in red (or black, as the Well prints it)
 let PARAPH_COL = 'r';
 function paraph(x, base, u, seed, rich = .5) {
-  const h = u * 1.5, w = widthOf('hedera', h), cx = x + u * .82;
-  return { marks: [], letters: [block('hedera', cx - w / 2, base - h * .92, h, PARAPH_COL)] };
+  const h = u * 1.5, w = h * 1.07, cx = x + u * .82;
+  if (CAPS !== 'garden') return { marks: [], letters: [block('hedera', cx - widthOf('hedera', h) / 2, base - h * .92, h, PARAPH_COL)] };
+  return { marks: [], letters: [leafArt(cx - w / 2, base - h * .95, h, PARAPH_COL, seed % 7)] };   // (one garden leaf, of a few seeds: a paraph is a sign)
 }
 
 // ---- line-fillers ------------------------------------------------------------------------------------------------------------
@@ -254,14 +261,20 @@ function paraph(x, base, u, seed, rich = .5) {
 // on and leave a short last line open, so a paragraph's is left open ('none'); ?fill=knot (or rich >= .75) closes it with
 // the running heads' knots.
 const FILLERS = ['knot'];
-let FILL = 'none';
+let FILL = 'vine';   // (garden: the paragraph's free end closed with a grown vine; ?fill=none open, ?fill=knot the knots)
 function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
   const u = yBase - yTop, out = [];
   if (kind === 'none') return { marks: [], letters: [] };
+  // garden: a heading's run-out, one leaf in red; a paragraph's free end, a slim vine along the line, leaves alternating, ending
+  // in a curl (or, richer, a bud), only where the gap is worth closing (eighteen x-heights or more)
+  if (CAPS === 'garden' && kind === 'rule') return { marks: [], letters: [leafArt(x0 + u * .2, yBase - u * 1.25, u * 1.3, 'r', seed % 7)] };
+  if (CAPS === 'garden' && kind === 'vine') { const L = Math.min(x1 - x0, u * 60); if (L < u * 18) return { marks: [], letters: [] };   // (about a third of a measure free, or left open)
+    const bud = rich >= .6 && seed % 5 < 2, o = ornament('filler', L, u, seed, { bud }); return { marks: [], letters: [art(o, x0, yTop, 'k', 'fill' + L.toFixed(1) + u.toFixed(2) + bud, seed)].filter(Boolean) }; }
   if (kind === 'knot') { const h = u * 1.4, w = widthOf('knot', h), gap = u * .12, n = Math.floor((x1 - x0 + gap) / (w + gap)); if (n < 1) return { marks: [], letters: [] };
     const sp = n > 1 ? (x1 - x0 - n * w) / (n - 1) : 0;
     for (let i = 0; i < n; i++) out.push(block('knot', x1 - w - i * (w + sp), yBase - h * .98, h, 'k'));
     return { marks: [], letters: out }; }
+  if (kind === 'vine') return { marks: [], letters: [] };
   const h = u * 1.25, w = widthOf('sprig', h), gap = u * .5, n = Math.max(1, Math.min(kind === 'rule' ? 2 : 3, Math.floor((x1 - x0 + gap) / (w + gap))));
   for (let i = 0; i < n; i++) out.push(block('sprig', x0 + i * (w + gap), yBase - h * .95, h, 'r'));
   return { marks: [], letters: out };
@@ -279,6 +292,8 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
 let BREAK = 'all';
 const STEM = { footRose: .37, footGrape: .459 };   // where the stem stood, a fraction of the foot's width
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1) {
+  if (BREAK === 'grown') { const big = rank > 1, W = Math.min(measure * (big ? .7 : .5), u * (big ? 56 : 40)), h = W / (big ? 5.2 : 5.4), o = ornament('band', W, h, seed % 11, { rank: big ? 2 : 1, centre: !big && n % 2 === 0 ? 'bud' : null });
+    return { marks: [], letters: [art(o, cx - W / 2, y - h / 2, 'k', 'band' + W.toFixed(1) + rank + (n % 2), seed % 11)] }; }
   const kind = BREAK !== 'all' ? BREAK : rank > 1 ? 'grape' : n % 2 ? 'rose' : 'mirror', g = kind === 'grape' ? 'footGrape' : 'footRose';
   const W = Math.min(measure * (g === 'footGrape' ? .78 : .56), u * (g === 'footGrape' ? 62 : 44)), h = W / GLYPHS[g].a;
   if (kind !== 'mirror') return { marks: [], letters: [block(g, cx - W / 2, y - h / 2, h)] };
@@ -313,17 +328,26 @@ function vineDown(xl, top, bot, u) {
 }
 let CODE = 'rule';
 let QUIET = false;   // ?vine=none: the quotation and the aside left plain, the pull quote between two red sprigs
+// garden: the vine down a quotation grown (a stem the whole height in the margin, leaves alternating, curling at head and
+// foot); a figure's or code's frame a fine rule with a grown spray at each corner
+let VINE_KIND = 'grown', PULL = 'traced';
+const grownVine = (xl, top, bot, u, seed) => { const w = u * 2.6, x = xl - u * .5 - w, H = bot - top + u * 1.6; return [art(ornament('vine', w, H, seed % 13, { u }), x, top - u * .8, 'k', 'vine' + H.toFixed(1) + u.toFixed(2), seed)].filter(Boolean); };
+const grownFrame = ([X0, Y0, X1, Y1], s, lw, seed) => { const o = ornament('corner', s, s, seed % 5), k = 'corner' + s.toFixed(1) + (seed % 5);
+  return [...ruled([X0, Y0, X1, Y1], lw), art(o, X0, Y0, 'k', k, seed), art(o, X1, Y0, 'k', k, seed, -1, 1), art(o, X0, Y1, 'k', k, seed, 1, -1), art(o, X1, Y1, 'k', k, seed, -1, -1)]; };
 const sprigAt = (cx, y, u) => { const h = u * 1.4, w = widthOf('sprig', h); return block('sprig', cx - w / 2, y - h / 2, h, 'r'); };
 const frames = {
-  quote: ({ box, lines, u }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : vineDown(L[0], L[1], box?.[3] ?? L[3], u) }; },
-  aside: ({ box, lines, u }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : vineDown(L[0], L[1], L[3] + u * .3, u) }; },
-  pull: ({ cx, yTop, yBot, measure, u }) => { if (QUIET) return { marks: [], letters: [sprigAt(cx, yTop, u), sprigAt(cx, yBot, u)] }; const W = Math.min(measure * .46, u * 30), hh = W / GLYPHS.headRose.a, fh = W * .9 / GLYPHS.footRose.a;
+  quote: ({ box, lines, u, seed = 1 }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : VINE_KIND === 'traced' ? vineDown(L[0], L[1], box?.[3] ?? L[3], u) : grownVine(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
+  aside: ({ box, lines, u, seed = 1 }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : VINE_KIND === 'traced' ? vineDown(L[0], L[1], L[3] + u * .3, u) : grownVine(L[0], L[1], L[3] + u * .3, u, seed) }; },
+  pull: ({ cx, yTop, yBot, measure, u, seed = 1 }) => { if (PULL === 'grown' && !QUIET) { const W = Math.min(measure * .42, u * 26), h = W / 5.4;
+      return { marks: [], letters: [art(ornament('band', W, h, seed % 11 + 3, { rank: 1 }), cx - W / 2, yTop - h * .75, 'k', 'pullh' + W.toFixed(1), seed), art(ornament('band', W * .8, h * .8, seed % 11 + 5, { rank: 1, centre: 'bud' }), cx - W * .4, yBot - h * .15, 'k', 'pullf' + W.toFixed(1), seed)] }; }
+    if (QUIET) return { marks: [], letters: [sprigAt(cx, yTop, u), sprigAt(cx, yBot, u)] }; const W = Math.min(measure * .46, u * 30), hh = W / GLYPHS.headRose.a, fh = W * .9 / GLYPHS.footRose.a;
     return { marks: [], letters: [block('headRose', cx - W / 2, yTop - hh * .85, hh), block('footRose', cx - W * .45, yBot - fh * .05, fh)] }; },
-  figure: ({ box, cap, u, limit = [-1e9, 1e9] }) => { const room = Math.min(box[0] - limit[0], limit[1] - box[2]) - 2, B = [box[0], box[1], box[2], cap ?? box[3]], o = Math.max(4, Math.min(room, u * 1.1));
+  figure: ({ box, cap, u, seed = 1, limit = [-1e9, 1e9] }) => { const room = Math.min(box[0] - limit[0], limit[1] - box[2]) - 2, B = [box[0], box[1], box[2], cap ?? box[3]], o = Math.max(4, Math.min(room, u * 1.1));
+    if (CAPS === 'garden') return { marks: [], letters: grownFrame([B[0] - o, B[1] - o, B[2] + o, B[3] + o], u * 2.6, 1.2, seed) };
     return { marks: [], letters: [...ruled([B[0] - o, B[1] - o, B[2] + o, B[3] + o], 2.4), ...ruled([B[0] - o + 4.4, B[1] - o + 4.4, B[2] + o - 4.4, B[3] + o - 4.4], 1.3)] }; },
-  code: ({ box, u }) => CODE === 'none' ? { marks: [], letters: [] } : { marks: [], letters: ruled([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], 1.3) },
-  nav: ({ box, entries, u }) => { const h = u * 1.2, w = widthOf('hedera', h);
-    return { marks: [], letters: entries.filter(Boolean).map(e => block('hedera', Math.max(4, box[0] - u * 1.1 - w), e.base - h * .92, h, 'r')) }; },
+  code: ({ box, u, seed = 1 }) => CODE === 'none' ? { marks: [], letters: [] } : CAPS === 'garden' ? { marks: [], letters: grownFrame([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], u * 1.9, 1, seed) } : { marks: [], letters: ruled([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], 1.3) },
+  nav: ({ box, entries, u }) => { const h = u * 1.2, w = CAPS === 'garden' ? h * 1.07 : widthOf('hedera', h);
+    return { marks: [], letters: entries.filter(Boolean).map((e, i) => CAPS === 'garden' ? leafArt(Math.max(4, box[0] - u * 1.1 - w), e.base - h * .95, h, 'r', i % 7) : block('hedera', Math.max(4, box[0] - u * 1.1 - w), e.base - h * .92, h, 'r')) }; },
 };
 
 // ---- palette -----------------------------------------------------------------------------------------------------------------
@@ -385,12 +409,12 @@ function timeline(pr, kind, animate) {
 }
 
 export const kelmscott = { label: 'Kelmscott', minGap: 2, theme: { rubric: 'rgb(184 54 40)', rubricDark: 'rgb(222 112 88)' },
-  setup: () => ({ kinds: FILLERS }), kinds: (v, rich) => FILL === 'knot' || rich >= .75 ? FILLERS : ['none'],
+  setup: () => ({ kinds: FILLERS }), kinds: (v, rich) => FILL === 'knot' ? ['knot'] : FILL === 'none' || rich < .25 ? ['none'] : ['vine'],
   fillAt: { gap: .6, head: 3, rise: 1 },
   hurry: [4, 1, 1.5, 1.6], steady: ['drop'],
   paraph, filler, breakMark, initial, frames, palette, print, timeline, FILLERS, GLYPHS, loadGlyph,
-  set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : 'none'; },
+  set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : c === 'none' ? 'none' : 'vine'; },
   set darkCut(c) { DARK_CUT = c === 'negative' ? 'negative' : 'positive'; },
-  set breaks(c) { BREAK = ['rose', 'grape', 'mirror'].includes(c) ? c : 'all'; },
-  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
+  set breaks(c) { BREAK = ['rose', 'grape', 'mirror', 'grown'].includes(c) ? c : 'all'; },
+  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; VINE_KIND = c === 'traced' ? 'traced' : 'grown'; }, set pull(c) { PULL = c === 'grown' ? 'grown' : 'traced'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
 export default kelmscott;

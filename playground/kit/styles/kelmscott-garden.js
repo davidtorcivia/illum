@@ -22,8 +22,8 @@ const CHL = .022;               // the black channel round the letter
 const GAP = .011;               // the black between two shapes
 // By the block's size on the device: a block under ~280 device px is grown coarser (bigger, broader leaves, stouter stems,
 // fewer of them), so that its finest white stays a px and a half and a leaf never thins to a thorn.
-const BANDS = [{ HW0: .0058, HW1: .0168, LK: .036, LW: .23 }, { HW0: .007, HW1: .019, LK: .041, LW: .27 }];
-export const bandOf = dev => dev < 280 ? 1 : 0;
+const BANDS = [{ HW0: .0058, HW1: .0168, LK: .036, LW: .23 }, { HW0: .007, HW1: .019, LK: .041, LW: .27 }, { HW0: .011, HW1: .026, LK: .058, LW: .3 }];
+export const bandOf = dev => dev < 150 ? 2 : dev < 280 ? 1 : 0;   // (2: a line initial, a block a couple of lines deep)
 let HW0, HW1, LW;                 // a stem's half-width at its tip and where it carries most; a leaf's half-width (of its length)
 const T = .009;                 // the least clearance a stem's room is reckoned by
 const D = .007;                 // growth step
@@ -501,4 +501,97 @@ export function drawGarden(c, geo, x, y, h, res = 1) {
   geo.flowers.forEach(f => { if (!f.petals) return; rw = Math.max(.9 * px, f.rad * .06); f.petals.forEach(p => ringPath(KR, p.map(q => [f.c[0] + q[0] * f.rad, f.c[1] + q[1] * f.rad]))); ringPath(KR, f.eye.map(q => [f.c[0] + q[0] * f.rad, f.c[1] + q[1] * f.rad])); });
   if (rw) { c.lineWidth = rw; c.lineJoin = 'round'; c.stroke(KR); }
   c.restore();
+}
+
+// ---- the page's other ornaments, grown in the same hand --------------------------------------------------------------------
+// Line ornament in ink on the paper (the initial's leaves, stems, curls, rosette and tulip, now solid in the ink, their
+// midribs and partings cut fine in the paper): a line-filler, a break band, the vine down a quotation, a frame's corner,
+// a paraph leaf. Geometry in page px about the ornament's own box (0..w, 0..h); made once a size and seed.
+//   ornament(kind, w, h, seed, opt) -> { w, h, draw(c, x, y) }   kinds: 'filler' 'band' 'vine' 'corner' 'leaf'
+const orns = new Map();
+const quad = (P0, P1, P2, n) => { const o = []; for (let i = 0; i <= n; i++) { const u = i / n, v = 1 - u; o.push([v * v * P0[0] + 2 * v * u * P1[0] + u * u * P2[0], v * v * P0[1] + 2 * v * u * P1[1] + u * u * P2[1]]); } return o; };
+export function ornament(kind, w, h, seed, opt = {}) {
+  const key = [kind, w.toFixed(1), h.toFixed(1), seed, JSON.stringify(opt)].join('|'); if (orns.has(key)) return orns.get(key);
+  const r = stream(seed, 'orn-' + kind), S = [], Lv = [], Fl = [], Bl = [], Cut = [], u = opt.u ?? h;
+  LW = .27;
+  const stem = (pts, w0, w1) => S.push({ pts, w: pts.map((_, i) => (w0 + (w1 - w0) * Math.pow(i / Math.max(1, pts.length - 1), .9)) / 2) });   // (w0, w1: widths; the outline takes half-widths)
+  const leaf = (b, a, L, sd) => { const sh = leafShape(r, sd * (.12 + r() * .14)); Lv.push({ o: lay(sh.outline, b, a, L), rib: lay(sh.axis.slice(2, 15), b, a, L), L }); };
+  // a leaf on a short petiole curving off a stem at p (heading a), to side sd
+  const sprig = (p, a, sd, L, wp) => { const a0 = a + sd * .95, a1 = a + sd * .55, pl = L * .32, P2 = [p[0] + Math.cos(a1) * pl, p[1] + Math.sin(a1) * pl], P1 = [p[0] + Math.cos(a0) * pl * .55, p[1] + Math.sin(a0) * pl * .55];
+    stem(quad(p, P1, P2, 8), wp, wp * .75); leaf(P2, a1 + sd * .05, L, -sd); };
+  const curl = (p, a, L, sg, rEnd, w0) => { const pts = tendril(p, a, L, sg * .4 / L, sg / rEnd, 1.3, Math.max(.25, L / 60)); stem(pts, w0, w0 * .55); Bl.push([pts.at(-1), w0 * 1.15]); return pts; };
+  const tangent = (pts, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; return Math.atan2(b[1] - a[1], b[0] - a[0]); };
+  if (kind === 'filler') {
+    // a slim stem along the line, leaves alternating above and below it, ending in a curl or (richer) a bud
+    const mid = h * .5, endRoom = opt.bud ? h * .9 : h * 1.1, x1 = w - endRoom, ph = r() * 6.28, sw = h * .06, pts = [];
+    for (let x = h * .1; x <= x1; x += .5) pts.push([x, mid + Math.sin(x / (h * 2.4) * Math.PI + ph) * h * .09]);
+    if (pts.length < 4) return null;
+    stem(pts, sw, sw * .6); Bl.push([pts[0], sw * 1.1]);
+    let sd = r() < .5 ? 1 : -1;
+    for (let x = h * 1.1 + r() * h * .5; x < x1 - h * .6; x += h * (2.1 + r() * .6)) { const i = Math.round((x - h * .1) / .5), p = pts[Math.min(pts.length - 1, i)], a = tangent(pts, i);
+      sprig(p, a, sd, h * (1.05 + r() * .2), sw * .75); sd = -sd; }
+    const e = pts.at(-1), ae = tangent(pts, pts.length - 1);
+    if (opt.bud) { const t = tulip(r), L = h * .95, aa = ae - .5; Fl.push({ o: lay(t.outline, e, aa, L), cuts: t.cuts.map(q => lay(q, e, aa, L)) }); }
+    else curl(e, ae, h * 1.25, -1, h * .2, sw * .6);
+  } else if (kind === 'band') {
+    // a break: a rosette (or a bud cluster) at the centre; from it, each way, a scroll that sweeps out in a wave and winds in
+    // to a fine curl, leaves alternating along it, larger near the centre; the two sides grown apart (balanced, not mirrored)
+    const cx = w / 2, cy = h / 2, rank = opt.rank ?? 1, rad = h * (rank > 1 ? .26 : .22), sw = h * (rank > 1 ? .055 : .05);
+    if (opt.centre === 'bud') { for (const [aa, L] of [[-Math.PI / 2, h * .62], [-Math.PI / 2 - .6, h * .42], [-Math.PI / 2 + .6, h * .42]]) { const t = tulip(r), b = [cx, cy + h * .12]; Fl.push({ o: lay(t.outline, b, aa, L), cuts: t.cuts.map(q => lay(q, b, aa, L)) }); } }
+    else Fl.push({ c: [cx, cy], rad, ...rosette(r) });
+    for (const side of [1, -1]) {
+      const half = w / 2 - rad - h * .55, x0 = cx + side * (rad + h * .05), pts = [], ph = r() * .4;
+      for (let s = 0; s <= half; s += .5) { const f = s / half; pts.push([x0 + side * s, cy + Math.sin(f * Math.PI * (rank > 1 ? 1.6 : 1.3) + ph) * h * .2 * (1 - f * .35)]); }
+      stem(pts, sw, sw * .45);
+      const e = pts.at(-1), ae = tangent(pts, pts.length - 1), sg = (Math.sin(Math.PI * (rank > 1 ? 1.6 : 1.3) + ph) > 0 ? -1 : 1) * side;
+      curl(e, ae, h * (rank > 1 ? 1.15 : .95), sg, h * .11, sw * .45);
+      let sd = side > 0 ? -1 : 1;
+      for (let s = h * .3, n = 0; s < half - h * .25; s += h * (rank > 1 ? .4 : .46), n++) { const i = Math.round(s / .5), f = s / half, p = pts[i], a = tangent(pts, i);
+        if (n % 4 === 3) { const sg2 = sd, cp = tendril(p, a + sd * .9, h * .55 * (1 - f * .4), sg2 * .5 / h, sg2 * 9 / h, 1.3, .3); stem(cp, sw * .6, sw * .35); Bl.push([cp.at(-1), sw * .55]); }
+        else sprig(p, a, sd, h * (.5 - .22 * f) * (rank > 1 ? 1.08 : 1), sw * (.8 - .35 * f));
+        sd = -sd; }
+      if (rank > 1) { const i = Math.round(half * .55 / .5), p = pts[i], a = tangent(pts, i), sd2 = -sd, L = h * .45, P2 = [p[0] + Math.cos(a + sd2 * .9) * h * .32, p[1] + Math.sin(a + sd2 * .9) * h * .32];
+        stem(quad(p, [p[0] + Math.cos(a + sd2 * .4) * h * .15, p[1] + Math.sin(a + sd2 * .4) * h * .15], P2, 8), sw * .55, sw * .45); const t = tulip(r), aa = a + sd2 * 1.1; Fl.push({ o: lay(t.outline, P2, aa, L), cuts: t.cuts.map(q => lay(q, P2, aa, L)) }); }
+    }
+  } else if (kind === 'vine') {
+    // down a quotation's margin: a stem the whole height, wandering a little, leaves alternating (the outer ones larger),
+    // its head curling out into a leaf and its foot into a curl. w: the margin's width; x of the stem at .62 w
+    const wob = noise1(seed * 3 + 1), sx = w * .62, sw = u * .12, pts = [];
+    for (let y = u * .9; y <= h - u * .9; y += .5) pts.push([sx + (wob(y / (u * 4)) - .5) * u * .45, y]);
+    if (pts.length < 4) return null;
+    stem(pts, sw, sw * .8);
+    curl(pts[0], -Math.PI / 2, u * 1.6, -1, u * .28, sw * .9); leaf([pts[0][0] - u * .1, pts[0][1] - u * .2], -Math.PI / 2 - .9, u * 1.1, 1);
+    curl(pts.at(-1), Math.PI / 2, u * 1.4, 1, u * .25, sw * .8);
+    let sd = -1;
+    for (let y = u * 2.2; y < h - u * 2.4; y += u * (1.9 + r() * .6)) { const i = Math.round((y - u * .9) / .5), p = pts[Math.min(pts.length - 1, i)], a = tangent(pts, i);
+      const outer = (sd > 0) === (a > 0);   // (the side away from the text)
+      sprig(p, a, sd, u * (outer ? 1.15 : .75) * (.9 + r() * .2), sw * .8); sd = -sd; }
+  } else if (kind === 'corner') {
+    // a frame's corner: from the corner a short curl along each edge with a leaf or two, a bud on the diagonal (drawn for
+    // the top left; the frame turns it for the others). w = h = the spray's reach
+    const s = w, sw = s * .05;
+    for (const [a, sg] of [[0, 1], [Math.PI / 2, -1]]) { const pts = tendril([s * .1, s * .1], a, s * .9, 0, sg * 9 / s, 4, .4); stem(pts, sw * 1.6, sw * .7); Bl.push([pts.at(-1), sw * .7]);
+      const i = Math.round(pts.length * .45); sprig(pts[i], tangent(pts, i), sg, s * .3, sw); }
+    const t = tulip(r), b = [s * .1, s * .1], aa = Math.PI / 4; Fl.push({ o: lay(t.outline, b, aa, s * .34), cuts: t.cuts.map(q => lay(q, b, aa, s * .34)) });
+  } else if (kind === 'leaf') {
+    // a paraph: one leaf on a curled stalk, rising to the right
+    const b = [w * .28, h * .82], sw = h * .07, pts = tendril([w * .05, h * .95], -.3, w * .28, -2 / w, -10 / w, 1.3, .3);
+    stem(pts, sw * .8, sw); leaf(pts.at(-1), -.85, h * .95, 1); Bl.push([pts[0], sw * .9]);
+  }
+  const o = { w, h, draw(c, x, y) {
+    c.save(); c.translate(x, y); c.fillStyle = '#000'; c.globalCompositeOperation = 'source-over';
+    for (const s of S) { const P = new Path2D(); strokeOutline(P, s.pts, s.w, .45, true); c.fill(P); }
+    for (const l of Lv) { const P = new Path2D(); ringPath(P, l.o); c.fill(P); }
+    for (const [p, rr] of Bl) { c.beginPath(); c.arc(p[0], p[1], rr, 0, 6.2832); c.fill(); }
+    for (const f of Fl) { if (f.petals) { for (const pt of f.petals) { const P = new Path2D(); ringPath(P, pt.map(q => [f.c[0] + q[0] * f.rad, f.c[1] + q[1] * f.rad])); c.fill(P); } const E = new Path2D(); ringPath(E, f.eye.map(q => [f.c[0] + q[0] * f.rad, f.c[1] + q[1] * f.rad])); c.fill(E); }
+      else { const P = new Path2D(); ringPath(P, f.o); c.fill(P); } }
+    // the cuts, in the paper: midribs, the rosette's partings, the tulip's
+    c.globalCompositeOperation = 'destination-out'; c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = '#000';
+    for (const l of Lv) if (l.L > 7) { c.lineWidth = Math.max(.6, l.L * .045); const P = new Path2D(); ringPath(P, l.rib, false); c.stroke(P); }
+    for (const f of Fl) { if (f.petals) { c.lineWidth = Math.max(.6, f.rad * .07); for (const pt of f.petals) { const P = new Path2D(); ringPath(P, pt.map(q => [f.c[0] + q[0] * f.rad, f.c[1] + q[1] * f.rad])); c.stroke(P); }
+        const E = new Path2D(); ringPath(E, f.eye.map(q => [f.c[0] + q[0] * f.rad, f.c[1] + q[1] * f.rad])); c.stroke(E); }
+      else if (f.cuts) { c.lineWidth = .7; for (const q of f.cuts) { const P = new Path2D(); ringPath(P, spline(q, 6), false); c.stroke(P); } } }
+    c.restore(); } };
+  orns.set(key, o); if (orns.size > 200) orns.delete(orns.keys().next().value);
+  return o;
 }

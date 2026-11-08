@@ -102,8 +102,9 @@ if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.datase
 kelmscott.paraphCol = q.get('paraph') ?? 'red';
 kelmscott.darkCut = q.get('cut') ?? 'positive';
 kelmscott.caps = q.get('caps') ?? 'garden';   // the six-line letters: drawn as vector with a garden grown in the gaps (garden, default); grown in the gaps and fitted into fonts (gen2); his own where he cut one (morris); from his blocks (gen), grown (grow) or grafted (graft)
-kelmscott.fill = q.get('fill') ?? 'none';
-kelmscott.breaks = q.get('break') ?? 'all';   // all (chapters: rose, mirrored rose in turn; books: grape) | rose | grape | mirror
+kelmscott.fill = q.get('fill') ?? 'vine';   // a paragraph's free end: a grown vine (vine, default) | none | knot
+kelmscott.breaks = q.get('break') ?? 'all';   // (grown: the garden bands, not yet the default)
+kelmscott.pull = q.get('pull') ?? 'traced';   // the pull quote's head and foot: traced (default) | grown   // all (chapters: rose, mirrored rose in turn; books: grape) | rose | grape | mirror
 kelmscott.code = q.get('code') ?? 'rule';
 kelmscott.vine = q.get('vine') ?? 'on';   // none: quotation and aside plain, the pull quote between two sprigs   // a paragraph's short last line: left open, as Morris's text pages leave it (none), or closed with the running heads' knots (knot)   // dark: the cut printed pale on the dark page (positive), or the block pale with its cut dark (negative)
 // ?line=drop (default): the initial in the line set as the Chaucer sets its small initials, two lines deep; ?line=inline:
