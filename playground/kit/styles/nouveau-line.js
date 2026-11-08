@@ -49,11 +49,14 @@ function endState(p, k = 6) {
 // grow a spiral on from the end of pts, winding `turns` times (signed: + turns clockwise on screen, y down) and closing to
 // radius r1 at its eye: curvature starts where the curve left off (so the join is G2) and rises to 1/r1 as s^pw; its
 // length is what that many turns takes
+const HOLD = .3;
 export function curl(pts, turns, r1, pw = 1.6, ds = .5) {
   const p = even(pts, ds), { h, k } = endState(p), k1 = Math.sign(turns) / r1, T = Math.abs(turns) * 2 * Math.PI * Math.sign(turns);
   const L = Math.min(Math.abs(T) * 12 * r1, Math.max(ds * 4, T / (k + (k1 - k) / (pw + 1))));
   const t = tendril(p.at(-1), h, L, k, k1, pw, ds);
-  return p.concat(t.slice(1));
+  // then a little way round at the eye's own radius, so the eye is a true circle the line wraps (hold: turns)
+  const q = t.at(-1), o = t.at(-2), hh = Math.atan2(q[1] - o[1], q[0] - o[0]), hold = tendril(q, hh, HOLD * 2 * Math.PI * r1, k1, k1, 1, ds);
+  return p.concat(t.slice(1), hold.slice(1));
 }
 // the same at the start (the curl grows backwards out of the first point; turns as seen walking backwards)
 export const curlStart = (pts, turns, r1, pw = 1.6, ds = .5) => curl(pts.slice().reverse(), turns, r1, pw, ds).reverse();
@@ -85,6 +88,9 @@ export function stroke(pts, prof = {}, ds = .5) {
     const s = i * ds, wa = endW(s, prof.a, hair), wb = endW(L - s, prof.b, hair);
     let v = Math.max(wa, wb); if (wa < hair || wb < hair) v = Math.min(wa, wb, v);
     if (prof.swell) v += hair * prof.swell * sstep(Math.abs(k[i]) * (prof.swellR ?? 20) - .4);
+    if (prof.press) {   // a pen's pressure: heavier pulled toward the hand (down and to the right), lighter pushed away
+      const a = p[Math.max(0, i - 2)], b = p[Math.min(n - 1, i + 2)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, d = (dx * .45 + dy * .89) / l;
+      v *= 1 + prof.press * (d > 0 ? d * d : -.45 * d * d); }
     w[i] = v;
   }
   smooth(w, Math.round(2 / ds));
@@ -95,7 +101,7 @@ export function stroke(pts, prof = {}, ds = .5) {
   for (let i = 1; i < n; i++) w[i] = Math.min(w[i], w[i - 1] + ds * .6); for (let i = n - 2; i >= 0; i--) w[i] = Math.min(w[i], w[i + 1] + ds * .6);
   // an eye: a spiral's end wound into a solid seed at its centre of curvature (the comma of the Combinaisons' spirals)
   let eye = null; if (prof.eye) { const q = p[n - 1], o = p[n - 3], dx = q[0] - o[0], dy = q[1] - o[1], l = Math.hypot(dx, dy) || 1, kk = k[n - 2] || 1e-6;
-    eye = [q[0] - dy / l / kk, q[1] + dx / l / kk, Math.min(Math.abs(1 / kk) * prof.eye, w[n - 1] * 2.2 + Math.abs(1 / kk) * .4)]; }
+    eye = [q[0] - dy / l / kk, q[1] + dx / l / kk, Math.max(0, Math.abs(1 / kk) - w[n - 1] * .25) * prof.eye]; }
   return { p, w, ds, L, eye, col: prof.col, ends: [prof.a?.kind ?? 'hair', prof.b?.kind ?? 'hair'] };
 }
 function smooth(w, r) { if (r < 1) return; const n = w.length, c = Float32Array.from(w);
@@ -125,3 +131,43 @@ export const rotp = ([x, y], a) => [x * Math.cos(a) - y * Math.sin(a), x * Math.
 // a shape given in its own frame (base at 0,0, pointing +x, length 1) laid at b, heading a, scale L (mirrored if m < 0)
 export const lay = (pts, b, a, L, m = 1) => pts.map(([x, y]) => { const [u, v] = rotp([x * L, y * L * m], a); return [b[0] + u, b[1] + v]; });
 export function circle(c, r, n = 40) { const o = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; o.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]); } return o; }
+
+// ---- a contour with a hand ------------------------------------------------------------------------------------------------
+// The line round a shape, drawn as Grasset's draughtsman drew it: heavier on the side turned from the light (the light
+// from the top left), swelling a little on the outside of a turn, drawn fine into a sharp tip, and (lift > 0) lifting off
+// where the light falls fullest, the line stopped and taken up again. pts: a closed loop, either way round (holes too:
+// `away` is the side the ink is not). Returns a Path2D to fill evenodd. o: { w (its full weight), lo (the lit side's share
+// of it), lift (0..1: how much of the lit side goes open), inset (how much of the weight lies inside the shape), tip }
+const LIGHT = [.55, .83];
+const HIT = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(1, 1).getContext('2d') : null;   // the direction the shadow side faces (light from the top left)
+export function contour(pts, o = {}, P = new Path2D()) {
+  const q = even([...pts, pts[0]], o.ds ?? .5); q.pop(); const n = q.length; if (n < 6) return P;
+  let A = 0; for (let i = 0; i < n; i++) { const a = q[i], b = q[(i + 1) % n]; A += a[0] * b[1] - b[0] * a[1]; }
+  const sgn = (o.away ?? (A > 0 ? 'left' : 'right')) === 'left' ? 1 : -1, W = o.w ?? 1, lo = o.lo ?? .35, inset = o.inset ?? .3;
+  const N = [], w = new Float32Array(n), at = i => q[(i + n) % n];
+  for (let i = 0; i < n; i++) {
+    const a = at(i - 2), b = at(i + 2), dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, nx = sgn * dy / l, ny = -sgn * dx / l; N.push([nx, ny]);
+    const a3 = at(i - 4), b3 = at(i + 4), h1 = Math.atan2(q[i][1] - a3[1], q[i][0] - a3[0]), h2 = Math.atan2(b3[1] - q[i][1], b3[0] - q[i][0]);
+    let dh = h2 - h1; dh -= Math.round(dh / (2 * Math.PI)) * 2 * Math.PI; const k = Math.abs(dh) / (Math.hypot(b3[0] - a3[0], b3[1] - a3[1]) / 2 || 1);
+    const shade = (nx * LIGHT[0] + ny * LIGHT[1] + 1) / 2;
+    let v = W * (lo + (1 - lo) * Math.pow(shade, 1.3));
+    v /= 1 + Math.pow(k * W * (o.tip ?? 1.6), 2);   // a sharp tip drawn fine
+    if (o.lift) v *= sstep((shade - o.lift * .5) / .22);
+    // solid: the whole shape this loop is one outline of; where both sides of the line are inside it (an overlap of the
+    // face's own contours) there is no edge to draw
+    if (o.solid) { const e = Math.max(.6, W); if (HIT.isPointInPath(o.solid, q[i][0] + nx * e, q[i][1] + ny * e, 'nonzero') === HIT.isPointInPath(o.solid, q[i][0] - nx * e, q[i][1] - ny * e, 'nonzero')) v = 0; }
+    w[i] = v;
+  }
+  for (let pass = 0; pass < 2; pass++) { const c = Float32Array.from(w), r = Math.round(2.5 / (o.ds ?? .5)); for (let i = 0; i < n; i++) { let s = 0, m = 0; for (let j = -r; j <= r; j++) { const g = 1 - Math.abs(j) / (r + 1); s += c[(i + j + n) % n] * g; m += g; } w[i] = s / m; } }
+  const out = [], inn = [];
+  for (let i = 0; i < n; i++) { const [nx, ny] = N[i], p = q[i]; out.push([p[0] + nx * w[i] * (1 - inset), p[1] + ny * w[i] * (1 - inset)]); inn.push([p[0] - nx * w[i] * inset, p[1] - ny * w[i] * inset]); }
+  poly(P, out); poly(P, inn); return P;
+}
+// ---- the letter (Böcklin's capitals, outlines exported by research tools: fonts/nouveau/bocklin-X.json) -------------------
+const LDIR = new URL('../../fonts/nouveau/', import.meta.url), letters = new Map();
+export const loadLetter = ch => { if (!letters.has(ch)) letters.set(ch, fetch(new URL(`bocklin-${ch}.json`, LDIR)).then(r => r.json()).then(j => ({ ...j, loops: j.c.map(r => { const o = []; for (let i = 0; i < r.length; i += 2) o.push([r[i], r[i + 1]]); return o; }) }))); return letters.get(ch); };
+// the letter at cap height `cap`, its ink's left edge at x and its baseline at y: { loops (page px), path, w (ink width), top, bottom }
+export function placeLetter(J, x, y, cap) {
+  const loops = J.loops.map(L => L.map(([u, v]) => [x + u * cap, y + v * cap])), path = new Path2D(); for (const L of loops) poly(path, L);
+  return { loops, path, w: J.b[2] * cap, top: y + J.b[1] * cap, bottom: y + J.b[3] * cap };
+}

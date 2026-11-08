@@ -80,3 +80,30 @@ reserved name is subset later it must be renamed, or shipped as outlines.
 - **C · Vienne** (the Vienna page): Luxembourg 1910 letter in red-brown within a heavy rule and a rounded hairline
   rule; three stems bundled up the left side and over the top, ending in a spiral, a ring, and a hanging cluster of
   ring-berries. Break: two parallel stems lifting round a seed pod with ring-berries. Filler: ◎◎◎.
+
+## Stage 2: A and B taken further (C dropped)
+
+The user: "they all look very clip art still". What made them clip art: flat RGB inside uniform outlines, symmetric
+generic shapes, characterless curves, nothing printed. What changed:
+
+- **Printed as chromolithographs** (kit/styles/nouveau-print.js). Each ink is its own stone. Shapes are knocked out
+  where a later shape lies over them and trapped a little so slipped colours never open a gap. Each stone is slipped a
+  fraction of a px off register, given the stone's grain at a near-full coat (stronger grain read as scribble), and
+  poured through the ink engine (inkLetter). The key line is printed last and crisp. In A the whips are printed like
+  keys, crisp with no grain; a grainy ragged edge made them look like crayon.
+- **A line with a hand** (nouveau-line.js `contour`). The contour is heavier on the side turned from the light (from the
+  top left), fine into sharp tips, and lifts off where the light falls fullest. Overlaps of the face's own contours are
+  not drawn (`solid`). The whip has pen pressure: heavier on pulls down and to the right, lighter on pushes. Spirals end
+  on a held arc at the eye's radius, so the solid eye is a true circle the line wraps.
+- **Plants drawn round their own axes** (nouveau-flora.js). Each half of an organ has its own width, so no petal is
+  symmetric, and the shaded half is laid as a second, darker stone (as Grasset's plates do).
+  - The iris follows pl. 1: narrow pale standards, frilled falls with a gold signal and veins, a front fall hanging
+    toward us, and a spathe with a fold line.
+  - The poppy is a cup with crumpled rims, a basal blotch, folds and a rayed crown.
+  - Buds show the petals at the seam.
+  - Blades have parallel veins and can twist to show their paler back.
+  - The seed head has fine rays ending in small drops, with bracts at the node.
+- **Relating to the letter.** The letter's right profile is traced at a fixed distance (an echo). In A the whip rises
+  along that echo, so it follows the bowls, and a hairline doubles it for a stretch. In B the stem follows the bowls up
+  to the iris. The letter is Böcklin's own outline (fonts/nouveau/bocklin-X.json, exported by tools/nouveau_glyphs.py),
+  so its contour can take the hand.

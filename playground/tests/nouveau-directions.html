@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nouveau directions</title>
 <!--
-  Nouveau, stage 1 (research/19-nouveau.md): three directions, each with an initial, a filler and a break, at page size in
+  Nouveau, direction studies (research/19-nouveau.md): A and B, each with an initial, a filler and a break, at page size in
   light and dark, then at 4×. Drawn live as vector (tests/nouveau-directions.js on kit/styles/nouveau-line.js).
   ?only=fouet|plante|vienne  ?letters=BLRS  #seed=n
 -->
@@ -13,7 +13,6 @@
   @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
   @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
   @font-face { font-family: NouveauBocklin; src: url(../fonts/nouveau/Bocklin.ttf) format("truetype"); font-display: block; }
-  @font-face { font-family: NouveauLux; src: url(../fonts/nouveau/Luxembourg1910.ttf) format("truetype"); font-display: block; }
   html { background: rgb(236 231 220); }
   body { margin: 0; font: 400 20px/1.6 "EB Garamond", Garamond, serif; color: #2b2119; -webkit-font-smoothing: antialiased; }
   header { max-width: 1320px; margin: 0 auto; padding: 40px 24px 0; }
@@ -37,6 +36,10 @@
   .zoom figure[data-theme=dark] { --paper: rgb(28 25 22); --ink: rgb(222 212 196); }
   .zoom figcaption { font: italic 13px/1.3 "EB Garamond", serif; color: var(--ink); opacity: .7; margin-top: 6px; }
   .zoom canvas { display: block; max-width: 100%; height: auto !important; }
+  .refs { display: flex; gap: 12px; flex-wrap: wrap; width: 100%; }
+  .refs figure { margin: 0; padding: 0; background: none; }
+  .refs img { display: block; height: 300px; width: auto; max-width: 100%; object-fit: contain; }
+  .refs figcaption { color: #2b2119; }
   .zoom figure { max-width: 100%; box-sizing: border-box; }
   .panel { overflow: hidden; }
   @media (max-width: 900px) {
@@ -49,7 +52,7 @@
 </style>
 </head>
 <body>
-<header><h1>Nouveau · three directions</h1><p>Each: an initial, a line-filler and a break at page size, light and dark; then the initial, filler and break enlarged. Seed <span id="seed"></span>.</p></header>
+<header><h1>Nouveau · two directions</h1><p>Each: an initial, a line-filler and a break at page size, light and dark; then the initial, filler and break enlarged. Seed <span id="seed"></span>.</p></header>
 <template id="txt">
   <p><span class="ini">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture.</p>
   <p class="par fill">Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art for which rules or models can be given.</p>
@@ -58,59 +61,61 @@
 </template>
 <main id="out"></main>
 <script type="module">
-import { DIRS, PAL } from './nouveau-directions.js';
+import { DIRS, PAL, ORDER, KEYS } from './nouveau-directions.js';
+import { render } from '../kit/styles/nouveau-print.js';
+import { loadLetter } from '../kit/styles/nouveau-line.js';
 const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
 document.getElementById('seed').textContent = seed;
 const letters = (q.get('letters') ?? 'BLRS').split('');
-await Promise.all([document.fonts.load('40px NouveauBocklin'), document.fonts.load('40px NouveauLux'), document.fonts.load('20px "EB Garamond"')]);
-const dpr = Math.min(2, devicePixelRatio || 1);
+const LET = {}; await Promise.all([...new Set(['B', ...letters])].map(async c => LET[c] = await loadLetter(c)));
+await document.fonts.load('20px "EB Garamond"');
+const dpr = Math.min(2, devicePixelRatio || 1), PAD = 6, t0 = performance.now();
 const NOTES = {
-  fouet: 'The line as the ornament (Verneuil, Auriol and Mucha, Combinaisons ornementales, 1901; Obrist, Peitschenhieb, 1895): a hairline swelling to a club where it ends, spirals and hairpins, two inks, no ground. The letter is Böcklin (1904; George Williams’s digitisation).',
-  plante: 'The plant in a panel (Grasset, La plante et ses applications ornementales, 1896; Mucha, Documents décoratifs, 1902): paint the ground, apply the letter, grow the iris in the gap; flat colour inside a drawn contour, as the plates were printed.',
-  vienne: 'The Vienna page (Ver Sacrum, 1898–1903; Auchentaller’s and König’s Randzeichnungen): the letter squared in a double rule, its rule running on as bundled stems that end in ring-berries; ◎◎◎ closes a paragraph, as in the magazine. The letter is Luxembourg 1910 (Peter Wiegel).',
+  fouet: 'The line (Verneuil, Auriol and Mucha, Combinaisons ornementales, 1901; Obrist, 1895). The whip rises from the letter’s foot following its bowls at a fixed distance, a hairline doubling it for a stretch, lifts over the letter and winds into a spiral with a solid eye; a stem from the same root crosses it into a seed head. Pen pressure: heavier pulled down, lighter pushed up. Printed: each ink a stone, slipped a little off register, through the ink engine.',
+  plante: 'The plant in a panel (Grasset, La plante et ses applications ornementales, 1896). The ground laid, the letter applied in rose with a contour that has a hand (heavier on the shadow side, fine at tips, lifting off in the light); the stem follows the letter’s bowls; blades twist to show their backs; the iris drawn after pl. 1 (narrow standards, frilled falls with their gold signal and veins, a darker stone on the shaded half), a furled bud over the letter’s shoulder. Chromolithographed: a stone an ink, trapped, slipped, the key printed last.',
 };
-function canvasFor(w, h, zoom = 1) {
-  const cv = document.createElement('canvas'); cv.width = Math.ceil(w * zoom * dpr); cv.height = Math.ceil(h * zoom * dpr);
-  cv.style.width = w * zoom + 'px'; cv.style.height = h * zoom + 'px'; const c = cv.getContext('2d'); c.scale(zoom * dpr, zoom * dpr); return [cv, c];
+// a piece printed onto its own canvas, PAD px of margin round it, at zoom
+function printed(key, theme, piece, zoom = 1) {
+  const { P, W, H } = piece, d = dpr * zoom, cv = document.createElement('canvas');
+  cv.width = Math.ceil((W + PAD * 2) * d); cv.height = Math.ceil((H + PAD * 2) * d); cv.style.width = (W + PAD * 2) * zoom + 'px'; cv.style.height = (H + PAD * 2) * zoom + 'px';
+  const M = new DOMMatrix().translate(PAD, PAD); for (const it of P.items) { const p = new Path2D(); p.addPath(it.path, M); it.path = p; if (it.cut && !it.cut.moved) { const c = new Path2D(); c.addPath(it.cut.path, M); it.cut = { ...it.cut, path: c, moved: 1 }; } }
+  render(P, cv.getContext('2d'), { dpr: d, pal: PAL[key][theme], seed, box: [0, 0, W + PAD * 2, H + PAD * 2], order: ORDER[key], keys: KEYS[key], slip: Math.max(.35, H * .004) });
+  return cv;
 }
-const widthOf = (D, ch, H, pal) => { const [, c] = canvasFor(10, 10); return D.initial(c, ch, H, seed, pal); };
 for (const [key, D] of Object.entries(DIRS)) {
   if (q.get('only') && q.get('only') !== key) continue;
   const sec = document.createElement('section'); sec.className = 'dir';
   sec.innerHTML = `<h2>${D.name}</h2><p class="note">${NOTES[key]}</p><div class="pair"></div><div class="zoom"></div>`;
   document.getElementById('out').append(sec);
+  const z = sec.querySelector('.zoom'), fig = (el, cap, theme) => { const f = document.createElement('figure'); if (theme) f.dataset.theme = theme; f.append(el); const fc = document.createElement('figcaption'); fc.textContent = cap; f.append(fc); z.append(f); return f; };
+  { const f = document.createElement('div'); f.className = 'refs'; for (const [src, cap] of D.refs) { const fg = document.createElement('figure'); fg.innerHTML = `<img src="nouveau-refs/${src}" alt=""><figcaption>${cap}</figcaption>`; f.append(fg); } z.append(f); }
   for (const theme of ['light', 'dark']) {
-    const pal = PAL[key][theme], panel = document.createElement('div'); panel.className = 'panel'; panel.dataset.theme = theme;
+    const panel = document.createElement('div'); panel.className = 'panel'; panel.dataset.theme = theme;
     const text = document.createElement('div'); text.className = 'text'; text.append(document.getElementById('txt').content.cloneNode(true)); panel.append(text);
     sec.querySelector('.pair').append(panel);
-    const fs = parseFloat(getComputedStyle(text).fontSize), lh = parseFloat(getComputedStyle(text).lineHeight), n = 4;
-    const capTop = (lh - fs) / 2 + fs * .27, H = (n - 1) * lh + fs * .62;   // from the first line's cap height to the n-th baseline
-    const ini = text.querySelector('.ini'), W = widthOf(D, 'B', H, pal);
-    Object.assign(ini.style, { width: W + fs * .35 + 'px', height: n * lh + 'px', marginTop: '0', lineHeight: '1px', fontSize: '1px' });
-    const tr = text.getBoundingClientRect(), [cv, c] = canvasFor(tr.width + 80, tr.height + 40); cv.className = 'over'; text.append(cv);
-    cv.style.left = '-40px'; c.translate(40, 0);
-    const ir = ini.getBoundingClientRect(); c.save(); c.translate(ir.left - tr.left, ir.top - tr.top + capTop); D.initial(c, 'B', H, seed, pal); c.restore();
-    // the filler: after the last line of p.fill, to the measure
-    const p = text.querySelector('p.fill'), rg = document.createRange(); rg.selectNodeContents(p); const rs = [...rg.getClientRects()], last = rs.at(-1);
+    const fs = parseFloat(getComputedStyle(text).fontSize), lh = parseFloat(getComputedStyle(text).lineHeight), n = +(q.get('lines') ?? 4);
+    const capTop = (lh - fs) / 2 + fs * .27, H = (n - 1) * lh + fs * .62;
+    const ini = D.initial(LET.B, H, seed), ispan = text.querySelector('.ini');
+    Object.assign(ispan.style, { width: ini.W + fs * .4 + 'px', height: n * lh + 'px', lineHeight: '1px', fontSize: '1px' });
+    const place = (cv, x, y) => { cv.style.position = 'absolute'; cv.style.left = x - PAD + 'px'; cv.style.top = y - PAD + 'px'; cv.style.pointerEvents = 'none'; text.append(cv); };
+    const tr = text.getBoundingClientRect(), ir = ispan.getBoundingClientRect();
+    place(printed(key, theme, ini), ir.left - tr.left, ir.top - tr.top + capTop);
+    const p = text.querySelector('p.fill'), rg = document.createRange(); rg.selectNodeContents(p); const last = [...rg.getClientRects()].at(-1);
     const x0 = last.right - tr.left + fs * .3, gw = tr.width - x0;
-    if (gw > fs * 2) { c.save(); c.translate(x0, last.top - tr.top + (last.height - lh) / 2); D.filler(c, gw, lh, seed, pal); c.restore(); }
-    const hr = text.querySelector('hr').getBoundingClientRect(), bw = Math.min(tr.width * .62, 360);
-    c.save(); c.translate((tr.width - bw) / 2, hr.top - tr.top); D.brk(c, bw, hr.height, seed, pal); c.restore();
-    // enlarged
-    const z = sec.querySelector('.zoom'), fig = (cvx, cap) => { const f = document.createElement('figure'); f.dataset.theme = theme; f.append(cvx); const fc = document.createElement('figcaption'); fc.textContent = cap; f.append(fc); z.append(f); };
-    { const ch = theme === 'light' ? 'B' : letters[1] ?? 'L', w = widthOf(D, ch, H, pal), [zc, zx] = canvasFor(w, H, 4); D.initial(zx, ch, H, seed, pal); fig(zc, `${ch}, 4× (${theme})`); }
-    { const w = 200, [zc, zx] = canvasFor(w, lh, 3); D.filler(zx, w, lh, seed, pal); fig(zc, `filler, 3× (${theme})`); }
-    { const [zc, zx] = canvasFor(bw, hr.height, 2); D.brk(zx, bw, hr.height, seed, pal); fig(zc, `break, 2× (${theme})`); }
+    if (gw > fs * 2) { const fl = D.filler(gw, lh, seed); place(printed(key, theme, fl), x0, last.top - tr.top + (last.height - lh) / 2); }
+    const hr = text.querySelector('hr').getBoundingClientRect(), bw = Math.min(tr.width * .62, 360), bk = D.brk(bw, hr.height, seed);
+    place(printed(key, theme, bk), (tr.width - bw) / 2, hr.top - tr.top);
+    fig(printed(key, theme, D.initial(LET[theme === 'light' ? 'B' : letters[2] ?? 'R'], H, seed), 4), `initial, 4× (${theme})`, theme);
+    fig(printed(key, theme, D.filler(150, lh, seed), 4), `filler, 4× (${theme})`, theme);
+    fig(printed(key, theme, D.brk(bw, hr.height, seed), 2), `break, 2× (${theme})`, theme);
   }
-  // the rest of the letters at page size, light then dark
   for (const theme of ['light', 'dark']) {
-    const pal = PAL[key][theme], f = document.createElement('figure'); f.dataset.theme = theme; const H = 3 * 32 + 12.4;
-    const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end';
-    for (const ch of letters) { const w = widthOf(D, ch, H, pal), [cv, c] = canvasFor(w, H); D.initial(c, ch, H, seed, pal); row.append(cv); }
-    f.append(row); const fc = document.createElement('figcaption'); fc.textContent = `${letters.join(' ')}, page size (${theme})`; f.append(fc); sec.querySelector('.zoom').append(f);
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
+    for (const ch of letters) row.append(printed(key, theme, D.initial(LET[ch], 3 * 32 + 12.4, seed + ch.charCodeAt(0))));
+    fig(row, `${letters.join(' ')}, page size (${theme})`, theme);
   }
 }
-document.body.dataset.timing = 'drawn';
+document.body.dataset.timing = `drawn in ${Math.round(performance.now() - t0)} ms`;
 </script>
 </body>
 </html>
