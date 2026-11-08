@@ -1,6 +1,8 @@
 // A rubricated text on this site, and the controls beside it. The state lives in the URL, in the specimen pages' own
 // terms (?draw, ?rich=0..1, ?size=px, #seed=n, and a style's ?set=, ?title=, ?figure=), so a view can be passed on.
 import { rubricate } from '../kit/illum.js';
+import { byKey, CATALOGUE } from './catalogue.js';
+const ALLMODS = [...new Set(CATALOGUE.flatMap(c => (c.own ?? []).filter(o => o[3]?.mod).map(o => o[0])))];
 
 // what each style's specimen page passed to rubricate (playground/tests/<style>.html)
 const FILLER = 'h2, .text > p:not(.sub):not(.pull):not(.bare)';
@@ -27,9 +29,13 @@ export function mount(sheet, { style, form, onSeed, onStart, styleParam = false 
     seed: +(location.hash.match(/seed=(\d+)/)?.[1] ?? 0) || undefined,
     set: q.get('set') ?? undefined, title: q.get('title') ?? undefined, figure: q.get('figure') ?? undefined,
   };
+  // a style's own module settings (catalogue own entries marked mod), kept in the address under their own names
+  const mods = () => (byKey[state.style]?.own ?? []).filter(o => o[3]?.mod);
+  for (const [k] of mods()) state[k] = q.get(k) ?? undefined;
   let r = null;
   const opts = () => { const S = STYLE[state.style];
     return { style: state.style, rich: state.rich, seed: state.seed, draw: state.draw, select: { filler: S.filler },
+      variant: mods().map(([k, , o]) => `${k}=${state[k] ?? o[0][0]}`).join(';'),   // (in the cache's key, so each setting is remembered apart)
       initial: { set: state.set, title: state.title ?? S.title }, frame: { form: state.figure },
       on: (st, t) => { const seed = r?.state.seed; if (seed != null) onSeed?.(seed);
         document.body.dataset.timing = t ? `in view ${t.view} ms, all ${t.all} ms` : st === 'written' ? 'drawn' : st; } }; };
@@ -39,12 +45,16 @@ export function mount(sheet, { style, form, onSeed, onStart, styleParam = false 
     if (S.lineDrop) text.querySelectorAll('.ini.line').forEach(s => { s.classList.replace('line', 'drop'); s.classList.add('was-line'); });
     text.querySelectorAll('.ini.drop').forEach(s => s.classList.contains('was-line') ? s.dataset.lines = S.lineDrop : L ? s.dataset.lines = L : delete s.dataset.lines);
     sheet.style.fontSize = state.size ? state.size + 'px' : ''; };
-  const start = () => { r?.destroy(); prepare(); r = rubricate(text, opts()); window.R = r; onStart?.(state); };
+  let gen = 0;
+  const start = async () => { const g = ++gen, M = mods();
+    if (M.length) { const m = (await import(`../kit/styles/${state.style}.js`)).default; if (g !== gen) return;
+      for (const [k, , o] of M) m[k] = state[k] ?? o[0][0]; }
+    r?.destroy(); prepare(); r = rubricate(text, opts()); window.R = r; onStart?.(state); };
   const url = () => { const u = new URL(location.href), p = u.searchParams;
     state.draw === 'read' ? p.set('draw', '') : p.delete('draw');
     state.rich !== .5 ? p.set('rich', state.rich) : p.delete('rich');
     state.size ? p.set('size', state.size) : p.delete('size');
-    for (const k of ['set', 'title', 'figure']) state[k] != null && state[k] !== '' ? p.set(k, state[k]) : p.delete(k);
+    for (const k of ['set', 'title', 'figure', ...ALLMODS]) state[k] != null && state[k] !== '' ? p.set(k, state[k]) : p.delete(k);
     if (styleParam || (form?.dataset.home && state.style !== form.dataset.home)) p.set('style', state.style); else p.delete('style');
     u.hash = state.seed ? `seed=${state.seed}` : ''; history.replaceState(null, '', u.toString().replace('draw=&', 'draw&').replace(/draw=$/, 'draw')); };
   const update = patch => { Object.assign(state, patch); url();

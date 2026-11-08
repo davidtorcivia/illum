@@ -1,7 +1,7 @@
 // The styles the site shows, in one list. Adding a style is one entry here (and a run of tools/swatches.mjs for its
 // swatch). family: where it sits in the catalogue; line: one line of provenance under its name; credit: the line
 // under the specimen; rich: the highest richness level it has marks for (0 plain .. 4 lavish); own: its own choices,
-// [option, label, [[value, label]...] | default text].
+// [option, label, [[value, label]...] | default text, { mod: true }?].
 export const FAMILIES = [
   ['manuscript', 'Manuscript'], ['print', 'Print'], ['esoteric', 'Esoteric'], ['technical', 'Technical'], ['modern', 'Modern'],
 ];
@@ -18,7 +18,12 @@ export const CATALOGUE = [
     credit: 'After William Lilly’s <i>Christian Astrology</i>, 1647, and the volvelle of the <i>Clavis astrologiae elimata</i>. Wellcome Collection.',
     own: [['set', 'Initial', [['square', 'Square figure'], ['volvelle', 'Volvelle']]], ['figure', 'Figure', [['octagon', 'Octagon'], ['houses', 'Houses']]], ['title', 'Middle square', 'Anno Dom: 1853']] },
   { key: 'kelmscott', name: 'Kelmscott', family: 'print', line: 'William Morris, Kelmscott Press, 1896', rich: 3,
-    credit: 'After William Morris’s Kelmscott Press: the Chaucer, 1896, <i>The Well at the World’s End</i>, 1896, and <i>The Water of the Wondrous Isles</i>, 1897. Internet Archive and The Metropolitan Museum of Art.' },
+    credit: 'After William Morris’s Kelmscott Press: the Chaucer, 1896, <i>The Well at the World’s End</i>, 1896, and <i>The Water of the Wondrous Isles</i>, 1897. Internet Archive and The Metropolitan Museum of Art.',
+    // (mod: a setting on the style's own module rather than a rubricate option)
+    own: [['caps', 'Initials', [['garden', 'Garden'], ['morris', 'Morris’s own']], { mod: true }],
+      ['orn', 'Ornament', [['mix', 'Mixed'], ['plait', 'Plait'], ['vine2', 'Running vine']], { mod: true }],
+      ['vine', 'Quotations', [['ink', 'Garden vine'], ['traced', 'Morris’s vine'], ['plait', 'Plait band'], ['none', 'None']], { mod: true }],
+      ['fill', 'Line fillers', [['vine', 'Vine'], ['none', 'None']], { mod: true }]] },
   { key: 'draft', name: 'Draft', family: 'technical', line: 'Apollo drawings, MIT, 1963–66', rich: 2,
     credit: 'After the Apollo guidance drawings of the MIT Instrumentation Laboratory, 1963–66. National Archives.',
     own: [['set', 'Initial', [['part', 'In section'], ['views', 'Two views'], ['leroy', 'Lettering']]]] },

@@ -31,14 +31,16 @@ function dress(st) {
 }
 const v = mount(document.querySelector('.sheet'), { style: byKey[asked] ? asked : CATALOGUE[0].key, styleParam: true,
   onStart: dress, onSeed: s => { $('seed').textContent = s; } });
-const go = key => key !== v.state.style && v.update({ style: key, set: undefined, title: undefined, figure: undefined });
+const go = key => { if (key === v.state.style) return; const clear = { style: key, set: undefined, title: undefined, figure: undefined };
+  for (const o of byKey[v.state.style].own ?? []) if (o[3]?.mod) clear[o[0]] = undefined;
+  v.update(clear); };
 const step = d => { const i = CATALOGUE.findIndex(s => s.key === v.state.style); go(CATALOGUE[(i + d + CATALOGUE.length) % CATALOGUE.length].key); };
 
 // the viewer and Adjust
 viewer.addEventListener('change', e => { const t = e.target, n = t.name;
   if (n === 'draw') v.update({ draw: t.value });
   else if (n === 'rich') v.update({ rich: +t.value / 4 });
-  else if (n === 'set' || n === 'figure' || n === 'title') v.update({ [n]: t.value });
+  else if (n === 'set' || n === 'figure' || n === 'title' || (byKey[v.state.style].own ?? []).some(o => o[0] === n && o[3]?.mod)) v.update({ [n]: t.value });
   else if (t.id === 'size') v.update({ size: +t.value }); });
 panel.addEventListener('submit', e => e.preventDefault());
 viewer.querySelectorAll('.step').forEach(b => b.addEventListener('click', () => step(+b.dataset.step)));
