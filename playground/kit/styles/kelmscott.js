@@ -16,7 +16,7 @@
 //   print(made, { dpr, kind, u, y, seed, animate }) -> { pours, letters, runs, y0, seq }   timeline(printed, kind, animate)
 import { dist } from '../inkletter.js';
 import { noise2 } from '../marks.js';
-import { loadLetter, garden, drawGarden, bandOf, ornament, band, cornerBlock, vine2, A as GARDEN_A } from './kelmscott-garden.js';
+import { loadLetter, garden, drawGarden, growDraw, bandOf, ornament, band, cornerBlock, vine2, A as GARDEN_A } from './kelmscott-garden.js';
 
 // GLYPHS (tools/kfont.py; research/16 lists every source and box): per glyph its font file, its character, a (width /
 // height), w (the 5th percentile of its white lines' widths, a fraction of its height) and k (the median of its black
@@ -304,9 +304,10 @@ const STEM = { footRose: .37, footGrape: .459 };   // where the stem stood, a fr
 const UB = 11.5, BANDS = ['band', 'sil', 'knot', 'knotsil'];
 const bandKey = (W, h, seed, rot, o) => 'band' + [W.toFixed(1), h.toFixed(1), seed, rot, JSON.stringify(o)].join('|');
 function bandArt(x, y, W, h, U, seed, o = {}, rot = 0) { const b = band(W, h, seed, { U, ...o }), m = 3, [w2, h2] = rot ? [h, W] : [W, h];   // (rot: a side of a frame, turned a quarter)
-  return { art: { draw: c => { c.translate(x, y); if (rot) { c.translate(h, 0); c.rotate(Math.PI / 2); } b.draw(c, 0, 0); } }, key: bandKey(W, h, seed, rot, o), x: x - m, y: y - m, w: w2 + 2 * m, h: h2 + 2 * m, col: o.sil ? 'k' : 'g', seed }; }
+  const tf = c => { c.translate(x, y); if (rot) { c.translate(h, 0); c.rotate(Math.PI / 2); } };
+  return { art: { draw: c => { tf(c); b.draw(c, 0, 0); }, grow: (c, f, m) => { c.save(); tf(c); b.grow(c, 0, 0, f, m); c.restore(); } }, key: bandKey(W, h, seed, rot, o), x: x - m, y: y - m, w: w2 + 2 * m, h: h2 + 2 * m, col: o.sil ? 'k' : 'g', seed }; }
 function blockArt(x, y, s, U, seed, o = {}) { const b = cornerBlock(s, seed, { U, ...o });
-  return { art: { draw: c => b.draw(c, x, y) }, key: 'corner' + [s.toFixed(1), seed, U.toFixed(1), !!o.sil].join('|'), x: x - 2, y: y - 2, w: s + 4, h: s + 4, col: o.sil ? 'k' : 'g', seed }; }
+  return { art: { draw: c => b.draw(c, x, y), grow: (c, f, m) => b.grow(c, x, y, f, m) }, key: 'corner' + [s.toFixed(1), seed, U.toFixed(1), !!o.sil].join('|'), x: x - 2, y: y - 2, w: s + 4, h: s + 4, col: o.sil ? 'k' : 'g', seed }; }
 // a row: bands and squares laid end to end across W, the squares at `at` (0 the left end, .5 the middle, 1 the right end)
 function bandRow(x, y, W, h, U, seed, o = {}, at = []) { const out = [], sq = at.map(f => x + f * (W - h)).sort((a, b) => a - b);
   let x0 = x; [...sq, x + W].forEach((xs, i) => { if (xs - x0 > h * 1.5) out.push(bandArt(x0, y, xs - x0, h, U, seed + i, o)); if (i < sq.length) { out.push(blockArt(xs, y, h, U, seed + 7, o)); x0 = xs + h; } });
@@ -317,7 +318,8 @@ function bandRow(x, y, W, h, U, seed, o = {}, at = []) { const out = [], sq = at
 let ORN = 'mix';   // (?orn=mix: the vine2 breaks, pull quote and fillers with the plait's frames and quotation band)
 const v2 = piece => ORN === 'vine2' || ORN === 'mix' && piece !== 'frame';
 const v2Art = (kind, x, y, W, h, seed, o = {}, rot = 0, fy = false) => { const v = vine2(kind, W, h, seed, o), my = kind === 'break' ? h * 1.1 : 3, mx = 3, [w2, h2] = rot ? [h, W] : [W, h];
-  return { art: { draw: c => { c.translate(x, y); if (rot) { c.translate(w2 / 2, h2 / 2); c.rotate(rot * Math.PI / 2); c.translate(-(rot % 2 ? h2 : w2) / 2, -(rot % 2 ? w2 : h2) / 2); } if (fy) { c.translate(0, h); c.scale(1, -1); } v.draw(c, 0, 0); } },
+  const tf = c => { c.translate(x, y); if (rot) { c.translate(w2 / 2, h2 / 2); c.rotate(rot * Math.PI / 2); c.translate(-(rot % 2 ? h2 : w2) / 2, -(rot % 2 ? w2 : h2) / 2); } if (fy) { c.translate(0, h); c.scale(1, -1); } };
+  return { art: { draw: c => { tf(c); v.draw(c, 0, 0); }, grow: (c, f, m) => { c.save(); tf(c); v.grow(c, 0, 0, f, m); c.restore(); } },
     key: 'v2' + [kind, W.toFixed(1), h.toFixed(1), seed, rot, fy, JSON.stringify(o)].join('|'), x: x - (rot ? my : mx), y: y - (rot ? mx : my), w: w2 + 2 * (rot ? my : mx), h: h2 + 2 * (rot ? mx : my), col: kind === 'filler' ? 'k' : 'g', seed }; };
 const v2Frame = ([X0, Y0, X1, Y1], t, seed) => { const W = X1 - X0 + 2 * t, H = Y1 - Y0 + 2 * t, x = X0 - t, y = Y0 - t, out = [];
   [[x, y, 0], [x + W - t, y, 1], [x + W - t, y + H - t, 2], [x, y + H - t, 3]].forEach(([cx, cy, k]) => out.push(v2Art('corner', cx, cy, t, t, seed + 3 + (k % 2), { tulip: k % 2 }, k)));
@@ -448,12 +450,16 @@ function print(made, { dpr = 1, animate = false, kind } = {}) {
   const res = dpr >= 1.5 ? 2 : 1, pours = [], letters = [], seq = [], dark = isDark() && DARK_CUT === 'positive';
   const pour = (p, d) => { pours.push(p); seq.push({ pour: p, d }); }, letter = (L, d) => { letters.push(L); seq.push({ letter: L, d }); };
   const pace = b => kind === 'drop' ? 4.2 : Math.min(1.6, .4 + (b.w + b.h) / 400);
-  for (const b of made.letters ?? []) { const L = raster(b, res), isBand = b.art && b.col === 'g', gd = GLYPHS[b.g]?.garden || isBand, ink = { ...L, col: gd && b.col === 'k' ? 'g' : b.col, wet: gd ? .08 : .04, dry: gd ? .26 : .18 };   // (g: a garden block's ink; in the dark a light block, a shade below the text's pale ink so it does not glare)
+  for (const b of made.letters ?? []) { const G = GLYPHS[b.g], grow = b.art?.grow ?? (G?.garden ? (c, f, m) => growDraw(c, garden(G.c, b.seed ?? 1, bandOf(b.h * res)), b.x, b.y, b.h, f, m, 'letter') : null), L = raster(b, res), isBand = b.art && b.col === 'g', gd = GLYPHS[b.g]?.garden || isBand, ink = { ...L, col: gd && b.col === 'k' ? 'g' : b.col, wet: gd ? .08 : .04, dry: gd ? .26 : .18 };   // (g: a garden block's ink; in the dark a light block, a shade below the text's pale ink so it does not glare)
     // (a garden block (q) is printed whole in the dark too: a light block on the dark page, its letter and vine the page showing through)
     if (BLOCK(b.g) && dark && 'vnw'.includes(b.g[0])) { const { W } = whiteOf(b, L), cut = { ...L, M: W, col: b.col, wet: ink.wet, dry: ink.dry }; animate ? letter(cut, pace(b)) : pour(cut, 0); }
     // (a printed block, an initial or a band, is not written with a pen: it is printed. Its impression comes up as the
     // platen rolls across it, along its length (a band) or corner to corner (a square), the ink taking the paper's grain
     // first and then filling solid, the garden's white left standing as cut: only its own ink is ever laid)
+    // (a garden block or band grows: its black and its letter laid at once, then the white garden grows through the black
+    // in the order it grew; an ink piece's vine grows out along the paper the same way. kelmscott-garden.js growDraw)
+    else if ((G?.garden || isBand) && animate && grow) pour({ ...ink, grow: { fn: grow, mode: 'cover', face: silhouette(L) } }, kind === 'drop' ? 1.7 : Math.min(1.5, .75 + (b.w + b.h) / 1100));
+    else if (b.art?.grow && b.col === 'k' && animate) pour({ ...ink, grow: { fn: grow, mode: 'reveal' } }, Math.min(1.4, .6 + (b.w + b.h) / 700));
     else if ((BLOCK(b.g) || isBand) && animate) pour({ ...ink, press: { ang: b.h > b.w * 1.6 ? Math.PI / 2 - .08 : b.w > b.h * 1.6 ? .06 : .7 } }, kind === 'drop' ? 1.1 : Math.min(1, .55 + (b.w + b.h) / 1400));
     else if ((LINEART.has(b.g) || b.art && b.col === 'k') && animate) letter(ink, Math.min(1.8, .5 + (b.w + b.h) / 500));
     else pour(ink, animate ? .15 : 0); }

@@ -202,13 +202,31 @@ function boxBlur(A, w, h, r) {
 // solid black, col 'k', over it) as a stencil brush sweeps across its longer side, a dab at a time, each cell once.
 // (Moved from tests/tarot.html unchanged.) .at(f) f 0..1, .done()
 export function sweepIn(bake, p, rgb, { dpr = 2 } = {}) {
-  let sc = null, T = null, order = null, at = 0, tmp = null, X0 = 0, Y0 = 0, TT = null, CL = null, ov = null, fin = false;
+  let sc = null, T = null, order = null, at = 0, tmp = null, X0 = 0, Y0 = 0, TT = null, CL = null, ov = null, fin = false, gk = null, solid = null, faceOf = null;
   const open = () => { const pad = 8; X0 = Math.floor((p.x0 - pad) * dpr); Y0 = Math.floor((p.y0 - pad) * dpr); const w = Math.ceil((p.w / p.res + 2 * pad) * dpr), h = Math.ceil((p.h / p.res + 2 * pad) * dpr);
     const cv = new OffscreenCanvas(w, h), g = cv.getContext('2d', { willReadFrequently: true });
     const proxy = { save() {}, restore() {}, setTransform() {}, set globalCompositeOperation(v) {},
       drawImage(c, ...a) { if (a.length === 8) g.drawImage(c, a[0], a[1], a[2], a[3], a[4] - X0, a[5] - Y0, a[6], a[7]); else g.drawImage(c, a[0] * dpr - X0, a[1] * dpr - Y0, a[2] * dpr, a[3] * dpr); } };
     inkLetter(proxy, p, rgb, { dpr });
     sc = g.getImageData(0, 0, w, h); tmp = new OffscreenCanvas(w, h);
+    // (p.grow: the piece printed whole beneath, and its garden grown over it frame by frame: p.grow.fn(ctx, f, mode) draws in
+    // page px what has not grown ('cover', in the ink, over a block) or what has ('reveal', the mask an ink piece is seen through))
+    if (p.grow) { T = { w, h }; tmp.getContext('2d').putImageData(sc, 0, 0); gk = new OffscreenCanvas(w, h); const el = bake.canvas;
+      // (what is not yet grown is covered with the block's own ink: the face, its holes filled, printed the same way, so the
+      // cover has the impression's grain and is not a flat patch on it)
+      // (the holes filled with the ink round them: a normalized blur of the print, so the cover carries the print's own tone
+      // and pooling and does not show as a patch; held to the block's face, so it never reaches past the block)
+      if (p.grow.face) faceOf = () => { if (solid || fin) return; const n = w * h, d = sc.data, A = new Float32Array(n), C = [0, 1, 2].map(() => new Float32Array(n));
+        for (let q = 0; q < n; q++) { const a = d[q * 4 + 3] / 255; A[q] = a; for (let k = 0; k < 3; k++) C[k][q] = d[q * 4 + k] * a; }
+        const r = Math.max(2, Math.round(3 * dpr)), Ab = boxBlur(boxBlur(A, w, h, r), w, h, r), Cb = C.map(c => boxBlur(boxBlur(c, w, h, r), w, h, r)), F = p.grow.face, fw = p.w, fr = p.res;
+        const im = new ImageData(w, h);
+        for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, a = Ab[q]; if (a < 1e-3) continue;
+          const fx = Math.floor(((i + X0) / dpr - p.x0) * fr), fy = Math.floor(((j + Y0) / dpr - p.y0) * fr), fv = fx >= 0 && fy >= 0 && fx < fw && fy < p.h ? F[fy * fw + fx] : 0; if (fv <= 0) continue;
+          for (let k = 0; k < 3; k++) im.data[q * 4 + k] = Cb[k][q] / a; im.data[q * 4 + 3] = Math.round(255 * Math.min(1, fv)); }
+        solid = new OffscreenCanvas(w, h); solid.getContext('2d').putImageData(im, 0, 0); };   // (made in an idle moment of its own)
+      if (el?.parentNode) { ov = document.createElement('canvas'); ov.width = w; ov.height = h; ov.setAttribute('aria-hidden', 'true');
+        Object.assign(ov.style, { position: 'absolute', left: el.offsetLeft + X0 / dpr + 'px', top: el.offsetTop + Y0 / dpr + 'px', width: w / dpr + 'px', height: h / dpr + 'px', pointerEvents: 'none' }); el.after(ov); }
+      return; }
     // the brush's way: across the stencil's longer side, in dabs (a cell's time: how far along, and a dab's jitter)
     // (p.press: a printed block's impression, not a stencil brush: the ink comes up as the platen rolls across it, along
     // p.press.ang, grain first, a fine paper-scale mottle deciding which cells take the ink a moment early or late)
@@ -230,6 +248,17 @@ export function sweepIn(bake, p, rgb, { dpr = 2 } = {}) {
   const pressDone = () => { if (fin) return; if (!sc) open(); fin = true; tmp.getContext('2d').putImageData(sc, 0, 0);
     bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = 'source-over'; bake.drawImage(tmp, X0, Y0); bake.restore(); ov?.remove(); ov = null; };
   if (p.press) return { at: press, done: pressDone };
+  // the growth: the block (and its letter) laid in a moment (APP of the run), then the garden over the rest
+  const APP = .09, grown = f => { if (fin) return; if (!sc) open(); if (!ov) return; const o = ov.getContext('2d'), k = gk.getContext('2d'), { w, h } = T, cover = p.grow.mode === 'cover';
+    o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, w, h); k.setTransform(1, 0, 0, 1, 0, 0); k.globalCompositeOperation = 'source-over'; k.clearRect(0, 0, w, h);
+    const g = cover ? Math.max(0, (f - APP) / (1 - APP)) : Math.min(1, f);
+    k.setTransform(dpr, 0, 0, dpr, -X0, -Y0); p.grow.fn(k, g, p.grow.mode); k.setTransform(1, 0, 0, 1, 0, 0);
+    // (the block comes in with a crisp edge, laid from its head down in a moment, as a sheet meets the forme: no fade)
+    if (cover) { const a = Math.min(1, f / APP), e = 1 - (1 - a) ** 2; o.save(); o.beginPath(); o.rect(0, 0, w, Math.ceil(h * e)); o.clip(); o.drawImage(tmp, 0, 0);
+      k.globalCompositeOperation = 'source-in'; if (solid) k.drawImage(solid, 0, 0); else { k.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`; k.fillRect(0, 0, w, h); } o.drawImage(gk, 0, 0); o.restore(); }
+    else { o.drawImage(tmp, 0, 0); o.globalCompositeOperation = 'destination-in'; o.drawImage(gk, 0, 0); o.globalCompositeOperation = 'source-over'; } };
+  if (p.grow) { try { const idle = globalThis.requestIdleCallback ?? (f => setTimeout(f, 1)); idle(() => { if (!sc && !fin) open(); idle(() => faceOf?.()); }); } catch {}   // (its printing made ahead, in idle time, not in its first frame)
+    return { at: grown, done: pressDone }; }
   const self = { at(f) { if (!sc) open(); const upto = Math.min(order.length, Math.ceil(Math.min(1, f) * order.length)); if (upto <= at) return;
       const { w, h } = T, im = new ImageData(w, h);
       for (let x = at; x < upto; x++) { const q = order[x] * 4; im.data[q] = sc.data[q]; im.data[q + 1] = sc.data[q + 1]; im.data[q + 2] = sc.data[q + 2]; im.data[q + 3] = sc.data[q + 3]; }

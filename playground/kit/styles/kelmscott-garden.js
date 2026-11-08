@@ -770,7 +770,8 @@ export function band(w, h, seed = 1, o = {}) {
     heroes.push(kind === 'tulip' ? { p: [P2[0] + Math.cos(ea) * len * .5, P2[1] + Math.sin(ea) * len * .5], kind, rad: len * .5, b: P2, a: ea, len, fixed: 1 } : { p: [P2[0] + Math.cos(ea) * rad * .8, P2[1] + Math.sin(ea) * rad * .8], kind, rad, a: ea, fixed: 1 }); }
   const key = 'rinceau' + seed + ':' + aw.toFixed(3) + 'x' + hb.toFixed(3) + [o.per, o.amp, o.sw, o.odd, o.rmax, o.skip].join(','), grow = { edge: false, fills: o.fills ?? 20, leaf: o.leaf ?? 3, wind: 'nonzero' }, gk = key + '/' + grow.fills + '/' + grow.leaf;
   const geo = gardenField(gk, L, aw, hb, seed, bandOf(U * (o.res ?? 2)), o.stout ?? .3, heroes, grow);
-  return { w, h, geo, draw(c, x = 0, y = 0) { if (!geo) return; const T = c.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(c, geo, x, y, U, res, !!o.sil); } };
+  return { w, h, geo, draw(c, x = 0, y = 0) { if (!geo) return; const T = c.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(c, geo, x, y, U, res, !!o.sil); },
+    grow(c, x, y, f, mode) { growDraw(c, geo, x, y, U, f, mode, { x: 0 }); } };
 }
 
 // ?break=knot: two stems plaited the length of the band, over and under in turn at every crossing (the stem beneath broken
@@ -781,15 +782,15 @@ function knotBand(w, h, seed, o) {
   const U = o.U ?? 105, hb = h / U, aw = w / U, c0 = hb / 2, amp = hb * (o.amp ?? .25), sw = o.sw ?? .017, e0 = MARG + CHL + .03, ends = o.ends ?? true, x0 = ends ? e0 + amp * .9 : o.sil ? -sw * .5 : MARG * .5, x1 = ends ? aw - e0 - amp * .9 : o.sil ? aw + sw * .5 : aw - MARG * .5;   // (in ink, a frame's side runs right into its corner)
   const r = stream(seed, 'knot'), nEye = Math.max(2, Math.round((x1 - x0) / (hb * (o.per ?? 1.3)))), per = (x1 - x0) / nEye * 2, n = Math.ceil((x1 - x0) / .005);
   const th = x => Math.PI * (x - x0) / (per / 2), yA = (x, s) => c0 + s * amp * Math.sin(th(x)), wA = x => sw * (.78 + .34 * Math.abs(Math.sin(th(x)))), cut = sw + CHL * .55;
-  const L = [];
+  const L = [], strands = [];
   for (const s of [1, -1]) { let run = [];
-    const flush = () => { if (run.length > 2) { const [P, W2] = hand(run, run.map(p => wA(p[0])), s + 5 + seed); L.push(ribbon(P, W2)); } run = []; };
+    const flush = () => { if (run.length > 2) { const [P, W2] = hand(run, run.map(p => wA(p[0])), s + 5 + seed); L.push(ribbon(P, W2)); strands.push({ pts: P, w: W2 }); } run = []; };
     for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n, k = Math.round((x - x0) / (per / 2));
       // (at crossing k the stem s goes under when k + s is even; the ends, where the two meet, are never cut)
       if (k > 0 && k < nEye && Math.abs((x - x0) - k * per / 2) < cut * 1.5 && (k + (s > 0 ? 0 : 1)) % 2 === 0) { flush(); continue; }
       run.push([x, yA(x, s)]); }
     flush(); }
-  if (ends) for (const [xe, dir] of [[x0, -1], [x1, 1]]) { const t = tendril([xe, c0], dir > 0 ? 0 : Math.PI, amp * 2.4, 0, (dir > 0 ? -1 : 1) * 3 / amp, 1.6, .002); L.push(ribbon(t, t.map((_, i) => sw * .85 * (1 - .5 * i / t.length)))); }
+  if (ends) for (const [xe, dir] of [[x0, -1], [x1, 1]]) { const t = tendril([xe, c0], dir > 0 ? 0 : Math.PI, amp * 2.4, 0, (dir > 0 ? -1 : 1) * 3 / amp, 1.6, .002), tw = t.map((_, i) => sw * .85 * (1 - .5 * i / t.length)); L.push(ribbon(t, tw)); strands.push({ pts: t, w: tw }); }
   // the pockets: a leaf, or a spray of three, from each crossing toward the band's edge (up and down by turns)
   LW = BANDS[bandOf(U * (o.res ?? 2))].LW; const lv = [], room = hb / 2 - MARG - CHL * .6;
   for (let k = 1; k < nEye; k++) for (const s of [-1, 1]) { const xc = x0 + k * per / 2, base = [xc, c0 + s * (sw * 1.4)], up = s * Math.PI / 2, three = !o.single && (k + (s > 0 ? 1 : 0) + (o.odd ? 1 : 0)) % 2 === 0;
@@ -807,9 +808,10 @@ function knotBand(w, h, seed, o) {
     const lb = lv.map(l => { const c = l.outline.reduce((a, q) => [a[0] + q[0] / l.outline.length, a[1] + q[1] / l.outline.length], [0, 0]); return [c[0], c[1], Math.max(...l.outline.map(q => Math.hypot(q[0] - c[0], q[1] - c[1]))), l]; });
     // (no dots strewn in the black: the eyes' flowers and the pockets' leaves are all it holds)
     const sq = edgeOf(aw, hb, seed);
-    geo = { letter: L, wind: 'nonzero', square: sq, stems: [], curls: [], leaves: lv, flowers, dots, heroes: [], stats: { kinds: { eyes: nEye, leaves: lv.length, dots: dots.length } } };
+    geo = { letter: L, wind: 'nonzero', square: sq, grow: strands, stems: [], curls: [], leaves: lv, flowers, dots, heroes: [], stats: { kinds: { eyes: nEye, leaves: lv.length, dots: dots.length } } };
     gcache.set(key, geo); if (gcache.size > 64) gcache.delete(gcache.keys().next().value); }
-  return { w, h, geo, draw(c, x = 0, y = 0) { if (!geo) return; const T = c.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(c, geo, x, y, U, res, !!o.sil); } };
+  return { w, h, geo, draw(c, x = 0, y = 0) { if (!geo) return; const T = c.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(c, geo, x, y, U, res, !!o.sil); },
+    grow(c, x, y, f, mode) { growDraw(c, geo, x, y, U, f, mode, { x: 0 }); } };
 }
 
 // a block's edge, a rectangle aw x hb whose cut wanders a hair (as grow1's square)
@@ -826,7 +828,8 @@ export function cornerBlock(s, seed = 1, o = {}) {
     const sh = leafShape(r, (r() - .5) * .15), ol = lay(sh.outline, b, ang, len); L.push(ol); lv.push({ outline: ol, rib: lay(sh.axis.slice(2, 15), b, ang, len), W: sh.W * len }); }
   const key = 'corner' + seed + ':' + a.toFixed(3); let geo = gcache.get(key);
   if (!geo) { geo = { letter: L, wind: 'nonzero', square: edgeOf(a, a, seed), stems: [], curls: [], leaves: lv, flowers: [{ ...rosette(r), c, rad, a: r() * 6 }], dots: [], heroes: [] }; gcache.set(key, geo); }
-  return { w: s, h: s, geo, draw(cx, x = 0, y = 0) { if (!geo) return; const T = cx.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(cx, geo, x, y, U, res, !!o.sil); } };
+  return { w: s, h: s, geo, draw(cx, x = 0, y = 0) { if (!geo) return; const T = cx.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(cx, geo, x, y, U, res, !!o.sil); },
+    grow(cx, x, y, f, mode) { growDraw(cx, geo, x, y, U, f, mode, { x: a / 2, y: a / 2 }); } };
 }
 
 // ---- ?orn=vine2: the garden's running vine ------------------------------------------------------------------------------------
@@ -858,7 +861,7 @@ function v2kit(r) {
     grapes(p, a, gr) { const ca = Math.cos(a), sa = Math.sin(a);
       for (const [row, n] of [[0, 3], [1, 3], [2, 2], [3, 2], [4, 1]]) for (let j = 0; j < n; j++) { const x = row * gr * 1.75 + gr, y = (j - (n - 1) / 2) * gr * 2.1 + (row % 2 ? gr * .25 : 0); g.dots.push({ p: [p[0] + x * ca - y * sa, p[1] + x * sa + y * ca], rad: gr * (.95 + r() * .1) }); }
       occ.push([p[0] + ca * gr * 4, p[1] + sa * gr * 4, gr * 4.5]); },
-    fillet(pts, w) { g.stems.push({ pts, w: pts.map(() => w) }); },
+    fillet(pts, w) { g.stems.push({ pts, w: pts.map(() => w), still: 1 }); },
     dots(x0, y0, x1, y1, inside, sp, rr) { for (const p of poisson(x1 - x0, y1 - y0, sp, r, q => { const p = [q[0] + x0, q[1] + y0]; return inside(p) && K.free(p, sp * .45); }, 10)) if (r() < .8) g.dots.push({ p: [p[0] + x0, p[1] + y0], rad: rr * (.85 + r() * .3) }); },
   };
   return K;
@@ -943,5 +946,78 @@ export function vine2(kind, w, h, seed = 1, o = {}) {
       K.curl(P.at(-1), v2tang(P, P.length - 1), 1.25, -1, .045, 1.5); K.leaf(P[0], Math.PI + .5, .5, .2); }
     rec = { geo: g, U, aw, hb }; gcache.set(key, rec); if (gcache.size > 64) gcache.delete(gcache.keys().next().value); }
   const { geo, U } = rec;
-  return { w, h, geo, draw(c, x = 0, y = 0) { const T = c.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(c, geo, x, y, U, res, kind === 'filler' || !!o.sil); } };
+  return { w, h, geo, draw(c, x = 0, y = 0) { const T = c.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(c, geo, x, y, U, res, kind === 'filler' || !!o.sil); },
+    grow(c, x, y, f, mode) { growDraw(c, geo, x, y, U, f, mode, kind === 'break' || kind === 'corner' ? { x: rec.aw / 2, y: kind === 'corner' ? rec.aw / 2 : undefined } : { x: 0 }); } };
+}
+
+// ---- growth (?draw): the garden grows through the printed black --------------------------------------------------------------
+// A piece's white things in the order they grew: every stroke (a stem, a curl, a stalk, a plait's strand) runs along its
+// length behind a rounded tip, starting when the stroke it springs from reaches it (else, from the piece's origin: the
+// letter for an initial, the middle of a cartouche or a corner, one end of a band or a filler, as a wave); leaves, berries
+// and flowers open from where they are attached (scaled from their foot, turning a little, overshooting and settling, as
+// the ivy border's do) when their stem arrives. Times in 0..1 over the piece.
+//   growDraw(c, geo, x, y, U, f, mode, origin): on c (page px), the piece at x, y, U px a unit, at time f; mode 'cover'
+//   draws, in black, what has not grown yet (laid over the printed block, so the white appears as it grows); 'reveal'
+//   draws what has (the printed ink-on-paper piece is masked by it). Shapes are drawn a device px wider than they are, so
+//   the printed edges are covered or shown whole. origin: 'letter' | { x, y? } (block units).
+const GG = .02, gkey = (x, y) => Math.floor(x / GG) * 100003 + Math.floor(y / GG);
+const gEase = g => { const c = 1.6; return 1 + (c + 1) * (g - 1) ** 3 + c * (g - 1) ** 2; };
+function growPlan(geo, origin) {
+  const ok = JSON.stringify(origin); if (geo.plan?.ok === ok) return geo.plan.E;
+  const E = [], hash = new Map(), oDist = p => origin === 'letter' ? 0 : origin.y == null ? Math.abs(p[0] - origin.x) : Math.hypot(p[0] - origin.x, p[1] - origin.y);
+  const addPt = (x, y, t) => { const k = gkey(x, y); (hash.get(k) ?? hash.set(k, []).get(k)).push([x, y, t]); };
+  const near = (p, R) => { let best = null, bd = R; const i0 = Math.floor(p[0] / GG), j0 = Math.floor(p[1] / GG), n = Math.ceil(R / GG);
+    for (let i = i0 - n; i <= i0 + n; i++) for (let j = j0 - n; j <= j0 + n; j++) for (const q of hash.get(i * 100003 + j) ?? []) { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = q; } }
+    return best; };
+  const strokes = [...(geo.grow ?? []), ...geo.stems.filter(s => !s.still), ...geo.curls];
+  for (const s of strokes) { if (!s.pts || s.pts.length < 2) continue;
+    let P = s.pts, W = s.w, rev = false, q = near(P[0], .025 + (W[0] ?? 0) * 2);
+    if (!q && origin !== 'letter') { const qe = near(P.at(-1), .025 + (W.at(-1) ?? 0) * 2); if (qe) { q = qe; rev = true; } }
+    let t0 = q ? q[2] : null;
+    if (t0 == null) { const d0 = oDist(P[0]), d1 = oDist(P.at(-1)); if (origin !== 'letter' && d1 < d0) rev = true; t0 = Math.min(d0, d1); }
+    if (rev) { P = [...P].reverse(); W = [...W].reverse(); }
+    const S = [0]; for (let i = 1; i < P.length; i++) S.push(S[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    const L = S.at(-1) || 1e-6; E.push({ k: 'stroke', P, W, S, L, ball: s.ball, tipBall: rev ? 0 : s.ball, t0, t1: t0 + L });
+    for (let i = 0; i < P.length; i += 2) addPt(P[i][0], P[i][1], t0 + S[i]); }
+  // the things that open: a leaf (its outline once, however many veins it has), a flower, a berry
+  const opened = (anchor, shape, size, extra = 0) => { const q = near(anchor, .2); const t0 = (q ? q[2] : oDist(anchor)) + extra; return { t0, t1: t0 + size * 2.4 + .02 }; };
+  const seen = new Set();
+  for (const l of geo.leaves) { if (seen.has(l.outline)) continue; seen.add(l.outline);
+    const O = l.outline, c = O.reduce((a, p) => [a[0] + p[0] / O.length, a[1] + p[1] / O.length], [0, 0]), q = near(c, .2);
+    const anchor = q ? O.reduce((a, p) => Math.hypot(p[0] - q[0], p[1] - q[1]) < Math.hypot(a[0] - q[0], a[1] - q[1]) ? p : a, O[0]) : O[0];
+    const size = Math.max(...O.map(p => Math.hypot(p[0] - anchor[0], p[1] - anchor[1])));
+    E.push({ k: 'shape', ring: O, anchor, turn: (O.length % 2 ? 1 : -1) * .35, ...opened(anchor, O, size, .01) }); }
+  for (const f of geo.flowers) { if (f.petals) { const R = f.rad; E.push({ k: 'disc', c: f.c, r: R * 1.04, rings: f.petals.map(p => p.map(q => [f.c[0] + q[0] * R, f.c[1] + q[1] * R])), anchor: f.c, turn: .5, ...opened(f.c, null, R * 1.6, .03) }); }
+    else { const a = f.outline[0], size = Math.max(...f.outline.map(p => Math.hypot(p[0] - a[0], p[1] - a[1]))); E.push({ k: 'shape', ring: f.outline, anchor: a, turn: .25, ...opened(a, null, size, .03) }); } }
+  for (const d of geo.dots) E.push({ k: 'disc', c: d.p, r: d.rad, anchor: d.p, turn: 0, ...opened(d.p, null, d.rad * 3, .02) });
+  const T = Math.max(1e-6, ...E.map(e => e.t1)); for (const e of E) { e.t0 /= T; e.t1 /= T; }
+  geo.plan = { ok, E }; return E;
+}
+const prefix = (e, s) => { const { P, W, S } = e; let i = 1; while (i < S.length - 1 && S[i] < s) i++; const u = (s - S[i - 1]) / ((S[i] - S[i - 1]) || 1);
+  const pts = P.slice(0, i), ws = W.slice(0, i); pts.push([P[i - 1][0] + (P[i][0] - P[i - 1][0]) * u, P[i - 1][1] + (P[i][1] - P[i - 1][1]) * u]); ws.push(W[i - 1] + (W[i] - W[i - 1]) * u); return [pts, ws]; };
+export function growDraw(c, geo, x, y, U, f, mode, origin = 'letter') {
+  if (!geo) return; const T = c.getTransform(), res = Math.hypot(T.a, T.b) || 1, px = 1 / (U * res), dil = px * (mode === "cover" ? 3.5 : 1.2), E = growPlan(geo, origin);
+  c.save(); c.translate(x, y); c.scale(U, U); c.fillStyle = c.strokeStyle = '#000'; c.lineJoin = 'round'; c.lineWidth = dil * 2;
+  const paint = (P, op) => { c.globalCompositeOperation = op; c.fill(P); c.stroke(P); };
+  const full = e => { const P = new Path2D();
+    if (e.k === 'stroke') strokeOutline(P, e.P, e.W, .6 * px, true);
+    else if (e.k === 'shape') ringPath(P, e.ring); else P.arc(e.c[0], e.c[1], e.r, 0, 6.2832);
+    if (e.k === 'stroke' && e.ball) { const q = e.tipBall ? e.P.at(-1) : e.P[0]; P.moveTo(q[0] + e.ball * 1.3, q[1]); P.arc(q[0], q[1], Math.max(e.ball, px) * 1.3, 0, 6.2832); }
+    return P; };
+  const part = (e, g) => { const P = new Path2D();
+    if (e.k === 'stroke') { const s = (1 - (1 - g) ** 1.5) * e.L; if (s < 1e-5) return null; const [pts, ws] = prefix(e, s); strokeOutline(P, pts, ws, .6 * px, true);
+      if (e.ball && e.tipBall && g > .97) { const q = e.P.at(-1); P.moveTo(q[0] + e.ball * 1.3, q[1]); P.arc(q[0], q[1], Math.max(e.ball, px) * 1.3, 0, 6.2832); }
+      if (e.ball && !e.tipBall) { const q = e.P[0]; P.moveTo(q[0] + e.ball * 1.3, q[1]); P.arc(q[0], q[1], Math.max(e.ball, px) * 1.3, 0, 6.2832); }
+      return P; }
+    const k = Math.max(.02, gEase(g)), rt = e.turn * (1 - Math.min(1, k)) ** 2, [ax, ay] = e.anchor, co = Math.cos(rt) * k, si = Math.sin(rt) * k;
+    const tf = ([px0, py0]) => { const dx = px0 - ax, dy = py0 - ay; return [ax + dx * co - dy * si, ay + dx * si + dy * co]; };
+    if (e.k === 'shape') ringPath(P, e.ring.map(tf)); else if (e.rings) e.rings.forEach(r => ringPath(P, r.map(tf))); else P.arc(e.c[0], e.c[1], e.r * k, 0, 6.2832);
+    if (e.rings) P.arc(e.c[0], e.c[1], e.r * .3 * k, 0, 6.2832);
+    return P; };
+  for (const e of E) { const g = Math.max(0, Math.min(1, (f - e.t0) / Math.max(1e-6, e.t1 - e.t0)));
+    if (mode === 'cover') { if (g >= 1) continue; paint(full(e), 'source-over'); if (g > 0) { const P = part(e, g); if (P) paint(P, 'destination-out'); } }
+    else { if (g <= 0) continue; const P = g >= 1 ? full(e) : part(e, g); if (P) paint(P, 'source-over'); } }
+  // (an initial's letter is never covered: the cover's margin stops at its edge)
+  if (mode === 'cover' && origin === 'letter' && geo.letter?.length) { const Lp = new Path2D(); geo.letter.forEach(q => ringPath(Lp, q)); c.globalCompositeOperation = 'destination-out'; c.fill(Lp, geo.wind ?? 'evenodd'); }
+  c.restore();
 }
