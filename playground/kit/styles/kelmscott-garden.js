@@ -500,6 +500,8 @@ export function drawGarden(c, geo, x, y, h, res = 1, sil = false) {   // (sil: t
   // (each shape filled on its own: two outlines that overlap with opposite windings would cancel in one nonzero path)
   const minHW = .6 * px, fill = f => { const P = new Path2D(); f(P); c.fill(P); };
   geo.stems.forEach(s => fill(P => strokeOutline(P, s.pts, s.w, minHW, false)));
+  // (a hollow stem: the paper left inside its outline, cut before its leaves and stalks are laid over the joins)
+  if (geo.hollow) { const op = c.globalCompositeOperation; c.globalCompositeOperation = sil ? 'destination-out' : 'source-over'; geo.hollow.forEach(s => fill(P => strokeOutline(P, s.pts, s.w, minHW * .5, false))); c.globalCompositeOperation = op; }
   geo.curls.forEach(s => { fill(P => strokeOutline(P, s.pts, s.w, minHW * .9, true)); if (s.ball) fill(P => { const e = s.pts.at(-1); P.arc(e[0], e[1], Math.max(s.ball, minHW * 1.6), 0, 6.2832); }); });
   geo.leaves.forEach(l => fill(P => ringPath(P, l.outline)));
   for (const f of geo.flowers) { if (f.petals) { f.petals.forEach(p => fill(P => ringPath(P, p.map(q => [f.c[0] + q[0] * f.rad, f.c[1] + q[1] * f.rad])))); fill(P => ringPath(P, f.eye.map(q => [f.c[0] + q[0] * f.rad, f.c[1] + q[1] * f.rad]))); }
@@ -935,6 +937,31 @@ export function vine2(kind, w, h, seed = 1, o = {}) {
       if (o.tulip) { K.tulip([c[0] + rr * .62, c[1] + rr * .62], -Math.PI * .75, rr * 1.55); K.leaf([c[0] + rr * .3, c[1] + rr * .3], -Math.PI * .25, rr * .85, .2); K.leaf([c[0] + rr * .3, c[1] + rr * .3], Math.PI * .75 + Math.PI, rr * .85, -.2); }
       else { K.rose(c, rr * .62, 5); for (let k = 0; k < 4; k++) { const an = Math.PI / 4 + k * Math.PI / 2; K.leaf([c[0] + Math.cos(an) * rr * .55, c[1] + Math.sin(an) * rr * .55], an, rr * .78, .1); } }
       }
+    else if (kind === 'qvine') {
+      // down a quotation's margin, in ink: one stem the whole height, drawn in outline with the paper inside (as Morris drew
+      // his column vines), swaying in a long slow S; at its head it bows over toward the words and carries a lobed vine
+      // leaf, a tendril springing back from the bow; along it, by turns and never in a pattern, little curls, leaves on short
+      // curving stalks, now and then a bud; at its foot it is cut (the open tube) with a curl beside. Laid from the foot up,
+      // so it grows upward. Units: U px; w, h its box (the stem toward its right side).
+      U = o.U ?? 34; aw = w / U; hb = h / U; const cx = o.cx ?? aw * .6, top = 1.25, foot = hb - .12, wob = noise1(seed * 31 + 7), N = Math.max(30, Math.ceil((foot - top) / .02)), ph = r() * 6.28, pts = [];
+      const sway = y => (wob(y / 3.4) - .5) * .4 + Math.sin(y / 2.3 + ph) * .14;
+      for (let i = 0; i <= N; i++) { const y = foot - (foot - top) * i / N; pts.push([cx + sway(y), y]); }
+      // the head: from the stem's top a bow up and over toward the words
+      const t0 = pts.at(-1), bow = quad(t0, [t0[0] - .05, t0[1] - .75], [t0[0] + .55, t0[1] - .95], 24).slice(1); pts.push(...bow);
+      const sw = o.sw ?? .1, wall = .034, n = pts.length, ws = pts.map((_, i) => sw * (1 - .3 * i / n)), [P, W] = hand(pts, ws, seed);
+      g.stems.push({ pts: P, w: W }); g.hollow = [{ pts: P, w: W.map(v => Math.max(.014, v - wall)) }];
+      const hp = P.at(-1), ha = v2tang(P, n - 1);
+      K.vleaf(hp, ha + .15, 1.05); K.curl(P[n - 14], v2tang(P, n - 14) - 2.3, .8, -1, sw * .55, 1.5);
+      // the foot: a curl beside the cut end
+      K.curl(P[6], v2tang(P, 6) - 1.1, .55, 1, sw * .5, 1.4);
+      let y = foot - .45 - r() * .2, sd = r() < .5 ? 1 : -1, last = '';
+      while (y > top + .35) { const i = Math.round((foot - y) / (foot - top) * N), p = P[Math.min(N, i)], ta = v2tang(P, Math.min(N, i)), out = sd < 0;   // (out: toward the margin)
+        let kd = r(); kd = kd < .42 ? 'curl' : kd < .86 ? 'leaf' : 'bud'; if (kd === last && kd !== 'curl') kd = 'curl'; if (!out && kd !== 'curl') kd = 'curl'; last = kd;
+        const L = (out ? 1 : .6) * (.85 + r() * .3);
+        if (kd === 'leaf') { const a = ta + sd * (.8 + r() * .3), e = [p[0] + Math.cos(a) * .2 * L, p[1] + Math.sin(a) * .2 * L]; K.stalk(p, [p[0] + Math.cos(ta + sd * .3) * .12 * L, p[1] + Math.sin(ta + sd * .3) * .12 * L], e, .03, .022); K.leaf(e, a - sd * .3, .6 * L, -sd * .3); }
+        else if (kd === 'curl') K.curl(p, ta + sd * .9, .38 * L, -sd, .026, 1.5);
+        else { const a = ta + sd * .6, e = [p[0] + Math.cos(a) * .3, p[1] + Math.sin(a) * .3]; K.stalk(p, [p[0] + Math.cos(ta) * .15, p[1] + Math.sin(ta) * .15], e, .03, .024); K.tulip(e, a - sd * .15, .5 * L); }
+        sd = r() < .8 ? -sd : sd; y -= .42 + r() * .36; } }
     else if (kind === 'filler') {   // in ink: the vine along the line, thinning as it goes, leaves by turns, a bud or two, a curl at its end
       U = h; aw = w / U; hb = 1; const c0 = .58, N = Math.ceil(aw / .02), pts = [], ph = r() * 6.28, x1 = aw - .9;
       for (let i = 0; i <= N; i++) { const x = .15 + (x1 - .15) * i / N; pts.push([x, c0 + Math.sin(x / 2.1 * Math.PI + ph) * .07]); }
@@ -946,8 +973,8 @@ export function vine2(kind, w, h, seed = 1, o = {}) {
       K.curl(P.at(-1), v2tang(P, P.length - 1), 1.25, -1, .045, 1.5); K.leaf(P[0], Math.PI + .5, .5, .2); }
     rec = { geo: g, U, aw, hb }; gcache.set(key, rec); if (gcache.size > 64) gcache.delete(gcache.keys().next().value); }
   const { geo, U } = rec;
-  return { w, h, geo, draw(c, x = 0, y = 0) { const T = c.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(c, geo, x, y, U, res, kind === 'filler' || !!o.sil); },
-    grow(c, x, y, f, mode) { growDraw(c, geo, x, y, U, f, mode, kind === 'break' || kind === 'corner' ? { x: rec.aw / 2, y: kind === 'corner' ? rec.aw / 2 : undefined } : { x: 0 }); } };
+  return { w, h, geo, draw(c, x = 0, y = 0) { const T = c.getTransform(), res = Math.hypot(T.a, T.b) || 1; drawGarden(c, geo, x, y, U, res, kind === 'filler' || kind === 'qvine' || !!o.sil); },
+    grow(c, x, y, f, mode) { growDraw(c, geo, x, y, U, f, mode, kind === 'qvine' ? { x: rec.aw * .64, y: rec.hb } : kind === 'break' || kind === 'corner' ? { x: rec.aw / 2, y: kind === 'corner' ? rec.aw / 2 : undefined } : { x: 0 }); } };
 }
 
 // ---- growth (?draw): the garden grows through the printed black --------------------------------------------------------------

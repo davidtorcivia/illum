@@ -320,7 +320,7 @@ const v2 = piece => ORN === 'vine2' || ORN === 'mix' && piece !== 'frame';
 const v2Art = (kind, x, y, W, h, seed, o = {}, rot = 0, fy = false) => { const v = vine2(kind, W, h, seed, o), my = kind === 'break' ? h * 1.1 : 3, mx = 3, [w2, h2] = rot ? [h, W] : [W, h];
   const tf = c => { c.translate(x, y); if (rot) { c.translate(w2 / 2, h2 / 2); c.rotate(rot * Math.PI / 2); c.translate(-(rot % 2 ? h2 : w2) / 2, -(rot % 2 ? w2 : h2) / 2); } if (fy) { c.translate(0, h); c.scale(1, -1); } };
   return { art: { draw: c => { tf(c); v.draw(c, 0, 0); }, grow: (c, f, m) => { c.save(); tf(c); v.grow(c, 0, 0, f, m); c.restore(); } },
-    key: 'v2' + [kind, W.toFixed(1), h.toFixed(1), seed, rot, fy, JSON.stringify(o)].join('|'), x: x - (rot ? my : mx), y: y - (rot ? mx : my), w: w2 + 2 * (rot ? my : mx), h: h2 + 2 * (rot ? mx : my), col: kind === 'filler' ? 'k' : 'g', seed }; };
+    key: 'v2' + [kind, W.toFixed(1), h.toFixed(1), seed, rot, fy, JSON.stringify(o)].join('|'), x: x - (rot ? my : mx), y: y - (rot ? mx : my), w: w2 + 2 * (rot ? my : mx), h: h2 + 2 * (rot ? mx : my), col: kind === 'filler' || kind === 'qvine' ? 'k' : 'g', seed }; };
 const v2Frame = ([X0, Y0, X1, Y1], t, seed) => { const W = X1 - X0 + 2 * t, H = Y1 - Y0 + 2 * t, x = X0 - t, y = Y0 - t, out = [];
   [[x, y, 0], [x + W - t, y, 1], [x + W - t, y + H - t, 2], [x, y + H - t, 3]].forEach(([cx, cy, k]) => out.push(v2Art('corner', cx, cy, t, t, seed + 3 + (k % 2), { tulip: k % 2 }, k)));
   out.push(v2Art('band', x + t, y, W - 2 * t, t, seed + 5, { ends: false }), v2Art('band', x + t, y + H - t, W - 2 * t, t, seed + 6, { ends: false }));
@@ -370,7 +370,7 @@ let CODE = 'rule';
 let QUIET = false;   // ?vine=none: the quotation and the aside left plain, the pull quote between two red sprigs
 // garden: the vine down a quotation grown (a stem the whole height in the margin, leaves alternating, curling at head and
 // foot); a figure's or code's frame a fine rule with a grown spray at each corner
-let VINE_KIND = 'band', PULL = 'band';
+let VINE_KIND = 'traced', PULL = 'band';   // (the quotation's margin: traced, Morris's own column vine (default: still the most beautiful); ink, our drawn vine; plait, the band; grown, the older outline)
 const grownVine = (xl, top, bot, u, seed) => { const w = u * 2.6, x = xl - u * .5 - w, H = bot - top + u * 1.6; return [art(ornament('vine', w, H, seed % 13, { u }), x, top - u * .8, 'k', 'vine' + H.toFixed(1) + u.toFixed(2), seed)].filter(Boolean); };
 const grownFrame = ([X0, Y0, X1, Y1], s, lw, seed) => { const o = ornament('corner', s, s, seed % 5), k = 'corner' + s.toFixed(1) + (seed % 5);
   // (the rules stop at each corner's rosette, so rule, rosette and stems are one piece)
@@ -384,11 +384,13 @@ const bandFrame = ([X0, Y0, X1, Y1], t, seed, o = {}) => { const U = t / .4, W =
   out.push(bandArt(x, y + t, H - 2 * t, t, U, seed + 6, op, 1), bandArt(x + W - t, y + t, H - 2 * t, t, U, seed + 6, op, 1));
   return out; };
 // down a quotation's or an aside's margin: the band stood on end, from its first line's top to its last line's foot
+// mix (the default): the vine down the margin in ink, an outlined stem with its leaves, tendrils and buds (vine2 'qvine')
+const vineInk = (xl, top, bot, u, seed) => { const w = Math.round(u * 3), H = bot - top + u * 6.2, x = xl - u * 1.15 - w; return H < u * 8 ? [] : [v2Art('qvine', x, top - u * 5.4, w + u * 4, H, seed % 13 + 1, { U: u * 4, cx: w * .6 / (u * 4) })]; };   // (its box reaches right, over the first line, for the head's leaf)
 const bandDown = (xl, top, bot, u, seed) => { if (v2('frame')) { const t = Math.round(u * 2.4), H = bot - top, x = xl - u * 1.1 - t; return H < t * 3 ? [] : [v2Art('band', x, top, H, t, seed % 9 + 1, {}, 1)]; } const t = Math.round(u * 1.9), H = bot - top, x = xl - u * 1.1 - t; return H < t * 3 ? [] : [bandArt(x, top, H, t, t / .4, seed % 9 + 1, knotOpt(), 1)]; };
 const sprigAt = (cx, y, u) => { const h = u * 1.4, w = widthOf('sprig', h); return block('sprig', cx - w / 2, y - h / 2, h, 'r'); };
 const frames = {
-  quote: ({ box, lines, u, seed = 1 }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : VINE_KIND === 'band' && CAPS === 'garden' ? bandDown(L[0], L[1] - u * .9, L[3] + u * .25, u, seed) : VINE_KIND === 'traced' ? vineDown(L[0], L[1], box?.[3] ?? L[3], u) : grownVine(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
-  aside: ({ box, lines, u, seed = 1 }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : VINE_KIND === 'band' && CAPS === 'garden' ? bandDown(L[0], L[1] - u * .9, L[3] + u * .25, u, seed + 4) : VINE_KIND === 'traced' ? vineDown(L[0], L[1], L[3] + u * .3, u) : grownVine(L[0], L[1], L[3] + u * .3, u, seed) }; },
+  quote: ({ box, lines, u, seed = 1 }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : VINE_KIND === 'ink' && CAPS === 'garden' ? vineInk(L[0], L[1], (box?.[3] ?? L[3]), u, seed) : VINE_KIND === 'band' && CAPS === 'garden' ? bandDown(L[0], L[1] - u * .9, L[3] + u * .25, u, seed) : VINE_KIND === 'traced' ? vineDown(L[0], L[1], box?.[3] ?? L[3], u) : grownVine(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
+  aside: ({ box, lines, u, seed = 1 }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : VINE_KIND === 'ink' && CAPS === 'garden' ? vineInk(L[0], L[1], (box?.[3] ?? L[3]), u, seed) : VINE_KIND === 'band' && CAPS === 'garden' ? bandDown(L[0], L[1] - u * .9, L[3] + u * .25, u, seed + 4) : VINE_KIND === 'traced' ? vineDown(L[0], L[1], L[3] + u * .3, u) : grownVine(L[0], L[1], L[3] + u * .3, u, seed) }; },
   pull: ({ cx, yTop, yBot, measure, u, seed = 1 }) => { if (v2('break') && CAPS === 'garden' && !QUIET) { const W = Math.min(measure * .46, u * 34), h = Math.round(u * 4);
       return { marks: [], letters: [v2Art('break', cx - W / 2, yTop - h * 1.15, W, h, seed % 9 + 2, { body: .56 }), v2Art('break', cx - W / 2, yBot + h * .15, W, h, seed % 9 + 2, { body: .56 }, 0, true)] }; }
     if (PULL === 'band' && CAPS === 'garden' && !QUIET) { const W = Math.min(measure * .4, u * 30), h = Math.round(u * 3.4), U = u * UB;   // (a short band over it and under it)
@@ -461,6 +463,9 @@ function print(made, { dpr = 1, animate = false, kind } = {}) {
     else if ((G?.garden || isBand) && animate && grow) pour({ ...ink, grow: { fn: grow, mode: 'cover', face: silhouette(L) } }, kind === 'drop' ? 1.7 : Math.min(1.5, .75 + (b.w + b.h) / 1100));
     else if (b.art?.grow && b.col === 'k' && animate) pour({ ...ink, grow: { fn: grow, mode: 'reveal' } }, Math.min(1.4, .6 + (b.w + b.h) / 700));
     else if ((BLOCK(b.g) || isBand) && animate) pour({ ...ink, press: { ang: b.h > b.w * 1.6 ? Math.PI / 2 - .08 : b.w > b.h * 1.6 ? .06 : .7 } }, kind === 'drop' ? 1.1 : Math.min(1, .55 + (b.w + b.h) / 1400));
+    // (Morris's traced column vine grows down the margin: revealed from its head down behind a soft front, smoothly, frame by frame)
+    else if (b.g === 'vine' && animate) pour({ ...ink, grow: { mode: 'reveal', fn: (c, f) => { const e = 1 - (1 - f) ** 1.6, y = b.y + b.h * e * 1.08, fe = Math.max(4, b.h * .08), gr = c.createLinearGradient(0, y - fe, 0, y);
+      gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = gr; c.fillRect(b.x - 4, b.y - 4, b.w + 8, y - b.y + 4); } } }, Math.min(1.6, .5 + b.h / 300));
     else if ((LINEART.has(b.g) || b.art && b.col === 'k') && animate) letter(ink, Math.min(1.8, .5 + (b.w + b.h) / 500));
     else pour(ink, animate ? .15 : 0); }
   const ys = (made.letters ?? []).map(b => b.y);
@@ -482,5 +487,5 @@ export const kelmscott = { label: 'Kelmscott', minGap: 2, theme: { rubric: 'rgb(
   set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : c === 'none' ? 'none' : 'vine'; FILL_KIND = ['rope', 'grown'].includes(c) ? c : 'plait'; },
   set darkCut(c) { DARK_CUT = c === 'negative' ? 'negative' : 'positive'; },
   set breaks(c) { BREAK = c === 'traced' ? 'all' : ['all', 'rose', 'grape', 'mirror', 'grown', ...BANDS].includes(c) ? c : 'knot'; },
-  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; CODE_SIL = c !== 'band'; }, set orn(c) { ORN = ['vine2', 'plait'].includes(c) ? c : 'mix'; }, set frame(c) { FRAME = c === 'grown' ? 'grown' : 'band'; }, set vine(c) { QUIET = c === 'none'; VINE_KIND = c === 'traced' ? 'traced' : c === 'grown' ? 'grown' : 'band'; }, set pull(c) { PULL = c === 'grown' ? 'grown' : c === 'traced' ? 'traced' : 'band'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
+  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; CODE_SIL = c !== 'band'; }, set orn(c) { ORN = ['vine2', 'plait'].includes(c) ? c : 'mix'; }, set frame(c) { FRAME = c === 'grown' ? 'grown' : 'band'; }, set vine(c) { QUIET = c === 'none'; VINE_KIND = c === 'ink' ? 'ink' : c === 'grown' ? 'grown' : c === 'plait' || c === 'band' ? 'band' : 'traced'; }, set pull(c) { PULL = c === 'grown' ? 'grown' : c === 'traced' ? 'traced' : 'band'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
 export default kelmscott;
