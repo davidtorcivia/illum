@@ -242,7 +242,7 @@ thin band of plait in it: the black was the void. The masters divide the letter 
 | A Lindisfarne | 2 | 2 | 3 | 2 | 1 | 2 | 1 | 3 | 2 | 3 | 2 | 2 | 29 |
 | C Durrow | 2 | 2 | 2 | 2 | 1 | 2 | 1 | 3 | 3 | 3 | 2 | 2 | 29 |
 
-  The stage 2 totals were misadded: the table's own cells give 27 and 26, with Beauty ×3.
+  The stage 2 totals were 27 and 28 on the same scale. A gains on Viewport and Restraint; C gains on Restraint and loses a point on Viewport, for its coils.
 - **Still weak.**
   - At 4× both letters are far sparser than the masters. That is deliberate, so that they read at page size, but it is not museum density.
   - Durrow's coils sit at the pen's pitch floor at page size and read as ringed discs more than spirals.
