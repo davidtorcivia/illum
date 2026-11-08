@@ -938,30 +938,38 @@ export function vine2(kind, w, h, seed = 1, o = {}) {
       else { K.rose(c, rr * .62, 5); for (let k = 0; k < 4; k++) { const an = Math.PI / 4 + k * Math.PI / 2; K.leaf([c[0] + Math.cos(an) * rr * .55, c[1] + Math.sin(an) * rr * .55], an, rr * .78, .1); } }
       }
     else if (kind === 'qvine') {
-      // down a quotation's margin, in ink: one stem the whole height, drawn in outline with the paper inside (as Morris drew
-      // his column vines), swaying in a long slow S; at its head it bows over toward the words and carries a lobed vine
-      // leaf, a tendril springing back from the bow; along it, by turns and never in a pattern, little curls, leaves on short
-      // curving stalks, now and then a bud; at its foot it is cut (the open tube) with a curl beside. Laid from the foot up,
-      // so it grows upward. Units: U px; w, h its box (the stem toward its right side).
-      U = o.U ?? 34; aw = w / U; hb = h / U; const cx = o.cx ?? aw * .6, top = 1.25, foot = hb - .12, wob = noise1(seed * 31 + 7), N = Math.max(30, Math.ceil((foot - top) / .02)), ph = r() * 6.28, pts = [];
-      const sway = y => (wob(y / 3.4) - .5) * .4 + Math.sin(y / 2.3 + ph) * .14;
-      for (let i = 0; i <= N; i++) { const y = foot - (foot - top) * i / N; pts.push([cx + sway(y), y]); }
-      // the head: from the stem's top a bow up and over toward the words
-      const t0 = pts.at(-1), bow = quad(t0, [t0[0] - .05, t0[1] - .75], [t0[0] + .55, t0[1] - .95], 24).slice(1); pts.push(...bow);
-      const sw = o.sw ?? .1, wall = .034, n = pts.length, ws = pts.map((_, i) => sw * (1 - .3 * i / n)), [P, W] = hand(pts, ws, seed);
-      g.stems.push({ pts: P, w: W }); g.hollow = [{ pts: P, w: W.map(v => Math.max(.014, v - wall)) }];
-      const hp = P.at(-1), ha = v2tang(P, n - 1);
-      K.vleaf(hp, ha + .15, 1.05); K.curl(P[n - 14], v2tang(P, n - 14) - 2.3, .8, -1, sw * .55, 1.5);
-      // the foot: a curl beside the cut end
-      K.curl(P[6], v2tang(P, 6) - 1.1, .55, 1, sw * .5, 1.4);
-      let y = foot - .45 - r() * .2, sd = r() < .5 ? 1 : -1, last = '';
-      while (y > top + .35) { const i = Math.round((foot - y) / (foot - top) * N), p = P[Math.min(N, i)], ta = v2tang(P, Math.min(N, i)), out = sd < 0;   // (out: toward the margin)
-        let kd = r(); kd = kd < .42 ? 'curl' : kd < .86 ? 'leaf' : 'bud'; if (kd === last && kd !== 'curl') kd = 'curl'; if (!out && kd !== 'curl') kd = 'curl'; last = kd;
-        const L = (out ? 1 : .6) * (.85 + r() * .3);
-        if (kd === 'leaf') { const a = ta + sd * (.8 + r() * .3), e = [p[0] + Math.cos(a) * .2 * L, p[1] + Math.sin(a) * .2 * L]; K.stalk(p, [p[0] + Math.cos(ta + sd * .3) * .12 * L, p[1] + Math.sin(ta + sd * .3) * .12 * L], e, .03, .022); K.leaf(e, a - sd * .3, .6 * L, -sd * .3); }
-        else if (kd === 'curl') K.curl(p, ta + sd * .9, .38 * L, -sd, .026, 1.5);
-        else { const a = ta + sd * .6, e = [p[0] + Math.cos(a) * .3, p[1] + Math.sin(a) * .3]; K.stalk(p, [p[0] + Math.cos(ta) * .15, p[1] + Math.sin(ta) * .15], e, .03, .024); K.tulip(e, a - sd * .15, .5 * L); }
-        sd = r() < .8 ? -sd : sd; y -= .42 + r() * .36; } }
+      // down a quotation's margin, in ink: one stem drawn in outline with the paper inside, a single long S the full height,
+      // swelling through its middle and drawn fine at its ends; at its foot it winds into a small curl, at its head it rises,
+      // bows over toward the words and winds into a confident curl, a big lobed leaf on the bow reaching over the first line;
+      // along it leaves alternate in a steady rhythm, larger toward the head, with small curls of varied size between them on
+      // the inner side and one bud. All one piece; laid from the foot up, so it grows upward. Units: U px.
+      U = o.U ?? 34; aw = w / U; hb = h / U; const cx = o.cx ?? aw * .6, top = 1.05, foot = hb - .55, A = Math.min(.3, cx - .28), ph = .15 + r() * .25;
+      const xAt = t => cx + A * Math.sin(2 * Math.PI * .92 * t + ph) - A * Math.sin(ph) * (1 - t);   // (the S, its foot on the column)
+      const N = Math.max(40, Math.ceil((foot - top) / .02)), main = [];
+      for (let i = 0; i <= N; i++) { const t = i / N; main.push([xAt(t), foot - (foot - top) * t]); }
+      // the foot's curl, wound back from the foot (laid reversed, so the stem starts at its centre)
+      const fa = Math.atan2(main[0][1] - main[1][1], main[0][0] - main[1][0]), fc = tendril(main[0], fa, .62, -1.6, -13, 1.6, .012).slice(1).reverse();
+      // the head: up from the S's top, bowing over toward the words and winding in
+      const ta = Math.atan2(main[N][1] - main[N - 1][1], main[N][0] - main[N - 1][0]), hc = tendril(main[N], ta, 2.5, 1.25, 8.5, 2.6, .012).slice(1);
+      const P0 = [...fc, ...main, ...hc], n = P0.length, iF = fc.length, iH = fc.length + main.length;
+      const wAt = i => { const u = i / (n - 1), sw = o.sw ?? .1; return i < iF ? sw * (.35 + .5 * i / iF) : i < iH ? sw * (.85 + .2 * Math.sin(Math.PI * (i - iF) / main.length)) : sw * Math.max(.18, .95 * (1 - (i - iH) / hc.length) ** .8); };
+      const [P, W] = hand(P0, P0.map((_, i) => wAt(i)), seed), wall = .032;
+      g.stems.push({ pts: P, w: W }); g.hollow = [{ pts: P, w: W.map(v => v - wall > .012 ? v - wall : .0001) }];
+      const tAt = i => v2tang(P, i);
+      // the head's leaf: on the bow, on its outer side, reaching over the first line, on a stalk of its own
+      { const k = iH + Math.round(hc.length * .42), p = P[k], a = -.3, L = 1.3, b = [p[0] + Math.cos(a) * .22, p[1] + Math.sin(a) * .22];
+        K.stalk(p, [p[0] + Math.cos(a + .5) * .12, p[1] + Math.sin(a + .5) * .12], b, .04, .03); K.vleaf([b[0] - Math.cos(a) * L * .26, b[1] - Math.sin(a) * L * .26], a, L);
+        const k2 = iH + Math.round(hc.length * .08), p2 = P[k2]; K.leaf(p2, tAt(k2) + 1.05, .62, -.25); }
+      // along the S: leaves by turns, steady, growing toward the head; small curls between them on the inner side; a bud once
+      const step = .95, budAt = 2 + (r() * 2 | 0); let sd = r() < .5 ? 1 : -1, nIdx = 0;
+      for (let y = foot - .55; y > top + .4; y -= step * (.92 + r() * .16), nIdx++) { const t = (foot - y) / (foot - top), i = iF + Math.round(t * N), p = P[i], a0 = tAt(i), gw = .72 + .55 * t;
+        if (nIdx === budAt) { const a = a0 + sd * .6, e = [p[0] + Math.cos(a) * .32, p[1] + Math.sin(a) * .32]; K.stalk(p, [p[0] + Math.cos(a0) * .16, p[1] + Math.sin(a0) * .16], e, .032, .025); K.tulip(e, a - sd * .12, .55 * gw); }
+        else { const a = a0 + sd * (.85 + r() * .15), e = [p[0] + Math.cos(a) * .2 * gw, p[1] + Math.sin(a) * .2 * gw];
+          K.stalk(p, [p[0] + Math.cos(a0 + sd * .35) * .13 * gw, p[1] + Math.sin(a0 + sd * .35) * .13 * gw], e, .032, .022); K.leaf(e, a - sd * .32, .5 * gw, -sd * .3); }
+        // a small curl a half step on, on the other side, of its own size
+        for (const fr of [.5]) { const yc = y - step * fr; if (yc <= top + .5) continue; { const tc = (foot - yc) / (foot - top), ic = iF + Math.round(tc * N), q = P[ic]; const s2 = -sd, ca = tAt(ic) + s2 * (.95 + r() * .2), wq = W[ic] * .9, q0 = [q[0] + Math.cos(tAt(ic) + s2 * Math.PI / 2) * wq, q[1] + Math.sin(tAt(ic) + s2 * Math.PI / 2) * wq];
+          K.curl(q0, ca, (.42 + r() * .3) * (.8 + .4 * tc), -s2, .021, 1.5); } }
+        sd = -sd; } }
     else if (kind === 'filler') {   // in ink: the vine along the line, thinning as it goes, leaves by turns, a bud or two, a curl at its end
       U = h; aw = w / U; hb = 1; const c0 = .58, N = Math.ceil(aw / .02), pts = [], ph = r() * 6.28, x1 = aw - .9;
       for (let i = 0; i <= N; i++) { const x = .15 + (x1 - .15) * i / N; pts.push([x, c0 + Math.sin(x / 2.1 * Math.PI + ph) * .07]); }

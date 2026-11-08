@@ -370,7 +370,7 @@ let CODE = 'rule';
 let QUIET = false;   // ?vine=none: the quotation and the aside left plain, the pull quote between two red sprigs
 // garden: the vine down a quotation grown (a stem the whole height in the margin, leaves alternating, curling at head and
 // foot); a figure's or code's frame a fine rule with a grown spray at each corner
-let VINE_KIND = 'traced', PULL = 'band';   // (the quotation's margin: traced, Morris's own column vine (default: still the most beautiful); ink, our drawn vine; plait, the band; grown, the older outline)
+let VINE_KIND = 'ink', PULL = 'band';   // (the quotation's margin: ink, our garden vine (default); traced, Morris's own column vine; plait, the band; grown, the older outline)
 const grownVine = (xl, top, bot, u, seed) => { const w = u * 2.6, x = xl - u * .5 - w, H = bot - top + u * 1.6; return [art(ornament('vine', w, H, seed % 13, { u }), x, top - u * .8, 'k', 'vine' + H.toFixed(1) + u.toFixed(2), seed)].filter(Boolean); };
 const grownFrame = ([X0, Y0, X1, Y1], s, lw, seed) => { const o = ornament('corner', s, s, seed % 5), k = 'corner' + s.toFixed(1) + (seed % 5);
   // (the rules stop at each corner's rosette, so rule, rosette and stems are one piece)
@@ -385,7 +385,7 @@ const bandFrame = ([X0, Y0, X1, Y1], t, seed, o = {}) => { const U = t / .4, W =
   return out; };
 // down a quotation's or an aside's margin: the band stood on end, from its first line's top to its last line's foot
 // mix (the default): the vine down the margin in ink, an outlined stem with its leaves, tendrils and buds (vine2 'qvine')
-const vineInk = (xl, top, bot, u, seed) => { const w = Math.round(u * 3), H = bot - top + u * 6.2, x = xl - u * 1.15 - w; return H < u * 8 ? [] : [v2Art('qvine', x, top - u * 5.4, w + u * 4, H, seed % 13 + 1, { U: u * 4, cx: w * .6 / (u * 4) })]; };   // (its box reaches right, over the first line, for the head's leaf)
+const vineInk = (xl, top, bot, u, seed) => { const w = Math.round(u * 4), H = bot - top + u * 6.6, x = xl - u * 1.35 - w; return H < u * 8 ? [] : [v2Art('qvine', x, top - u * 5.6, w + u * 4.5, H, seed % 13 + 1, { U: u * 4, cx: w * .6 / (u * 4) })]; };   // (its box reaches right, over the first line, for the head)
 const bandDown = (xl, top, bot, u, seed) => { if (v2('frame')) { const t = Math.round(u * 2.4), H = bot - top, x = xl - u * 1.1 - t; return H < t * 3 ? [] : [v2Art('band', x, top, H, t, seed % 9 + 1, {}, 1)]; } const t = Math.round(u * 1.9), H = bot - top, x = xl - u * 1.1 - t; return H < t * 3 ? [] : [bandArt(x, top, H, t, t / .4, seed % 9 + 1, knotOpt(), 1)]; };
 const sprigAt = (cx, y, u) => { const h = u * 1.4, w = widthOf('sprig', h); return block('sprig', cx - w / 2, y - h / 2, h, 'r'); };
 const frames = {
@@ -487,5 +487,5 @@ export const kelmscott = { label: 'Kelmscott', minGap: 2, theme: { rubric: 'rgb(
   set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : c === 'none' ? 'none' : 'vine'; FILL_KIND = ['rope', 'grown'].includes(c) ? c : 'plait'; },
   set darkCut(c) { DARK_CUT = c === 'negative' ? 'negative' : 'positive'; },
   set breaks(c) { BREAK = c === 'traced' ? 'all' : ['all', 'rose', 'grape', 'mirror', 'grown', ...BANDS].includes(c) ? c : 'knot'; },
-  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; CODE_SIL = c !== 'band'; }, set orn(c) { ORN = ['vine2', 'plait'].includes(c) ? c : 'mix'; }, set frame(c) { FRAME = c === 'grown' ? 'grown' : 'band'; }, set vine(c) { QUIET = c === 'none'; VINE_KIND = c === 'ink' ? 'ink' : c === 'grown' ? 'grown' : c === 'plait' || c === 'band' ? 'band' : 'traced'; }, set pull(c) { PULL = c === 'grown' ? 'grown' : c === 'traced' ? 'traced' : 'band'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
+  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; CODE_SIL = c !== 'band'; }, set orn(c) { ORN = ['vine2', 'plait'].includes(c) ? c : 'mix'; }, set frame(c) { FRAME = c === 'grown' ? 'grown' : 'band'; }, set vine(c) { QUIET = c === 'none'; VINE_KIND = c === 'traced' ? 'traced' : c === 'grown' ? 'grown' : c === 'plait' || c === 'band' ? 'band' : 'ink'; }, set pull(c) { PULL = c === 'grown' ? 'grown' : c === 'traced' ? 'traced' : 'band'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen', 'gen2', 'morris'].includes(c) ? c : 'garden'; } };
 export default kelmscott;
