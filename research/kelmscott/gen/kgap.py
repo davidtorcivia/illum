@@ -44,7 +44,9 @@ def letter(ch, cap=.79, base=.89, stem=.104):
     P = dict(khand.P, cap=cap, base=base)
     gi, ci, _ = khand.outline(FONT, 'I'); sw = khand.stem_width(khand.place(gi, ci, P), 1)
     g, capH, _ = khand.outline(FONT, ch); g = khand.place(g, capH, P).buffer((stem - sw) / 2, join_style='round', quad_segs=16)
-    b = g.bounds; f = min(.8 / (b[3] - b[1]), .86 / (b[2] - b[0]))   # (the letter in the block: .8 tall, or .86 wide if it is wide; centred)
+    b = g.bounds
+    if (b[2] - b[0]) > 1.15 * (b[3] - b[1]): g = affinity.scale(g, .88, 1, origin=((b[0] + b[2]) / 2, 0)); b = g.bounds   # (a wide letter, W, a little condensed: it stands taller)
+    f = min(.8 / (b[3] - b[1]), .86 / (b[2] - b[0]))   # (the letter in the block: .8 tall, or .86 wide if it is wide; centred)
     g = affinity.scale(g, f, f, origin=((b[0] + b[2]) / 2, (b[1] + b[3]) / 2)); b = g.bounds
     g = affinity.translate(g, A / 2 - (b[0] + b[2]) / 2, .5 - (b[1] + b[3]) / 2)
     g0, d = g, 0.
@@ -121,7 +123,7 @@ class Block:
     def __init__(s, ch, seed):
         s.rng = np.random.default_rng(seed * 7919 + ord(ch)); s.ch = ch
         s.L = letter(ch)
-        slight = s.L.area < .14; s.chl = CHL * (1.3 if slight else 1); s.vmax = VMAX - (.04 if slight else 0)   # (a slight letter, J Y Q: more room round it, less vine)
+        slight = s.L.area < .14; s.chl = CHL * (1.3 if slight else 1); s.vmax = VMAX - (.07 if slight else 0)   # (a slight letter, J Y Q: more room round it, less vine)
         s.LC = s.L.buffer(s.chl)
         s.inner = box(MARG, MARG, A - MARG, 1 - MARG)
         s.occ = raster(s.LC) | ~raster(s.inner)      # taken: the letter and its channel, the border
@@ -169,6 +171,11 @@ class Block:
             if r < RC:
                 r2 = s.circle(p, th, -side, HWMIN, rmax)
                 if r2 >= RC: side, r, turned = -side, r2, 0.
+            if gen == 0 and s.target is not None and r >= RC:   # (the stem that will flower: it bends toward its room)
+                u0 = np.array([math.cos(th), math.sin(th)]); v = s.target - p; want = 1 if u0[0] * v[1] - u0[1] * v[0] > 0 else -1
+                if want != side and (u0 @ v) < .9 * np.hypot(*v):
+                    r2 = s.circle(p, th, want, HWMIN, rmax)
+                    if r2 >= RC: side, r, turned = want, r2, 0.
             if r < RC:   # no room to sweep: a corridor; keep to its middle, in a slow wave, or stop
                 if s.dframe(p) < .06 and gen > 1: s.why = 'frame'; break   # (never along the frame; a main stem may run a strip, one stem)
                 look = lambda a: min(s.d(p + k * DS * np.array([math.cos(th + a), math.sin(th + a)])) for k in (3, 6, 9))
@@ -208,8 +215,8 @@ class Block:
                         th -= dth; side = ns; turned = 0.; flips += 1; continue
                     s.why = 'self'; break
             add(q, mode); age += DS
-            if gen < 2 and s.tulips < 3 and age > budget * .35 and mode == 0 and s.d(q + u * .07) > .05 and s.rng.random() < .04:
-                s.why = 'flower'; break   # (it stops in open room, to flower there)
+            if gen == 0 and s.target is not None and age > .25 and np.hypot(*(q - s.target)) < max(.05, s.tgap * .8):
+                s.why = 'focal'; break   # (it has reached the focal room: it flowers there)
         s.M = np.array(M)
         return np.array(P), np.array(T), np.array(S)
 
@@ -249,7 +256,7 @@ class Block:
         tot = len(P) * DS
         # leaves on the outer side of curves, branches into the larger side
         # along it: branches (from a main stem mostly), leaves (on branches and shoots mostly), on the outer side of curves
-        gap = (.12, .2) if gen == 0 else (.08, .14); pb = (.75, .4, 0)[min(gen, 2)]
+        gap = (.14, .22) if gen == 0 else (.11, .17); pb = (.75, .4, 0)[min(gen, 2)]
         nxt = s.rng.uniform(*gap) * .7; slots = []
         for i in range(4, len(P) - 10):
             if i * DS < nxt or (s.M[max(0, i - 6):i + 7] == 2).any() or s.d(P[i]) < hw[i] * .5: continue   # (not where it is behind the letter)
@@ -280,8 +287,9 @@ class Block:
             ds.append(d)
         return (len(ds) * .006, np.mean(ds) if ds else 0.)
 
-    def leaf(s, p, th, out, hw, Lmax=.3, fan=(.25, 1.45), Lmin=.09):
-        """a leaf on that side of the stem, turned into the most room and sized to it"""
+    def leaf(s, p, th, out, hw, Lmax=.3, fan=(.25, 1.45), Lmin=.1):
+        """a leaf on that side of the stem, turned into the most room and sized to it: larger in the open, smaller toward the edge"""
+        Lmax = Lmax * (.55 + .45 * min(1., s.dframe(p) / .18))
         best = None
         for a in th + out * np.linspace(*fan, 7):
             r, w = s.ray(p, a, hw + CH * 1.2, Lmax + hw + CH)
@@ -307,9 +315,9 @@ class Block:
         bud or its curl"""
         u = np.array([math.cos(th), math.sin(th)])
         room = s.d(p + u * .05)
-        if gen < 2 and s.tulips < 3 and room > .04 and (gen == 0 or s.rng.random() < .5):
-            L = min(.2, room * 3.2)
-            while L > .1:
+        if s.why == 'focal' and s.tulips == 0:   # the block's one flower, at its focal room
+            L = min(.3, max(room, s.tgap) * 2.4)
+            while L > .11:
                 g = tulip(p - u * .004, th, L)
                 if s.fits(g, p, hw + CH + .004): s.take(g.difference(s.LC)); s.tulips += 1; return True
                 L *= .9
@@ -344,14 +352,19 @@ class Block:
         return np.array([lx[gy, gx], ly[gy, gx]]) / RES, False
 
     def run(s, target=.5):
-        rng = s.rng; s.queue = []; s.jumps = 0; s.roots = 0; s.lens = []; s.tulips = 0
+        rng = s.rng; s.queue = []; s.jumps = 0; s.roots = 0; s.lens = []; s.tulips = 0; s.target = None; s.tgap = 0.
         # the main stems, two to four: each from behind the letter (or a lower corner) into the largest room left, long,
         # sweeping, passing behind the letter; everything else branches from them
-        for _ in range(int(rng.integers(3, 5))):
+        G0 = s.gaps(.06); s.target = None; s.tgap = 0.
+        for n in range(int(rng.integers(3, 5))):
             G = s.gaps(.06)
             if not G: break
             g, gap = G[rng.integers(min(2, len(G)))]
-            q, _ = s.root(g, letter_only=True)
+            if n == 0 and G0:   # the focal room (the largest): the first stem springs from the far side and sweeps to flower there
+                g, gap = G0[0]; s.target, s.tgap = g.copy(), gap; c = np.array([A / 2, .5]); far_ = np.clip(c - (g - c) * 1.2, .1, .85)
+                q, _ = s.root(far_, letter_only=True)
+            else:
+                s.target = None; q, _ = s.root(g, letter_only=True)
             v = g - q; v /= np.hypot(*v) + 1e-9; side = rng.choice([-1, 1]); th = math.atan2(v[1], v[0]) - side * rng.uniform(.5, .9)
             s.roots += 1; s.queue = [(q, th, side, BUDGET[0], HWG[0], 0, False)]
             while s.queue:
@@ -361,7 +374,7 @@ class Block:
         tried = []; far = lambda g: all(np.hypot(*(g - t)) > .05 for t in tried)
         for _ in range(40):
             if s.white() >= target or s.vinefrac() >= s.vmax: break
-            G = [x for x in s.gaps(FILLMIN) if far(x[0])]
+            G = [x for x in s.gaps(FILLMIN) if far(x[0])]   # (the strips by the frame left open)
             if not G: break
             g, gap = G[0]; n0 = len(s.vine)
             q, fused = s.root(g)
