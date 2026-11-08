@@ -229,7 +229,15 @@ reads at 4× and nearly vanishes at page size, as his does. Short: a few hooks s
 crown, W's top, K's arm), joins of hairline to heavy keep a small pooled lump (E's spine, F's arms), Berry-weight pigment
 blobs are not attempted. Penwork paused until the letters are judged.
 
-**Letter by letter** (face + hand, against his): good: A (his flat-topped A), D, G, H (uncial h), O, R, T, U, Z. Fair: B (his
+**Second pass** (user: "needs to be more confident in strokes; feels too pieced together and scared"): the outline-displacement
+hand made lumps wherever the gain changed along a stroke. Now each member of the face is redrawn as one stroke (lombmat's
+medial-axis reading, width splined along it, held to its own width at forks), its width a monotone function of the face's
+(heavy to his full paint, .095 H; hairlines untouched; counters kept open), as a chain of convex capsules, joined with the face's
+own outline (keeps serif wedges and tips) by GEOS (shapely; skia's boolean silently failed on these unions). Terminals: drops
+that only widen (no neck), one hook a letter. Letters he writes otherwise: J = I, V = U, uncial N from the M, M's foot-bar cut,
+Y's tail cut at the line into a drop, L's foot heavy, no terminals on O/Q. Default `hand/`; the first pass at `?lombard=hand1`.
+
+**Letter by letter, first pass** (face + hand, against his): good: A (his flat-topped A), D, G, H (uncial h), O, R, T, U, Z. Fair: B (his
 structure, but the stem's foot stacks gain, flare and brush exit into a trapezoid; bowls lighter than his), C, E, F, S (a
 small pooled lump where hairline meets heavy), I, P, X (the bottom-left hook dips low). Weak: L (the foot a thin wedge; his
 is the heaviest member), M (the face's thin foot-bar hairline reads odd at 4×), K and W (hooks cluster at the top), Q (a hook
