@@ -202,7 +202,7 @@ function boxBlur(A, w, h, r) {
 // solid black, col 'k', over it) as a stencil brush sweeps across its longer side, a dab at a time, each cell once.
 // (Moved from tests/tarot.html unchanged.) .at(f) f 0..1, .done()
 export function sweepIn(bake, p, rgb, { dpr = 2 } = {}) {
-  let sc = null, T = null, order = null, at = 0, tmp = null, X0 = 0, Y0 = 0;
+  let sc = null, T = null, order = null, at = 0, tmp = null, X0 = 0, Y0 = 0, TT = null, CL = null, ov = null, fin = false;
   const open = () => { const pad = 8; X0 = Math.floor((p.x0 - pad) * dpr); Y0 = Math.floor((p.y0 - pad) * dpr); const w = Math.ceil((p.w / p.res + 2 * pad) * dpr), h = Math.ceil((p.h / p.res + 2 * pad) * dpr);
     const cv = new OffscreenCanvas(w, h), g = cv.getContext('2d', { willReadFrequently: true });
     const proxy = { save() {}, restore() {}, setTransform() {}, set globalCompositeOperation(v) {},
@@ -210,17 +210,31 @@ export function sweepIn(bake, p, rgb, { dpr = 2 } = {}) {
     inkLetter(proxy, p, rgb, { dpr });
     sc = g.getImageData(0, 0, w, h); tmp = new OffscreenCanvas(w, h);
     // the brush's way: across the stencil's longer side, in dabs (a cell's time: how far along, and a dab's jitter)
-    const ang = (fnv(p.x0 + ':' + p.y0) % 628) / 100, dx = Math.cos(ang), dy = Math.sin(ang), cells = [], t = [];
+    // (p.press: a printed block's impression, not a stencil brush: the ink comes up as the platen rolls across it, along
+    // p.press.ang, grain first, a fine paper-scale mottle deciding which cells take the ink a moment early or late)
+    const pr = p.press, ang = pr ? pr.ang ?? 0 : (fnv(p.x0 + ':' + p.y0) % 628) / 100, dx = Math.cos(ang), dy = Math.sin(ang), cells = [], t = [], gn = pr ? noise2(fnv(p.x0 + ':' + p.y0) % 9973) : null;
     let lo = Infinity, hi = -Infinity; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const a = sc.data[(j * w + i) * 4 + 3]; if (!a) continue; const v = i * dx + j * dy; lo = Math.min(lo, v); hi = Math.max(hi, v); }
-    const span = Math.max(1, hi - lo), dab = 3.2 * dpr;
+    const span = Math.max(1, hi - lo), dab = pr ? 1 : 3.2 * dpr, jw = pr ? (pr.grain ??= .2) : .18; if (pr) pr.roll ??= .5;
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { if (!sc.data[(j * w + i) * 4 + 3]) continue; const v = (i * dx + j * dy - lo) / span, jit = ((Math.sin(Math.floor(i / dab) * 12.9898 + Math.floor(j / dab) * 78.233) * 43758.5453) % 1 + 1) % 1;
-      cells.push(j * w + i); t.push(v * .82 + jit * .18); }
-    order = Int32Array.from(cells.map((c, k) => k).sort((a, b) => t[a] - t[b]).map(k => cells[k])); T = { w, h }; };
+      cells.push(j * w + i); t.push(pr ? v * pr.roll + (gn(i / (5 * dpr), j / (5 * dpr)) * .6 + gn(i / (1.4 * dpr) + 50, j / (1.4 * dpr)) * .4) * jw : v * (1 - jw) + jit * jw); }
+    order = Int32Array.from(cells.map((c, k) => k).sort((a, b) => t[a] - t[b]).map(k => cells[k])); T = { w, h };
+    if (pr) { TT = Float32Array.from(t); CL = Int32Array.from(cells); const el = bake.canvas;   // (the impression shown in a window of its own over the page, laid when it is done)
+      if (el?.parentNode) { ov = document.createElement('canvas'); ov.width = w; ov.height = h; ov.setAttribute('aria-hidden', 'true');
+        Object.assign(ov.style, { position: 'absolute', left: el.offsetLeft + X0 / dpr + 'px', top: el.offsetTop + Y0 / dpr + 'px', width: w / dpr + 'px', height: h / dpr + 'px', pointerEvents: 'none' }); el.after(ov); } } };
+  // the impression: each cell's ink comes up over a short while about its moment (smoothstep), so the block darkens evenly
+  // from the paper, in soft clouds of the grain, behind the roll's front; then laid once into the page, exactly as a still
+  const SOFT = .36, press = f => { if (fin) return; if (!sc) open(); if (!ov) return; const { w, h } = T, im = new ImageData(w, h), F = Math.min(1, f) * (p.press.roll + p.press.grain + SOFT);
+    for (let k = 0; k < CL.length; k++) { let a = (F - TT[k]) / SOFT; if (a <= 0) continue; if (a > 1) a = 1; a = a * a * (3 - 2 * a); const q = CL[k] * 4;
+      im.data[q] = sc.data[q]; im.data[q + 1] = sc.data[q + 1]; im.data[q + 2] = sc.data[q + 2]; im.data[q + 3] = sc.data[q + 3] * a; }
+    ov.getContext('2d').putImageData(im, 0, 0); };
+  const pressDone = () => { if (fin) return; if (!sc) open(); fin = true; tmp.getContext('2d').putImageData(sc, 0, 0);
+    bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = 'source-over'; bake.drawImage(tmp, X0, Y0); bake.restore(); ov?.remove(); ov = null; };
+  if (p.press) return { at: press, done: pressDone };
   const self = { at(f) { if (!sc) open(); const upto = Math.min(order.length, Math.ceil(Math.min(1, f) * order.length)); if (upto <= at) return;
       const { w, h } = T, im = new ImageData(w, h);
       for (let x = at; x < upto; x++) { const q = order[x] * 4; im.data[q] = sc.data[q]; im.data[q + 1] = sc.data[q + 1]; im.data[q + 2] = sc.data[q + 2]; im.data[q + 3] = sc.data[q + 3]; }
       tmp.getContext('2d').putImageData(im, 0, 0);
-      bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = p.col === 'k' ? 'source-over' : 'destination-over'; bake.drawImage(tmp, X0, Y0); bake.restore(); at = upto; },
+      bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.globalCompositeOperation = p.col === 'k' || p.press ? 'source-over' : 'destination-over'; bake.drawImage(tmp, X0, Y0); bake.restore(); at = upto; },
     done() { self.at(1); } };
   return self;
 }

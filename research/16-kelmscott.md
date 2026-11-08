@@ -257,3 +257,15 @@ the cutting itself (a white-vine block has ~80 separate black islands).
   which is why it keeps all its white.)
 - Not done: shoulder notes in red, the Golden/Troy/Chaucer types (no OFL digitisation was found and the host's text is
   not ours to restyle), the Well's border (too fine for any margin).
+
+## The letters, round eight: Morris's Troy capitals as the source
+
+The generator now takes its capitals from **GL-Morris** (Gutenberg Labo, https://github.com/Gutenberg-Labo/GL-Morris), a
+digitisation of Morris's own Troy Type, whose capitals are the Chaucer capital alphabet. Its licence: "Unlimited permission
+is granted to use, copy, and distribute it, with or without modification, either commercially and noncommercially"; the
+notice goes beside any font we build from it. Scored by silhouette overlap against his sixteen six-line letters it beats
+every OFL face tried (mean .684; Metamorphous .664, Goudy Bookletter 1911 .657), and it is closest on A, K, T and V. Set at
+six-line weight (stem .118 of the block), each letter carries his black hairline cut down its thick strokes (inset .024,
+.0065 wide, pointed ends). Tried before it and dropped: a letter drawn from stroke primitives (read as a brush uncial),
+Goudy Bookletter 1911 with a woodcut hand (a rough Roman book face), his sixteen traces completed and cleaned (shards, then
+blobs), the ten missing letters from his two-line initials (good forms, less crisp than Troy).

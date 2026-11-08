@@ -417,11 +417,13 @@ export const palette = {
 
 // ---- printing ------------------------------------------------------------------------------------------------------------------
 // A case made ready to lay: each glyph's coverage, and the order the press lays it in (seq: { pour | letter, d (s) }).
-//   A block (an initial), still, light: its ink poured once. Drawn: its face (the box of its black) inked from the middle
-//     out (letterWriter along its skeleton), the white cut into it along its stems (letterWriter in the paper's colour),
-//     the ink pressed once more over the cut. Dark ('positive', the default): the page is the block's black and what the
-//     graver left standing is printed in the pale ink (drawn: written along its stems); 'negative': the block pale. A
-//     two-line initial is printed pale in the dark either way: its scalloped edge, flooded, leaves its white in specks.
+//   A block (an initial, or a garden band: a break, a frame's side and corner, the quotation band, a cartouche), still:
+//     its ink poured once. Drawn: printed, not written — its impression comes up as the platen rolls across it (sweepIn's
+//     press: each cell's ink rising over a moment, in soft clouds of the grain, behind a gentle front along the block's
+//     length), and only its own ink is ever laid (no face inked and cut again: that left a faint box). The traced
+//     Morris blocks in the dark ('positive', the default): the page is the block's black and what the graver left
+//     standing is printed in the pale ink (drawn: written along its stems); 'negative': the block pale. A two-line
+//     initial is printed pale in the dark either way: its scalloped edge, flooded, leaves its white in specks.
 //   A line drawing (the vine, a head, a foot): poured; drawn, written along its stems (letterWriter), as the vine grows.
 //   A type ornament (a leaf, a sprig, a knot), a rule, a capital: stamped.
 const BLOCK = g => /^[vsgnwq][A-Z]$/.test(g ?? ''), LINEART = new Set(['vine', 'headRose', 'footRose', 'footGrape']);
@@ -449,7 +451,10 @@ function print(made, { dpr = 1, animate = false, kind } = {}) {
   for (const b of made.letters ?? []) { const L = raster(b, res), isBand = b.art && b.col === 'g', gd = GLYPHS[b.g]?.garden || isBand, ink = { ...L, col: gd && b.col === 'k' ? 'g' : b.col, wet: gd ? .08 : .04, dry: gd ? .26 : .18 };   // (g: a garden block's ink; in the dark a light block, a shade below the text's pale ink so it does not glare)
     // (a garden block (q) is printed whole in the dark too: a light block on the dark page, its letter and vine the page showing through)
     if (BLOCK(b.g) && dark && 'vnw'.includes(b.g[0])) { const { W } = whiteOf(b, L), cut = { ...L, M: W, col: b.col, wet: ink.wet, dry: ink.dry }; animate ? letter(cut, pace(b)) : pour(cut, 0); }
-    else if ((BLOCK(b.g) || isBand) && animate) { const { S, W } = whiteOf(b, L); letter({ ...L, M: S, col: b.col, wet: .02, dry: .1 }, kind === 'drop' ? .6 : .4); letter({ ...L, M: W, col: 'w', wet: .02, dry: 0 }, pace(b)); pour({ ...ink, wet: 0 }, .01); }
+    // (a printed block, an initial or a band, is not written with a pen: it is printed. Its impression comes up as the
+    // platen rolls across it, along its length (a band) or corner to corner (a square), the ink taking the paper's grain
+    // first and then filling solid, the garden's white left standing as cut: only its own ink is ever laid)
+    else if ((BLOCK(b.g) || isBand) && animate) pour({ ...ink, press: { ang: b.h > b.w * 1.6 ? Math.PI / 2 - .08 : b.w > b.h * 1.6 ? .06 : .7 } }, kind === 'drop' ? 1.1 : Math.min(1, .55 + (b.w + b.h) / 1400));
     else if ((LINEART.has(b.g) || b.art && b.col === 'k') && animate) letter(ink, Math.min(1.8, .5 + (b.w + b.h) / 500));
     else pour(ink, animate ? .15 : 0); }
   const ys = (made.letters ?? []).map(b => b.y);
