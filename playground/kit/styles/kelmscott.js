@@ -82,6 +82,18 @@ const GLYPHS = {
   nW: { f: 'kelmscott-gen-nW.woff2', c: "W", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3540 B; kdonor6.py W V 1
   nX: { f: 'kelmscott-gen-nX.woff2', c: "X", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3316 B; kdonor6.py X K 3
   nY: { f: 'kelmscott-gen-nY.woff2', c: "Y", a: 0.95, w: 0.008, k: null, m: 1, gen: 2 },   // 3180 B; kdonor6.py Y V 1
+  // ?caps=gen2: GL-Morris's letter (as gen), the vine grown in the gaps round it: stems sweeping the largest circle that fits,
+  // as wide as the room, branching, ending in leaves, buds, tulips and curls (research/kelmscott/gen/kgap.py LETTER SEED)
+  wD: { f: 'kelmscott-gen2-wD.woff2', c: "D", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3984 B; kgap.py D 4
+  wE: { f: 'kelmscott-gen2-wE.woff2', c: "E", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 4008 B; kgap.py E 1
+  wG: { f: 'kelmscott-gen2-wG.woff2', c: "G", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3928 B; kgap.py G 2
+  wJ: { f: 'kelmscott-gen2-wJ.woff2', c: "J", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3636 B; kgap.py J 4
+  wQ: { f: 'kelmscott-gen2-wQ.woff2', c: "Q", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3648 B; kgap.py Q 3
+  wR: { f: 'kelmscott-gen2-wR.woff2', c: "R", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 4020 B; kgap.py R 1
+  wU: { f: 'kelmscott-gen2-wU.woff2', c: "U", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 3780 B; kgap.py U 3
+  wW: { f: 'kelmscott-gen2-wW.woff2', c: "W", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 4172 B; kgap.py W 2
+  wX: { f: 'kelmscott-gen2-wX.woff2', c: "X", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 4072 B; kgap.py X 2
+  wY: { f: 'kelmscott-gen2-wY.woff2', c: "Y", a: 0.95, w: 0.009, k: null, m: 1, gen: 3 },   // 4008 B; kgap.py Y 2
   hedera: { f: 'kelmscott-ornaments-hedera.woff2', c: "\ue000", a: 1.4, w: 0.0375, k: null },   // 960 B; Met 354288 photograph 1 [3216,998,3272,1038]
   sprig: { f: 'kelmscott-ornaments-sprig.woff2', c: "\ue001", a: 1.3784, w: 0.0788, k: null },   // 908 B; Met 354288 photograph 0 [2991,395,3042,432]
   knot: { f: 'kelmscott-ornaments-knot.woff2', c: "\ue002", a: 3.52, w: 0.0333, k: null },   // 2500 B; Met 354288 photograph 1 [3082,361,3258,411]
@@ -104,7 +116,7 @@ function loadGlyph(key) {
 // (ponytail: reads the document, not rubricate's root; pass the root in when the registry hands it over)
 function needed() {
   const keys = new Set(['hedera', 'sprig']), has = s => !!document.querySelector(s);
-  for (const s of document.querySelectorAll('.ini')) { const ch = letterOf(s.textContent); keys.add('v' + ch).add('s' + ch).add('g' + ch).add('n' + ch).add('v' + ALIAS[ch]).add('s' + ALIAS[ch]); }
+  for (const s of document.querySelectorAll('.ini')) { const ch = letterOf(s.textContent); keys.add('v' + ch).add('s' + ch).add('g' + ch).add('n' + ch).add('w' + ch).add('v' + ALIAS[ch]).add('s' + ALIAS[ch]); }
   if (has('blockquote, aside') && !QUIET) keys.add('vine');
   if (has('.pull') && !QUIET) keys.add('headRose').add('footRose');
   if (has('hr, .break, .book, .chapter')) keys.add('footRose').add('footGrape');
@@ -171,9 +183,11 @@ function silhouette(L) {
 const ALIAS = { J: 'I', U: 'V' };
 const letterOf = ch => String(ch).normalize('NFD')[0].toUpperCase();
 // CAPS 'gen' (default): a six-line letter Morris never cut is GL-Morris's letter in his own block's vine, fitted (gen: 2); 'grow': tools/kgrow.py's (gen: 1); 'graft'
-// (?caps=graft): the grafted one (m: 1; tools/kgraft.py); 'gen' (?caps=gen): GL-Morris's letter in his own block's vine, fitted (gen: 2)
+// (?caps=graft): the grafted one (m: 1; tools/kgraft.py); 'gen' (?caps=gen): GL-Morris's letter in his own block's vine, fitted (gen: 2);
+// 'gen2' (?caps=gen2): GL-Morris's letter with a vine grown in the gaps (gen: 3; research/kelmscott/gen/kgap.py)
 let CAPS = 'gen';
-const shapeFor = (ch, deep) => { if (deep && CAPS === 'gen' && GLYPHS['n' + ch]) return 'n' + ch; const c = GLYPHS['v' + ch] || GLYPHS['s' + ch] ? ch : ALIAS[ch] ?? ch; return deep ? (CAPS === 'gen' && GLYPHS['n' + c] ? 'n' + c : CAPS === 'grow' && GLYPHS['g' + c] ? 'g' + c : GLYPHS['v' + c] ? 'v' + c : GLYPHS['s' + c] ? 's' + c : null) : (GLYPHS['s' + c] ? 's' + c : GLYPHS['v' + c] ? 'v' + c : null); };
+const GP = { gen: 'n', gen2: 'w' };   // (the generated series' prefixes in GLYPHS)
+const shapeFor = (ch, deep) => { const gp = GP[CAPS]; if (deep && gp && GLYPHS[gp + ch]) return gp + ch; const c = GLYPHS['v' + ch] || GLYPHS['s' + ch] ? ch : ALIAS[ch] ?? ch; return deep ? (gp && GLYPHS[gp + c] ? gp + c : CAPS === 'grow' && GLYPHS['g' + c] ? 'g' + c : GLYPHS['v' + c] ? 'v' + c : GLYPHS['s' + c] ? 's' + c : null) : (GLYPHS['s' + c] ? 's' + c : GLYPHS['v' + c] ? 'v' + c : null); };
 const FACE = '600 100px "EB Garamond", Garamond, serif';
 const capWidth = ch => { try { const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = FACE; const m = c.measureText(ch), H = c.measureText('H'); return (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / H.actualBoundingBoxAscent; } catch { return .8; } };
 function initial({ ch = 'B', G, big = true, rich = .5, seed = 1, u = 8 }) {
@@ -294,7 +308,7 @@ export const palette = {
 //     two-line initial is printed pale in the dark either way: its scalloped edge, flooded, leaves its white in specks.
 //   A line drawing (the vine, a head, a foot): poured; drawn, written along its stems (letterWriter), as the vine grows.
 //   A type ornament (a leaf, a sprig, a knot), a rule, a capital: stamped.
-const BLOCK = g => /^[vsg][A-Z]$/.test(g ?? ''), LINEART = new Set(['vine', 'headRose', 'footRose', 'footGrape']);
+const BLOCK = g => /^[vsgw][A-Z]$/.test(g ?? ''), LINEART = new Set(['vine', 'headRose', 'footRose', 'footGrape']);
 let DARK_CUT = 'positive';
 const isDark = () => { try { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; } };
 // (a white-vine block's face is the box of its own black, a little inside it so its antialiased rim is not left as a pale
@@ -317,7 +331,7 @@ function print(made, { dpr = 1, animate = false, kind } = {}) {
   const pour = (p, d) => { pours.push(p); seq.push({ pour: p, d }); }, letter = (L, d) => { letters.push(L); seq.push({ letter: L, d }); };
   const pace = b => kind === 'drop' ? 4.2 : Math.min(1.6, .4 + (b.w + b.h) / 400);
   for (const b of made.letters ?? []) { const L = raster(b, res), ink = { ...L, col: b.col, wet: .04, dry: .18 };
-    if (BLOCK(b.g) && dark && b.g[0] === 'v') { const { W } = whiteOf(b, L), cut = { ...L, M: W, col: b.col, wet: .04, dry: .18 }; animate ? letter(cut, pace(b)) : pour(cut, 0); }
+    if (BLOCK(b.g) && dark && 'vw'.includes(b.g[0])) { const { W } = whiteOf(b, L), cut = { ...L, M: W, col: b.col, wet: .04, dry: .18 }; animate ? letter(cut, pace(b)) : pour(cut, 0); }
     else if (BLOCK(b.g) && animate) { const { S, W } = whiteOf(b, L); letter({ ...L, M: S, col: b.col, wet: .02, dry: .1 }, kind === 'drop' ? .6 : .4); letter({ ...L, M: W, col: 'w', wet: .02, dry: 0 }, pace(b)); pour({ ...ink, wet: 0 }, .01); }
     else if (LINEART.has(b.g) && animate) letter(ink, Math.min(1.8, .5 + (b.w + b.h) / 500));
     else pour(ink, animate ? .15 : 0); }
@@ -340,5 +354,5 @@ export const kelmscott = { label: 'Kelmscott', minGap: 2, theme: { rubric: 'rgb(
   set paraphCol(c) { PARAPH_COL = c === 'black' ? 'k' : 'r'; }, set fill(c) { FILL = c === 'knot' ? 'knot' : 'none'; },
   set darkCut(c) { DARK_CUT = c === 'negative' ? 'negative' : 'positive'; },
   set breaks(c) { BREAK = ['rose', 'grape', 'mirror'].includes(c) ? c : 'all'; },
-  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; }, set caps(c) { CAPS = c === 'graft' ? 'graft' : c === 'grow' ? 'grow' : 'gen'; } };
+  set code(c) { CODE = c === 'none' ? 'none' : 'rule'; }, set vine(c) { QUIET = c === 'none'; }, set caps(c) { CAPS = ['graft', 'grow', 'gen2'].includes(c) ? c : 'gen'; } };
 export default kelmscott;
