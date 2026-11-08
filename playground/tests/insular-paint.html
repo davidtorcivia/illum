@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Insular paint</title>
+<!--
+  A paint bench: one knot panel, pen first and paint after, as the master was made (research/08-paint.md, and f. 139r at
+  full size): every contour the same ink line, its weight uneven; the strand's tint laid inside it short of the line, a
+  band of vellum reserved; the ground a body colour. Paint as thickness over the vellum (Beer–Lambert: thin paint can only
+  be lighter, never darker than a full coat), its variation low and one-sided (a slow mottle, a few drags along the brush),
+  not noise multiplied into a mask. Beside it, the same panel through the old printer, and the master. ?z= zoom
+-->
+<style>
+  html { background: #8a8580; } body { margin: 0; padding: 16px; font: 12px/1.4 sans-serif; color: #eee; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; } figure { margin: 0; } img, canvas { display: block; }
+</style>
+</head>
+<body>
+<div class="row" id="out"></div>
+<script type="module">
+import { plait, cords, knot, measure, Sheet } from '../kit/styles/insular-knot.js';
+import { noise2 } from '../kit/marks.js';
+const q = new URLSearchParams(location.search), Z = +(q.get('z') ?? 4), dpr = Math.min(2, devicePixelRatio || 1), res = dpr * Z;
+const VELLUM = [241, 232, 213];
+// the master's pigments (f. 139r, white-balanced on our vellum)
+const PIG = { k: [62, 38, 24], g: [52, 30, 20], b: [116, 128, 152], r: [156, 78, 54], y: [200, 168, 112], v: VELLUM };
+
+// ---- geometry: a 6 × 3 plait with two breaks -------------------------------------------------------------------------------
+const A = 6, B = 3, u = 9, ox = 10, oy = 10, PW = ox * 2 + 2 * A * u, PH = oy * 2 + 2 * B * u;
+const K = plait(A, B, () => true, (x, y) => y === 3 && (x === 3 || x === 9));
+// The hand, as causes: (1) the panel drifts (one slow field under it all); (2) the pen wavers off the true curve over about a
+// strand's width; (3) the band's breadth and the pen line's weight change as the hand goes (along the cord, over a strand's
+// length or two), not from point to point. knot() reads c.f (breadth) and c.g (line weight) if they are set.
+// Measured on f. 139r's blue knots (W = the strand's width): the pen line ~.06 W, brown; a pale band of vellum ~.2 W a side;
+// the tint ~.5 W, fading into the vellum; no halo of ground round the over strand at a crossing (its own line bounds it);
+// the breadth ±20 % along a cord; the centre wandering ~.1 W from the true curve over a cell; the line heavier in the turns.
+function panel(hand, { meas = true } = {}) {
+  const C = measure(cords(K, { ox, oy, u, inset: .32, round: 1.05 }), u), W = u * (meas ? 1.02 : .95);
+  if (hand) { const nx = noise2(11), ny = noise2(29), wx = noise2(41), wy = noise2(57), lam = u * 3.2, amp = u * .06, lw = u * (meas ? 1 : 1.3), aw = meas ? W * .1 : u * .035;
+    C.forEach((c, t) => { const fb = noise2(100 + t), gb = noise2(200 + t), n = c.pts.length;
+      c.pts = c.pts.map(([x, y]) => [x + amp * (nx(x / lam, y / lam) - .5) * 2 + aw * (wx(x / lw, y / lw) - .5) * 2, y + amp * (ny(x / lam, y / lam) - .5) * 2 + aw * (wy(x / lw, y / lw) - .5) * 2]);
+      c.f = new Float32Array(n); c.g = new Float32Array(n); const P = c.pts;
+      for (let k = 0; k < n; k++) { const s = k / n * c.L, a = P[(k - 3 + n) % n], b = P[k], d = P[(k + 3) % n], h1 = Math.atan2(b[1] - a[1], b[0] - a[0]), h2 = Math.atan2(d[1] - b[1], d[0] - b[0]);
+        let dh = h2 - h1; dh -= Math.round(dh / (2 * Math.PI)) * 2 * Math.PI; const turn = Math.min(1, Math.abs(dh) / (Math.hypot(d[0] - a[0], d[1] - a[1]) || 1) * u * .9);
+        c.f[k] = 1 + (meas ? .2 : .1) * (fb(s / (u * 1.3), t * 3.1) - .5) * 2;
+        c.g[k] = meas ? .7 + .9 * turn + .35 * (gb(s / (u * .8), t) - .5) : .75 + .7 * fb(s / (u * 1.1) + 9, t) ** 1.5 + .2 * (gb(s / (u * .6), t) - .5); } }); }
+  const S = new Sheet([0, 0, PW, PH], res);
+  const fr = new Path2D(); fr.rect(3, 3, PW - 6, PH - 6); S.fill(fr, 'k');
+  const gr = new Path2D(); gr.rect(4.2, 4.2, PW - 8.4, PH - 8.4); S.fill(gr, 'g');
+  const line = meas ? Math.max(.45, W * .065) : Math.max(.5, W * .12);
+  knot(S, C, K.crossings, { layers: [{ w: W, ink: 'k' }, { w: W - 2 * line, ink: 'v' }, { w: meas ? W * .5 : W - 2 * line - W * .12, ink: 'b' }], gap: meas ? 0 : Math.max(.5, u * .14), ground: 'g' });
+  return { S, C, W };
+}
+
+// ---- the paint ----------------------------------------------------------------------------------------------------------------
+// Each ink's coverage (0..1, from the Sheet) times its thickness tau (1 a full coat; thinner only) laid over what is below as
+// a film: transmittance T = exp(-a tau m), normalised so a full coat is the pigment. Causes of tau:
+//   strokes: each stretch of a strand between two crossings is one stroke of the brush, with its own load, and it runs a
+//     little thinner toward where the stroke ended (the brush going dry) — found per pixel from the nearest cord point;
+//   the brush's edge follows the pen line loosely: the tint's edge wanders in and out (a margin of vellum, or none);
+//   a slow mottle (one-sided: only thinning).
+// Then the whole sheet seen through one soft optic (a fraction of a px), so no edge is sharper than the rest.
+const toLin = c => c.map(v => (v / 255) ** 2.2), toSrgb = c => c.map(v => Math.round(255 * Math.max(0, Math.min(1, v)) ** (1 / 2.2)));
+const FILM = { g: { a: 3.2, mott: .12 }, b: { a: 2.4, mott: .12 }, v: { a: 3, mott: 0 }, k: { a: 4.5, mott: .1 } };
+function nearest(C) {   // a grid of cord points: (t, s, stretch index, how far along it)
+  const cell = 3, G = new Map(), key = (x, y) => `${Math.floor(x / cell)},${Math.floor(y / cell)}`;
+  C.forEach((c, t) => { const xs = c.ev.map((e, i) => e.cross && !e.over ? c.s[i] : null).filter(v => v != null).sort((a, b) => a - b);
+    c.pts.forEach((p, k) => { const s = k / c.pts.length * c.L; let a = xs.length ? xs.findLastIndex(v => v <= s) : 0; const s0 = a >= 0 ? xs[a] : xs.at(-1) - c.L, s1 = a + 1 < xs.length ? xs[a + 1] : xs[0] + c.L; if (a < 0) a = xs.length - 1;
+      const kk = key(...p); (G.get(kk) ?? G.set(kk, []).get(kk)).push([p[0], p[1], t, a, (s - s0) / ((s1 - s0) || 1)]); }); });
+  return (x, y) => { let best = null, bd = 1e9; const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) for (const p of G.get(`${cx + dx},${cy + dy}`) ?? []) { const d = (p[0] - x) ** 2 + (p[1] - y) ** 2; if (d < bd) { bd = d; best = p; } }
+    return best; };
+}
+function paint({ S, C, W }, cv, { soft = .45 } = {}) {
+  const { w, h } = S, out = new Float32Array(w * h * 3), V = toLin(VELLUM), near = nearest(C), load = (t, a) => .82 + .18 * ((Math.sin(t * 12.9898 + a * 78.233) * 43758.5453) % 1 + 1) % 1;
+  for (let q = 0; q < w * h; q++) { out[q * 3] = V[0]; out[q * 3 + 1] = V[1]; out[q * 3 + 2] = V[2]; }
+  const edgeN = noise2(77);
+  for (const ink of ['g', 'k', 'v', 'b']) {
+    const g = S.c.get(ink); if (!g) continue; let d = g.getImageData(0, 0, w, h).data; const P = toLin(PIG[ink]), f = FILM[ink], sl = noise2(ink.charCodeAt(0) * 5), full = 1 - Math.exp(-f.a);
+    let M = new Float32Array(w * h); for (let q = 0; q < M.length; q++) M[q] = d[q * 4 + 3] / 255;
+    if (f.soft) { const Bm = blurA(blurA(M, w, h, Math.max(1, Math.round(W * .09 * res))), w, h, Math.max(1, Math.round(W * .09 * res))); for (let q = 0; q < M.length; q++) M[q] = Math.min(1, Bm[q] * 1.25); }
+    if (f.edge) {   // the brush's edge wandering about the line: the mask softened, then cut at a level that drifts along the stroke
+      const R = Math.max(1, Math.round(W * .1 * res)), Bm = blurA(M, w, h, R);
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, lv = .5 + .32 * (edgeN(i / res / (u * .7), j / res / (u * .7)) - .5) * 2; M[q] = Math.max(0, Math.min(1, (Bm[q] - lv) * 6 + .5)) * (Bm[q] > .02 ? 1 : 0); } }
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, m = M[q]; if (m <= 0) continue; const x = i / res, y = j / res;
+      let tau = 1 - (f.mott ? f.mott * Math.max(0, sl(x / 6, y / 6) - .5) * 2 : 0);
+      if (f.strokes) { const p = near(x, y); if (p) tau *= load(p[2], p[3]) * (1 - .22 * p[4] ** 1.6); }
+      const T = 1 - (1 - Math.exp(-f.a * Math.max(0, tau) * m)) / full;
+      for (let k = 0; k < 3; k++) out[q * 3 + k] = out[q * 3 + k] * T + P[k] * (1 - T); }
+  }
+  const im = new ImageData(w, h); for (let q = 0; q < w * h; q++) { const c = toSrgb([out[q * 3], out[q * 3 + 1], out[q * 3 + 2]]); im.data[q * 4] = c[0]; im.data[q * 4 + 1] = c[1]; im.data[q * 4 + 2] = c[2]; im.data[q * 4 + 3] = 255; }
+  const tmp = new OffscreenCanvas(w, h); tmp.getContext('2d').putImageData(im, 0, 0);
+  cv.width = w; cv.height = h; cv.style.width = w / dpr + 'px'; const x = cv.getContext('2d'); x.filter = `blur(${(soft * res / Z).toFixed(2)}px)`; x.drawImage(tmp, 0, 0);
+}
+function blurA(A, w, h, r) { const T = new Float32Array(w * h), O = new Float32Array(w * h), k = 2 * r + 1;
+  for (let y = 0; y < h; y++) { let s = 0; for (let x = -r; x <= r; x++) s += A[y * w + Math.min(w - 1, Math.max(0, x))]; for (let x = 0; x < w; x++) { T[y * w + x] = s / k; s += A[y * w + Math.min(w - 1, x + r + 1)] - A[y * w + Math.max(0, x - r)]; } }
+  for (let x = 0; x < w; x++) { let s = 0; for (let y = -r; y <= r; y++) s += T[Math.min(h - 1, Math.max(0, y)) * w + x]; for (let y = 0; y < h; y++) { O[y * w + x] = s / k; s += T[Math.min(h - 1, y + r + 1) * w + x] - T[Math.max(0, y - r) * w + x]; } }
+  return O; }
+const out = document.getElementById('out'), fig = (el, cap) => { const f = document.createElement('figure'); f.append(el, Object.assign(document.createElement('figcaption'), { textContent: cap })); out.append(f); };
+{ const { S } = panel(false, { meas: false }), cv = document.createElement('canvas'); cv.width = S.w; cv.height = S.h; cv.style.width = S.w / dpr + 'px';
+  S.print(cv.getContext('2d'), PIG, { dpr: res, order: ['k', 'g', 'v', 'b'] });
+  const bg = document.createElement('div'); bg.style.background = `rgb(${VELLUM})`; bg.append(cv); fig(bg, 'before: exact lattice, old printer'); }
+{ const { S } = panel(true), cv = document.createElement('canvas'); cv.width = S.w; cv.height = S.h; cv.style.width = S.w / dpr + 'px';
+  S.print(cv.getContext('2d'), PIG, { dpr: res, order: ['k', 'g', 'v', 'b'] });
+  const bg = document.createElement('div'); bg.style.background = `rgb(${VELLUM})`; bg.append(cv); fig(bg, 'measured hand, old printer (geometry alone)'); }
+{ const cv = document.createElement('canvas'); paint(panel(true), cv); fig(cv, 'measured hand, film paint (crisp tint, one-sided mottle, one optic)'); }
+{ const img = new Image(); img.src = './insular-refs/mz2.png'; img.style.width = '520px'; img.onerror = () => img.remove(); fig(img, 'f. 139r, the master (same strand scale, roughly)'); }
+document.body.dataset.timing = 'drawn';
+</script>
+</body>
+</html>
