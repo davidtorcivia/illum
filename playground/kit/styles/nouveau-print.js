@@ -7,7 +7,7 @@
 // the ink engine (kit/inkletter.js inkLetter: the ink creeps into the paper's fibre at its edge and dries), the key last
 // and crisp. Without WebGL2 the engine lays each stone flat.
 //   const P = new Plate(); P.fill('leaf', path, { cut, rule }); P.line(path)   render(P, bake, { dpr, pal, seed, box, slip, res })
-import { inkLetter } from '../inkletter.js';
+import { inkLetter, boxBlur as blur } from '../inkletter.js';
 import { inkWrite, washPour, lineInto } from './nouveau-ink.js';
 import { noise2, stream } from '../marks.js';
 
@@ -22,21 +22,36 @@ export class Plate {
 const rgbOf = s => Array.isArray(s) ? s : s.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number);
 
 // one ink's stone: coverage on a grid (res cells a px) over box, with its slip
+// (an ink lies in a small part of the piece's box: it is read back there only, its reach; elsewhere the stone is empty)
 export function stone(P, col, box, res, slip, trap) {
-  const [x0, y0, x1, y1] = box, w = Math.ceil((x1 - x0) * res), h = Math.ceil((y1 - y0) * res);
+  if (!P.items.some(it => it.col === col)) return null;
+  const [x0, y0, x1, y1] = box, w = Math.ceil((x1 - x0) * res), h = Math.ceil((y1 - y0) * res), M = new Float32Array(w * h);
+  const [i0, j0, i1, j1] = reach(P, col, x0, y0, w, h, res, slip, trap); if (i1 <= i0 || j1 <= j0) return { M, w, h, x0, y0, res };
   const g = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
   g.setTransform(res, 0, 0, res, (slip[0] - x0) * res, (slip[1] - y0) * res); g.lineJoin = 'round';
+  // (a shape that would knock this ink out elsewhere than its reach is left out: what it takes back is never read)
+  const m = 2 / res, X0 = x0 - slip[0] + i0 / res - m, Y0 = y0 - slip[1] + j0 / res - m, X1 = x0 - slip[0] + i1 / res + m, Y1 = y0 - slip[1] + j1 / res + m;
+  const away = bb => bb && (bb[2] < X0 || bb[0] > X1 || bb[3] < Y0 || bb[1] > Y1);
   let any = false;
   for (const it of P.items) {
     if (it.col === col) { any = true; g.globalCompositeOperation = 'source-over'; g.fillStyle = g.strokeStyle = '#000'; g.fill(it.path, it.rule);
       const t = it.trap ?? trap; if (t > 0 && it.rule !== 'evenodd') { g.lineWidth = t * 2; g.stroke(it.path); } }
-    else if (it.knock && col !== 'k' && any) { g.globalCompositeOperation = 'destination-out'; g.fill(it.path, it.rule); }
+    else if (it.knock && col !== 'k' && any && !away(it.path.bb)) { g.globalCompositeOperation = 'destination-out'; g.fill(it.path, it.rule); }
     if (it.cut && it.col === col) {   // (the channel is the shape's own: it takes back this ink only, the shapes laid before it in it too)
       g.globalCompositeOperation = 'destination-out'; g.fill(it.cut.path); g.lineWidth = it.cut.w; g.stroke(it.cut.path); }
   }
-  if (!any) return null;
-  const d = g.getImageData(0, 0, w, h).data, M = new Float32Array(w * h); for (let i = 0; i < w * h; i++) M[i] = d[i * 4 + 3] / 255;
+  const d = g.getImageData(i0, j0, i1 - i0, j1 - j0).data;
+  for (let j = j0, p = 3; j < j1; j++) for (let i = i0, q = j * w + i0; i < i1; i++, q++, p += 4) M[q] = d[p] / 255;
   return { M, w, h, x0, y0, res };
+}
+// an ink's reach on its stone, the cells [i0, j0, i1, j1): its shapes' bounds (path.bb, nouveau-line.js) grown by their
+// trap and the edge's anti-aliasing; a shape without bounds, the whole stone
+function reach(P, col, x0, y0, w, h, res, slip, trap) {
+  let a = Infinity, b = Infinity, c = -Infinity, e = -Infinity;
+  for (const it of P.items) if (it.col === col) { const bb = it.path.bb; if (!bb) return [0, 0, w, h]; const m = Math.max(0, it.trap ?? trap) + 2 / res;
+    a = Math.min(a, bb[0] - m); b = Math.min(b, bb[1] - m); c = Math.max(c, bb[2] + m); e = Math.max(e, bb[3] + m); }
+  const X = v => (v + slip[0] - x0) * res, Y = v => (v + slip[1] - y0) * res;
+  return [Math.max(0, Math.floor(X(a))), Math.max(0, Math.floor(Y(b))), Math.min(w, Math.ceil(X(c))), Math.min(h, Math.ceil(Y(e)))];
 }
 // the stone's grain: the colour a flat coat, a slow swell in its density and the crayon's fine tooth, its edge a little
 // ragged; the engine pools ink at a pour's rim, which a lithographed colour has not, so that is taken back out
@@ -64,14 +79,6 @@ function pochoirTex(L, seed) {
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i; if (O[q] <= 0) continue; const x = x0 + i / res, y = y0 + j / res, rim = Math.max(0, 1 - Bl[q]) * 1.6;
     O[q] *= (.54 + .15 * (dab(x / 1.1, y / 1.1) - .5) * 2 + .1 * (dab2(x / 3.2, y / 3.2) - .5) * 2 + .1 * rim) / (1 + .2 * rim * rim); }
   return { ...L, M: O };
-}
-export function blur(A, w, h, r) {
-  if (r < 1) return A; const T = new Float32Array(w * h), O = new Float32Array(w * h), k = 2 * r + 1;
-  for (let y = 0; y < h; y++) { let s = 0; for (let x = -r; x <= r; x++) s += A[y * w + Math.min(w - 1, Math.max(0, x))];
-    for (let x = 0; x < w; x++) { T[y * w + x] = s / k; s += A[y * w + Math.min(w - 1, x + r + 1)] - A[y * w + Math.max(0, x - r)]; } }
-  for (let x = 0; x < w; x++) { let s = 0; for (let y = -r; y <= r; y++) s += T[Math.min(h - 1, Math.max(0, y)) * w + x];
-    for (let y = 0; y < h; y++) { O[y * w + x] = s / k; s += T[Math.min(h - 1, y + r + 1) * w + x] - T[Math.max(0, y - r) * w + x]; } }
-  return O;
 }
 // bake: a 2D context whose device px are page px × dpr, with no transform of its own (as rubricate's bake)
 export function render(P, bake, { dpr = 2, pal, seed = 1, box, slip = .6, trap = .45, res = Math.max(2, dpr), order, keys = ['k'], grainAmt = 1, pens = null, wash = null, brush = 0, texture = 'litho' } = {}) {

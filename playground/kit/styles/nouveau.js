@@ -21,9 +21,9 @@
 //   print(made, { dpr, kind, animate, seed }) -> { pours, letters, seq, runs, y0 }   timeline(printed, kind, animate)
 import { stream, noise2 } from '../marks.js';
 import { stroke, path, loadLetter, setHand } from './nouveau-line.js';
-import { stone, grain, blur } from './nouveau-print.js';
-import { washPour, lineInto } from './nouveau-ink.js';
-import { inkLetter } from '../inkletter.js';
+import { stone, grain } from './nouveau-print.js';
+import { washPour, lineInto, warmWash } from './nouveau-ink.js';
+import { inkLetter, boxBlur as blur } from '../inkletter.js';
 import * as PC from './nouveau-pieces.js';
 
 let KIND = 'plante', PAINT = 'watercolour', FPAINT = 'gouache';
@@ -65,6 +65,7 @@ Object.defineProperty(initial, 'phone', { get: () => KIND === 'fouet' ? 4 : 3 })
 initial.margin = .32;
 initial.fills = true;
 initial.load = () => { const need = new Set(['B', 'O']); try { document.querySelectorAll('.ini').forEach(s => need.add(letterOf(s.textContent))); } catch {}
+  warmWash();   // (the washes' medium made while the letters load)
   return Promise.all([...need].map(c => loadLetter(c).then(j => { LET[c] = j; }))); };
 
 // ---- the paraph, fillers, breaks -------------------------------------------------------------------------------------------------
@@ -117,31 +118,11 @@ const frames = {
 //   key (the line, A's letter): crisp; in wash, the line feathers into the inks laid damp (WASHDAMP), along the fibres.
 const SHADE = { leaf: 'leafD', iris: 'irisD', irisL: 'irisLD', poppy: 'poppyD' }, SHADED = new Set(Object.values(SHADE));
 const WASHDAMP = { plante: ['leaf', 'leafB', 'iris', 'irisL', 'poppy'], fouet: ['whip', 'olive'] };
-const WASHM = { ground: .3, leafB: .36, beard: .44, crown: .42, letter: .46, poppyB: .4, whip: .5, olive: .5 };
-function washTex(L, seed, Sh, m0) {
-  const { M, w, h, x0, y0, res } = L, slow = noise2(seed ^ 0x2b), bl = noise2(seed ^ 0x47), lift = noise2(seed ^ 0x6d);
-  const R = Math.round(2.2 * res), Bl = blur(blur(M, w, h, R), w, h, R), O = new Float32Array(w * h), Sb = Sh ? blur(Sh, w, h, Math.round(res * 1.2)) : null;
-  let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (M[j * w + i] > .3) { bx0 = Math.min(bx0, i); bx1 = Math.max(bx1, i); by0 = Math.min(by0, j); by1 = Math.max(by1, j); }
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, m = M[q]; if (m <= .01) continue; const x = x0 + i / res, y = y0 + j / res;
-    const rim = Math.max(0, 1 - Bl[q]) * 1.7, gx = (i - bx0) / Math.max(1, bx1 - bx0), gy = (j - by0) / Math.max(1, by1 - by0);
-    const pool = 1 + .3 * ((gx * .45 + gy * .9) / 1.35 - .5) * 2, lifted = 1 - .5 * Math.max(0, lift(x / 30 + y / 90, y / 14 - x / 60) - .62) * 2.2;
-    const b = bl(x / 26, y / 26), back = b > .72 ? .82 : 1, lip = .35 * Math.exp(-Math.pow((b - .72) / .02, 2));
-    const tone = pool * lifted * (back + lip) * (1 + .12 * (slow(x / 16, y / 16) - .5) * 2) * (1 + .55 * rim * rim);
-    O[q] = Math.min(1, m * (m0 * tone + (Sb ? .3 * Sb[q] * M[q] : 0))); }
-  return { ...L, M: O };
-}
 function gouacheTex(L, seed) {
   const { M, w, h, x0, y0, res } = L, B = blur(M, w, h, Math.max(1, Math.round(.5 * res))), rag = noise2(seed ^ 0x19), st = noise2(seed ^ 0x33), O = new Float32Array(w * h), a = (seed % 7) * .4, ca = Math.cos(a), sa = Math.sin(a);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, b = B[q]; if (b <= 0) continue; const x = x0 + i / res, y = y0 + j / res;
     const e = Math.max(0, Math.min(1, (b - .5 + .1 * (rag(x / 2.4, y / 2.4) - .5)) * 3 + .5)), along = x * ca + y * sa, across = -x * sa + y * ca;
     O[q] = e * (.66 + .06 * (st(along / 9, across / .7) - .5) * 2); }
-  return { ...L, M: O };
-}
-function bleed(L, damp, seed) {
-  const { M, w, h, x0, y0, res } = L, B1 = blur(blur(M, w, h, Math.round(1.2 * res)), w, h, Math.round(1.2 * res)), B2 = blur(blur(M, w, h, Math.round(2.8 * res)), w, h, Math.round(2.8 * res)), fib = noise2(seed ^ 0x5a), gate = noise2(seed ^ 0x3d), O = new Float32Array(w * h);
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, x = x0 + i / res, y = y0 + j / res, d = damp ? damp[q] * Math.max(0, Math.min(1, (gate(x / 22, y / 22) - .42) * 5)) : 0;
-    const f = .7 + .6 * fib(x / 1.1 + y / 4, y / 1.1 - x / 4);
-    O[q] = Math.max(M[q], d * Math.min(.62, (B1[q] * 1.1 + B2[q] * .5) * f)); }
   return { ...L, M: O };
 }
 // The plate's inks, in the order they are laid, as layers: { L (its mask), col, how }. A piece is one pour that lays itself
@@ -159,7 +140,7 @@ const WC = { ground: { ink: .5, bloom: .9, edge: .7, gran: .15, lifts: .4 }, lea
 function layers(P, box, res, seed) {
   const out = [], kind = KIND, wash = kind === 'plante' ? PAINT === 'watercolour' : FPAINT === 'wash', gou = kind === 'fouet' && FPAINT === 'gouache';
   const r = stream(seed, 'register'), slip = kind === 'plante' && !wash ? .6 : gou ? .55 : .2, keys = kind === 'fouet' ? ['letter', 'k'] : ['k'];
-  const inks = ORDER[kind].filter(c => P.items.some(it => it.col === c)), damp = wash ? WASHDAMP[kind].filter(c => inks.includes(c)) : [];
+  let D = null; const inks = ORDER[kind].filter(c => P.items.some(it => it.col === c)), damp = wash ? WASHDAMP[kind].filter(c => inks.includes(c)) : [];
   for (const col of inks) {
     if (wash && SHADED.has(col) && kind === 'plante') continue;   // (in watercolour a shade is glazed into its own colour's wash)
     if (col === 'paper') { const L = stone(P, col, box, res, [0, 0], 0); if (L) out.push({ L, col, how: 'pour', wet: .03, dry: 0 }); continue; }   // (the toned sheet: laid flat and whole)
@@ -168,13 +149,19 @@ function layers(P, box, res, seed) {
     // of it is ever a hole in the ground waiting for its colour)
     const src = col === 'ground' ? Object.assign(new P.constructor(), { items: P.items.filter(it => it.col === 'ground' || it.col === 'letter') }) : P;
     const L = stone(src, col, box, res, sl, key ? 0 : .45); if (!L) continue;
-    if (key && wash && damp.length) { const D = new Float32Array(L.w * L.h); for (const c of damp) { const W = stone(P, c, box, res, [0, 0], 0); if (W) for (let q = 0; q < D.length; q++) D[q] = Math.max(D[q], W.M[q]); } out.push({ L, col, how: 'line', damp: D }); }
+    if (key && wash && damp.length) { out.push({ L, col, how: 'line', damp: D ??= wet(P, damp, box, res) }); }
     else if (!key && wash) { const S = SHADE[col] && kind === 'plante' ? stone(P, SHADE[col], box, res, sl, 0) : null; out.push({ L, col, how: 'wash', glaze: S?.M, sd }); }
     else if (!key && gou) out.push({ L: gouacheTex(L, sd), col, how: 'pour', wet: .08, dry: .1 });
     else if (!key) out.push({ L: grain(L, sd), col, how: 'pour', wet: .08, dry: .1 });
     else out.push({ L, col, how: 'pour', wet: .05, dry: .16 });
   }
   return out;
+}
+// where the washes the line is laid into stand damp: their stones as they lie (each key line shares it)
+function wet(P, cols, box, res) {
+  let D = null;
+  for (const c of cols) { const W = stone(P, c, box, res, [0, 0], 0); if (!W) continue; D ??= new Float32Array(W.w * W.h); for (let q = 0; q < D.length; q++) D[q] = Math.max(D[q], W.M[q]); }
+  return D;
 }
 const TONED = [214, 206, 182];   // the toned sheet under a panel on the dark page: a warm grey paper
 function lay(ls, bake, dpr, dark, onPaper) {
@@ -226,7 +213,7 @@ function reveal(items, box) {
   };
 }
 const isDark = () => { try { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; } };
-function shift(P, dx, dy) { const M = new DOMMatrix().translate(dx, dy), mv = p => { const q = new Path2D(); q.addPath(p, M); return q; };
+function shift(P, dx, dy) { const M = new DOMMatrix().translate(dx, dy), mv = p => { const q = new Path2D(); q.addPath(p, M); if (p.bb) q.bb = [p.bb[0] + dx, p.bb[1] + dy, p.bb[2] + dx, p.bb[3] + dy]; return q; };
   for (const it of P.items) { it.path = mv(it.path); if (it.cut && !it.cut.mv) it.cut = { ...it.cut, path: mv(it.cut.path), mv: 1 }; if (it.at) it.at = [it.at[0] + dx, it.at[1] + dy];
     if (it.S && !it.S.mv) { it.S = { ...it.S, p: it.S.p.map(([x, y]) => [x + dx, y + dy]), eye: it.S.eye && [it.S.eye[0] + dx, it.S.eye[1] + dy, it.S.eye[2]], mv: 1 }; } } }
 // the box a piece's ink really reaches (its curls, eyes and flowers may pass its nominal box): every path laid at half a px
@@ -235,11 +222,19 @@ function shift(P, dx, dy) { const M = new DOMMatrix().translate(dx, dy), mv = p 
 function inkBounds(P, [x0, y0, x1, y1]) {
   const g = Math.max(24, (x1 - x0 + y1 - y0) * .4), X0 = x0 - g, Y0 = y0 - g, sc = .5, w = Math.ceil((x1 - x0 + 2 * g) * sc), h = Math.ceil((y1 - y0 + 2 * g) * sc);
   const c = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true }); c.setTransform(sc, 0, 0, sc, -X0 * sc, -Y0 * sc); c.lineWidth = 2;
-  for (const it of P.items) { c.fill(it.path, it.rule); c.stroke(it.path); }
+  for (const it of edges(P.items, [X0, Y0, X0 + w / sc, Y0 + h / sc])) { c.fill(it.path, it.rule); c.stroke(it.path); }
   const d = c.getImageData(0, 0, w, h).data; let i0 = w, j0 = h, i1 = -1, j1 = -1;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (d[(j * w + i) * 4 + 3]) { if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j; }
   if (i1 < 0) return [x0 - 8, y0 - 8, x1 + 8, y1 + 8];
   const m = 12; return [Math.floor(X0 + i0 / sc - m), Math.floor(Y0 + j0 / sc - m), Math.ceil(X0 + (i1 + 1) / sc + m), Math.ceil(Y0 + (j1 + 1) / sc + m)];
+}
+// the shapes that can hold one of the ink's extremes: a shape's ink (its 2 px stroke, a mitre's spike) lies within some
+// 13 px of its bounds (path.bb), so one whose bounds are farther in than that from the outermost cannot; all of them if
+// any lacks bounds or passes the canvas
+function edges(items, [X0, Y0, X1, Y1]) {
+  const B = items.map(it => it.path.bb); if (B.some(b => !b || b[0] < X0 + 16 || b[1] < Y0 + 16 || b[2] > X1 - 16 || b[3] > Y1 - 16)) return items;
+  const e = [Math.min(...B.map(b => b[0])), Math.min(...B.map(b => b[1])), Math.max(...B.map(b => b[2])), Math.max(...B.map(b => b[3]))];
+  return items.filter((_, i) => B[i][0] < e[0] + 32 || B[i][1] < e[1] + 32 || B[i][2] > e[2] - 32 || B[i][3] > e[3] - 32);
 }
 const CACHE = new Map();
 function print(made, { dpr = 1, animate = false, kind } = {}) {

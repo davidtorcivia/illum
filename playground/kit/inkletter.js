@@ -46,9 +46,11 @@ export function dist(feat, w, h, nearest = null) {
 let shared = null;
 function mediumFor(w, h, dpr) {
   if (shared && shared.cv.width >= w && shared.cv.height >= h && shared.dpr === dpr && !shared.gl.isContextLost()) return shared;
-  shared?.gl.getExtension('WEBGL_lose_context')?.loseContext();
   // (made again, as large as needed, when a larger letter comes: sized any other way, the sheet's arithmetic moves a few of
-  // its pixels by a level or two, so the approved letters keep exactly this sequence of sizes)
+  // its pixels by a level or two, so the approved letters keep exactly this sequence of sizes; the context and its
+  // compiled programs are kept, only the sheet is made anew)
+  if (shared && shared.dpr === dpr && !shared.gl.isContextLost()) { shared.Md.resize(Math.max(w, 640), Math.max(h, 640)); shared.Md.settings.over = true; return shared; }
+  shared?.gl.getExtension('WEBGL_lose_context')?.loseContext();
   const cv = document.createElement('canvas'); cv.width = Math.max(w, 640); cv.height = Math.max(h, 640);
   const Md = createMedium(cv, { dpr, paper: [255, 255, 255] }), gl = Md.gl; Md.settings.over = true;
   return shared = { cv, Md, gl, dpr };
@@ -187,12 +189,35 @@ export function letterWriter(bake, L, { k, r }, { dpr = 2, host, below, wet = L.
   return self;
 }
 
-function boxBlur(A, w, h, r) {
+// A box blur, r cells each way, the edge cell repeated (running sums along the rows, then down the columns). Only what the
+// content reaches is run: in each row, from where the window meets ink to where its sum is back to exactly zero with no
+// ink ahead; down the columns, a row at a time, only the columns whose sums are live or take ink in or out. All that is
+// skipped is exactly zero in a full run too (a running sum of zeros), so the result is the same to the bit; a mask with
+// a little ink in a large box (a piece's one colour, a thin whip across it) costs only that little. The result carries
+// where it can be non-zero, O.reach [x0, y0, x1, y1) (outside it, exactly zero), for a caller's loops over it.
+export function boxBlur(A, w, h, r) {
   if (r < 1) return A; const T = new Float32Array(w * h), O = new Float32Array(w * h), k = 2 * r + 1;
-  for (let y = 0; y < h; y++) { let s = 0; for (let x = -r; x <= r; x++) s += A[y * w + Math.min(w - 1, Math.max(0, x))];
-    for (let x = 0; x < w; x++) { T[y * w + x] = s / k; s += A[y * w + Math.min(w - 1, x + r + 1)] - A[y * w + Math.max(0, x - r)]; } }
-  for (let x = 0; x < w; x++) { let s = 0; for (let y = -r; y <= r; y++) s += T[Math.min(h - 1, Math.max(0, y)) * w + x];
-    for (let y = 0; y < h; y++) { O[y * w + x] = s / k; s += T[Math.min(h - 1, y + r + 1) * w + x] - T[Math.max(0, y - r) * w + x]; } }
+  // each row's ink [c0, c1] (none: c1 < 0), and how far its sum ran (e: past it, the row's blur is empty)
+  const c0 = new Int32Array(h), c1 = new Int32Array(h).fill(-1), e = new Int32Array(h); let r0 = h, r1 = -1;
+  for (let y = 0; y < h; y++) { const o = y * w; let a = 0; while (a < w && A[o + a] === 0) a++; if (a === w) continue;
+    let b = w - 1; while (A[o + b] === 0) b--; c0[y] = a; c1[y] = b; if (y < r0) r0 = y; r1 = y; }
+  O.reach = [0, 0, 0, 0]; if (r1 < 0) return O;
+  for (let y = r0; y <= r1; y++) { if (c1[y] < 0) continue; const o = y * w; let s = 0, x = c0[y] > r + 1 ? c0[y] - r - 1 : 0;
+    if (!x) for (let i = -r; i <= r; i++) s += A[o + Math.min(w - 1, Math.max(0, i))];
+    for (; x < w; x++) { T[o + x] = s / k; s += A[o + Math.min(w - 1, x + r + 1)] - A[o + Math.max(0, x - r)];
+      // (an empty window: on to where the next ink comes into it; none, the rest of the row is empty)
+      if (s === 0) { let n = Math.max(0, x + 1 - r); while (n < w && A[o + n] === 0) n++; if (n === w) break; if (n - r - 2 > x) x = n - r - 2; } }
+    e[y] = Math.min(w - 1, x); }
+  // down the columns: their running sums side by side, a row at a time (the same sums in the same order, read along the rows)
+  const S = new Float64Array(w), R = O.reach = [w, h, 0, 0]; let s0 = w, s1 = -1, y = r0 > r + 1 ? r0 - r - 1 : 0;
+  const span = (yy, f) => { if (c1[yy] >= 0) f(Math.max(0, c0[yy] - r), e[yy]); };
+  if (!y) for (let i = -r; i <= r; i++) { const yy = Math.min(h - 1, Math.max(0, i)), o = yy * w;
+    span(yy, (a, b) => { for (let x = a; x <= b; x++) S[x] += T[o + x]; s0 = Math.min(s0, a); s1 = Math.max(s1, b); }); }
+  for (; y < h; y++) { const ya = Math.min(h - 1, y + r + 1), yb = Math.max(0, y - r), o = y * w, a = ya * w, b = yb * w; let x0 = s0, x1 = s1;
+    span(ya, (p, q) => { x0 = Math.min(x0, p); x1 = Math.max(x1, q); }); span(yb, (p, q) => { x0 = Math.min(x0, p); x1 = Math.max(x1, q); });
+    s0 = w; s1 = -1; if (x0 <= x1) { R[0] = Math.min(R[0], x0); R[1] = Math.min(R[1], y); R[2] = Math.max(R[2], x1 + 1); R[3] = y + 1; }
+    for (let x = x0; x <= x1; x++) { O[o + x] = S[x] / k; if ((S[x] += T[a + x] - T[b + x]) !== 0) { if (x < s0) s0 = x; s1 = x; } }
+    if (s1 < 0 && y + 1 - r > r1) break; }
   return O;
 }
 

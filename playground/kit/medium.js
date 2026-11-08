@@ -123,7 +123,7 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   const gl = canvas.getContext('webgl2', { antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: true });
   if (!gl || !gl.getExtension('EXT_color_buffer_float')) throw new Error('This needs WebGL2 with float render targets.');
   gl.getExtension('EXT_float_blend');
-  const W = canvas.width, H = canvas.height;
+  let W = canvas.width, H = canvas.height;
   const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
   const prog = (fs, vs = VS) => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); const U = {}; return { p, u: n => U[n] ??= gl.getUniformLocation(p, n) }; };
@@ -133,8 +133,9 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v); return t; };
   const fbo = (...ts) => { const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); ts.forEach((t, i) => gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, t, 0));
     gl.drawBuffers(ts.map((_, i) => gl.COLOR_ATTACHMENT0 + i)); return f; };
-  const T = { paper: tex(), stroke: tex(), dry: [tex(), tex()], wet: [tex(), tex()] };
-  const F = { paper: fbo(T.paper), stroke: fbo(T.stroke), flow: [fbo(T.wet[1], T.dry[1]), fbo(T.wet[0], T.dry[0])] };
+  let T, F; const alloc = () => { T = { paper: tex(), stroke: tex(), dry: [tex(), tex()], wet: [tex(), tex()] };
+    F = { paper: fbo(T.paper), stroke: fbo(T.stroke), flow: [fbo(T.wet[1], T.dry[1]), fbo(T.wet[0], T.dry[0])] }; };
+  alloc();
   let cur = 0, wetting = 0;
   const run = (pr, rect = [0, 0, W, H]) => { gl.useProgram(pr.p); const a = gl.getAttribLocation(pr.p, 'aPos'); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.enableVertexAttribArray(a);
     gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0); gl.uniform4f(pr.u('uRect'), ...rect); gl.uniform2f(pr.u('uRes'), W, H); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); };
@@ -219,7 +220,15 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   // and reads grey, and a broad stroke grows a halo wider than its own anti-aliasing
   function wetness(w) { S.creep = .03 + .2 * w; S.level = .002 + .02 * w; S.drying = 250 + 1600 * w * w; }
   wetness(.25);
-  return { wetness, gl, W, H, dpr, settings: S, sweep, pour: pourImage, step, finish, render, clear, makePaper, commit() {} };
+  // the sheet made again at another size, as a new medium of that size would be, but in the same context with its
+  // programs already compiled (making a context and compiling its shaders costs tens of ms; a sheet, a few)
+  function resize(w, h) {
+    for (const t of [T.paper, T.stroke, ...T.dry, ...T.wet]) gl.deleteTexture(t); for (const f of [F.paper, F.stroke, ...F.flow]) gl.deleteFramebuffer(f);
+    canvas.width = W = w; canvas.height = H = h; alloc(); cur = 0;
+    for (const k in S) delete S[k]; Object.assign(S, { rough, ink, paper, rim: 0, density: 1, base: .62, drying: 500 }); wetness(.25);
+    makePaper(); clear();
+  }
+  return { wetness, gl, get W() { return W; }, get H() { return H; }, dpr, settings: S, sweep, pour: pourImage, step, finish, render, clear, makePaper, resize, commit() {} };
 }
 
 // A pen in a hand. The hand gives targets (page px, pressure, time in ms); the pen follows through a damped spring

@@ -139,9 +139,12 @@ export function outline(S, f = 1) {
   // (an end cut short by f gets the round cap of its width there: the line as drawn so far, a pen's)
   return [...Lf, ...endCap, ...Rt.reverse(), ...startCap];
 }
-export function path(S, f = 1, P = new Path2D()) { poly(P, outline(S, f)); if (S.eye && f >= 1) { P.moveTo(S.eye[0] + S.eye[2], S.eye[1]); P.arc(S.eye[0], S.eye[1], S.eye[2], 0, Math.PI * 2); } return P; }
+export function path(S, f = 1, P = new Path2D()) { poly(P, outline(S, f)); if (S.eye && f >= 1) { const [x, y, r] = S.eye; P.moveTo(x + r, y); P.arc(x, y, r, 0, Math.PI * 2); grow(P, [[x - r, y - r], [x + r, y + r]]); } return P; }
 export function shape(pts, P = new Path2D()) { poly(P, pts); return P; }
-function poly(P, q) { P.moveTo(q[0][0], q[0][1]); for (let i = 1; i < q.length; i++) P.lineTo(q[i][0], q[i][1]); P.closePath(); }
+function poly(P, q) { P.moveTo(q[0][0], q[0][1]); for (let i = 1; i < q.length; i++) P.lineTo(q[i][0], q[i][1]); P.closePath(); grow(P, q); }
+// a path's bounds kept on it (P.bb: x0, y0, x1, y1), so a stone rasterises only where its ink can be (nouveau-print.js)
+export function grow(P, q) { const b = P.bb ??= [Infinity, Infinity, -Infinity, -Infinity];
+  for (const [x, y] of q) { if (x < b[0]) b[0] = x; if (y < b[1]) b[1] = y; if (x > b[2]) b[2] = x; if (y > b[3]) b[3] = y; } }
 
 // ---- small helpers --------------------------------------------------------------------------------------------------------
 export const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
