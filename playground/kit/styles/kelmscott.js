@@ -332,8 +332,8 @@ const frames = {
 // the red lifted. w: the cut, the page's own paper (read from --paper), so a block being engraved shows the page through it.
 const css = () => { try { const v = getComputedStyle(document.documentElement).getPropertyValue('--paper'); const m = v.match(/\d+(\.\d+)?/g); return m ? m.slice(0, 3).map(Number) : null; } catch { return null; } };
 export const palette = {
-  light: { k: [38, 31, 27], r: [184, 54, 40], get w() { return css() ?? [244, 238, 226]; } },
-  dark: { k: [226, 216, 198], r: [222, 112, 88], get w() { return css() ?? [28, 25, 22]; } },
+  light: { k: [38, 31, 27], g: [38, 31, 27], r: [184, 54, 40], get w() { return css() ?? [244, 238, 226]; } },
+  dark: { k: [226, 216, 198], g: [204, 195, 178], r: [222, 112, 88], get w() { return css() ?? [28, 25, 22]; } },
 };
 
 // ---- printing ------------------------------------------------------------------------------------------------------------------
@@ -367,8 +367,9 @@ function print(made, { dpr = 1, animate = false, kind } = {}) {
   const res = dpr >= 1.5 ? 2 : 1, pours = [], letters = [], seq = [], dark = isDark() && DARK_CUT === 'positive';
   const pour = (p, d) => { pours.push(p); seq.push({ pour: p, d }); }, letter = (L, d) => { letters.push(L); seq.push({ letter: L, d }); };
   const pace = b => kind === 'drop' ? 4.2 : Math.min(1.6, .4 + (b.w + b.h) / 400);
-  for (const b of made.letters ?? []) { const L = raster(b, res), gd = GLYPHS[b.g]?.garden, ink = { ...L, col: b.col, wet: gd ? .08 : .04, dry: gd ? .26 : .18 };
-    if (BLOCK(b.g) && dark && 'vnwq'.includes(b.g[0])) { const { W } = whiteOf(b, L), cut = { ...L, M: W, col: b.col, wet: ink.wet, dry: ink.dry }; animate ? letter(cut, pace(b)) : pour(cut, 0); }
+  for (const b of made.letters ?? []) { const L = raster(b, res), gd = GLYPHS[b.g]?.garden, ink = { ...L, col: gd && b.col === 'k' ? 'g' : b.col, wet: gd ? .08 : .04, dry: gd ? .26 : .18 };   // (g: a garden block's ink; in the dark a light block, a shade below the text's pale ink so it does not glare)
+    // (a garden block (q) is printed whole in the dark too: a light block on the dark page, its letter and vine the page showing through)
+    if (BLOCK(b.g) && dark && 'vnw'.includes(b.g[0])) { const { W } = whiteOf(b, L), cut = { ...L, M: W, col: b.col, wet: ink.wet, dry: ink.dry }; animate ? letter(cut, pace(b)) : pour(cut, 0); }
     else if (BLOCK(b.g) && animate) { const { S, W } = whiteOf(b, L); letter({ ...L, M: S, col: b.col, wet: .02, dry: .1 }, kind === 'drop' ? .6 : .4); letter({ ...L, M: W, col: 'w', wet: .02, dry: 0 }, pace(b)); pour({ ...ink, wet: 0 }, .01); }
     else if (LINEART.has(b.g) && animate) letter(ink, Math.min(1.8, .5 + (b.w + b.h) / 500));
     else pour(ink, animate ? .15 : 0); }

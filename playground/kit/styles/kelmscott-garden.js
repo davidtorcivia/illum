@@ -138,7 +138,10 @@ function grow1(ch, seed, band) {
   // through the widest black, its curvature rising as it goes until it winds in on itself. They are the block's design;
   // everything else hangs from them or fills round them.
   const scrolls = [], spts = [], HS = HW1 * 1.45;
-  const nearScroll = (p, d, skip) => spts.some(q => q[2] !== skip && (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2 < d * d);
+  const sgrid = new Map(), SC = .03, scell = (i, j) => i * 977 + j;
+  const nearScroll = (p, d, skip) => { const n = Math.ceil(d / SC), i0 = p[0] / SC | 0, j0 = p[1] / SC | 0;
+    for (let i = i0 - n; i <= i0 + n; i++) for (let j = j0 - n; j <= j0 + n; j++) { const c = sgrid.get(scell(i, j)); if (c) for (const q of c) if (q[2] !== skip && (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2 < d * d) return true; }
+    return false; };
   { const starts = []; for (let j = 0; j < H; j += 3) for (let i = 0; i < W; i += 3) { const q = j * W + i, p = [(i + .5) / R, (j + .5) / R]; if (F[q] >= T && F[q] < T + .006 && byLetter(p) && stout(p)) starts.push(p); }
     for (let k = starts.length - 1; k > 0; k--) { const j = (r() * (k + 1)) | 0; [starts[k], starts[j]] = [starts[j], starts[k]]; }
     const want = 2 + (r() < .45 ? 1 : 0), ds = .006;
@@ -154,7 +157,7 @@ function grow1(ch, seed, band) {
         if (!ok) break; pts.push(p); }
       let len = 0; for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
       if (len < .26) continue;
-      scrolls.push({ pts, sg, len }); pts.forEach(q => spts.push([q[0], q[1], id])); } }
+      scrolls.push({ pts, sg, len }); pts.forEach(q => { const e = [q[0], q[1], id], k = scell(q[0] / SC | 0, q[1] / SC | 0); spts.push(e); (sgrid.get(k) ?? sgrid.set(k, []).get(k)).push(e); }); } }
   // (how far each place stands from the scrolls, on a coarse grid: the garden is fuller where they gather)
   const SG = 24, dsg = new Float32Array(SG * SG).fill(1);
   for (let j = 0; j < SG; j++) for (let i = 0; i < SG; i++) { const x = (i + .5) / SG * A, y = (j + .5) / SG; let m = 1; for (let k = 0; k < spts.length; k += 3) { const d = (spts[k][0] - x) ** 2 + (spts[k][1] - y) ** 2; if (d < m) m = d; } dsg[j * SG + i] = Math.sqrt(m); }
@@ -285,7 +288,7 @@ function grow1(ch, seed, band) {
   const bez = (P0, P1, P2, u) => { const v = 1 - u; return [v * v * P0[0] + 2 * v * u * P1[0] + u * u * P2[0], v * v * P0[1] + 2 * v * u * P1[1] + u * u * P2[1]]; };
   const curve = (P0, a0, a1, L, w0, w1) => { const P2 = [P0[0] + Math.cos(a1) * L, P0[1] + Math.sin(a1) * L], P1 = [P0[0] + Math.cos(a0) * L * .5, P0[1] + Math.sin(a0) * L * .5], n = Math.max(3, Math.ceil(L / .004)), pts = [], w = [];
     for (let i = 0; i <= n; i++) { pts.push(bez(P0, P1, P2, i / n)); w.push(w0 + (w1 - w0) * i / n); } return { pts, w }; };
-  const strokeOK = (st, from, own) => st.pts.every((p, i) => Math.hypot(p[0] - from[0], p[1] - from[1]) < own + st.w[i] + GAP * .7 || C(p) > st.w[i] + .002 && occFree(p, st.w[i] + GAP * .6));
+  const strokeOK = (st, from, own) => st.pts.every((p, i) => i % 2 === 1 || Math.hypot(p[0] - from[0], p[1] - from[1]) < own + st.w[i] + GAP * .7 || C(p) > st.w[i] + .002 && occFree(p, st.w[i] + GAP * .6));
   const leafAt = (b, a, L, sd) => { const sh = leafShape(r, sd * (.15 + r() * .15)), o = lay(sh.outline, b, a, L);
     return o.every((p, j) => j % 2 || Math.hypot(p[0] - b[0], p[1] - b[1]) < L * .2 || C(p) > -.002 && occFree(p, GAP * .55)) ? { outline: o, rib: lay(sh.axis.slice(2, 15), b, a, L), W: sh.W * L, a, L, b } : null; };
   let put = (p, rr) => occAdd(p, rr), SPR = 0, FIL = 0, FAI = 0;
@@ -391,26 +394,30 @@ function grow1(ch, seed, band) {
   // 8. the gaps filled: wherever the black still opens wider than a little more than the letter's channel, a shoot is grown
   // into it from the nearest stem it can see (or from the letter, if no stem is near), carrying a leaf, a curl or a small
   // flower; then again into the next widest, until none is left. Dw: how far each cell stands from the nearest white.
-  const Dw = new Float32Array(W * H).fill(.035), tried = new Uint8Array(W * H);
-  const stamp = (x, y, rr) => { const ext = rr + .035, i0 = Math.max(0, (x - ext) * R | 0), i1 = Math.min(W - 1, (x + ext) * R | 0), j0 = Math.max(0, (y - ext) * R | 0), j1 = Math.min(H - 1, (y + ext) * R | 0);
+  const Dw = new Float32Array(W * H).fill(.028), tried = new Uint8Array(W * H);
+  const stamp = (x, y, rr) => { const ext = rr + .028, i0 = Math.max(0, (x - ext) * R | 0), i1 = Math.min(W - 1, (x + ext) * R | 0), j0 = Math.max(0, (y - ext) * R | 0), j1 = Math.min(H - 1, (y + ext) * R | 0);
     for (let j = j0; j <= j1; j++) { const dy = (j + .5) / R - y; for (let i = i0; i <= i1; i++) { const dx = (i + .5) / R - x, d = Math.sqrt(dx * dx + dy * dy) - rr, q = j * W + i; if (d < Dw[q]) Dw[q] = d; } } };
   const add = (p, rr, who) => { occAdd(p, rr, who); stamp(p[0], p[1], rr); };
   discs.forEach(e => stamp(e[0], e[1], e[2]));
   const GT = CHL * .95;
-  const rootCands = []; for (let j = 0; j < H; j += 2) for (let i = 0; i < W; i += 2) { const q = j * W + i, p = [(i + .5) / R, (j + .5) / R]; if (F[q] >= T && F[q] < T + .006 && byLetter(p)) rootCands.push([p, stout(p) ? 2.4 : 3.2]); }
+  const rootCands = []; for (let j = 0; j < H; j += 2) for (let i = 0; i < W; i += 2) { const q = j * W + i, p = [(i + .5) / R, (j + .5) / R]; if (F[q] >= T && F[q] < T + .006) rootCands.push([p, !byLetter(p) ? 7 : stout(p) ? 2.4 : 3.2, byLetter(p)]); }   // (and, last of all, from the frame: a stem coming in from behind the block's edge)
   const tangentAt = (st, i) => { const a = st.pts[Math.max(0, i - 2)], b = st.pts[Math.min(st.pts.length - 1, i + 2)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; };
-  const open = new Int32Array(W * H); let nOpen = 0; for (let q = 0; q < W * H; q += 2) if (F[q] >= .004) open[nOpen++] = q;
-  for (let pass = 0; pass < 160; pass++) {
+  // (the stems' points, in a grid of .05 cells, for finding a shoot's source near a gap)
+  const pgrid = new Map(), PG = .05, pgAdd = k => { const st = stems[k]; for (let i = 1; i < st.pts.length - 1; i += 3) { const p = st.pts[i], key = (p[0] / PG | 0) * 977 + (p[1] / PG | 0); (pgrid.get(key) ?? pgrid.set(key, []).get(key)).push([k, i]); } };
+  stems.forEach((_, k) => pgAdd(k));
+  const open = new Int32Array(W * H); let nOpen = 0; for (let j = 0; j < H; j += 2) for (let i = 0; i < W; i += 2) { const q = j * W + i; if (F[q] >= .004) open[nOpen++] = q; }
+  for (let pass = 0; pass < 260; pass++) {
     // (the cells still open, kept in a list that only shrinks as the gaps fill)
-    let qb = -1, eb = 0; for (let m = 0; m < nOpen;) { const q = open[m], e = Math.min(Dw[q], F[q] + CHL), gl = GT * (1 + .0 * Math.min(1, dScroll([(q % W + .5) / R, ((q / W | 0) + .5) / R]) / .3)); if (tried[q] || e <= gl) { open[m] = open[--nOpen]; continue; } if (e - gl > eb) { eb = e - gl; qb = q; } m++; }
+    let qb = -1, eb = 0; for (let m = 0; m < nOpen;) { const q = open[m], e = Math.min(Dw[q], F[q] + CHL), gl = GT; if (tried[q] || e <= gl) { open[m] = open[--nOpen]; continue; } if (e - gl > eb) { eb = e - gl; qb = q; } m++; }
     if (qb >= 0) eb = Math.min(Dw[qb], F[qb] + CHL);
     if (qb < 0) break;
     const P0 = [(qb % W + .5) / R, ((qb / W | 0) + .5) / R], rad = eb;
-    const giveUp = () => { const rr = Math.max(2, rad * .7 * R); for (let j = Math.max(0, (qb / W | 0) - rr | 0); j <= Math.min(H - 1, (qb / W | 0) + rr); j++) for (let i = Math.max(0, qb % W - rr | 0); i <= Math.min(W - 1, qb % W + rr); i++) if ((i - qb % W) ** 2 + (j - (qb / W | 0)) ** 2 <= rr * rr) tried[j * W + i] = 1; };
+    const giveUp = () => { const rr = Math.max(2, rad * .9 * R); for (let j = Math.max(0, (qb / W | 0) - rr | 0); j <= Math.min(H - 1, (qb / W | 0) + rr); j++) for (let i = Math.max(0, qb % W - rr | 0); i <= Math.min(W - 1, qb % W + rr); i++) if ((i - qb % W) ** 2 + (j - (qb / W | 0)) ** 2 <= rr * rr) tried[j * W + i] = 1; };
     // the sources it could spring from, nearest first: a point of a stem, or the letter's edge (a little further reckoned)
     const src = [];
-    stems.forEach((st, k) => { for (let i = 1; i < st.pts.length - 1; i += 2) { const p = st.pts[i], d = Math.hypot(p[0] - P0[0], p[1] - P0[1]); if (d < .26) src.push([d, k, i]); } });
-    rootCands.forEach(([p, w]) => { const d = Math.hypot(p[0] - P0[0], p[1] - P0[1]); if (d < .26) src.push([d * w, -1, p]); });
+    for (const RS of [.2, .32]) { if (src.length > 4) break; src.length = 0;
+    for (let i = (P0[0] - RS) / PG | 0; i <= (P0[0] + RS) / PG; i++) for (let j = (P0[1] - RS) / PG | 0; j <= (P0[1] + RS) / PG; j++) for (const [k, ii] of pgrid.get(i * 977 + j) ?? []) { const p = stems[k].pts[ii], d = Math.hypot(p[0] - P0[0], p[1] - P0[1]); if (d < RS) src.push([d, k, ii]); } }
+    rootCands.forEach(([p, w, onL]) => { const d = Math.hypot(p[0] - P0[0], p[1] - P0[1]); if (d < .26) src.push([d * w + (onL ? 0 : 1), onL ? -1 : -2, p]); });
     src.sort((x, y) => x[0] - y[0]);
     const kind = rad > .05 && flowers.length < 2 ? 'rose' : rad > .03 && r() < .25 ? 'curl' : 'leaf';
     let done = false;
@@ -418,8 +425,11 @@ function grow1(ch, seed, band) {
       const S = k >= 0 ? stems[k].pts[i] : i; if (!sees(S, P0)) continue;
       const len = kind === 'rose' ? 0 : Math.min(2.1 * LK, Math.max(.024, rad * 1.7)), fr = kind === 'rose' ? Math.min(rad - GAP * .6, .042) : 0;
       const a = Math.atan2(P0[1] - S[1], P0[0] - S[0]), Bt = kind === 'rose' ? [P0[0] - Math.cos(a) * (fr + .003), P0[1] - Math.sin(a) * (fr + .003)] : kind === 'curl' ? [P0[0] - Math.cos(a) * rad * .45, P0[1] - Math.sin(a) * rad * .45] : [P0[0] - Math.cos(a) * len * .5, P0[1] - Math.sin(a) * len * .5];
-      const d = Math.hypot(Bt[0] - S[0], Bt[1] - S[1]); if (d < (k < 0 ? .02 : .008)) continue;
-      let t = k >= 0 ? tangentAt(stems[k], i) : grad(S); if (t[0] * (Bt[0] - S[0]) + t[1] * (Bt[1] - S[1]) < 0) { if (k < 0) continue; t = [-t[0], -t[1]]; }
+      const d = Math.hypot(Bt[0] - S[0], Bt[1] - S[1]); if (d < (k < 0 ? .035 : .008)) continue;
+      let t = k >= 0 ? tangentAt(stems[k], i) : grad(S);
+      // (from the letter, a shoot leaves along the stroke, at a shallow angle to it, and curves out: never a rung straight off it)
+      if (k < 0) { const g = t, u = [-g[1], g[0]], sg = u[0] * (Bt[0] - S[0]) + u[1] * (Bt[1] - S[1]) >= 0 ? 1 : -1, c1 = Math.cos(1.05), s1 = Math.sin(1.05); t = [g[0] * c1 + u[0] * sg * s1, g[1] * c1 + u[1] * sg * s1]; }
+      if (t[0] * (Bt[0] - S[0]) + t[1] * (Bt[1] - S[1]) < 0) { if (k < 0) continue; t = [-t[0], -t[1]]; }
       if (k >= 0 && (t[0] * (Bt[0] - S[0]) + t[1] * (Bt[1] - S[1])) / d < .15) continue;   // (a shoot leaves its stem at a shallow angle, or not from there)
       const bow = (r() - .5) * .5 * d, C1 = [S[0] + t[0] * d * .45 - t[1] * bow, S[1] + t[1] * d * .45 + t[0] * bow], n = Math.max(3, Math.ceil(d / .004)), w0 = k >= 0 ? Math.min(stems[k].w[i] * .8, HW1 * .65) : HW1 * .45, pts = [], ws = [];
       for (let j = 0; j <= n; j++) { const u = j / n, v = 1 - u; pts.push([v * v * S[0] + 2 * v * u * C1[0] + u * u * Bt[0], v * v * S[1] + 2 * v * u * C1[1] + u * u * Bt[1]]); ws.push(w0 + (HW0 - w0) * u); }
@@ -433,15 +443,17 @@ function grow1(ch, seed, band) {
         if (cp.slice(4).every(p => C(p) > .002 && occFree(p, HW0 + GAP * .5))) mark = () => { curls.push({ pts: cp, w: cp.map((_, j) => HW0 * (1 - .3 * j / cp.length)), ball: HW0 * 1.8 }); cp.forEach((q, j) => j % 3 || add(q, HW0)); }; }
       else if (rad > .042 && (put = add, sprig(end, ea, Math.min(LK * 2.6, rad * 2.2), r() < .5 ? 1 : -1))) mark = () => {};
       else { const sh = leafShape(r, (r() < .5 ? 1 : -1) * (.18 + r() * .14));
-        for (const [da, f] of [[0, 1], [.3, 1], [-.3, 1], [.6, .85], [-.6, .85], [0, .7], [.9, .7], [-.9, .7], [1.3, .65], [-1.3, .65], [1.6, .55], [-1.6, .55]]) { const o = lay(sh.outline, end, ea + da, len * f);
-          if (o.every((p, j) => j % 2 || Math.hypot(p[0] - end[0], p[1] - end[1]) < len * .22 || C(p) > -.002 && occFree(p, GAP * .55))) { const aa = ea + da, L2 = len * f;
+        for (const [da, f] of [[0, 1], [.3, 1], [-.3, 1], [.6, .85], [-.6, .85], [0, .7], [.9, .7], [-.9, .7], [1.3, .65], [-1.3, .65], [1.6, .55], [-1.6, .55], [0, .45], [.8, .45], [-.8, .45], [1.4, .4], [-1.4, .4]]) { const o = lay(sh.outline, end, ea + da, Math.max(.018, len * f));
+          if (o.every((p, j) => j % 2 || Math.hypot(p[0] - end[0], p[1] - end[1]) < len * f * .22 || C(p) > -.002 && occFree(p, GAP * .55))) { const aa = ea + da, L2 = Math.max(.018, len * f);
             mark = () => { leaves.push({ outline: o, rib: lay(sh.axis.slice(2, 15), end, aa, L2), W: sh.W * L2 }); for (let tt = .25; tt <= .95; tt += .14) add([end[0] + Math.cos(aa) * L2 * tt, end[1] + Math.sin(aa) * L2 * tt], L2 * .17); }; break; } } }
+      if (!mark) { const sg = r() < .5 ? 1 : -1, cp = tendril(end, ea, .05, sg * 6, sg * 70, 1.2, .0025);
+        if (cp.slice(4).every(p => C(p) > .002 && occFree(p, HW0 * .8 + GAP * .5))) mark = () => { curls.push({ pts: cp, w: cp.map((_, j) => HW0 * .8 * (1 - .3 * j / cp.length)), ball: HW0 * 1.6 }); cp.forEach((q, j) => j % 3 || add(q, HW0 * .8)); }; }
       if (!mark) continue;
       // a shoot from the letter: its foot drawn back across the channel to the white
-      if (k < 0) { const g = grad(S); let e = 0; while (e < .06 && Fxy(S[0] - g[0] * e, S[1] - g[1] * e) > -CHL + 1e-4) e += .003; e += .003;
+      if (k === -1) { const g = grad(S); let e = 0; while (e < .06 && Fxy(S[0] - g[0] * e, S[1] - g[1] * e) > -CHL + 1e-4) e += .003; e += .003;
         for (let j = 1, m = Math.ceil(e / .004); j <= m; j++) { pts.unshift([S[0] - g[0] * e * j / m, S[1] - g[1] * e * j / m]); ws.unshift(w0); } }
       { const [hp, hw] = hand(pts, ws, stems.length + 1); pts.splice(0, pts.length, ...hp); ws.splice(0, ws.length, ...hw); }
-      stems.push({ pts, w: ws, root: k < 0 }); pts.forEach((p, j) => j % 2 || add(p, ws[j], stems.length)); mark(); done = true; FIL++; }
+      stems.push({ pts, w: ws, root: k < 0 }); pgAdd(stems.length - 1); pts.forEach((p, j) => j % 2 || add(p, ws[j], stems.length)); mark(); done = true; FIL++; }
     if (!done) { giveUp(); FAI++; }
   }
   // dots, only in the small black left over
