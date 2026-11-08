@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Insular material</title>
+<!--
+  A material experiment on one letter (not a direction): the Lindisfarne E at 4x printed six ways, the same geometry each
+  time, only how it is painted changing: the pigments' coverage (the ink engine lays a full flat coat above ~.55), the
+  master's own palette, and the hand's drift (one slow displacement under every ink, so the whole letter wavers as a drawn
+  one does, the inks a hair off register). ?ch= ?theme=dark
+-->
+<style>
+  @font-face { font-family: InsularUncial; src: url(../fonts/insular/UncialAntiqua.woff2) format("woff2"); font-display: block; }
+  html { background: #e9e4d8; } body { margin: 0; padding: 16px; font: italic 13px/1.4 serif; color: #333; }
+  .grid { display: flex; flex-wrap: wrap; gap: 14px; } figure { margin: 0; background: rgb(241 232 213); padding: 8px; }
+  [data-theme=dark] figure { background: rgb(28 24 21); color: #ccc; }
+</style>
+</head>
+<body>
+<div class="grid" id="out"></div>
+<script type="module">
+import * as D from './insular-directions.js';
+import { inkLetter } from '../kit/inkletter.js';
+import { noise2 } from '../kit/marks.js';
+const q = new URLSearchParams(location.search), theme = q.get('theme') ?? 'light', ch = q.get('ch') ?? 'E', seed = 7;
+document.documentElement.dataset.theme = theme;
+await document.fonts.load('40px InsularUncial');
+const dpr = Math.min(2, devicePixelRatio || 1), Z = +(q.get('z') ?? 4), H = 109;
+// the master's pigments, sampled on f. 139r and carried to this page's vellum (k-means over the letter, white-balanced on
+// the vellum): red lead browner, orpiment pale and dull, verdigris grey, the blue soft
+const MASTER = { light: { k: [44, 22, 14], r: [156, 78, 54], d: [160, 84, 58], y: [200, 168, 112], g: [118, 136, 120], b: [74, 84, 112], p: [104, 60, 74], v: [236, 226, 204] },
+  dark: { k: [24, 20, 17], r: [190, 98, 70], d: [196, 104, 74], y: [214, 182, 124], g: [130, 150, 132], b: [100, 112, 146], p: [136, 86, 104], v: [214, 198, 166], l: [214, 198, 166] } };
+const VARIANTS = (q.get('set') === '2' ? [
+  ['master palette + drift', { pal: 'master', coat: 'now', warp: 1 }],
+  ['+ a gentle swell', { pal: 'master', coat: 'swell', warp: 1 }],
+  ['+ a gentle swell, more drift', { pal: 'master', coat: 'swell', warp: 1.6 }],
+  ['+ body colour (.66, the swell only)', { pal: 'master', coat: 'body', warp: 1.3 }],
+] : [
+  ['as now', { pal: 'now', coat: 'now', warp: 0 }],
+  ['master palette', { pal: 'master', coat: 'now', warp: 0 }],
+  ['thin coats', { pal: 'now', coat: 'thin', warp: 0 }],
+  ['hand drift', { pal: 'now', coat: 'now', warp: 1 }],
+  ['all three', { pal: 'master', coat: 'thin', warp: 1 }],
+  ['all three, thinner', { pal: 'master', coat: 'thinner', warp: 1.3 }],
+]);
+// coats: { base, slow (a swell in density over ~9 px), tooth (the vellum's tooth, ~1 px) } per ink; 'now' is the page's own
+const THIN = { base: .5, slow: .12, tooth: .1, px: 1 }, THINNER = { base: .42, slow: .16, tooth: .14, px: 1.1 };
+const SWELL = { base: .7, slow: .07, tooth: .015, px: .8 }, BODY = { base: .66, slow: .06, tooth: 0, px: 1 };
+const coatOf = (mode, ink) => mode === 'swell' ? (ink === 'k' || ink === 'l' ? 0 : SWELL) : mode === 'body' ? (ink === 'k' || ink === 'l' ? 0 : BODY) : mode === 'now' ? D.DIRS.lind.tex(ink) : ink === 'k' || ink === 'l' ? { base: mode === 'thin' ? .62 : .56, slow: .1, tooth: .06, px: .6 } : mode === 'thin' ? THIN : THINNER;
+function print(S, bake, pal, { dpr, order, coat, warp, alias = { d: 'r' } }) {
+  const { w, h, res } = S, sx = noise2(91), sy = noise2(173), A = warp * H * .006, lam = H * .16;
+  for (const ink of order) {
+    if (alias[ink] || !pal[ink]) continue;
+    const gs = [ink, ...Object.keys(alias).filter(k => alias[k] === ink)].map(k => S.c.get(k)).filter(Boolean); if (!gs.length) continue;
+    let M = new Float32Array(w * h); for (const g of gs) { const d = g.getImageData(0, 0, w, h).data; for (let q = 0, p = 3; q < M.length; q++, p += 4) M[q] = Math.max(M[q], d[p] / 255); }
+    if (A) {   // the hand's drift: every ink displaced by the same slow field (and a hair off register, its own small shift)
+      const O = new Float32Array(w * h), rs = noise2(ink.charCodeAt(0) * 7), ox = (rs(1.3, 2.1) - .5) * .5 * warp, oy = (rs(4.7, .4) - .5) * .5 * warp;
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const X = i / res, Y = j / res, dx = A * (sx(X / lam, Y / lam) - .5) * 2 + ox, dy = A * (sy(X / lam, Y / lam) - .5) * 2 + oy;
+        const u = i - dx * res, v = j - dy * res, i0 = Math.floor(u), j0 = Math.floor(v), fu = u - i0, fv = v - j0; if (i0 < 0 || j0 < 0 || i0 >= w - 1 || j0 >= h - 1) continue;
+        const a = M[j0 * w + i0], b = M[j0 * w + i0 + 1], c = M[(j0 + 1) * w + i0], e = M[(j0 + 1) * w + i0 + 1]; O[j * w + i] = (a * (1 - fu) + b * fu) * (1 - fv) + (c * (1 - fu) + e * fu) * fv; }
+      M = O; }
+    const o = coat(ink);
+    if (o) { const sl = noise2(seed + ink.charCodeAt(0) * 31), to = noise2((seed + ink.charCodeAt(0) * 31) ^ 0x55), px = o.px ?? o.grainPx ?? .7;
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i; if (M[q] <= 0) continue; const x = i / res, y = j / res;
+        M[q] *= o.base + o.slow * (sl(x / 9, y / 9) - .5) * 2 + o.tooth * (to(x / px, y / px) - .5) * 2; } }
+    inkLetter(bake, { M, w, h, x0: S.box[0], y0: S.box[1], res, wet: o ? (o.wet ?? .08) : .05, dry: o ? (o.dry ?? .1) : .16 }, pal[ink], { dpr });
+  }
+}
+const out = document.getElementById('out');
+for (const [name, v] of VARIANTS) {
+  const piece = D.DIRS.lind.initial(ch, H, seed, { theme, res: dpr * Z }), { S, W } = piece, d = dpr * Z, cv = document.createElement('canvas');
+  cv.width = Math.ceil(W * d); cv.height = Math.ceil(piece.H * d); cv.style.width = W * Z + 'px'; cv.style.height = piece.H * Z + 'px';
+  const pal = v.pal === 'master' ? MASTER[theme] : D.PAL.lind[theme];
+  print(S, cv.getContext('2d'), pal, { dpr: d, order: D.DIRS.lind.order, coat: ink => coatOf(v.coat, ink), warp: v.warp });
+  const f = document.createElement('figure'); f.append(cv, Object.assign(document.createElement('figcaption'), { textContent: name })); out.append(f);
+}
+document.body.dataset.timing = 'drawn';
+</script>
+</body>
+</html>
