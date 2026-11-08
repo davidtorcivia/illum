@@ -107,3 +107,30 @@ generic shapes, characterless curves, nothing printed. What changed:
   along that echo, so it follows the bowls, and a hairline doubles it for a stretch. In B the stem follows the bowls up
   to the iris. The letter is Böcklin's own outline (fonts/nouveau/bocklin-X.json, exported by tools/nouveau_glyphs.py),
   so its contour can take the hand.
+
+## The style (kit/styles/nouveau.js; tests/nouveau.html)
+
+Both directions are one style, chosen with `kind` (`plante`, the default, or `fouet`). Each has a paint setting:
+`paint` for la plante (`watercolour`, the default, or `printed`) and `fpaint` for le fouet (`wash`, the default, or
+`gouache`). The page reads them as ?kind=, ?paint= and ?fpaint=.
+
+- **Pieces.** The style draws every rubrication case: the drop initial (four lines, three on a phone), the initial in
+  the line, the paraph, the fillers (a paragraph's and a heading's), three break ranks (part, chapter or book, end),
+  the quotation and aside margin, the pull quote's head and foot, the figure and code frames, and the contents marks.
+  All of them are built in kit/styles/nouveau-pieces.js on the shared plant and line code.
+- **Printing.** Every piece is printed through rubricate's own path. Each ink is a mask poured with inkLetter, and the
+  paint lives in the mask's coverage:
+  - the chromolithograph's grain;
+  - the watercolour wash: pooled to one side and at its edge, lifted where the brush ran dry, a rare back-run, and its
+    shade glazed into the same colour;
+  - the gouache's even coat with a faint brush grain.
+  - In wash, the key line feathers into the inks laid damp.
+- **Animation (?draw).** Each pour is revealed in growth order: lines along their length, and leaves and petals out
+  from their base, so the flowers open. Nothing fades, and the final frame equals the still.
+- **Le fouet.** Its whiplash is walked by a hand (`setHand`) in both paints.
+
+One limit, and the hook that would lift it. The watercolour shown on the direction page was laid by washPour and
+lineInto in a medium of its own: the water and the line share one sheet, so the bleed is physical. Rubricate's pour
+contract has only inkLetter, so the style encodes the wash in coverage instead. A small hook in illum.js would let a
+pour paint itself, for example `pour.paint(bake, { dpr })` used in place of inkLetter when it is present. With it, the
+style could hand washPour and lineInto through unchanged.

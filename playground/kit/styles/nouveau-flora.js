@@ -15,7 +15,8 @@ import { bspline, closed, even, stroke, path, shape, contour, lay, rotp } from '
 // tip (eb < .5: a round end, a spoon; > 1: drawn to a point); asym: the right half's width over the left's; frill: { amp,
 // n, from } a crinkle along the outer part of the edge (amp px, n waves along the whole edge, from t)
 export function organ({ axisCp, W, ea = .6, eb = 1, asym = 1, frill = null, r = Math.random, n = 40 }) {
-  const ax = even(bspline(axisCp, 24), 1); const m = ax.length; if (m < 3) return null;
+  const sp = bspline(axisCp, 24); let len = 0; for (let i = 1; i < sp.length; i++) len += Math.hypot(sp[i][0] - sp[i - 1][0], sp[i][1] - sp[i - 1][1]);
+  const ax = even(sp, Math.max(.05, Math.min(1, len / 8))); const m = ax.length; if (m < 3) return null;
   const mx = Math.pow(ea / (ea + eb), ea) * Math.pow(eb / (ea + eb), eb), N = [], wl = [], wr = [];
   for (let i = 0; i < m; i++) { const a = ax[Math.max(0, i - 1)], b = ax[Math.min(m - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; N.push([-dy / l, dx / l]);
     const t = i / (m - 1), base = W * Math.pow(Math.max(t, .015), ea) * Math.pow(Math.max(1 - t, 0), eb) / mx; wl.push(base); wr.push(base * asym); }
@@ -29,18 +30,20 @@ export function organ({ axisCp, W, ea = .6, eb = 1, asym = 1, frill = null, r = 
   return { loop, halves: [[...L, ...ax.slice().reverse()], [...R, ...ax.slice().reverse()]], axis: ax, at, W };
 }
 // the key line round a shape, with its hand
-const KEY = (P, loop, w, o = {}) => P.line(contour(loop, { w, lo: o.lo ?? .3, lift: o.lift ?? .35, inset: .35, tip: 1.8 }), o.cut ? { cut: o.cut } : {});
+const KEY = (P, loop, w, o = {}) => P.line(contour(loop, { w, lo: o.lo ?? .3, lift: o.lift ?? .35, inset: .35, tip: 1.8 }), { ...(o.cut ? { cut: o.cut } : {}), at: o.at ?? loop[0] });
 // a vein: a fine line along the organ from t0 to t1 at fraction f of its half-width, fading at both ends
 function vein(P, O, t0, t1, f, w, col, cut) {
   const pts = []; for (let k = 0; k <= 16; k++) pts.push(O.at(t0 + (t1 - t0) * k / 16, f * (1 - .25 * k / 16)));
-  P.fill(col, path(stroke(pts, { hair: w, a: { kind: 'taper', len: (t1 - t0) * O.axis.length * .25 }, b: { kind: 'taper', len: (t1 - t0) * O.axis.length * .45 } })), { knock: false, cut });
+  const S = stroke(pts, { hair: w, a: { kind: 'taper', len: (t1 - t0) * O.axis.length * .25 }, b: { kind: 'taper', len: (t1 - t0) * O.axis.length * .45 } }); P.fill(col, path(S), { knock: false, cut, S });
 }
 // a filled organ: its colour, its shaded half in the darker tint, its veins, its key
 function lay3(P, O, ink, shade, kw, o = {}) {
-  P.fill(ink, shape(O.loop), { cut: o.cut });
-  if (shade) P.fill(shade, shape(O.halves[o.shadeSide ?? 1]), { knock: false, cut: o.cut, trap: 0 });
+  if (!O) return;   // (an organ too small to have a shape at this size is left out)
+  const at = O.axis[0];
+  P.fill(ink, shape(O.loop), { cut: o.cut, at });
+  if (shade) P.fill(shade, shape(O.halves[o.shadeSide ?? 1]), { knock: false, cut: o.cut, trap: 0, at });
   for (const v of o.veins ?? []) vein(P, O, v[0], v[1], v[2], kw * (v[3] ?? .32), o.veinInk ?? shade ?? 'k', o.cut);
-  KEY(P, O.loop, kw, o);
+  KEY(P, O.loop, kw, { ...o, at });
 }
 const J = (r, a) => (r() - .5) * 2 * a;
 
@@ -89,7 +92,7 @@ export function poppy(P, at, s, a, r, o = {}) {
     const O = organ({ axisCp: cp, W: s * (.27 + J(r, .03)), ea: .5, eb: .22, asym: .85 + r() * .3, frill: { amp: s * .014, n: 20, from: .5 }, r });
     lay3(P, O, 'poppy', 'poppyD', k, { cut, shadeSide: Math.cos(th) > 0 ? 1 : 0, veins: [[.32, .9, .45, .26], [.3, .92, 0, .26], [.32, .9, -.45, .26]] });
     const bl = organ({ axisCp: [cp[0], cp[1], [cp[0][0] + (cp[2][0] - cp[0][0]) * .55, cp[0][1] + (cp[2][1] - cp[0][1]) * .55]], W: s * .12, ea: .5, eb: .8, r });
-    P.fill('poppyB', shape(bl.loop), { knock: false, cut, trap: 0 }); }
+    if (bl) P.fill('poppyB', shape(bl.loop), { knock: false, cut, trap: 0 }); }
   // the capsule: a green dome, its crown a flat disc with dark rays
   const cap = []; for (let i = 0; i < 36; i++) { const t = i / 36 * Math.PI * 2; cap.push(T(Math.cos(t) * .11, Math.sin(t) * .11 - .02)); }
   P.fill('crown', shape(cap), { cut }); KEY(P, cap, k * .8, { lift: .2, cut });
@@ -103,7 +106,7 @@ export function bud(P, at, s, a, r, o = {}) {
     lay3(P, pet, 'iris', 'irisD', k, { cut, veins: [[.3, .9, .3], [.3, .9, -.3]] });
     const sp = organ({ axisCp: [T(-.02, -.08), T(.03, .3), T(.02 + J(r, .03), .62)], W: s * .1, ea: .8, eb: 1.2, asym: .7, r });
     lay3(P, sp, 'leaf', 'leafD', k, { cut, veins: [[.2, .9, 0, .3]] }); return; }
-  const pk = organ({ axisCp: [T(0, .2), T(J(r, .02), .6), T(0, 1.02)], W: s * .08, ea: .6, eb: .8, r }); P.fill('poppy', shape(pk.loop), { cut });   // the petals showing at the seam
+  const pk = organ({ axisCp: [T(0, .2), T(J(r, .02), .6), T(0, 1.02)], W: s * .08, ea: .6, eb: .8, r }); if (pk) P.fill('poppy', shape(pk.loop), { cut });   // the petals showing at the seam
   for (const m of [-1, 1]) { const O = organ({ axisCp: [T(m * .02, 0), T(m * .22, .3), T(m * .16, .78), T(m * .015, 1)], W: s * .15, ea: .7, eb: .7, asym: .7 + r() * .2, r });
     lay3(P, O, 'leaf', 'leafD', k, { cut, shadeSide: m > 0 ? 0 : 1 }); }
   P.fill('k', path(stroke([T(0, .06), T(J(r, .03), .5), T(0, .97)], { hair: k * .3, a: { kind: 'taper', len: s * .15 }, b: { kind: 'taper', len: s * .2 } })), { knock: false, cut });
@@ -122,18 +125,18 @@ export function blade(P, axisCp, W, r, o = {}) {
   const piece = (i0, i1, ink, sh) => { if (i1 - i0 < 3) return; const L = [], R = [];
     for (let i = i0; i <= i1; i++) { const w = Math.abs(sw[i]) * (i === i0 && i0 > 0 ? 0 : 1); L.push([ax[i][0] + N[i][0] * w, ax[i][1] + N[i][1] * w]); R.push([ax[i][0] - N[i][0] * w * .85, ax[i][1] - N[i][1] * w * .85]); }
     const loop = [...L, ...R.reverse().slice(1, -1)];
-    P.fill(ink, shape(loop), { cut });
-    if (sh) P.fill(sh, shape([...R.slice().reverse(), ...ax.slice(i0, i1 + 1).reverse()]), { knock: false, cut, trap: 0 });
+    P.fill(ink, shape(loop), { cut, at: ax[i0] });
+    if (sh) P.fill(sh, shape([...R.slice().reverse(), ...ax.slice(i0, i1 + 1).reverse()]), { knock: false, cut, trap: 0, at: ax[i0] });
     for (const f of [.45, -.45, 0]) { const pts = []; for (let i = i0 + 2; i <= i1 - 2; i++) { const w = Math.abs(sw[i]) * f * (f < 0 ? .85 : 1); pts.push([ax[i][0] + N[i][0] * w, ax[i][1] + N[i][1] * w]); }
-      if (pts.length > 4) P.fill(sh ?? 'leafD', path(stroke(pts, { hair: k * (f ? .22 : .3), a: { kind: 'taper', len: 6 }, b: { kind: 'taper', len: pts.length * .4 } })), { knock: false, cut }); }
-    KEY(P, loop, k, { cut, lift: .3 }); };
+      if (pts.length > 4) { const S = stroke(pts, { hair: k * (f ? .22 : .3), a: { kind: 'taper', len: 6 }, b: { kind: 'taper', len: pts.length * .4 } }); P.fill(sh ?? 'leafD', path(S), { knock: false, cut, S }); } }
+    KEY(P, loop, k, { cut, lift: .3, at: ax[i0] }); };
   piece(0, Math.min(cross, m - 1), o.ink ?? 'leaf', 'leafD');
   if (cross < m - 1) piece(cross, m - 1, 'leafB', null);
 }
 // a stem: a tapering line in the leaf's dark, with nodes (a sheathing scale) where given
 export function stem(P, pts, o = {}) {
   const S = stroke(pts, { hair: o.w ?? 1, a: { kind: o.foot ?? 'point', len: o.footLen ?? 12, fat: (o.w ?? 1) * 1.8 }, b: { kind: 'hair' }, press: o.press ?? .25 });
-  P.fill(o.ink ?? 'k', path(S), { cut: o.cut, knock: false });
+  P.fill(o.ink ?? 'k', path(S), { cut: o.cut, knock: false, S });
   return S;
 }
 
@@ -146,6 +149,6 @@ export function umbel(P, node, dir, len, r, o = {}) {
     const e = [node[0] + Math.cos(a) * L, node[1] + Math.sin(a) * L], mid = [node[0] + Math.cos(a - u * .35) * L * .55, node[1] + Math.sin(a - u * .35) * L * .55];
     { const S = stroke(bspline([node, mid, e], 12), { hair: k * .55, a: { kind: 'taper', len: L * .2 } }); P.fill(ink, path(S), { knock: false, S }); }
     const dr = organ({ axisCp: [e, [e[0] + Math.cos(a) * len * .06, e[1] + Math.sin(a) * len * .06], [e[0] + Math.cos(a) * len * .12, e[1] + Math.sin(a) * len * .12]], W: len * .028, ea: .5, eb: .55, asym: .9, r });
-    P.fill(seed, shape(dr.loop)); }
+    if (dr) P.fill(seed, shape(dr.loop)); }
   for (const m of [-1, 1]) { const a = dir + Math.PI + m * .55; const S = stroke([node, [node[0] + Math.cos(a) * len * .14, node[1] + Math.sin(a) * len * .14]], { hair: k * .5, a: { kind: 'point', len: len * .1, fat: k * 1.1 } }); P.fill(ink, path(S), { knock: false, S }); }
 }

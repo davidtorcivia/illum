@@ -15,14 +15,14 @@ export class Plate {
   constructor() { this.items = []; }
   // a shape in an ink; cut: { path, w } knocks a channel (the path filled and stroked w wide) out of what is already laid in
   // this ink (and of this shape); rule: 'evenodd' for a ribbon
-  fill(col, path, o = {}) { this.items.push({ col, path, rule: o.rule ?? 'nonzero', cut: o.cut, knock: o.knock ?? col !== 'k', trap: o.trap, S: o.S }); return this; }
+  fill(col, path, o = {}) { this.items.push({ col, path, rule: o.rule ?? 'nonzero', cut: o.cut, knock: o.knock ?? col !== 'k', trap: o.trap, S: o.S, at: o.at }); return this; }
   line(path, o = {}) { return this.fill(o.col ?? 'k', path, { rule: 'evenodd', ...o, knock: false }); }
   get inks() { const s = []; for (const it of this.items) if (!s.includes(it.col)) s.push(it.col); return s; }
 }
 const rgbOf = s => Array.isArray(s) ? s : s.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number);
 
 // one ink's stone: coverage on a grid (res cells a px) over box, with its slip
-function stone(P, col, box, res, slip, trap) {
+export function stone(P, col, box, res, slip, trap) {
   const [x0, y0, x1, y1] = box, w = Math.ceil((x1 - x0) * res), h = Math.ceil((y1 - y0) * res);
   const g = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
   g.setTransform(res, 0, 0, res, (slip[0] - x0) * res, (slip[1] - y0) * res); g.lineJoin = 'round';
@@ -40,7 +40,7 @@ function stone(P, col, box, res, slip, trap) {
 }
 // the stone's grain: the colour a flat coat, a slow swell in its density and the crayon's fine tooth, its edge a little
 // ragged; the engine pools ink at a pour's rim, which a lithographed colour has not, so that is taken back out
-function grain(L, seed, amt = 1) {
+export function grain(L, seed, amt = 1) {
   const { M, w, h, x0, y0, res } = L, B = blur(M, w, h, Math.max(1, Math.round(.5 * res))), rag = noise2(seed ^ 0x2a), slow = noise2(seed ^ 0x51), tooth = noise2(seed ^ 0x77);
   const O = new Float32Array(w * h);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, b = B[q]; if (b <= 0) continue;
@@ -65,7 +65,7 @@ function pochoirTex(L, seed) {
     O[q] *= (.54 + .15 * (dab(x / 1.1, y / 1.1) - .5) * 2 + .1 * (dab2(x / 3.2, y / 3.2) - .5) * 2 + .1 * rim) / (1 + .2 * rim * rim); }
   return { ...L, M: O };
 }
-function blur(A, w, h, r) {
+export function blur(A, w, h, r) {
   if (r < 1) return A; const T = new Float32Array(w * h), O = new Float32Array(w * h), k = 2 * r + 1;
   for (let y = 0; y < h; y++) { let s = 0; for (let x = -r; x <= r; x++) s += A[y * w + Math.min(w - 1, Math.max(0, x))];
     for (let x = 0; x < w; x++) { T[y * w + x] = s / k; s += A[y * w + Math.min(w - 1, x + r + 1)] - A[y * w + Math.max(0, x - r)]; } }
