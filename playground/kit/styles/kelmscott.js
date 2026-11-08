@@ -333,7 +333,9 @@ let QUIET = false;   // ?vine=none: the quotation and the aside left plain, the 
 let VINE_KIND = 'grown', PULL = 'traced';
 const grownVine = (xl, top, bot, u, seed) => { const w = u * 2.6, x = xl - u * .5 - w, H = bot - top + u * 1.6; return [art(ornament('vine', w, H, seed % 13, { u }), x, top - u * .8, 'k', 'vine' + H.toFixed(1) + u.toFixed(2), seed)].filter(Boolean); };
 const grownFrame = ([X0, Y0, X1, Y1], s, lw, seed) => { const o = ornament('corner', s, s, seed % 5), k = 'corner' + s.toFixed(1) + (seed % 5);
-  return [...ruled([X0, Y0, X1, Y1], lw), art(o, X0, Y0, 'k', k, seed), art(o, X1, Y0, 'k', k, seed, -1, 1), art(o, X0, Y1, 'k', k, seed, 1, -1), art(o, X1, Y1, 'k', k, seed, -1, -1)]; };
+  // (the rules stop at each corner's rosette, so rule, rosette and stems are one piece)
+  const g = s * .19, sides = [rect(X0 + g, Y0 - lw / 2, X1 - X0 - 2 * g, lw), rect(X0 + g, Y1 - lw / 2, X1 - X0 - 2 * g, lw), rect(X0 - lw / 2, Y0 + g, lw, Y1 - Y0 - 2 * g), rect(X1 - lw / 2, Y0 + g, lw, Y1 - Y0 - 2 * g)];
+  return [...sides, art(o, X0, Y0, 'k', k, seed), art(o, X1, Y0, 'k', k, seed, -1, 1), art(o, X0, Y1, 'k', k, seed, 1, -1), art(o, X1, Y1, 'k', k, seed, -1, -1)]; };
 const sprigAt = (cx, y, u) => { const h = u * 1.4, w = widthOf('sprig', h); return block('sprig', cx - w / 2, y - h / 2, h, 'r'); };
 const frames = {
   quote: ({ box, lines, u, seed = 1 }) => { const L = linesBox(box, lines); return { marks: [], letters: QUIET ? [] : VINE_KIND === 'traced' ? vineDown(L[0], L[1], box?.[3] ?? L[3], u) : grownVine(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
@@ -342,10 +344,10 @@ const frames = {
       return { marks: [], letters: [art(ornament('band', W, h, seed % 11 + 3, { rank: 1 }), cx - W / 2, yTop - h * .75, 'k', 'pullh' + W.toFixed(1), seed), art(ornament('band', W * .8, h * .8, seed % 11 + 5, { rank: 1, centre: 'bud' }), cx - W * .4, yBot - h * .15, 'k', 'pullf' + W.toFixed(1), seed)] }; }
     if (QUIET) return { marks: [], letters: [sprigAt(cx, yTop, u), sprigAt(cx, yBot, u)] }; const W = Math.min(measure * .46, u * 30), hh = W / GLYPHS.headRose.a, fh = W * .9 / GLYPHS.footRose.a;
     return { marks: [], letters: [block('headRose', cx - W / 2, yTop - hh * .85, hh), block('footRose', cx - W * .45, yBot - fh * .05, fh)] }; },
-  figure: ({ box, cap, u, seed = 1, limit = [-1e9, 1e9] }) => { const room = Math.min(box[0] - limit[0], limit[1] - box[2]) - 2, B = [box[0], box[1], box[2], cap ?? box[3]], o = Math.max(4, Math.min(room, u * 1.1));
-    if (CAPS === 'garden') return { marks: [], letters: grownFrame([B[0] - o, B[1] - o, B[2] + o, B[3] + o], u * 2.6, 1.2, seed) };
+  figure: ({ box, cap, u, seed = 1, limit = [-1e9, 1e9] }) => { const room = Math.min(box[0] - limit[0], limit[1] - box[2]) - 2, B = [box[0], box[1], box[2], cap ?? box[3]], o = Math.max(4, Math.min(room - (CAPS === 'garden' ? u : 0), u * (CAPS === 'garden' ? 1.9 : 1.1)));   // (garden: room kept for the corner rosettes)
+    if (CAPS === 'garden') return { marks: [], letters: grownFrame([B[0] - o, B[1] - o, B[2] + o, B[3] + o], u * 5.5, 1.2, seed) };
     return { marks: [], letters: [...ruled([B[0] - o, B[1] - o, B[2] + o, B[3] + o], 2.4), ...ruled([B[0] - o + 4.4, B[1] - o + 4.4, B[2] + o - 4.4, B[3] + o - 4.4], 1.3)] }; },
-  code: ({ box, u, seed = 1 }) => CODE === 'none' ? { marks: [], letters: [] } : CAPS === 'garden' ? { marks: [], letters: grownFrame([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], u * 1.9, 1, seed) } : { marks: [], letters: ruled([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], 1.3) },
+  code: ({ box, u, seed = 1 }) => CODE === 'none' ? { marks: [], letters: [] } : CAPS === 'garden' ? { marks: [], letters: grownFrame([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], u * 4, 1, seed) } : { marks: [], letters: ruled([box[0] + u * .4, box[1] + u * .4, box[2] - u * .4, box[3] - u * .4], 1.3) },
   nav: ({ box, entries, u }) => { const h = u * 1.2, w = CAPS === 'garden' ? h * 1.07 : widthOf('hedera', h);
     return { marks: [], letters: entries.filter(Boolean).map((e, i) => CAPS === 'garden' ? leafArt(Math.max(4, box[0] - u * 1.1 - w), e.base - h * .95, h, 'r', i % 7) : block('hedera', Math.max(4, box[0] - u * 1.1 - w), e.base - h * .92, h, 'r')) }; },
 };

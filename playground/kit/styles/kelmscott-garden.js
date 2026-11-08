@@ -512,6 +512,7 @@ const orns = new Map();
 const quad = (P0, P1, P2, n) => { const o = []; for (let i = 0; i <= n; i++) { const u = i / n, v = 1 - u; o.push([v * v * P0[0] + 2 * v * u * P1[0] + u * u * P2[0], v * v * P0[1] + 2 * v * u * P1[1] + u * u * P2[1]]); } return o; };
 export function ornament(kind, w, h, seed, opt = {}) {
   const key = [kind, w.toFixed(1), h.toFixed(1), seed, JSON.stringify(opt)].join('|'); if (orns.has(key)) return orns.get(key);
+  if (kind !== 'leaf') { const o = morris(kind, w, h, seed, opt); orns.set(key, o); return o; }
   const r = stream(seed, 'orn-' + kind), S = [], Lv = [], Fl = [], Bl = [], Cut = [], u = opt.u ?? h;
   LW = .27;
   const stem = (pts, w0, w1) => S.push({ pts, w: pts.map((_, i) => (w0 + (w1 - w0) * Math.pow(i / Math.max(1, pts.length - 1), .9)) / 2) });   // (w0, w1: widths; the outline takes half-widths)
@@ -593,5 +594,127 @@ export function ornament(kind, w, h, seed, opt = {}) {
       else if (f.cuts) { c.lineWidth = .7; for (const q of f.cuts) { const P = new Path2D(); ringPath(P, spline(q, 6), false); c.stroke(P); } } }
     c.restore(); } };
   orns.set(key, o); if (orns.size > 200) orns.delete(orns.keys().next().value);
+  return o;
+}
+
+// ---- the line ornaments in Morris's manner -----------------------------------------------------------------------------------
+// One family with the initials (the same pointed leaf, rosette and tulip, the same impression), drawn as his breaks are: the
+// main stems in outline (a fine double contour, the paper inside), crossing over and under (each later stretch breaks those
+// beneath it with a narrow paper halo), many fine solid tendrils curling to points, buds, lobed vine leaves, grapes, and the
+// weight at the middle tapering out to fine curls at the ends. Ops are laid in order: a halo (paper), an ink fill, a cut.
+const trochoid = (a, b, t0, t1, ds, c = b) => { const o = []; for (let t = t0; t <= t1 + 1e-9; t += ds) o.push([a * t - b * Math.sin(t), -c * Math.cos(t)]); return o; };
+function vineLeaf(r, n = 5) {
+  // a lobed vine leaf, base at (0,0), its middle lobe toward +x: lobes at 0, ±.85, ±1.65 rad, each drawn out to a point
+  const lobes = [[0, 1], [.85, .78 + r() * .08], [-.85, .78 + r() * .08], [1.65, .5 + r() * .08], [-1.65, .5 + r() * .08]].slice(0, n), P = [];
+  for (let i = 0; i <= 90; i++) { const ph = -2.3 + 4.6 * i / 90;
+    let m = .38 * Math.cos(Math.min(1.5, Math.abs(ph) * .55));
+    for (const [c, L] of lobes) { const d = Math.abs(ph - c); m = Math.max(m, L * (d < .5 ? 1 - Math.pow(d / .5, 1.4) * .62 : .38 * Math.max(0, 1 - (d - .5) * 2))); }
+    P.push([Math.cos(ph) * m * .62, Math.sin(ph) * m * .62]); }
+  return { outline: P.map(([x, y]) => [x + .32, y]), veins: lobes.map(([c, L]) => [[.06, 0], [.32 + Math.cos(c) * L * .45, Math.sin(c) * L * .45]]) };
+}
+function morris(kind, w, h, seed, opt) {
+  const r = stream(seed, 'morris-' + kind), ops = [], u = opt.u ?? h; LW = .26;
+  const tang = (pts, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; return Math.atan2(b[1] - a[1], b[0] - a[0]); };
+  const at = (pts, f) => { const i = Math.max(0, Math.min(pts.length - 1, Math.round(f * (pts.length - 1)))); return [pts[i], tang(pts, i), i]; };
+  // an outlined stem: laid in stretches, each overlapping the last, so where it crosses itself the later stretch goes over
+  const ostem = (pts, w0, w1, wall, gap, from = 0) => { const n = pts.length, W = pts.map((_, i) => (w0 + (w1 - w0) * i / Math.max(1, n - 1)) / 2), step = 60;
+    for (let i0 = 0; i0 < n - 1; i0 += step) { const i1 = Math.min(n - 1, i0 + step + 4), a = Math.max(0, i0 - 3), seg = pts.slice(a, i1 + 1), sw = W.slice(a, i1 + 1);
+      if (i0 >= from) ops.push({ halo: seg, w: sw.map(x => x + gap) }); ops.push({ fill: seg, w: sw }); ops.push({ cut: seg, w: sw.map(x => Math.max(0, x - wall)) }); }
+    return pts; };
+  const tstem = (pts, w0, w1, ball = 0) => { ops.push({ fill: pts, w: pts.map((_, i) => (w0 + (w1 - w0) * i / Math.max(1, pts.length - 1)) / 2), round: 1 }); if (ball) ops.push({ disc: pts.at(-1), r: ball }); return pts; };
+  const tend = (p, a, L, sg, rEnd, w0) => tstem(tendril(p, a, L, sg * .3 / L, sg / rEnd, 1.4, Math.max(.25, L / 70)), w0, w0 * .4, w0 * .45);
+  const OL = v => v > 7;   // (outlined when it is big enough to hold a contour and the paper inside it)
+  const leaf = (b, a, L, sd) => { const sh = leafShape(r, sd * (.12 + r() * .16)), P = lay(sh.outline, b, a, L), rib = lay(sh.axis.slice(1, 17), b, a, L);
+    if (OL(L)) ops.push({ opoly: P, lw: Math.max(.6, L * .06), inner: [rib] }); else { ops.push({ poly: P }); if (L > 6) ops.push({ line: rib, lw: Math.max(.55, L * .045) }); } };
+  const stalkLeaf = (p, a, sd, L, wst) => { const a1 = a + sd * .7, q = [p[0] + Math.cos(a1) * L * .28, p[1] + Math.sin(a1) * L * .28]; tstem(quad(p, [p[0] + Math.cos(a + sd * .3) * L * .15, p[1] + Math.sin(a + sd * .3) * L * .15], q, 8), wst, wst * .7); leaf(q, a1 + sd * .1, L, -sd); };
+  const vleaf = (b, a, L) => { const v = vineLeaf(r); ops.push({ opoly: lay(v.outline, b, a, L), lw: Math.max(.6, L * .05), inner: v.veins.map(q => lay(q, b, a, L)) }); };
+  const grapes = (p, a, g) => { // a hanging bunch: rows of berries narrowing to a point, each a ring with its light cut
+    const ca = Math.cos(a), sa = Math.sin(a); let k = 0;
+    for (const [row, n] of [[0, 3], [1, 3], [2, 2], [3, 2], [4, 1]]) for (let j = 0; j < n; j++) { const x = row * g * 1.6 + g, y = (j - (n - 1) / 2) * g * 1.9 + (row % 2 ? g * .2 : 0), c = [p[0] + x * ca - y * sa, p[1] + x * sa + y * ca];
+      ops.push({ cutdisc: c, r: g * 1.15 }); ops.push({ disc: c, r: g }); ops.push({ cutdisc: c, r: Math.max(0, g - Math.max(.6, g * .28)) }); ops.push({ disc: [c[0] - g * .2, c[1] - g * .25], r: g * .2 }); k++; } };
+  const bud = (b, a, L) => { const t = tulip(r), P = lay(t.outline, b, a, L), cuts = t.cuts.map(q => spline(lay(q, b, a, L), 6));
+    if (OL(L)) ops.push({ opoly: P, lw: Math.max(.6, L * .055), inner: cuts }); else { ops.push({ poly: P }); for (const q of cuts) ops.push({ line: q, lw: .6 }); } };
+  const rose = (c, rad) => { const f = rosette(r); for (const pt of f.petals) { const P = pt.map(q => [c[0] + q[0] * rad, c[1] + q[1] * rad]); if (OL(rad * 1.4)) ops.push({ opoly: P, lw: Math.max(.6, rad * .09), inner: [] }); else { ops.push({ poly: P }); ops.push({ ring: P, lw: Math.max(.6, rad * .1) }); } }
+    ops.push({ disc: c, r: rad * .26 }); ops.push({ cutdisc: c, r: rad * .13 }); };
+  if (kind === 'band') {
+    // a break: the centre (a rosette, or a cluster of buds), and from it each way a main stem in outline that loops once (or,
+    // for a book, twice) through itself and runs on to a fine curl; tendrils, leaves and buds off its loops; for a book,
+    // vine leaves and a bunch of grapes hanging from it
+    const cx = w / 2, cy = h * .48, rank = opt.rank ?? 1, big = rank > 1, rad = h * (big ? .2 : .19), loops = big ? 2 : 1;
+    for (const side of [1, -1]) {
+      const span = w / 2 - rad - h * .55, a = span * .62 / (2 * Math.PI * loops) * (1 + (r() - .5) * .06), bx = a * 3.4, cy2 = h * (big ? .17 : .19);
+      let P = trochoid(a, bx, Math.PI, Math.PI * (1 + 2 * loops), .01, cy2);   // (wide, flat loops: his figure-of-eight knot)
+      const x0 = P[0][0], y0 = P[0][1]; P = P.map(([x, y]) => [cx + side * (x - x0 + rad * .8), cy + (y - y0) * .95 + rad * .45]);
+      // runs on from the last loop's foot, rising, to a spiral curl
+      const e = P.at(-1), ae = tang(P, P.length - 1), run = tendril(e, ae, span * .5, side * -.3 / span, side * -1 / (h * .075), 2.2, .4);
+      const main = [...P, ...run.slice(1)];
+      ostem(main, h * (big ? .085 : .075), h * .035, Math.max(.6, h * .016), Math.max(.8, h * .022), 2);
+      ops.push({ disc: main.at(-1), r: h * .025 });
+      // off the loops: a tendril curling out from each loop's top, a leaf on each side of its waist, a bud at the outer end
+      for (let k = 0; k < loops; k++) { const f = (k + .5) / loops * P.length / main.length; const [pt, ta] = at(main, f);
+        tend(pt, ta + side * 1.1, h * .3, side, h * .05, h * .028);
+        const [q1, t1] = at(main, ((k + .15) / loops) * P.length / main.length), [q2, t2] = at(main, ((k + .85) / loops) * P.length / main.length);
+        stalkLeaf(q1, t1, side, h * .3 * (1 + (r() - .5) * .2), h * .022); stalkLeaf(q2, t2, -side, h * .28 * (1 + (r() - .5) * .2), h * .022); }
+      const [qb, tb] = at(main, .8); bud(qb, tb + side * .9 * (r() < .5 ? 1 : -1) - (side < 0 ? 0 : 0), h * .32);
+      const [qt, tt] = at(main, .9); tend(qt, tt + side * .8, h * .25, side, h * .04, h * .022);
+      if (big) { const [qv, tv] = at(main, .38); vleaf(qv, Math.PI / 2 - side * .35, h * .46); const [qg] = at(main, .62); grapes([qg[0], qg[1] + h * .02], Math.PI / 2 + side * .15, h * .042);
+        const [qv2, tv2] = at(main, .15); vleaf(qv2, -Math.PI / 2 + side * .5, h * .38); }
+    }
+    if (opt.centre === 'bud') { for (const [aa, L] of [[-Math.PI / 2, h * .5], [-Math.PI / 2 - .7, h * .34], [-Math.PI / 2 + .7, h * .34]]) bud([cx, cy + h * .08], aa, L); ops.push({ disc: [cx, cy + h * .1], r: h * .05 }); }
+    else rose([cx, cy], rad);
+  } else if (kind === 'filler') {
+    // a fine stem along the line (in outline where it is wide enough to hold one), leaves and curls off it at uneven
+    // intervals, never a pattern; it ends in a curl or a bud
+    const mid = h * .5, x1 = w - h * (opt.bud ? 1 : 1.2), ph = r() * 6.28, pts = [];
+    for (let x = h * .1; x <= x1; x += .5) pts.push([x, mid + Math.sin(x / (h * 2.6) * Math.PI + ph) * h * .1 + Math.sin(x / (h * 7.1) + ph * 2) * h * .06]);
+    if (pts.length < 6) return null;
+    const ow = h * .2; if (ow > 2.6) ostem(pts, ow, ow * .7, .65, .7, 1e9); else tstem(pts, h * .1, h * .07);
+    let x = h * (1 + r() * .6), sd = r() < .5 ? 1 : -1;
+    while (x < x1 - h * .7) { const i = Math.round((x - h * .1) / .5), p = pts[Math.min(pts.length - 1, i)], a = tang(pts, i), pick = r();
+      if (pick < .62) stalkLeaf(p, a, sd, h * (.9 + r() * .3), h * .07);
+      else if (pick < .88) tend(p, a + sd * .8, h * (.9 + r() * .4), -sd, h * .14, h * .07);
+      else { stalkLeaf(p, a, sd, h * .85, h * .07); stalkLeaf(p, a, -sd, h * .7, h * .07); }
+      sd = r() < .7 ? -sd : sd; x += h * (1.4 + r() * 1.4); }
+    const e = pts.at(-1), ae = tang(pts, pts.length - 1);
+    if (opt.bud) bud(e, ae - .4, h * .95); else tend(e, ae, h * 1.3, -1, h * .18, h * .08);
+  } else if (kind === 'vine') {
+    // down a quotation's margin: a stem in outline the whole height, wandering, with tendrils, leaves and here and there a
+    // bud; its head curls out over the first line and its foot curls under the last
+    const wob = noise1(seed * 3 + 1), sx = w * .62, pts = [];
+    for (let y = u * .9; y <= h - u * .9; y += .5) pts.push([sx + (wob(y / (u * 4)) - .5) * u * .5, y]);
+    if (pts.length < 6) return null;
+    const ow = u * .3; ostem(pts, ow, ow * .85, Math.max(.6, u * .055), Math.max(.7, u * .07), 1e9);
+    tend(pts[0], -Math.PI / 2, u * 1.9, -1, u * .25, u * .12); leaf([pts[0][0] - u * .05, pts[0][1] - u * .25], -Math.PI / 2 - .8, u * 1.2, 1);
+    tend(pts.at(-1), Math.PI / 2, u * 1.7, 1, u * .25, u * .12);
+    let y = u * 2.2, sd = -1;
+    while (y < h - u * 2.4) { const i = Math.round((y - u * .9) / .5), p = pts[Math.min(pts.length - 1, i)], a = tang(pts, i), pick = r(), outer = sd > 0 === (a > 0);
+      if (pick < .55) stalkLeaf(p, a, sd, u * (outer ? 1.15 : .8) * (.9 + r() * .2), u * .09);
+      else if (pick < .85 || !outer) tend(p, a + sd * .7, u * (outer ? 1.3 : .9), -sd, u * .18, u * .08);
+      else { const q = [p[0] + Math.cos(a + sd * .9) * u * .5, p[1] + Math.sin(a + sd * .9) * u * .5]; tstem([p, q], u * .08, u * .07); bud(q, a + sd * 1.1, u * .9); }
+      sd = -sd; y += u * (1.4 + r() * .7); }
+  } else if (kind === 'corner') {
+    // a frame's corner, made with its rules: a small rosette on the corner where the rules meet, and from it two stems in
+    // outline running a little inside the rules and curling inward, a leaf and a tendril off each (the top left; the frame
+    // turns it). w: its reach along each rule
+    const s = w, rad = s * .17, off = s * .11;
+    for (const [dx, dy] of [[1, 0], [0, 1]]) { const P = [], n = 60; for (let i = 0; i <= n; i++) { const t = i / n, x = rad * 1.1 + t * s * .8, y = off * (1 - Math.pow(1 - t, 3)) * .9 + off * .1; P.push(dx ? [x, y] : [y, x]); }
+      const a0 = dx ? 0 : Math.PI / 2, sg = dx ? 1 : -1, cl = tendril(P.at(-1), a0, s * .35, sg * .4 / s, sg / (s * .06), 1.6, .3), all = [...P, ...cl.slice(1)];
+      ostem(all, s * .07, s * .028, .6, .7, 1e9); ops.push({ disc: all.at(-1), r: s * .02 });
+      const [q, ta] = at(all, .45); stalkLeaf(q, ta, sg, s * .17, s * .02); const [q2, t2] = at(all, .7); tend(q2, t2 + sg * .7, s * .18, -sg, s * .03, s * .018); }
+    rose([0, 0], rad);
+  }
+  const o = { w, h, draw(c, x, y) {
+    c.save(); c.translate(x, y); c.lineCap = 'round'; c.lineJoin = 'round';
+    for (const op of ops) {
+      if (op.halo || op.fill || op.cut) { const pts = op.halo ?? op.fill ?? op.cut, P = new Path2D(); if (op.w.every(v => v < .02)) continue; strokeOutline(P, pts, op.w, .01, !!op.round);
+        c.globalCompositeOperation = op.fill ? 'source-over' : 'destination-out'; c.fillStyle = '#000'; c.fill(P); }
+      else if (op.poly) { c.globalCompositeOperation = 'source-over'; const P = new Path2D(); ringPath(P, op.poly); c.fill(P); }
+      else if (op.opoly) { const P = new Path2D(); ringPath(P, op.opoly); c.globalCompositeOperation = 'destination-out'; c.lineWidth = op.lw * 2.4; c.stroke(P); c.fill(P);   // (a paper halo, then the contour and its ribs in ink)
+        c.globalCompositeOperation = 'source-over'; c.lineWidth = op.lw; c.stroke(P); for (const q of op.inner) { const Q = new Path2D(); ringPath(Q, q, false); c.lineWidth = op.lw * .8; c.stroke(Q); } }
+      else if (op.disc) { c.globalCompositeOperation = 'source-over'; c.beginPath(); c.arc(op.disc[0], op.disc[1], op.r, 0, 6.2832); c.fill(); }
+      else if (op.cutdisc) { c.globalCompositeOperation = 'destination-out'; c.beginPath(); c.arc(op.cutdisc[0], op.cutdisc[1], op.r, 0, 6.2832); c.fill(); }
+      else if (op.line) { c.globalCompositeOperation = 'destination-out'; c.lineWidth = op.lw; const P = new Path2D(); ringPath(P, op.line, false); c.stroke(P); }
+      else if (op.ring) { c.globalCompositeOperation = 'destination-out'; c.lineWidth = op.lw; const P = new Path2D(); ringPath(P, op.ring); c.stroke(P); } }
+    c.restore(); } };
   return o;
 }

@@ -31,7 +31,7 @@ const glyph = (k, w, mirror) => { const a = G[k].a, h = w / a; return [w, h, c =
   if (!mirror) c.fillText(G[k].c, 0, h); else { const st = { footRose: .37 }[k], half = (1 - st) * w; c.save(); c.beginPath(); c.rect(w / 2, 0, half, h); c.clip(); c.fillText(G[k].c, w / 2 - st * w, h); c.restore(); c.save(); c.translate(w, 0); c.scale(-1, 1); c.beginPath(); c.rect(w / 2, 0, half, h); c.clip(); c.fillText(G[k].c, w / 2 - st * w, h); c.restore(); } }]; };
 await Promise.all(['footRose', 'footGrape', 'hedera', 'sprig', 'vine'].map(kelmscott.loadGlyph));
 const t = [];
-const grown = (kind, w, h, seed, opt, label) => { const t0 = performance.now(), o = ornament(kind, w, h, seed, opt); t.push(performance.now() - t0); show(w, h, c => o.draw(c, 0, 0), label); };
+const grown = (kind, w, h, seed, opt, label) => { const t0 = performance.now(), o = ornament(kind, w, h, seed, opt); t.push(performance.now() - t0); const m = Math.min(24, h * .5); show(w + m * 2, h + m * 2, c => o.draw(c, m, m), label); };
 // breaks: book (grape), chapter (rose), chapter in turn (mirrored rose)
 for (const [old, mir, rank, centre, name] of [['footGrape', false, 2, null, 'book'], ['footRose', false, 1, null, 'chapter'], ['footRose', true, 1, 'bud', 'chapter, in turn']]) {
   newRow(); const W = old === 'footGrape' ? 420 : 300, [w, h, d] = glyph(old, W, mir); show(w, h, d, `old ${name}`);
