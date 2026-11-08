@@ -16,7 +16,7 @@ from scipy import ndimage as nd
 from shapely import affinity
 from shapely.geometry import Point, Polygon, box
 from shapely.ops import unary_union
-import shapely, shapely.ops
+import shapely, shapely.ops, shapely.prepared
 sys.path.insert(0, '.')
 import khand, cuts, kleaf
 
@@ -24,19 +24,19 @@ A = .95                 # the block's width / height
 RES = 500               # the clearance field's px per block height
 MARG = .032             # the black border round everything
 CHL = .024              # the channel round the letter
-CH = .019               # the channel between vine shapes
+CH = .014               # the channel between vine shapes
 HWMAX = .03             # a stem's greatest half-width
-HWG = (.032, .02, .012)   # by rank: main stem, branch, shoot (each thinner)
-BUDGET = (1.6, .55, .26)   # how far each rank may grow
-HWCOR = .012            # in a corridor (no room to sweep)
-HWMIN = .0045           # a stem's tip
+HWG = (.02, .013, .0085)   # by rank: main stem, branch, shoot (each thinner)
+BUDGET = (1.6, .45, .22, .14)   # how far each rank may grow
+HWCOR = .008            # in a corridor (no room to sweep)
+HWMIN = .0035           # a stem's tip
 DS = .005               # growth step
 DEBUG = 0
 CORMAX = .09            # the longest run down a corridor
-FILLMIN = .032          # the least room filled after the main stems (the rest: open black and dots)
+FILLMIN = .018          # the least room filled after the main stems (the rest: open black and dots)
 VMAX = .27              # the vine's greatest share of the block (his: .28-.40 round a lighter letter)
 KR = 300                # how fast a stem's curvature may change (per unit length, per unit length)
-RC = .035               # the least circle a stem sweeps round (less: it runs a corridor)
+RC = .028               # the least circle a stem sweeps round (less: it runs a corridor)
 FONT = '../gl-morris/GL-Morris.ttf'
 W = int(A * RES)
 
@@ -119,12 +119,36 @@ def tulip(base, a, L):
     g = unary_union(parts).buffer(L * .012, join_style='round').buffer(-L * .012, join_style='round')
     return g
 
+def rosette(base, a, L):
+    """a flower seen face on: five rounded petals round a ringed eye, on a short neck from its stem"""
+    d = np.array([math.cos(a), math.sin(a)]); c = base + d * L * .5; R = L * .5
+    petals = []
+    for i in range(5):
+        t = a + math.pi + (i + .5) * 2 * math.pi / 5; v = np.array([math.cos(t), math.sin(t)])
+        petals.append(Point(c + v * R * .55).buffer(R * .42, quad_segs=16))
+    g = unary_union(petals + [Point(c).buffer(R * .5, quad_segs=16), stroke(np.array([base, c]), [L * .05, L * .06])])
+    g = g.buffer(L * .01, join_style='round').buffer(-L * .01, join_style='round')
+    g = g.difference(Point(c).buffer(R * .34, quad_segs=16).difference(Point(c).buffer(R * .15, quad_segs=16)))   # (the eye: a black ring)
+    for i in range(4):   # the cuts between the petals (none toward its neck)
+        t = a + math.pi + (i + 1) * 2 * math.pi / 5; v = np.array([math.cos(t), math.sin(t)])
+        g = g.difference(stroke(np.array([c + v * R * .4, c + v * R * 1.05]), [L * .012, L * .03]))
+    return g
+
+def cluster(base, a, L):
+    """three buds on short curling stalks, the middle one tallest, the outer two leaning out"""
+    parts = []
+    for sg, f, da in ((0, 1, 0), (1, .78, .95), (-1, .78, -.95)):
+        t, P, nv = spine(base, a + da * .6, L * f * .55, sg * .9, 0.)
+        parts.append(stroke(P[::4], np.linspace(L * .028, L * .02, len(P[::4]))))
+        parts.append(bud(P[-1], a + da * .6 + sg * .9, L * f * .42))
+    return unary_union(parts)
+
 class Block:
     def __init__(s, ch, seed):
         s.rng = np.random.default_rng(seed * 7919 + ord(ch)); s.ch = ch
         s.L = letter(ch)
-        slight = s.L.area < .14; s.chl = CHL * (1.3 if slight else 1); s.vmax = VMAX - (.07 if slight else 0)   # (a slight letter, J Y Q: more room round it, less vine)
-        s.LC = s.L.buffer(s.chl)
+        slight = s.L.area < .14; s.chl = CHL * (1.3 if slight else 1); s.vmax = VMAX - (.1 if slight else 0)   # (a slight letter, J Y Q: more room round it, less vine)
+        s.LC = s.L.buffer(s.chl); s.Lfit = shapely.prepared.prep(s.L.buffer(s.chl * .8))
         s.inner = box(MARG, MARG, A - MARG, 1 - MARG)
         s.occ = raster(s.LC) | ~raster(s.inner)      # taken: the letter and its channel, the border
         s.occv = ~raster(s.inner); s.ghost = False              # (the same without the letter: a main stem passes behind it)
@@ -183,7 +207,7 @@ class Block:
                 if look(best) < HWMIN * 1.2: s.why = 'corridor-blocked'; break
                 run += DS
                 if run > (CORMAX * (3, 2, 1)[min(gen, 2)]): s.why = 'corridor-long'; break
-                dth = DS * side / .09 + float(np.clip(best * .08, -DS / .08, DS / .08)); wave += DS; mode = 1   # (a slow wave down the middle, eased: never a straight run)
+                dth = DS * side / .16 + float(np.clip(best * .08, -DS / .08, DS / .08)); wave += DS; mode = 1   # (a slow wave down the middle, eased: never a straight run)
                 if wave > wlen: side, wave, wlen = -side, 0., s.rng.uniform(.08, .13)
             else:
                 if abs(turned) > 1.6 * math.pi: s.why = 'curl'; break   # a full curl: done
@@ -239,14 +263,14 @@ class Block:
         tip = np.clip((tot - L) / min(.2 if gen == 0 else .12, tot * .6 + 1e-6), 0, 1) ** .7                 # taper to the tip
         x, y = int(P[0][0] * RES), int(P[0][1] * RES)
         if not (0 <= x < W and 0 <= y < RES) or s.kind[y, x] == 2: hw = hw * np.clip(.3 + L / .1, 0, 1)   # out of the border's corner: from a point
-        hw = np.maximum(np.where(tip < 1, HWMIN, .0075), hw * (.18 + .82 * tip))   # (never a hairline but at the very tip)
+        hw = np.maximum(np.where(tip < 1, HWMIN, .005), hw * (.18 + .82 * tip))   # (never a hairline but at the very tip)
         if s.fork:   # a branch swells out of its parent: from the parent's width down to its own over its first .06
             r = np.clip(L / .06, 0, 1); hw = np.maximum(hw, (s.fork * (1 - r) + hw * r) * (r < 1))
         return hw
 
     def grow(s, p, th, side, budget, hw0, gen, fused):
         s.ghost = gen == 0; w = s.walk(p, th, side, budget, fused, gen)
-        if w is None or len(w[0]) < (.1 if fused else .06) / DS: s.ghost = False; return None   # (no stubs: a shoot is a real stem or nothing)
+        if w is None or len(w[0]) < (.065 if fused else .05) / DS: s.ghost = False; return None   # (no stubs: a shoot is a real stem or nothing)
         P, T, S = w; P = np.vstack([P[:1], nd.gaussian_filter1d(P, 2.5, axis=0, mode='nearest')[1:-1], P[-1:]]) if len(P) > 8 else P   # (one confident stroke: no kinks)
         s.fork = hw0 / .7 if fused and gen > 0 else 0.; hw = s.widths(P, hw0, gen); s.ghost = False; s.lens.append(round(len(P) * DS, 2))
         if DEBUG: print(f'  stem gen {gen} fused {int(fused)} len {len(P) * DS:.2f}/{budget:.2f} why {s.why} hw {hw.max():.3f}')
@@ -256,7 +280,7 @@ class Block:
         tot = len(P) * DS
         # leaves on the outer side of curves, branches into the larger side
         # along it: branches (from a main stem mostly), leaves (on branches and shoots mostly), on the outer side of curves
-        gap = (.14, .22) if gen == 0 else (.11, .17); pb = (.75, .4, 0)[min(gen, 2)]
+        gap = (.07, .11) if gen == 0 else (.05, .085); pb = (.7, .5, .3, 0)[min(gen, 3)]
         nxt = s.rng.uniform(*gap) * .7; slots = []
         for i in range(4, len(P) - 10):
             if i * DS < nxt or (s.M[max(0, i - 6):i + 7] == 2).any() or s.d(P[i]) < hw[i] * .5: continue   # (not where it is behind the letter)
@@ -264,7 +288,7 @@ class Block:
         for i in slots:
             nv = np.array([-math.sin(T[i]), math.cos(T[i])]); out = -S[i]
             o = hw[i] + CH + .03; big = 1 if s.d(P[i] + nv * o) > s.d(P[i] - nv * o) else -1   # (the room beyond its channel)
-            if gen < 2 and s.rng.random() < pb and s.d(P[i] + big * nv * o) > .025:
+            if gen < 3 and s.rng.random() < pb and s.d(P[i] + big * nv * o) > .018:
                 s.queue.append((P[i] + big * nv * hw[i] * .5, T[i] + big * s.rng.uniform(.7, 1.05), -big if s.rng.random() < .6 else big, BUDGET[gen + 1], hw[i] * .7, gen + 1))
             elif (s.M[max(0, i - 4):i + 5] == 0).all() and gen > 0:   # (leaves on the curves of branches; not down a corridor)
                 s.leaf(P[i], T[i], out, hw[i])
@@ -274,6 +298,7 @@ class Block:
 
     # ---- foliage
     def fits(s, g, base, br):
+        if s.Lfit.intersects(g): return False   # (whole: never cut by the letter)
         m = raster(g.difference(Point(base).buffer(br)))
         if DEBUG > 1: print('      fit', m.sum(), (m & s.occ).sum())
         return m.sum() > 0 and (m & s.occ).sum() <= m.sum() * .006   # (whole: never a leaf cut off by its neighbour)
@@ -287,7 +312,7 @@ class Block:
             ds.append(d)
         return (len(ds) * .006, np.mean(ds) if ds else 0.)
 
-    def leaf(s, p, th, out, hw, Lmax=.3, fan=(.25, 1.45), Lmin=.1):
+    def leaf(s, p, th, out, hw, Lmax=.15, fan=(.25, 1.45), Lmin=.05):
         """a leaf on that side of the stem, turned into the most room and sized to it: larger in the open, smaller toward the edge"""
         Lmax = Lmax * (.55 + .45 * min(1., s.dframe(p) / .18))
         best = None
@@ -300,9 +325,9 @@ class Block:
         L = min(Lmax, L * .95)
         while L >= Lmin:
             k = -out * s.rng.uniform(.5, 1.0)   # (it curves with the growth)
-            if L > .13 and s.rng.random() < .35: g = trefoil(base, a, L, k, out)
-            else: g = blade(base, a, L, k, out, lobes=int(s.rng.choice([0, 1, 2])) if L > .12 else 0)
-            sw = max(hw * .8, .007); g = unary_union([g, stroke(np.array([p, base + u * L * .12]), [sw, sw * .75])])   # (a stalk as the stem flows into it)
+            if L > .1 and s.rng.random() < .3: g = trefoil(base, a, L, k, out)
+            else: g = blade(base, a, L, k, out, lobes=int(s.rng.choice([0, 0, 1])) if L > .11 else 0, curl=.65)
+            sw = max(hw * .8, .005); g = unary_union([g, stroke(np.array([p, base + u * L * .12]), [sw, sw * .75])])   # (a stalk as the stem flows into it)
             if s.fits(g, p, hw + CH + .004):
                 if DEBUG: print(f'    leaf {L:.3f}')
                 s.take(g.difference(s.LC)); return True
@@ -316,15 +341,21 @@ class Block:
         u = np.array([math.cos(th), math.sin(th)])
         room = s.d(p + u * .05)
         if s.why == 'focal' and s.tulips == 0:   # the block's one flower, at its focal room
-            L = min(.3, max(room, s.tgap) * 2.4)
-            while L > .11:
-                g = tulip(p - u * .004, th, L)
-                if s.fits(g, p, hw + CH + .004): s.take(g.difference(s.LC)); s.tulips += 1; return True
+            out_ = p - np.array([A / 2, .55]); out_ /= np.hypot(*out_) + 1e-9; up = np.array([0., -1.])
+            w = u * .45 + out_ * .35 + up * .3; aw = math.atan2(w[1], w[0])   # (turned up and outward, from its stem's heading)
+            dth = (aw - th + math.pi) % (2 * math.pi) - math.pi; fa = th + max(-1., min(1., dth))
+            kind = ['tulip', 'rosette', 'cluster'][s.rng.integers(3)]
+            L = min(.15, max(room, s.tgap) * 1.6)
+            while L > .07:
+                fu = np.array([math.cos(fa), math.sin(fa)])
+                g = {'tulip': tulip, 'rosette': rosette, 'cluster': cluster}[kind](p - u * .004, fa, L if kind == 'tulip' else L * .8)
+                g = g.union(stroke(np.array([p - u * .02, p + fu * L * .06]), [hw, hw * .9]))   # (its neck turns smoothly from the stem)
+                if s.fits(g, p, hw + CH + .004): s.take(g.difference(s.LC)); s.tulips += 1; s.fkind = kind; return True
                 L *= .9
-        if gen < 2 and room > .03: return s.leaf(p, th, -side, hw, Lmax=.22, fan=(-.3, .6))
-        if gen == 2 and room > .03 and s.rng.random() < .45:
-            L = min(.11, room * 2.6)
-            while L > .065:
+        if gen < 3 and room > .022: return s.leaf(p, th, -side, hw, Lmax=.12, fan=(-.3, .6))
+        if gen >= 2 and room > .02 and s.rng.random() < .45:
+            L = min(.07, room * 2.2)
+            while L > .04:
                 g = bud(p - u * .004, th, L)
                 if s.fits(g, p, hw + CH + .004): s.take(g.difference(s.LC)); return True
                 L *= .88
@@ -372,7 +403,7 @@ class Block:
                 s.grow(p, th, side, budget, hw0, gen, f[0] if f else True); s.update()
         # then calm: a shoot off the nearest stem into a room still large, never into every pocket
         tried = []; far = lambda g: all(np.hypot(*(g - t)) > .05 for t in tried)
-        for _ in range(40):
+        for _ in range(90):
             if s.white() >= target or s.vinefrac() >= s.vmax: break
             G = [x for x in s.gaps(FILLMIN) if far(x[0])]   # (the strips by the frame left open)
             if not G: break
@@ -380,7 +411,7 @@ class Block:
             q, fused = s.root(g)
             v = g - q; v /= np.hypot(*v) + 1e-9; side = rng.choice([-1, 1]); th = math.atan2(v[1], v[0]) - side * rng.uniform(.3, .6)
             # a large room by a stem: first one big leaf off the stem into it (his leaves are few and large)
-            if fused and gap >= .04 and s.dframe(g) > .06 and s.leaf(q, math.atan2(v[1], v[0]), side, HWMIN * 2, Lmax=.32, fan=(-.6, .6), Lmin=.1): s.update(); continue
+            if fused and gap >= .04 and s.dframe(g) > .06 and s.leaf(q, math.atan2(v[1], v[0]), side, HWMIN * 2, Lmax=.16, fan=(-.6, .6), Lmin=.06): s.update(); continue
             s.queue = [(q, th, side, BUDGET[1], HWG[1], 1, fused)]
             while s.queue:
                 p, th, side, budget, hw0, gen, *f = s.queue.pop(0)
@@ -405,6 +436,7 @@ class Block:
 
     def geometry(s):
         vine = unary_union(s.vine).buffer(.006, join_style='round').buffer(-.006, join_style='round')   # fillets at the forks
+        vine = vine.buffer(-.0025, join_style='round').buffer(.0025, join_style='round')   # (no spurs or spikes: every edge a smooth curve)
         vine = vine.intersection(s.inner)
         keep = [p for p in getattr(vine, 'geoms', [vine]) if p.area > .0012 or 4 * math.pi * p.area / p.length ** 2 > .7]   # (no slivers left by the cuts; dots stay)
         white = unary_union([s.L] + keep)
@@ -435,5 +467,5 @@ if __name__ == '__main__':
     vw = raster(unary_union(B.vine).intersection(B.inner)).mean()
     from skimage.morphology import skeletonize
     vm = raster(unary_union(B.vine).intersection(B.inner)); vwid = np.percentile(nd.distance_transform_edt(vm)[skeletonize(vm)] * 2 / RES, [50, 90])
-    print(f'{ch} {seed} white {wf:.3f} vine {vw:.3f} vwidth {vwid[0]:.3f}/{vwid[1]:.3f} channel med {cm:.3f} p90 {c9:.3f} roots {B.roots} stems {len(B.lens)} longest {sorted(B.lens)[-3:]} jumps {B.jumps} tulips {B.tulips}')
+    print(f'{ch} {seed} flower {getattr(B, "fkind", "-")} white {wf:.3f} vine {vw:.3f} vwidth {vwid[0]:.3f}/{vwid[1]:.3f} channel med {cm:.3f} p90 {c9:.3f} roots {B.roots} stems {len(B.lens)} longest {sorted(B.lens)[-3:]} jumps {B.jumps} tulips {B.tulips}')
     json.dump({'name': f'w{ch}', 'a': A, 'polys': polys(black)}, open(f'{out}/{ch}-{seed}.json', 'w'))
