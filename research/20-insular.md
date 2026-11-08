@@ -181,3 +181,26 @@ Behaviour is 1 everywhere because ?draw is not built; the cords are closed polyl
 written along its length later. Imperfection is 1: the hand is only in the pour and the dots' radii. Nothing here is museum
 yet. Weak points: the letter body outside the plait bands is flat (A black, B purple); B's body plait is sparse and its
 roundels are its only strength; frames are heavy at page size; no beast heads yet.
+
+## Stage 2 (A and C refined; B dropped at the user's word)
+
+The user: "I like A and C, let's refine and make them look beautiful, painted, inked, crafted, intentional, bespoke."
+
+- **The hand, by cause:**
+  - The quill outline of the letter is heavy where the edge runs across the nib (35°) and a hair along it.
+  - Each cord breathes. Its band is fuller on straight runs and leaner through tight turns, and its pen line follows the nib.
+  - Each dot is a brush touch. The touch is fuller after a reload (one every dozen), a little long in the direction of travel, and the pitch opens on the outside of a bend.
+  - Each pigment has its own coat: orpiment dense with a coarse tooth, verdigris thin and granulating, red lead dense and even.
+- **Full bodies:**
+  - Free stroke-ends are wound into spirals.
+  - Each stroke carries a broad plait along it.
+  - A second, finer plait fills what is left: red lead in A, a narrow ribbon in C.
+- **Bespoke small pieces:**
+  - Break and frame are strips of panels, knot and key (step) pattern in turn, between rules, with a knot at each corner.
+  - The filler is a short panel that closes on itself, followed by the three-dot positura.
+  - Paraph A is a knot broken at its heart beside the positura. Paraph C is the triple spiral as a ribbon.
+- **Side by side with the masters** (scratchpad shots/cmp-lind.png, cmp-durrow.png):
+  - Lindisfarne f. 139r's Q and Durrow fol. 86r are far denser.
+  - Every part of their letters is worked: panels, spirals, birds, many colours.
+  - Ours still leaves black ground between bands, and has no zoomorphic work. A beast head was not attempted: a clumsy one would be worse than none.
+- **Timing at dpr 2** for the page-size set: 290–375 ms per theme, over budget.

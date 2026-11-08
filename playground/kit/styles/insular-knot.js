@@ -81,8 +81,22 @@ export function cords(K, { ox = 0, oy = 0, u = 10, inset = .3, round = 1.05, ds 
 
 // a stretch of a closed polyline by arc length (s0 < s1, either may wrap)
 export function stretch(c, s0, s1) {
-  const n = c.pts.length, ds = c.L / n, o = []; for (let s = s0; s <= s1 + 1e-6; s += ds) o.push(c.pts[((Math.round(s / ds) % n) + n) % n]);
+  const n = c.pts.length, ds = c.L / n, o = []; o.idx = [];
+  for (let s = s0; s <= s1 + 1e-6; s += ds) { const i = ((Math.round(s / ds) % n) + n) % n; o.push(c.pts[i]); o.idx.push(i); }
   return o;
+}
+// The hand on a cord, per point: breath (the band a little fuller where the pen ran straight and slow, leaner through a tight
+// turn) and the pen line's weight (a quill cut at the nib angle: heavy where the edge runs across the nib, a hair along it).
+// These are causes, not noise: heading and curvature of the cord itself.
+export const NIB = .62;
+function hand(c, W) {
+  if (c.f) return c; const P = c.pts, n = P.length; c.f = new Float32Array(n); c.g = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const a = P[(i - 2 + n) % n], b = P[i], d = P[(i + 2) % n], h1 = Math.atan2(b[1] - a[1], b[0] - a[0]), h2 = Math.atan2(d[1] - b[1], d[0] - b[0]);
+    let dh = h2 - h1; dh -= Math.round(dh / (2 * Math.PI)) * 2 * Math.PI; const k = Math.abs(dh) / (Math.hypot(d[0] - a[0], d[1] - a[1]) || 1), h = (h1 + h2) / 2;
+    c.f[i] = 1 + .05 * Math.cos(2 * (h - NIB - .8)) - .09 * Math.min(1, k * W * 1.2); c.g[i] = .5 + .95 * Math.abs(Math.sin(h - NIB)); }
+  // (smoothed along the cord: a pen's pressure changes over a stroke, not from point to point)
+  for (const A of [c.f, c.g]) for (let it = 0; it < 3; it++) { const B = A.slice(); for (let i = 0; i < n; i++) A[i] = (B[(i - 3 + n) % n] + B[(i - 1 + n) % n] + 2 * B[i] + B[(i + 1) % n] + B[(i + 3) % n]) / 6; }
+  return c;
 }
 export const pathOf = (pts, close = true, P = new Path2D()) => { P.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) P.lineTo(pts[i][0], pts[i][1]); if (close) P.closePath(); return P; };
 
@@ -90,37 +104,48 @@ export const pathOf = (pts, close = true, P = new Path2D()) => { P.moveTo(pts[0]
 // layers: outermost first, [{ w, ink }] (w: full width px; ink: a key of the palette). gap: the dark (or paper) left round the
 // over cord where it crosses (px each side); ground: the ink of the panel under the knot (null: the paper). colour(t, k):
 // the ink of thread t's k-th stretch between crossings (Durrow changes colour under a crossing); defaults to the layer's.
-export function knot(sheet, C, crossings, { layers, gap = 1, ground = null, colour = null, trap = .35 } = {}) {
-  const W = layers[0].w, Lg = W / 2 + gap + .6;
-  const lay = (t, pts, close, cap, k) => { for (let i = 0; i < layers.length; i++) { const ly = layers[i], ink = (i === layers.length - 1 && colour) ? colour(t, k) : ly.ink;
-    sheet.stroke(pts, ly.w, ink, { close, cap, trap }); } };
+export function knot(sheet, C, crossings, { layers, gap = 1, ground = null, colour = null, trap = .35, breath = 1 } = {}) {
+  const W = layers[0].w, Lg = W / 2 + gap + .6, line = layers.length > 1 ? (W - layers[1].w) / 2 : 0;
+  // each layer's width at each point: the band breathes (f), the pen line (outermost ring) swells and thins with the nib (g)
+  const widths = (c, idx, i) => idx.map(j => { const f = 1 + (c.f[j] - 1) * breath, w0 = W * f; return i === 0 ? w0 : i === 1 ? w0 - 2 * line * c.g[j] : w0 - 2 * line * c.g[j] - (layers[1].w - layers[i].w); });
+  const lay = (t, pts, close, k) => { const c = C[t]; for (let i = 0; i < layers.length; i++) { const ly = layers[i], ink = (i === layers.length - 1 && colour) ? colour(t, k) : ly.ink;
+    sheet.strokeW(pts, widths(c, pts.idx, i), ink, { close, trap }); } };
+  for (const c of C) hand(c, W);
   // a cord's stretches run between the crossings where it goes under (a colour changes out of sight, as in Durrow)
   const unders = C.map(c => c.ev.map((e, i) => e.cross && !e.over ? c.s[i] : null).filter(v => v != null));
   C.forEach((c, t) => {
     const xs = unders[t];
-    if (!xs.length || !colour) { lay(t, c.pts, true, 'round', 0); return; }
-    for (let k = 0; k < xs.length; k++) { const a = xs[k], b = k + 1 < xs.length ? xs[k + 1] : xs[0] + c.L; lay(t, stretch(c, a - .5, b + .5), false, 'butt', k); }
+    if (!xs.length || !colour) { const all = c.pts.slice(); all.idx = c.pts.map((_, i) => i); lay(t, all, true, 0); return; }
+    for (let k = 0; k < xs.length; k++) { const a = xs[k], b = k + 1 < xs.length ? xs[k + 1] : xs[0] + c.L; lay(t, stretch(c, a - .5, b + .5), false, k); }
   });
   // each crossing: the gap cut round the over cord, then the over cord laid again across it
   for (const [, vs] of crossings) {
     const ov = vs.find(v => v.over); if (!ov) continue;
     const c = C[ov.t], s = c.s[ov.i], xs = unders[ov.t];
-    const Lp = Math.max(Lg + .4, Math.min(Lg + W * .35, (c.step ?? 1e9) - Lg - .3));
-    sheet.stroke(stretch(c, s - Lg, s + Lg), W + 2 * gap, ground, { close: false, cap: 'butt', trap: 0, knock: true });
+    const Lp = Math.max(Lg + .4, Math.min(Lg + W * .35, (c.step ?? 1e9) - Lg - .3)), gp = stretch(c, s - Lg, s + Lg);
+    sheet.strokeW(gp, widths(c, gp.idx, 0).map(w => w + 2 * gap), ground, { close: false, trap: 0 });
     let k = xs.findIndex(v => v > s) - 1; if (k < 0) k = xs.length - 1;   // (the stretch this crossing lies in)
-    lay(ov.t, stretch(c, s - Lp, s + Lp), false, 'butt', Math.max(0, k));
+    lay(ov.t, stretch(c, s - Lp, s + Lp), false, Math.max(0, k));
   }
 }
 // each cord's distance between crossings (so a laid-again stretch never reaches the next crossing)
 export function measure(C, u) { for (const c of C) { c.unit = u; c.step = Math.SQRT2 * u; } return C; }
 
 // ---- dots -------------------------------------------------------------------------------------------------------------------
-// dots at an even pitch along a closed polyline (the count rounded so the row closes evenly); r(i) the radius of the i-th
-export function dotsAlong(pts, pitch, r, close = true) {
-  const S = [0]; for (let i = 1; i < pts.length + (close ? 1 : 0); i++) { const p = pts[i % pts.length], q = pts[i - 1]; S.push(S.at(-1) + Math.hypot(p[0] - q[0], p[1] - q[1])); }
-  const L = S.at(-1), n = Math.max(1, Math.round(L / pitch)), st = L / n, o = []; let j = 0;
-  for (let k = 0; k < n + (close ? 0 : 1); k++) { const s = k * st; while (j < S.length - 2 && S[j + 1] < s) j++; const f = (s - S[j]) / ((S[j + 1] - S[j]) || 1), p = pts[j], q = pts[(j + 1) % pts.length];
-    o.push([p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f, typeof r === 'function' ? r(k, n) : r]); }
+// Dots along a closed polyline, each a touch of the brush: the pitch opens a little on the outside of a bend and closes on
+// the inside (the hand follows the curve, research/20), the dot is fuller just after the brush is loaded and leaner as it
+// empties (a reload every `load` touches), and each is a little long in the direction the hand was moving. r: px, or r(k, n).
+export function dotsAlong(pts, pitch, r, close = true, { load = 0, bend = .25 } = {}) {
+  const n0 = pts.length, S = [0]; for (let i = 1; i < n0 + (close ? 1 : 0); i++) { const p = pts[i % n0], q = pts[i - 1]; S.push(S.at(-1) + Math.hypot(p[0] - q[0], p[1] - q[1])); }
+  // signed turn per unit length at each point (smoothed), to open or close the pitch
+  const K = pts.map((b, i) => { const a = pts[((i - 3) % n0 + n0) % n0], d = pts[(i + 3) % n0], h1 = Math.atan2(b[1] - a[1], b[0] - a[0]), h2 = Math.atan2(d[1] - b[1], d[0] - b[0]); let dh = h2 - h1; dh -= Math.round(dh / (2 * Math.PI)) * 2 * Math.PI; return dh / (Math.hypot(d[0] - a[0], d[1] - a[1]) || 1); });
+  const L = S.at(-1), at = s => { let j = 0; while (j < S.length - 2 && S[j + 1] < s) j++; return j; };
+  // walk with a pitch scaled by the bend, then even out the last gap over the whole row
+  const ss = []; for (let s = 0; s < L - pitch * .5;) { ss.push(s); const k = K[at(s)] ?? 0; s += pitch * (1 + Math.max(-.12, Math.min(.12, bend * k * pitch * 3))); }
+  const sc = L / (ss.length ? ss.at(-1) + pitch : L); const o = [];
+  ss.forEach((s0, k) => { const s = s0 * (close ? sc : 1), j = at(s), f = (s - S[j]) / ((S[j + 1] - S[j]) || 1), p = pts[j], q = pts[(j + 1) % n0], ang = Math.atan2(q[1] - p[1], q[0] - p[0]);
+    const rr = typeof r === 'function' ? r(k, ss.length) : r, ld = load ? 1.1 - .2 * ((k % load) / load) : 1;
+    o.push([p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f, rr * ld, ang, 1.06]); });
   return o;
 }
 
@@ -150,7 +175,16 @@ export class Sheet {
     for (let q = 0; q < M.length && q < this.w * this.h; q++) im.data[q * 4 + 3] = Math.round(Math.min(1, M[q]) * 255);
     x.putImageData(im, 0, 0); this.op(ink, g => { g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(c, 0, 0); g.restore(); });
   }
-  dots(D, ink) { const P = new Path2D(); for (const [x, y, r] of D) { P.moveTo(x + r, y); P.arc(x, y, r, 0, Math.PI * 2); } this.fill(P, ink); }
+  dots(D, ink) { const P = new Path2D(); for (const [x, y, r, a = 0, e = 1] of D) { P.moveTo(x + Math.cos(a) * r * e, y + Math.sin(a) * r * e); P.ellipse(x, y, r * e, r / e, a, 0, Math.PI * 2); } this.fill(P, ink); }
+  // a band of varying width along a polyline, as quads that share their edges (one path, nonzero: no seams, crossings fill)
+  strokeW(pts, ws, ink, { close = false, trap = .35 } = {}) {
+    const n = pts.length; if (n < 2) return; const N = pts.map((p, i) => { const a = pts[close ? (i - 1 + n) % n : Math.max(0, i - 1)], b = pts[close ? (i + 1) % n : Math.min(n - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [-(b[1] - a[1]) / l, (b[0] - a[0]) / l]; });
+    const path = d => { const P = new Path2D(), m = close ? n : n - 1;
+      for (let i = 0; i < m; i++) { const j = (i + 1) % n, wi = Math.max(.05, ws[i] / 2 + d), wj = Math.max(.05, ws[j] / 2 + d), a = pts[i], b = pts[j];
+        P.moveTo(a[0] + N[i][0] * wi, a[1] + N[i][1] * wi); P.lineTo(b[0] + N[j][0] * wj, b[1] + N[j][1] * wj); P.lineTo(b[0] - N[j][0] * wj, b[1] - N[j][1] * wj); P.lineTo(a[0] - N[i][0] * wi, a[1] - N[i][1] * wi); P.closePath(); }
+      return P; };
+    const own = path(0), less = trap ? path(-trap) : own; this.op(ink, (g, d) => g.fill(d < 0 ? less : own, 'nonzero'));
+  }
   // pour every ink (order: bottom first) through the ink engine; tex(ink) -> grain amount (0: a flat coat, as the key)
   print(bake, pal, { dpr = 2, order = this.order, seed = 1, tex = () => 0 } = {}) {
     for (const ink of order) {
@@ -160,14 +194,17 @@ export class Sheet {
       if (!any) continue;
       const L = { M, w: this.w, h: this.h, x0: this.box[0], y0: this.box[1], res: this.res }, amt = tex(ink);
       if (amt) grain(L, seed + ink.charCodeAt(0) * 31, amt);
-      inkLetter(bake, { ...L, wet: amt ? .08 : .05, dry: amt ? .1 : .16 }, pal[ink], { dpr });
+      inkLetter(bake, { ...L, wet: amt ? (amt.wet ?? .08) : .05, dry: amt ? (amt.dry ?? .1) : .16 }, pal[ink], { dpr });
     }
   }
 }
 // a pigment's coat: a slow swell in density and the tooth of the vellum, held below the engine's full-coat level so it reads
+// (amt: a number, or a pigment's own coat { base, slow, tooth, grainPx }: orpiment a dense coat with a coarse crystal tooth,
+// verdigris thinner and granulating in slow pools, red lead dense and even)
 function grain(L, seed, amt) {
+  const o = typeof amt === 'number' ? { base: .76, slow: .06 * amt, tooth: .04 * amt, grainPx: .7 } : amt;
   const { M, w, h, x0, y0, res } = L, slow = noise2(seed), tooth = noise2(seed ^ 0x55);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i; if (M[q] <= 0) continue; const x = x0 + i / res, y = y0 + j / res;
-    M[q] *= .76 + amt * (.06 * (slow(x / 11, y / 11) - .5) * 2 + .04 * (tooth(x / .7, y / .7) - .5) * 2); }
+    M[q] *= o.base + o.slow * (slow(x / 9, y / 9) - .5) * 2 + o.tooth * (tooth(x / o.grainPx, y / o.grainPx) - .5) * 2; }
 }
 export { stream };

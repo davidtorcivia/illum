@@ -1,9 +1,10 @@
 // Insular, direction studies (research/20-insular.md). Each direction makes the same pieces: the drop initial (a panel letter:
-// the face's stroke region outlined, its body filled with a knot fitted to its cells, its counters worked, red dots round it),
+// the face's stroke region outlined by a quill, each stroke carrying a plait laid along it, the ends wound into spirals,
+// the counters worked, red dots set round it by a brush),
 // the paraph, the line-filler, the break and the frame. Every piece is a Sheet (kit/styles/insular-knot.js) of per-ink
 // coverage, poured ink by ink through the ink engine. Nothing here is drawn from a raster of the master: the letter's shape is
 // Uncial Antiqua's (OFL), everything else is generated.
-import { plait, cords, knot, measure, dotsAlong, Sheet, pathOf, stream } from '../kit/styles/insular-knot.js';
+import { plait, cords, knot, measure, dotsAlong, Sheet, pathOf, stream, NIB } from '../kit/styles/insular-knot.js';
 import { dist } from '../kit/inkletter.js';
 import { contours } from '../kit/brushwork.js';
 import { noise1, tendril } from '../kit/marks.js';
@@ -139,270 +140,223 @@ function panels(L, u, clear, { maxRows = 3, seed = 1 } = {}) {
   return out;
 }
 
-// ---- A · Lindisfarne ------------------------------------------------------------------------------------------------------
-// The panel letter: a heavy ink contour, a band of orpiment, a hairline, then the body as a black panel worked with a fine
-// plait in orpiment (and its smaller cords in verdigris and blue); counters with the lozenge diaper of red dots; two rows of
-// red dots round the letter at the measured pitch (research/20: pitch ≈ 1.8 dot diameters, the first row a third of a dot off
-// the ink).
-export function lindInitial(ch, H, seed = 1, { theme = 'light', res = 2 } = {}) {
-  const L = letterField(ch, H, { res, bold: H * .03 }), S = new Sheet([0, 0, L.W, L.Ht], res);
-  const lc = Math.max(1.2, H * .016), band1 = Math.max(1.4, H * .019), hair = Math.max(.6, H * .006);
-  const a1 = lc, a2 = a1 + band1, a3 = a2 + hair;
-  const dk = theme === 'dark';
-  // the body: the panel's ground (the page's own dark in dark mode)
-  S.image('k', band(L, L.Din, a3 - .2, 1e9));
-  // the knot
-  const u = Math.max(2.3, Math.min(6, H / 42)), W = u * .82;
-  // the body: each stroke a panel of plait along it (as f. 139r's bands), the cords' colours turning by panel
-  const PN = panels(L, u, a3 + u * .3, { seed }), cols = [['y', 'g'], ['y', 'b'], ['g', 'y'], ['b', 'y']];
-  // (orpiment cords, one cord in each panel picked out in verdigris or blue, as f. 138v's panels)
-  PN.forEach((pn, i) => { const by = pn.C.map((c, t) => [c.L, t]).sort((x, y) => y[0] - x[0]), accent = by.length > 1 ? by[1][1] : -1, ac = i % 2 ? 'b' : 'g';
-    knot(S, pn.C, pn.K.crossings, { layers: [{ w: W, ink: 'k' }, { w: W - Math.max(.6, u * .16) * 2, ink: 'y' }], gap: Math.max(.4, u * .12), ground: 'k', colour: t => t === accent ? ac : 'y' }); });
-  const K = { across: { panels: PN.map(p => p.rows + 'x' + Math.round((p.s1 - p.s0) / (2 * u))) }, threads: PN.flatMap(p => p.K.threads), crossings: new Map(PN.flatMap(p => [...p.K.crossings])) };
-  // the frame of the letter: ink, orpiment, hairline (in dark mode the ink line is the vellum's pale line)
-  S.image(dk ? 'l' : 'k', band(L, L.Din, 0, a1));
-  S.image('y', band(L, L.Din, a1, a2));
-  S.image('k', band(L, L.Din, a2, a3));
-  // counters: the diaper of dots on a lozenge lattice, clear of the letter by a dot
-  const dr = Math.max(.75, H * .0105), pitch = dr * 2 * 1.85;
-  // (f. 27r: lines of dots crossing on the diagonals, lozenges ~5 dots a side, three dots set in each)
-  const side = pitch * 5, diaper = [], ok = (x, y) => L.at(x, y, L.hole) && L.at(x, y, L.Dout) > dr * 2.2, R2 = Math.SQRT1_2;
-  const cx0 = L.W / 2, cy0 = L.Ht / 2, n = Math.ceil(Math.hypot(L.W, L.Ht) / side), at = (a, b) => [cx0 + (a + b) * R2, cy0 + (a - b) * R2];
-  const put = (a, b, r) => { const [x, y] = at(a, b); if (ok(x, y)) diaper.push([x, y, r]); };
-  for (let k = -n; k <= n; k++) for (let m = -5 * n; m <= 5 * n; m++) { put(k * side, m * pitch, dr * .9); if (m % 5) put(m * pitch, k * side, dr * .9); }
-  for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) { const a = (i + .5) * side, b = (j + .5) * side;
-    for (const [da, db] of [[-.42, -.42], [.42, -.42], [0, .5]]) put(a + da * pitch, b + db * pitch, dr * .8); }
-  S.dots(diaper, 'd');
-  // rows of dots round the letter: the first a third of a dot off the ink, the next a pitch beyond
-  const rows = H > 90 ? 2 : 1, hand = noise1(seed * 7 + 3);
-  for (let k = 0; k < rows; k++) {
-    const off = dr * (1 + .33 * 2) + k * pitch * .9;
-    for (const lp of ring(L, off)) {
-      // (only the outer rows: a level line inside a counter would crowd it; the counters carry the diaper)
-      S.dots(dotsAlong(lp, pitch, (i, n) => dr * (.92 + .16 * hand(i * .37))), 'd');
-    }
+// ---- the hand on the letter ----------------------------------------------------------------------------------------------
+// The letter's rings (pen line, colour band, hairline...) laid by a quill: a ring's width at a point follows the angle of the
+// letter's edge there against the nib (heavy where the edge runs across the nib, a hair along it), only for rings marked pen.
+// spec: [{ w, ink, pen }], outermost first. The body (beyond the last ring) is `body`.
+function rings(L, S, spec, body) {
+  const n = L.w * L.h, gw = L.w, G = new Float32Array(n);
+  for (let j = 1; j < L.h - 1; j++) for (let i = 1; i < gw - 1; i++) { const q = j * gw + i, dx = L.Din[q + 1] - L.Din[q - 1] + L.Dout[q - 1] - L.Dout[q + 1], dy = L.Din[q + gw] - L.Din[q - gw] + L.Dout[q - gw] - L.Dout[q + gw];
+    G[q] = .5 + .95 * Math.abs(Math.sin(Math.atan2(dy, dx) + Math.PI / 2 - NIB)); }
+  // (smoothed, so the pen's swell turns as the edge turns)
+  for (let it = 0; it < 4; it++) { const B = G.slice(); for (let q = gw + 1; q < n - gw - 1; q++) G[q] = (B[q - 1] + B[q + 1] + B[q - gw] + B[q + gw] + 4 * B[q]) / 8; }
+  const e = .5 / L.res, clamp = v => Math.max(0, Math.min(1, v)), out = spec.map(() => new Float32Array(n)), Bd = new Float32Array(n);
+  for (let q = 0; q < n; q++) { if (L.M[q] <= 0) continue; const v = L.Din[q]; let a = 0;
+    for (let k = 0; k < spec.length; k++) { const b = a + spec[k].w * (spec[k].pen ? G[q] : 1); out[k][q] = (a <= 0 ? L.M[q] : clamp((v - a) / (2 * e) + .5)) * clamp((b - v) / (2 * e) + .5); a = b; }
+    Bd[q] = clamp((v - a + .2) / (2 * e) + .5); }
+  S.image(body, Bd); spec.forEach((s, k) => S.image(s.ink, out[k]));
+  return spec.reduce((s, x) => s + x.w, 0);
+}
+// a single spiral cord (a stroke's end wound in): from radius R at angle a0, `turns` turns, tightening to an eye
+function spiralLine(c, R, a0, turns, cw) { const o = [], n = Math.max(40, Math.round(turns * 60));
+  for (let i = 0; i <= n; i++) { const f = i / n, r = R * (1 - .86 * Math.pow(f, .72)), a = a0 + cw * f * turns * Math.PI * 2; o.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]); }
+  return o; }
+// a band of nested widths along an open line, the pen line swelling with the nib, a little thinner at the line's two ends
+function cordLine(S, pts, layers, { taper = true } = {}) {
+  const n = pts.length, line = layers.length > 1 ? (layers[0].w - layers[1].w) / 2 : 0;
+  const g = pts.map((p, i) => { const a = pts[Math.max(0, i - 2)], b = pts[Math.min(n - 1, i + 2)]; return .5 + .95 * Math.abs(Math.sin(Math.atan2(b[1] - a[1], b[0] - a[0]) - NIB)); });
+  layers.forEach((ly, k) => S.strokeW(pts, pts.map((_, i) => { const end = taper ? Math.min(1, .55 + .45 * Math.min(i, n - 1 - i) / 12) : 1, w0 = layers[0].w * end;
+    return k === 0 ? w0 : k === 1 ? Math.max(.1, w0 - 2 * line * g[i]) : Math.max(.1, w0 - 2 * line * g[i] - (layers[1].w - ly.w) * end); }), ly.ink, { close: false }));
+}
+// The letter's body, full: (1) a spiral where a stroke ends freely (the plait cannot turn in a terminal's swell); (2) a plait
+// along each stroke, broad cells; (3) a finer plait in what is left, as f. 139r sets a dense interlace beside its knots.
+// draw(pn, u, pass) lays a panel's knot; spiral(pts, R) lays a spiral.
+function body(L, { u, clear, maxRows = 4, seed = 1, draw, spiral, fine = .6, fineRows = 3 }) {
+  const res = L.res, holes = [];
+  for (const st of strokes(L, Math.max(1, u * .5))) for (const end of [0, 1]) {
+    if (st.forks[end] || st.closed) continue; const P = end ? st.pts.slice().reverse() : st.pts, H = end ? st.hw.slice().reverse() : st.hw;
+    // the terminal's swell: the deepest point within the first stretch of the stroke
+    let bi = 0; for (let i = 0; i < Math.min(P.length * .3, 14); i++) if (H[i] - i * u * .08 > H[bi] - bi * u * .08) bi = i;
+    const R = H[bi] - clear; if (R < u * .95) continue;
+    const c = P[bi], q = P[Math.min(P.length - 1, bi + 6)], a0 = Math.atan2(q[1] - c[1], q[0] - c[0]);
+    if (holes.some(h => Math.hypot(h[0] - c[0], h[1] - c[1]) < h[2] + R)) continue;
+    spiral(spiralLine(c, R * .92, a0, Math.max(1, Math.min(2.6, R / (u * 1.15))), (bi + end) % 2 ? 1 : -1), R); holes.push([c[0], c[1], R + u * .35]);
   }
-  return { S, W: L.W, H: L.Ht, P: L.P, L, K };
+  const without = (F, keep) => { const D = F.slice(); for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) { const x = i / res, y = j / res, q = j * L.w + i; for (const [hx, hy, hr] of keep) { const d = Math.hypot(x - hx, y - hy) - hr; if (d < D[q]) D[q] = Math.max(0, d); } } return D; };
+  let Din = without(L.Din, holes);
+  const P1 = panels({ ...L, Din }, u, clear, { seed, maxRows }); P1.forEach(pn => draw(pn, u, 1));
+  // what the broad plait covers, taken out of the field for the fine one
+  const cov = new OffscreenCanvas(L.w, L.h).getContext('2d', { willReadFrequently: true }); cov.setTransform(res, 0, 0, res, 0, 0); cov.lineCap = 'round';
+  for (const pn of P1) { const seg = []; let s = 0; for (let i = 0; i < pn.line.length; i++) { if (i) s += Math.hypot(pn.line[i][0] - pn.line[i - 1][0], pn.line[i][1] - pn.line[i - 1][1]); if (s >= pn.s0 - u * .3 && s <= pn.s1 + u * .3) seg.push(pn.line[i]); }
+    if (seg.length > 1) { cov.lineWidth = 2 * pn.rows * u + u * .9; cov.stroke(pathOf(seg, false)); } }
+  const cd = cov.getImageData(0, 0, L.w, L.h).data; Din = Din.slice(); for (let q = 0; q < Din.length; q++) if (cd[q * 4 + 3] > 40) Din[q] = 0;
+  if (!fine) return; const u2 = Math.max(1.4, u * fine); panels({ ...L, Din }, u2, clear * .9 + u2 * .1, { seed: seed + 9, maxRows: fineRows }).forEach(pn => draw(pn, u2, 2));
+}
+// the diaper of dots in a closed counter (f. 27r): lines of dots on the diagonals, three set in each lozenge
+function diaper(L, S, dr, pitch, ink = 'd') {
+  const side = pitch * 5, D = [], ok = (x, y) => L.at(x, y, L.hole) && L.at(x, y, L.Dout) > dr * 2.4, R2 = Math.SQRT1_2;
+  const cx0 = L.W / 2, cy0 = L.Ht / 2, n = Math.ceil(Math.hypot(L.W, L.Ht) / side), at = (a, b) => [cx0 + (a + b) * R2, cy0 + (a - b) * R2];
+  const put = (a, b, r) => { const [x, y] = at(a, b); if (ok(x, y)) D.push([x, y, r * (1.06 - .12 * ((Math.abs(Math.round(a / pitch)) % 7) / 7)), Math.PI / 4, 1.1]); };
+  for (let k = -n; k <= n; k++) for (let m = -5 * n; m <= 5 * n; m++) { put(k * side, m * pitch, dr * .9); if (m % 5) put(m * pitch, k * side, dr * .9); }
+  for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) { const a = (i + .5) * side, b = (j + .5) * side; for (const [da, db] of [[-.42, -.42], [.42, -.42], [0, .5]]) put(a + da * pitch, b + db * pitch, dr * .8); }
+  S.dots(D, ink);
+}
+// rows of dots round the letter: a brush reloaded every dozen touches, the pitch following the bend
+function dotRows(L, S, dr, rows, seed, ink = 'd') {
+  const pitch = dr * 2 * 1.8;
+  for (let k = 0; k < rows; k++) for (const lp of ring(L, dr * 1.66 + k * pitch * .9)) S.dots(dotsAlong(lp, pitch, dr * (1 - .05 * k), true, { load: 11 + 2 * k + (seed % 3), bend: .15 }), ink);
 }
 
-// a small closed knot (2×2 cells: two cords) in a ring of dots: the paraph
-export function lindParaph(size, seed = 1, { res = 2 } = {}) {
-  const u = size / 4.6, pad = size * .5, S = new Sheet([0, 0, size + 2 * pad, size + 2 * pad], res), ox = pad + (size - 4 * u) / 2;
-  const K = plait(2, 2), C = measure(cords(K, { ox, oy: ox, u, inset: .3, round: 1.1, edgeInset: .2 }), u), W = u * .95;
-  knot(S, C, K.crossings, { layers: [{ w: W, ink: 'k' }, { w: W - u * .34, ink: 'r' }], gap: u * .14, ground: null });
-  const dr = Math.max(.8, size * .055), cx = pad + size / 2, R = size * .62, ring = [];
-  for (let i = 0; i < 64; i++) { const a = i / 64 * Math.PI * 2; ring.push([cx + Math.cos(a) * R, cx + Math.sin(a) * R]); }
-  S.dots(dotsAlong(ring, dr * 2 * 1.8, dr), 'd');
-  return { S, W: size + 2 * pad, H: size + 2 * pad };
+// ---- panels of a frame or a break: knot, key and knot in turn, between rules ------------------------------------------
+// A strip (along x, from x0, length len, thickness th, centred on y) laid as a row of panels joined by bars: the panels alternate
+// a plait with breaks and a key (step) pattern, as Lindisfarne's frames do. map() turns the strip's own frame onto the page
+// (so the same code lays the four sides of a frame). look: the inks and the cord drawing of the direction.
+function strip(S, map, len, th, seed, look, { ends = true } = {}) {
+  const u = th / 4, rnd = stream(seed, 'strip'), bar = Math.max(1, u * .55), poly = pts => pathOf(pts.map(map));
+  const rect = (x, y, w, h) => poly([[x, y], [x + w, y], [x + w, y + h], [x, y + h]]);
+  S.fill(rect(0, -th / 2, len, th), look.ground);
+  // panels: as many as fit, a key every other, each a whole number of cells
+  const cell = 2 * u, n = Math.max(1, Math.round((len - bar) / (cell * 4.5 + bar))), pw = (len - bar * (n + 1)) / n;
+  for (let i = 0; i < n; i++) {
+    const x = bar + i * (pw + bar), key = look.key && i % 2 === 1;
+    if (key) { keyPanel(S, map, x, -th / 2, pw, th, look); continue; }
+    const A = Math.max(1, Math.floor(pw / cell)), ox = x + (pw - A * cell) / 2, per = 2 + Math.floor(rnd() * 2), kind = Math.floor(rnd() * 3);
+    const wall = (wx, wy) => kind === 0 ? wy === 2 && (wx & 1) === 0 && (wx / 2) % per === 0 && wx > 0 && wx < 2 * A
+      : kind === 1 ? (wx & 1) === 1 && wy === 2 && ((wx - 1) / 2) % per === 1 : wy === 2 && (wx & 1) === 0 && wx > 0 && wx < 2 * A && (wx / 2) % 2 === 1;
+    const K = plait(A, 2, () => true, wall), C = measure(cords(K, { ox, oy: -th / 2, u, inset: .3, round: 1.08, edgeInset: .2 }), u);
+    for (const c of C) c.pts = c.pts.map(map);
+    look.knot(S, C, K, u, i);
+  }
+  // the bars between panels and the rules along the strip
+  for (let i = 0; i <= n; i++) S.fill(rect(i * (pw + bar), -th / 2, bar, th), look.rule);
+  const rl = Math.max(.8, u * .32); S.fill(rect(0, -th / 2 - rl, len, rl), look.rule); S.fill(rect(0, th / 2, len, rl), look.rule);
+  if (look.edge) { const e = Math.max(.9, u * .4); S.fill(rect(0, -th / 2 - rl - e, len, e), look.edge); S.fill(rect(0, th / 2 + rl, len, e), look.edge); }
 }
-// a band of plait between ruled edges: the break (rows: cells high), its ends closed by the plait's own turns
-export function lindBand(len, ht, seed = 1, { rows = 2, theme = 'light', dots = true, res = 2 } = {}) {
-  const pad = ht * .45, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), lc = Math.max(1.1, ht * .05), yb = Math.max(1.2, ht * .07);
-  const inner = ht - 2 * (lc + yb + lc * .6), u = inner / (2 * rows), A = Math.max(2, Math.round((len - 2 * (lc + yb + lc * .6)) / (2 * u)));
-  const L0 = A * 2 * u + 2 * (lc + yb + lc * .6), x0 = pad + (len - L0) / 2, y0 = pad;
-  const rect = (x, y, w, h, r) => { const P = new Path2D(); P.roundRect(x, y, w, h, r); return P; };
-  S.fill(rect(x0, y0, L0, ht, lc * 1.6), theme === 'dark' ? 'l' : 'k');
-  S.fill(rect(x0 + lc, y0 + lc, L0 - 2 * lc, ht - 2 * lc, lc), 'y');
-  S.fill(rect(x0 + lc + yb, y0 + lc + yb, L0 - 2 * (lc + yb), ht - 2 * (lc + yb), lc * .6), 'k');
-  const ox = x0 + lc + yb + lc * .6, oy = y0 + lc + yb + lc * .6;
-  const rnd = stream(seed, 'band'), per = 2 + Math.floor(rnd() * 2);
-  const K = plait(A, rows, () => true, (x, y) => rows === 2 && y === 2 && (x & 1) === 0 && (x / 2) % per === 0);
-  const C = measure(cords(K, { ox, oy, u, inset: .3, round: 1.08, edgeInset: .2 }), u), W = u * .82;
-  knot(S, C, K.crossings, { layers: [{ w: W, ink: 'k' }, { w: W - u * .3, ink: 'y' }], gap: u * .12, ground: 'k', colour: t => ['y', 'g', 'b'][t % 3] });
-  if (dots) { const dr = Math.max(.75, ht * .035), o = dr * 1.7, ring = [[x0 - o, y0 - o], [x0 + L0 + o, y0 - o], [x0 + L0 + o, y0 + ht + o], [x0 - o, y0 + ht + o]];
-    const P = []; for (let i = 0; i < 4; i++) { const a = ring[i], b = ring[(i + 1) % 4]; for (let t = 0; t < 1; t += .02) P.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
-    S.dots(dotsAlong(P, dr * 2 * 1.85, dr), 'd'); }
-  return { S, W: len + 2 * pad, H: ht + 2 * pad };
+// a key pattern: square keys, each a line wound in one and a half turns, turned a quarter at each cell (a step-and-key frieze)
+function keyPanel(S, map, x, y, w, h, look) {
+  const m = Math.max(1, Math.round(w / h)), s = w / m, lw = Math.max(.7, h * .085);
+  S.fill(pathOf([[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(map)), look.keyGround);
+  for (let i = 0; i < m; i++) { const cx = x + s * (i + .5), cy = y + h / 2, hs = Math.min(s, h) * .42, flip = i % 2 ? -1 : 1;
+    const K = [[-1, -1], [1, -1], [1, 1], [-.5, 1], [-.5, -.4], [.45, -.4], [.45, .45], [0, .45]].map(([a, b]) => [cx + a * hs * flip, cy + b * hs * flip]).map(map);
+    cordLine(S, K, [{ w: lw, ink: look.keyLine }], { taper: false });
+  }
 }
 
-// the line-filler: a twist (a one-cell plait: two cords) run to the margin, closed by its own turns, three dots after it
-export function lindFiller(len, ht, seed = 1, { theme = 'light', res = 2 } = {}) {
-  const pad = ht * .4, u = ht / 2.1, A = Math.max(1, Math.floor((len - ht * 1.2) / (2 * u))), S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res);
-  const K = plait(A, 1), C = measure(cords(K, { ox: pad, oy: pad + (ht - 2 * u) / 2, u, inset: .26, round: 1.1, edgeInset: .2 }), u), W = u * .78;
-  knot(S, C, K.crossings, { layers: [{ w: W, ink: theme === 'dark' ? 'l' : 'k' }, { w: W - u * .3, ink: 'r' }], gap: u * .13, ground: null });
-  const dr = Math.max(.8, ht * .07), x = pad + A * 2 * u + ht * .55, cy = pad + ht / 2;
-  S.dots([[x, cy - dr * 1.9, dr], [x, cy + dr * 1.9, dr], [x + dr * 3.2, cy, dr]], 'd');
+// ---- A · Lindisfarne ------------------------------------------------------------------------------------------------------
+const LIND = {
+  ground: 'k', rule: 'k', edge: 'y', key: true, keyGround: 'y', keyLine: 'k',
+  knot: (S, C, K, u, i) => knot(S, C, K.crossings, { layers: [{ w: u * .82, ink: 'k' }, { w: u * .82 - Math.max(.5, u * .3), ink: 'y' }], gap: Math.max(.35, u * .12), ground: 'k',
+    colour: t => t === 1 ? (i % 4 === 0 ? 'b' : 'g') : 'y' }),
+};
+export function lindInitial(ch, H, seed = 1, { theme = 'light', res = 2 } = {}) {
+  const L = letterField(ch, H, { res, bold: H * .03 }), S = new Sheet([0, 0, L.W, L.Ht], res), dk = theme === 'dark';
+  const frame = rings(L, S, [{ w: Math.max(1.1, H * .014), ink: dk ? 'l' : 'k', pen: true }, { w: Math.max(1.3, H * .017), ink: 'y' }, { w: Math.max(.55, H * .0055), ink: 'k', pen: true }], 'k');
+  const u = Math.max(1.75, H / 62), W = u * .82, line = Math.max(.45, u * .15);
+  let acc = 0;
+  body(L, { u, clear: frame + u * .25, seed, fine: .76,
+    draw: (pn, uu, pass) => { const w = uu * .82, accent = pn.C.length > 1 ? 1 : -1, ac = acc++ % 2 ? 'b' : 'g';
+      knot(S, pn.C, pn.K.crossings, { layers: [{ w, ink: 'k' }, { w: w - Math.max(.45, uu * .15) * 2, ink: pass === 1 ? 'y' : 'r' }], gap: Math.max(.3, uu * .12), ground: 'k', colour: pass === 1 ? (t => t === accent ? ac : 'y') : null }); },
+    spiral: (pts) => cordLine(S, pts, [{ w: W * 1.05, ink: 'k' }, { w: W * 1.05 - 2 * line, ink: 'y' }]) });
+  const dr = Math.max(.75, H * .0105); diaper(L, S, dr, dr * 2 * 1.85);
+  dotRows(L, S, dr, H > 90 ? 2 : 1, seed);
+  return { S, W: L.W, H: L.Ht, P: L.P, L };
+}
+// the paraph: a small knot of two cords broken once at its heart (not the plain 2×2), three dots beside it as a positura
+export function lindParaph(size, seed = 1, { res = 2, theme = 'light' } = {}) {
+  const u = size / 4.4, pad = size * .3, Wd = size * 1.75, S = new Sheet([0, 0, Wd + 2 * pad, size + 2 * pad], res), ox = pad, oy = pad + (size - 4 * u) / 2;
+  const K = plait(2, 2, () => true, (x, y) => x === 2 && y === 2), C = measure(cords(K, { ox, oy, u, inset: .3, round: 1.12, edgeInset: .18 }), u);
+  knot(S, C, K.crossings, { layers: [{ w: u * .95, ink: theme === 'dark' ? 'l' : 'k' }, { w: u * .95 - u * .34, ink: 'r' }], gap: u * .14, ground: null });
+  const dr = Math.max(.8, size * .07), x = ox + 4 * u + size * .32, cy = pad + size / 2;
+  S.dots([[x, cy - dr * 1.9, dr * 1.05, -.5, 1.1], [x, cy + dr * 1.9, dr * .95, -.5, 1.1], [x + dr * 3.1, cy, dr, -.5, 1.1]], 'd');
+  return { S, W: Wd + 2 * pad, H: size + 2 * pad };
+}
+// the filler: a short panel of plait that closes on itself, then the three-dot positura (not a chain run to the margin)
+function shortPanel(len, ht, seed, look, res, { dots = 'd' } = {}) {
+  const pad = ht * .45, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), u = ht / 4.4, A = Math.max(2, Math.min(7, Math.floor((len - ht * 1.6) / (2 * u))));
+  const w = A * 2 * u + u * 1.2, x0 = pad + u * .6, y0 = pad + ht / 2 - 2 * u;
+  const P = new Path2D(); P.roundRect(x0 - u * .6, y0 - u * .6, w, 4 * u + u * 1.2, u * .7); S.fill(P, look.rule);
+  const P2 = new Path2D(); P2.roundRect(x0 - u * .3, y0 - u * .3, w - u * .6, 4 * u + u * .6, u * .5); S.fill(P2, look.ground);
+  const rnd = stream(seed, 'fill'), per = 2 + Math.floor(rnd() * 2);
+  const K = plait(A, 2, () => true, (x, y) => y === 2 && (x & 1) === 0 && x > 0 && x < 2 * A && (x / 2) % per === 0), C = measure(cords(K, { ox: x0, oy: y0, u, inset: .3, round: 1.08, edgeInset: .2 }), u);
+  look.knot(S, C, K, u, 1);
+  const dr = Math.max(.8, ht * .085), x = x0 + w + ht * .45, cy = pad + ht / 2;
+  S.dots([[x, cy - dr * 1.9, dr * 1.05, -.5, 1.1], [x, cy + dr * 1.9, dr * .95, -.5, 1.1], [x + dr * 3.1, cy, dr, -.5, 1.1]], dots);
   return { S, W: len + 2 * pad, H: ht + 2 * pad, pad };
 }
-// the frame: a plait fitted to a ring of cells round the quotation, so it turns its own corners (no corner pieces), on black
-// between an orpiment rule outside and an ink hairline inside, with a row of red dots beyond
-export function lindFrame(w, h, seed = 1, { theme = 'light', res = 2, rows = 2, ground = 'k', strand = ['y', 'g'], pal = null } = {}) {
-  const u = Math.max(2.2, Math.min(3.2, h * .03)), lc = Math.max(.9, u * .4), yb = Math.max(1.1, u * .5), band = rows * 2 * u;
-  const A = Math.max(2 * rows + 1, Math.round((w + band) / (2 * u))), B = Math.max(2 * rows + 1, Math.round((h + band) / (2 * u)));
-  const pad = band / 2 + lc + yb + 6, W0 = A * 2 * u, H0 = B * 2 * u, S = new Sheet([0, 0, w + 2 * pad, h + 2 * pad], res);
-  const ox = pad + (w - W0) / 2, oy = pad + (h - H0) / 2, kk = theme === 'dark' ? 'l' : 'k';
-  const ringP = (o, i) => { const P = new Path2D(); P.roundRect(ox - o, oy - o, W0 + 2 * o, H0 + 2 * o, Math.max(0, o) + 1); P.roundRect(ox + band + i, oy + band + i, W0 - 2 * band - 2 * i, H0 - 2 * band - 2 * i, 1); return P; };
-  S.fill(ringP(lc + yb + lc, -(lc + yb + lc)), kk, { rule: 'evenodd' });
-  S.fill(ringP(lc + yb, -(lc + yb)), 'y', { rule: 'evenodd' });
-  S.fill(ringP(lc * .5, -lc * .5), ground, { rule: 'evenodd' });
-  const K = plait(A, B, (a, b) => a < rows || b < rows || a >= A - rows || b >= B - rows, (x, y) => rows === 2 && ((x & 1) === 0) && ((y === 2 && x > 4 && x < 2 * A - 4) || (y === 2 * B - 2 && x > 4 && x < 2 * A - 4)) && (x / 2) % 3 === 0);
-  const C = measure(cords(K, { ox, oy, u, inset: .3, round: 1.08, edgeInset: .2 }), u), Wd = u * .82;
-  knot(S, C, K.crossings, { layers: [{ w: Wd, ink: ground }, { w: Wd - u * .3, ink: strand[0] }], gap: u * .12, ground, colour: t => strand[t % strand.length] });
-  const dr = Math.max(.75, u * .34), o = lc * 2 + yb + dr * 2.2, P = [];
-  const pts = [[ox - o, oy - o], [ox + W0 + o, oy - o], [ox + W0 + o, oy + H0 + o], [ox - o, oy + H0 + o]];
-  for (let i = 0; i < 4; i++) { const a = pts[i], b = pts[(i + 1) % 4]; for (let s = 0; s < 1; s += .005) P.push([a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s]); }
-  if (pal !== 'nodots') S.dots(dotsAlong(P, dr * 2 * 1.85, dr), 'd');
+export const lindFiller = (len, ht, seed = 1, { theme = 'light', res = 2 } = {}) => shortPanel(len, ht * .95, seed, { ...LIND, rule: theme === 'dark' ? 'l' : 'k' }, res);
+// the break: a light strip of knot, key and knot panels, a row of dots above and below
+export function lindBand(len, ht, seed = 1, { theme = 'light', res = 2 } = {}) {
+  const th = Math.max(8, ht * .55), pad = th, S = new Sheet([0, 0, len + 2 * pad, th + 2 * pad], res), look = { ...LIND, rule: theme === 'dark' ? 'l' : 'k' };
+  strip(S, ([x, y]) => [pad + x, pad + th / 2 + y], len, th, seed, look);
+  const dr = Math.max(.75, th * .07), o = th / 2 + th * .3;
+  for (const sg of [-1, 1]) S.dots(dotsAlong([[pad, pad + th / 2 + sg * o], [pad + len, pad + th / 2 + sg * o]], dr * 2 * 1.85, dr, false, { load: 12 }), 'd');
+  return { S, W: len + 2 * pad, H: th + 2 * pad };
+}
+// the frame: four strips of panels, a square knot at each corner where they meet
+function framed(w, h, seed, look, res, { th, dots = 'd' }) {
+  const pad = th * 1.2, S = new Sheet([0, 0, w + 2 * pad, h + 2 * pad], res), x0 = pad, y0 = pad;
+  const sides = [[([x, y]) => [x0 + th / 2 + x, y0 + y], w - th], [([x, y]) => [x0 + th / 2 + x, y0 + h + y], w - th], [([x, y]) => [x0 + y, y0 + th / 2 + x], h - th], [([x, y]) => [x0 + w + y, y0 + th / 2 + x], h - th]];
+  sides.forEach(([m, l], i) => strip(S, m, l, th, seed + i * 7, look));
+  const u = th / 4;
+  for (const [cx, cy] of [[x0, y0], [x0 + w, y0], [x0, y0 + h], [x0 + w, y0 + h]]) {
+    const P = new Path2D(); P.rect(cx - th / 2 - u * .35, cy - th / 2 - u * .35, th + u * .7, th + u * .7); S.fill(P, look.rule); const P2 = new Path2D(); P2.rect(cx - th / 2, cy - th / 2, th, th); S.fill(P2, look.ground);
+    const K = plait(2, 2, () => true, (x, y) => (x === 2 && (y === 1 || y === 3)) || (y === 2 && (x === 1 || x === 3))), C = measure(cords(K, { ox: cx - th / 2, oy: cy - th / 2, u, inset: .3, round: 1.1, edgeInset: .2 }), u);
+    look.knot(S, C, K, u, 2);
+  }
+  if (dots) { const dr = Math.max(.75, th * .06), o = th / 2 + th * .35, P = [], pts = [[x0 - o, y0 - o], [x0 + w + o, y0 - o], [x0 + w + o, y0 + h + o], [x0 - o, y0 + h + o]];
+    for (let i = 0; i < 4; i++) { const a = pts[i], b = pts[(i + 1) % 4]; for (let s = 0; s < 1; s += .004) P.push([a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s]); }
+    S.dots(dotsAlong(P, dr * 2 * 1.85, dr, true, { load: 13 }), dots); }
   return { S, W: w + 2 * pad, H: h + 2 * pad, pad };
 }
+export const lindFrame = (w, h, seed = 1, { theme = 'light', res = 2 } = {}) => framed(w, h, seed, { ...LIND, rule: theme === 'dark' ? 'l' : 'k' }, res, { th: Math.max(7, Math.min(10, h * .085)) });
 
 // ---- C · Durrow ---------------------------------------------------------------------------------------------------------
-// The broad ribbon of the Book of Durrow (TCD MS 57, fol. 125v, 192v): each ribbon a fill of pigment inside a reserved margin
-// of bare vellum, a fine pen line at its edge, on a brown-black ground; a ribbon changes colour (red lead, orpiment,
-// verdigris) where it passes under another. Three pigments and black; in dark mode the page's dark is the ground already.
+// The broad ribbon (TCD MS 57, fol. 125v): pigment inside a reserved margin of vellum, a fine pen line at its edge, on a
+// brown-black ground; a ribbon changes colour (red lead, orpiment, verdigris) where it passes under another.
 const DUR = ['r', 'y', 'g'];
-function ribbon(S, C, crossings, u, seed, { ground = 'gr', w = 1.12 } = {}) {
-  const W = u * w, pen = Math.max(.5, u * .07), margin = Math.max(.6, u * .13), rnd = stream(seed, 'ribbon'), o = Math.floor(rnd() * 3);
-  knot(S, C, crossings, { layers: [{ w: W, ink: 'k' }, { w: W - 2 * pen, ink: 'v' }, { w: W - 2 * pen - 2 * margin, ink: 'r' }], gap: Math.max(.5, u * .1), ground,
-    colour: (t, k) => DUR[(o + t + k) % 3] });
+function ribbon(S, C, crossings, u, seed, { ground = 'gr', w = 1.1 } = {}) {
+  const W = u * w, pen = Math.max(.45, u * .08), margin = Math.max(.5, u * .13), o = Math.floor(stream(seed, 'ribbon')() * 3);
+  knot(S, C, crossings, { layers: [{ w: W, ink: 'k' }, { w: W - 2 * pen, ink: 'v' }, { w: W - 2 * pen - 2 * margin, ink: 'r' }], gap: Math.max(.4, u * .1), ground, colour: (t, k) => DUR[(o + t + k) % 3], breath: 1.4 });
 }
+const DURL = { ground: 'gr', rule: 'v', edge: 'k', key: true, keyGround: 'gr', keyLine: 'v', knot: (S, C, K, u, i) => ribbon(S, C, K.crossings, u, i * 13 + 1, { w: 1.06 }) };
 export function durInitial(ch, H, seed = 1, { theme = 'light', res = 2 } = {}) {
   const L = letterField(ch, H, { res, bold: H * .035 }), S = new Sheet([0, 0, L.W, L.Ht], res);
-  const pen = Math.max(.7, H * .007), vb = Math.max(1.6, H * .02), a1 = pen, a2 = a1 + vb, a3 = a2 + pen;
-  S.image('gr', band(L, L.Din, a3 - .2, 1e9));
-  const u = Math.max(3.4, Math.min(9, H / 17));
-  for (const pn of panels(L, u, a3 + u * .12, { seed, maxRows: 2 })) ribbon(S, pn.C, pn.K.crossings, u, seed + pn.s0 | 0);
-  S.image('k', band(L, L.Din, 0, a1)); S.image('v', band(L, L.Din, a1, a2)); S.image('k', band(L, L.Din, a2, a3));
-  // one row of red dots, close, as Durrow's frames carry them
-  const dr = Math.max(.8, H * .011), pitch = dr * 2 * 1.9, hand = noise1(seed * 5 + 1);
-  for (const lp of ring(L, dr * 1.7)) S.dots(dotsAlong(lp, pitch, (i) => dr * (.85 + .3 * hand(i * .41))), 'd');
+  const frame = rings(L, S, [{ w: Math.max(.7, H * .008), ink: 'k', pen: true }, { w: Math.max(1.5, H * .019), ink: 'v' }, { w: Math.max(.6, H * .0065), ink: 'k', pen: true }], 'gr');
+  const u = Math.max(2.6, H / 23), pen = Math.max(.45, u * .08), margin = Math.max(.5, u * .13); let n = 0;
+  body(L, { u, clear: frame + u * .12, seed, maxRows: 2, fine: .56, fineRows: 1,
+    draw: (pn, uu) => ribbon(S, pn.C, pn.K.crossings, uu, seed + n++ * 5, { w: 1.08 }),
+    spiral: (pts) => { const W = u * 1.02, c = DUR[n++ % 3]; cordLine(S, pts, [{ w: W, ink: 'k' }, { w: W - 2 * pen, ink: 'v' }, { w: W - 2 * pen - 2 * margin, ink: c }]); } });
+  const dr = Math.max(.8, H * .011); dotRows(L, S, dr, 1, seed);
   return { S, W: L.W, H: L.Ht, P: L.P, L };
 }
+// the paraph: the triple spiral as a ribbon, each arm its own pigment
 export function durParaph(size, seed = 1, { res = 2 } = {}) {
-  const u = size / 4.2, pad = size * .3, S = new Sheet([0, 0, size + 2 * pad, size + 2 * pad], res), ox = pad + (size - 4 * u) / 2;
-  const K = plait(2, 2), C = measure(cords(K, { ox, oy: ox, u, inset: .28, round: 1.1, edgeInset: .2 }), u);
-  ribbon(S, C, K.crossings, u, seed, { ground: null, w: 1.02 });
-  return { S, W: size + 2 * pad, H: size + 2 * pad };
-}
-export function durFiller(len, ht, seed = 1, { res = 2 } = {}) {
-  const pad = ht * .3, u = ht / 2.2, A = Math.max(1, Math.floor((len - ht * .6) / (2 * u))), S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res);
-  const K = plait(A, 1), C = measure(cords(K, { ox: pad, oy: pad + (ht - 2 * u) / 2, u, inset: .26, round: 1.1, edgeInset: .2 }), u);
-  ribbon(S, C, K.crossings, u, seed, { ground: null, w: 1.0 });
-  return { S, W: len + 2 * pad, H: ht + 2 * pad, pad };
-}
-export function durBand(len, ht, seed = 1, { res = 2, theme = 'light' } = {}) {
-  const pad = ht * .35, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), pen = Math.max(.7, ht * .03), vb = Math.max(1.2, ht * .07);
-  const inner = ht - 2 * (pen * 2 + vb), u = inner / 2, A = Math.max(2, Math.round((len - 2 * (pen * 2 + vb)) / (2 * u))), L0 = A * 2 * u + 2 * (pen * 2 + vb), x0 = pad + (len - L0) / 2, y0 = pad;
-  const rect = (o, r) => { const P = new Path2D(); P.roundRect(x0 + o, y0 + o, L0 - 2 * o, ht - 2 * o, r); return P; };
-  S.fill(rect(0, pen * 3), 'k'); S.fill(rect(pen, pen * 2.5), 'v'); S.fill(rect(pen + vb, pen * 1.5), 'k'); S.fill(rect(pen * 2 + vb - .3, pen), 'gr');
-  const o = pen * 2 + vb, K = plait(A, 1), C = measure(cords(K, { ox: x0 + o, oy: y0 + o, u, inset: .26, round: 1.1, edgeInset: .18 }), u);
-  ribbon(S, C, K.crossings, u, seed, { w: 1.08 });
-  const dr = Math.max(.8, ht * .04), P = [], q = dr * 1.8, pts = [[x0 - q, y0 - q], [x0 + L0 + q, y0 - q], [x0 + L0 + q, y0 + ht + q], [x0 - q, y0 + ht + q]];
-  for (let i = 0; i < 4; i++) { const a = pts[i], b = pts[(i + 1) % 4]; for (let s = 0; s < 1; s += .01) P.push([a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s]); }
-  S.dots(dotsAlong(P, dr * 2 * 1.9, dr), 'd');
-  return { S, W: len + 2 * pad, H: ht + 2 * pad };
-}
-export function durFrame(w, h, seed = 1, { theme = 'light', res = 2 } = {}) {
-  const u = Math.max(3.4, Math.min(5, h * .05)), pen = Math.max(.7, u * .14), vb = Math.max(1.2, u * .3), band = 2 * u;
-  const A = Math.max(3, Math.round((w + band) / (2 * u))), B = Math.max(3, Math.round((h + band) / (2 * u))), pad = band / 2 + pen * 2 + vb + 6;
-  const W0 = A * 2 * u, H0 = B * 2 * u, S = new Sheet([0, 0, w + 2 * pad, h + 2 * pad], res), ox = pad + (w - W0) / 2, oy = pad + (h - H0) / 2;
-  const ringP = (o, i) => { const P = new Path2D(); P.roundRect(ox - o, oy - o, W0 + 2 * o, H0 + 2 * o, Math.max(0, o) + 2); P.roundRect(ox + band + i, oy + band + i, W0 - 2 * band - 2 * i, H0 - 2 * band - 2 * i, 2); return P; };
-  S.fill(ringP(pen * 2 + vb, -(pen * 2 + vb)), 'k', { rule: 'evenodd' }); S.fill(ringP(pen + vb, -(pen + vb)), 'v', { rule: 'evenodd' }); S.fill(ringP(pen, -pen), 'k', { rule: 'evenodd' }); S.fill(ringP(.3, -.3), 'gr', { rule: 'evenodd' });
-  const K = plait(A, B, (a, b) => a < 1 || b < 1 || a >= A - 1 || b >= B - 1), C = measure(cords(K, { ox, oy, u, inset: .26, round: 1.1, edgeInset: .18 }), u);
-  ribbon(S, C, K.crossings, u, seed, { w: 1.08 });
-  return { S, W: w + 2 * pad, H: h + 2 * pad, pad };
-}
-
-// ---- B · Kells ----------------------------------------------------------------------------------------------------------
-// Dense and saturated (TCD MS 58, c. 800): orpiment, red lead and folium purple, the letter's body purple worked with a fine
-// orpiment plait, and spirals: the triple spiral in a roundel (Durrow fol. 3v, Lindisfarne f. 139r: each spiral two lines
-// winding in together and out again, its outer arm running on into the next). One closed line, so it reads as one drawing.
-// A double spiral about q: in from angle a0 at radius r0, `turns` turns, to an eye, and out again interleaved (the same path
-// turned half round q). Its radius falls faster near the eye than at the rim (not an Archimedean coil).
-function dspiral(q, r0, a0, turns, cw = 1, n = 120) {
-  const IN = [], T = turns * Math.PI * 2;
-  for (let i = 0; i <= n; i++) { const f = i / n, r = r0 * (1 - .82 * Math.pow(f, .78)), a = a0 + cw * f * T; IN.push([q[0] + Math.cos(a) * r, q[1] + Math.sin(a) * r]); }
-  const OUT = IN.map(([x, y]) => [2 * q[0] - x, 2 * q[1] - y]).reverse();
-  return { IN, OUT };
-}
-// a smooth link between two points with the given headings (Hermite), for the arms between spirals
-function link(p, tp, q, tq, k = 1, n = 40) { const c = Math.hypot(q[0] - p[0], q[1] - p[1]) * k, o = [];
-  for (let i = 1; i < n; i++) { const s = i / n, s2 = s * s, s3 = s2 * s, h1 = 2 * s3 - 3 * s2 + 1, h2 = -2 * s3 + 3 * s2, h3 = s3 - 2 * s2 + s, h4 = s3 - s2;
-    o.push([h1 * p[0] + h2 * q[0] + (h3 * tp[0] + h4 * tq[0]) * c, h1 * p[1] + h2 * q[1] + (h3 * tp[1] + h4 * tq[1]) * c]); } return o; }
-const head = (P, end) => { const a = end ? P.at(-2) : P[1], b = end ? P.at(-1) : P[0], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return end ? [(b[0] - a[0]) / l, (b[1] - a[1]) / l] : [(a[0] - b[0]) / l, (a[1] - b[1]) / l]; };
-// the triple spiral in a roundel of radius R at c: three arms leave the middle a third of a turn apart and each winds into a
-// spiral, its curvature rising smoothly from the middle to the eye (so it tightens as it goes in: not an Archimedean coil)
-export function triskele(c, R, rot = 0, turns = 1.6) {
-  return [0, 1, 2].map(k => { const a = rot + k * Math.PI * 2 / 3, p = [c[0] + Math.cos(a) * R * .06, c[1] + Math.sin(a) * R * .06];
-    return tendril(p, a, R * (.55 + turns * .62), .9 / R, 1 / (R * .075), 2.4, Math.max(.25, R / 120)); });
-}
-// a roundel: ink ring, orpiment ring, red ground, the triple spiral as a band (ink edge, orpiment fill)
-function roundel(S, c, R, rot, { ground = 'r', line = 'y', edge = 'k', ring = 'y', w = null } = {}) {
-  const lw = w ?? Math.max(.9, R * .06), circle = r => { const P = new Path2D(); P.arc(c[0], c[1], r, 0, Math.PI * 2); return P; };
-  S.fill(circle(R), edge); S.fill(circle(R - Math.max(.6, R * .04)), ring); S.fill(circle(R - Math.max(1.2, R * .12)), edge); S.fill(circle(R - Math.max(1.6, R * .15)), ground);
-  // (the coils as open as the line allows: about three line widths between turns)
-  const turns = Math.max(.8, Math.min(2, R * .3 / (lw * 3.4)));
-  for (const L of triskele(c, R * .84, rot, turns)) { S.stroke(L, lw * 1.25, edge, { close: false }); S.stroke(L, Math.max(.4, lw * 1.25 - Math.max(.5, lw * .5)), line, { close: false }); }
-  const hub = new Path2D(); hub.arc(c[0], c[1], lw * 1.1, 0, Math.PI * 2); S.fill(hub, line);
-}
-export function kellsInitial(ch, H, seed = 1, { theme = 'light', res = 2 } = {}) {
-  const L = letterField(ch, H, { res, bold: H * .032 }), S = new Sheet([0, 0, L.W, L.Ht], res), dk = theme === 'dark';
-  const lc = Math.max(1, H * .011), rb = Math.max(1.6, H * .022), hair = Math.max(.6, H * .006), a1 = lc, a2 = a1 + rb, a3 = a2 + hair;
-  S.image('p', band(L, L.Din, a3 - .2, 1e9));
-  // the largest roundel the body holds, and one in each counter
-  let best = [0, 0, 0]; for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) { const v = L.Din[j * L.w + i]; if (v > best[2]) best = [i / res, j / res, v]; }
-  const rnd = stream(seed, 'kells'), rounds = [];
-  if (best[2] - a3 > H * .085) rounds.push([best[0], best[1], best[2] - a3 * .55]);
-  const holes = new Float32Array(L.w * L.h); { const feat = new Uint8Array(L.w * L.h); for (let q = 0; q < feat.length; q++) feat[q] = L.hole[q] ? 0 : 1; const D = dist(feat, L.w, L.h); for (let q = 0; q < D.length; q++) holes[q] = D[q] / res; }
-  const seen = []; for (let k = 0; k < 3; k++) { let m = [0, 0, 0]; for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) { const v = holes[j * L.w + i], x = i / res, y = j / res; if (v > m[2] && seen.every(([sx, sy, sr]) => Math.hypot(x - sx, y - sy) > sr + v)) m = [x, y, v]; }
-    if (m[2] > H * .09) { seen.push(m); rounds.push([m[0], m[1], m[2] - Math.max(1.5, H * .015)]); } }
-  // the body's plait, kept off the body's roundel
-  const u = Math.max(2.2, Math.min(5, H / 46)), W = u * .82, keep = rounds.filter(r => L.at(r[0], r[1], L.Din) > 0);
-  // the body's roundel is a hole in the field the plait is fitted to (the strokes run round it, or stop at it)
-  const Din2 = L.Din.slice(); for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) for (const [rx, ry, rr] of keep) { const d = Math.hypot(i / res - rx, j / res - ry) - rr - u * .5; if (d < Din2[j * L.w + i]) Din2[j * L.w + i] = Math.max(0, d); }
-  for (const pn of panels({ ...L, Din: Din2 }, u, a3 + u * .3, { seed })) {
-    knot(S, pn.C, pn.K.crossings, { layers: [{ w: W, ink: 'p' }, { w: W - Math.max(.55, u * .16) * 2, ink: 'y' }], gap: Math.max(.4, u * .12), ground: 'p', colour: t => t % 3 === 1 ? 'r' : 'y' }); }
-  for (const [x, y, r] of rounds) roundel(S, [x, y], r, rnd() * 6.28, { ground: L.at(x, y, L.Din) > 0 ? 'r' : 'r' });
-  S.image(dk ? 'l' : 'k', band(L, L.Din, 0, a1)); S.image('r', band(L, L.Din, a1, a2)); S.image('k', band(L, L.Din, a2, a3));
-  return { S, W: L.W, H: L.Ht, P: L.P, L };
-}
-export function kellsParaph(size, seed = 1, { res = 2 } = {}) {
-  const pad = size * .25, R = size * .62, S = new Sheet([0, 0, 2 * R + 2 * pad, 2 * R + 2 * pad], res);
-  roundel(S, [pad + R, pad + R], R, stream(seed, 'par')() * 6.28, { w: Math.max(.9, R * .1) });
+  const pad = size * .2, R = size * .62, S = new Sheet([0, 0, 2 * R + 2 * pad, 2 * R + 2 * pad], res), c = [pad + R, pad + R], u = R / 3.2;
+  const W = u * 1.05, pen = Math.max(.4, u * .09), margin = Math.max(.45, u * .14), rot = stream(seed, 'tri')() * 6.28;
+  [0, 1, 2].forEach(k => { const a = rot + k * Math.PI * 2 / 3, p = [c[0] + Math.cos(a) * R * .05, c[1] + Math.sin(a) * R * .05];
+    cordLine(S, tendril(p, a, R * 1.45, .9 / R, 1 / (R * .12), 2.4, R / 140), [{ w: W, ink: 'k' }, { w: W - 2 * pen, ink: 'v' }, { w: W - 2 * pen - 2 * margin, ink: DUR[k] }]); });
+  const hub = new Path2D(); hub.arc(c[0], c[1], W * .55, 0, Math.PI * 2); S.fill(hub, 'k');
   return { S, W: 2 * R + 2 * pad, H: 2 * R + 2 * pad };
 }
-// the running spiral (Allen 1903, p. 363 ff.): spirals in turn above and below the line, each one's arm running into the next
-function running(x0, y0, len, ht, n) {
-  const step = len / n, R = Math.min(ht * .42, step * .55), line = [];
-  for (let k = 0; k < n; k++) { const up = k % 2 === 0, c = [x0 + step * (k + .5), y0 + ht / 2 + (up ? -1 : 1) * ht * .06];
-    const sp = dspiral(c, R, up ? Math.PI : 0, 1.6, up ? 1 : -1, 80);
-    if (line.length) line.push(...link(line.at(-1), head(line, true), sp.IN[0], head(sp.IN, false), 1.1, 24));
-    line.push(...sp.IN, ...link(sp.IN.at(-1), head(sp.IN, true), sp.OUT[0], head(sp.OUT, false), 1.6, 12), ...sp.OUT); }
-  return line;
+export const durFiller = (len, ht, seed = 1, { res = 2 } = {}) => shortPanel(len, ht, seed, { ...DURL, rule: 'k' }, res);
+export function durBand(len, ht, seed = 1, { res = 2 } = {}) {
+  const th = Math.max(9, ht * .62), pad = th, S = new Sheet([0, 0, len + 2 * pad, th + 2 * pad], res);
+  strip(S, ([x, y]) => [pad + x, pad + th / 2 + y], len, th, seed, DURL);
+  const dr = Math.max(.8, th * .065), o = th / 2 + th * .32;
+  for (const sg of [-1, 1]) S.dots(dotsAlong([[pad, pad + th / 2 + sg * o], [pad + len, pad + th / 2 + sg * o]], dr * 2 * 1.9, dr, false, { load: 10 }), 'd');
+  return { S, W: len + 2 * pad, H: th + 2 * pad };
 }
-export function kellsFiller(len, ht, seed = 1, { res = 2 } = {}) {
-  const pad = ht * .3, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), n = Math.max(2, Math.round(len / (ht * 1.25)));
-  const L = running(pad, pad, len - ht * .2, ht, n), w = Math.max(1, ht * .11);
-  S.stroke(L, w, 'k', { close: false }); S.stroke(L, Math.max(.45, w - Math.max(.5, w * .38)), 'r', { close: false });
-  return { S, W: len + 2 * pad, H: ht + 2 * pad, pad };
-}
-export function kellsBand(len, ht, seed = 1, { res = 2, theme = 'light' } = {}) {
-  const pad = ht * .3, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), lc = Math.max(.9, ht * .04), rb = Math.max(1.2, ht * .07);
-  const rect = (o, r) => { const P = new Path2D(); P.roundRect(pad + o, pad + o, len - 2 * o, ht - 2 * o, r); return P; };
-  S.fill(rect(0, lc * 2), theme === 'dark' ? 'l' : 'k'); S.fill(rect(lc, lc * 1.6), 'r'); S.fill(rect(lc + rb, lc), 'k'); S.fill(rect(lc * 2 + rb - .3, lc * .6), 'p');
-  const R = (ht - 2 * (lc * 2 + rb)) / 2, cy = pad + ht / 2, inner = len - 2 * (lc * 2 + rb), n = Math.max(1, Math.round(inner / (R * 2.2 * 2.4))), rnd = stream(seed, 'kband');
-  // roundels at intervals, a running spiral between them
-  const xs = []; for (let k = 0; k < n; k++) xs.push(pad + lc * 2 + rb + inner * (k + .5) / n);
-  for (let k = 0; k + 1 < n; k++) { const a = xs[k] + R * 1.05, b = xs[k + 1] - R * 1.05, L = running(a, cy - R * .8, b - a, R * 1.6, Math.max(2, Math.round((b - a) / (R * 1.5)))), w = Math.max(.9, R * .16);
-    S.stroke(L, w, 'p', { close: false }); S.stroke(L, Math.max(.45, w * .6), 'y', { close: false }); }
-  for (const x of xs) roundel(S, [x, cy], R * 1.02, rnd() * 6.28);
-  return { S, W: len + 2 * pad, H: ht + 2 * pad };
-}
-export function kellsFrame(w, h, seed = 1, { theme = 'light', res = 2 } = {}) {
-  const f = lindFrame(w, h, seed, { theme, res, rows: 2, ground: 'p', strand: ['y', 'r'], pal: 'nodots' });
-  // a roundel at each corner, each turning its own way
-  const rnd = stream(seed, 'kframe'), R = Math.max(7, Math.min(13, h * .13));
-  for (const [x, y] of [[f.pad, f.pad], [f.pad + w, f.pad], [f.pad, f.pad + h], [f.pad + w, f.pad + h]]) roundel(f.S, [x, y], R, rnd() * 6.28);
-  return f;
-}
+export const durFrame = (w, h, seed = 1, { res = 2 } = {}) => framed(w, h, seed, DURL, res, { th: Math.max(8, Math.min(11, h * .095)) });
 
+// ---- the directions -------------------------------------------------------------------------------------------------------
+// pigment coats (Sheet.print): orpiment dense with a coarse crystal tooth, verdigris thinner and granulating, red lead dense
+const COATS = { y: { base: .78, slow: .05, tooth: .06, grainPx: 1.1 }, g: { base: .7, slow: .1, tooth: .03, grainPx: .7, wet: .14 }, b: { base: .72, slow: .08, tooth: .03, grainPx: .8, wet: .12 },
+  r: { base: .8, slow: .04, tooth: .03, grainPx: .6 }, v: { base: .74, slow: .05, tooth: .04, grainPx: .7 }, d: { base: .84, slow: .03, tooth: .02, grainPx: .5, wet: .12 }, gr: { base: .88, slow: .04, tooth: .03, grainPx: .9 } };
 export const DIRS = {
-  lind: { name: 'A · Lindisfarne', pal: 'lind', order: ['k', 'l', 'y', 'g', 'b', 'r', 'd'], tex: ink => ({ y: 1, g: 1, b: 1, r: .6 })[ink] ?? 0,
-    note: 'The clear, measured book (BL Cotton MS Nero D IV, c. 715). The panel letter: Uncial Antiqua’s E, grown a little, outlined in ink, a band of orpiment and a hairline; its body a black panel, and along each stroke a plait band laid on the stroke’s own curve (rows as its width holds; over and under right at every crossing by construction), orpiment with one cord in verdigris or blue; closed counters carry the lozenge diaper of red dots (f. 27r); two rows of dots run round the letter at the measured pitch. Paraph: a closed two-cord knot in a ring of dots. Filler: a twist run to the margin. Break: a ruled panel of plait. Frame: one plait fitted to a ring of cells, turning its own corners.',
-    initial: lindInitial, paraph: lindParaph, filler: lindFiller, brk: (w, h, s, o) => lindBand(w, h, s, o), frame: lindFrame },
-  durrow: { name: 'C · Durrow', pal: 'durrow', order: ['gr', 'k', 'v', 'r', 'y', 'g', 'd'], tex: ink => ({ r: 1, y: 1, g: 1, v: .5 })[ink] ?? 0,
-    note: 'The broad ribbon of the Book of Durrow (TCD MS 57, c. 680), and the dark mode’s historical model: three pigments and black. Each ribbon a fill inside a reserved margin of bare vellum, a fine pen line at its edge; it changes colour (red lead, orpiment, verdigris) where it passes under another, as on fol. 125v. The letter outlined in vellum between pen lines, its body black, a broad plait along each stroke; one close row of red dots. In dark mode the page is the ground already, and the vellum margin becomes the pale line that carries the drawing.',
+  lind: { name: 'A · Lindisfarne', pal: 'lind', order: ['k', 'l', 'y', 'g', 'b', 'r', 'd'], tex: ink => COATS[ink] ?? 0,
+    note: 'The clear, measured book (BL Cotton MS Nero D IV, c. 715). The panel letter: Uncial Antiqua’s capital, grown a little, its outline laid by a quill (heavy where the edge runs across the nib, a hair along it), a band of orpiment, a hairline; each stroke carries a plait laid along its own curve, orpiment with a cord picked out in verdigris or blue, a finer red-lead interlace filling what is left (f. 139r), and each free stroke-end wound into a spiral. Closed counters carry the lozenge diaper of dots (f. 27r); two rows of dots run round the letter, each dot a touch of a brush reloaded every dozen, the pitch following the bend. Paraph: a knot broken at its heart and the three-dot positura. Filler: a short panel that closes on itself. Break and frame: panels of knot and key in turn between rules, a knot at each corner.',
+    initial: lindInitial, paraph: lindParaph, filler: lindFiller, brk: lindBand, frame: lindFrame },
+  durrow: { name: 'C · Durrow', pal: 'durrow', order: ['gr', 'k', 'v', 'r', 'y', 'g', 'd'], tex: ink => COATS[ink] ?? 0,
+    note: 'The broad ribbon of the Book of Durrow (TCD MS 57, c. 680), and the dark mode’s own model: three pigments and black. Each ribbon a fill inside a reserved margin of bare vellum with a pen line at its edge, breathing along its length; it changes colour where it passes under another (fol. 125v). The letter outlined in vellum between quill lines, its body black, a broad ribbon plait along each stroke, a narrower one where the stroke thins, the ends wound into spirals; one close row of dots. Paraph: the triple spiral as a ribbon. Filler: a short ribbon panel. Break and frame: ribbon panels and vellum keys in turn. In dark mode the page is the ground already.',
     initial: durInitial, paraph: durParaph, filler: durFiller, brk: durBand, frame: durFrame },
-  kells: { name: 'B · Kells', pal: 'kells', order: ['p', 'k', 'l', 'r', 'y', 'g', 'b', 'd'], tex: ink => ({ r: 1, y: 1, p: .8, g: 1, b: 1 })[ink] ?? 0,
-    note: 'Dense and saturated, after the Book of Kells (TCD MS 58, c. 800): orpiment, red lead and folium purple. The letter’s body purple, with a sparse orpiment plait along its strokes; its broadest place and each counter hold a roundel with the triple spiral (each spiral two lines winding in together and out again, its outer arm running on into the next, one closed line), ringed in orpiment on red. Paraph: a roundel. Filler: the running spiral, in turn above and below the line. Break: roundels joined by running spirals on purple. Frame: the plait on purple, a roundel at each corner turning its own way.',
-    initial: kellsInitial, paraph: kellsParaph, filler: kellsFiller, brk: kellsBand, frame: kellsFrame },
 };
