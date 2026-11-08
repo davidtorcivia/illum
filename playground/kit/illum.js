@@ -71,7 +71,7 @@ let createWriter, supported = () => false, inkLetter, letterWriter, settle = () 
 // the code's own lines (starts: a line the box wraps runs on unruled).
 // (Order matters: the registry's style list keeps Draft, Occult, Astrology and Tarot where they stood, before Blackletter;
 // Draft stands where Cyber stood, and ?style=cyber, retired, is Draft.)
-export const WRITTEN = { draft: './styles/draft.js', occult: './styles/occult.js', astrology: './styles/astrology.js', tarot: './styles/tarot.js', blackletter: './styles/blackletter.js' };
+export const WRITTEN = { draft: './styles/draft.js', occult: './styles/occult.js', astrology: './styles/astrology.js', tarot: './styles/tarot.js', blackletter: './styles/blackletter.js', kelmscott: './styles/kelmscott.js' };
 const own = {}; let regP = null, engP = null;
 const put = k => { STYLES[k] = own[k]; if (k === 'draft') Object.defineProperty(STYLES, 'cyber', { value: own.draft, enumerable: false, configurable: true }); };
 export const loadRegistry = () => regP ??= Promise.all([import('./wayfinding.js'), import('./initials.js'), import('./frames.js')])

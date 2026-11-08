@@ -17,6 +17,8 @@ export const CATALOGUE = [
   { key: 'astrology', name: 'Astrology', family: 'esoteric', line: 'Lilly, Christian Astrology, 1647', rich: 2,
     credit: 'After William Lilly’s <i>Christian Astrology</i>, 1647, and the volvelle of the <i>Clavis astrologiae elimata</i>. Wellcome Collection.',
     own: [['set', 'Initial', [['square', 'Square figure'], ['volvelle', 'Volvelle']]], ['figure', 'Figure', [['octagon', 'Octagon'], ['houses', 'Houses']]], ['title', 'Middle square', 'Anno Dom: 1853']] },
+  { key: 'kelmscott', name: 'Kelmscott', family: 'print', line: 'William Morris, Kelmscott Press, 1896', rich: 3,
+    credit: 'After William Morris’s Kelmscott Press: the Chaucer, 1896, <i>The Well at the World’s End</i>, 1896, and <i>The Water of the Wondrous Isles</i>, 1897. Internet Archive and The Metropolitan Museum of Art.' },
   { key: 'draft', name: 'Draft', family: 'technical', line: 'Apollo drawings, MIT, 1963–66', rich: 2,
     credit: 'After the Apollo guidance drawings of the MIT Instrumentation Laboratory, 1963–66. National Archives.',
     own: [['set', 'Initial', [['part', 'In section'], ['views', 'Two views'], ['leroy', 'Lettering']]]] },

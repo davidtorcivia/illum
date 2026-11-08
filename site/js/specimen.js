@@ -11,6 +11,7 @@ export const STYLE = {
   tarot: { lines: 4, phone: 4, filler: FILLER },
   occult: { lines: 4, phone: 3, filler: FILLER },
   astrology: { lines: null, phone: 5, filler: FILLER, title: 'Anno Dom: 1853' },
+  kelmscott: { lines: null, phone: 4, filler: FILLER, lineDrop: 2 },   // (lineDrop: the in-line initial set two lines deep, as tests/kelmscott.html sets the Chaucer's small initials)
   draft: { lines: null, phone: 3, filler: '.text > p:not(.sub):not(.pull):not(.bare)' },
 };
 export const RICH = ['plain', 'modest', 'usual', 'fine', 'lavish'];
@@ -34,7 +35,9 @@ export function mount(sheet, { style, form, onSeed, onStart, styleParam = false 
         document.body.dataset.timing = t ? `in view ${t.view} ms, all ${t.all} ms` : st === 'written' ? 'drawn' : st; } }; };
   // the host markup a style's page used: a drop four lines deep, or the style's own depth
   const prepare = () => { sheet.dataset.style = state.style; const S = STYLE[state.style], L = narrow.matches && S.phone ? S.phone : S.lines;
-    text.querySelectorAll('.ini.drop').forEach(s => L ? s.dataset.lines = L : delete s.dataset.lines);
+    text.querySelectorAll('.ini.was-line').forEach(s => { s.classList.replace('drop', 'line'); s.classList.remove('was-line'); s.dataset.lines = 1; });
+    if (S.lineDrop) text.querySelectorAll('.ini.line').forEach(s => { s.classList.replace('line', 'drop'); s.classList.add('was-line'); });
+    text.querySelectorAll('.ini.drop').forEach(s => s.classList.contains('was-line') ? s.dataset.lines = S.lineDrop : L ? s.dataset.lines = L : delete s.dataset.lines);
     sheet.style.fontSize = state.size ? state.size + 'px' : ''; };
   const start = () => { r?.destroy(); prepare(); r = rubricate(text, opts()); window.R = r; onStart?.(state); };
   const url = () => { const u = new URL(location.href), p = u.searchParams;
