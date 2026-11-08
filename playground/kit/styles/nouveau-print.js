@@ -8,13 +8,14 @@
 // and crisp. Without WebGL2 the engine lays each stone flat.
 //   const P = new Plate(); P.fill('leaf', path, { cut, rule }); P.line(path)   render(P, bake, { dpr, pal, seed, box, slip, res })
 import { inkLetter } from '../inkletter.js';
+import { inkWrite, washPour } from './nouveau-ink.js';
 import { noise2, stream } from '../marks.js';
 
 export class Plate {
   constructor() { this.items = []; }
   // a shape in an ink; cut: { path, w } knocks a channel (the path filled and stroked w wide) out of what is already laid in
   // this ink (and of this shape); rule: 'evenodd' for a ribbon
-  fill(col, path, o = {}) { this.items.push({ col, path, rule: o.rule ?? 'nonzero', cut: o.cut, knock: o.knock ?? col !== 'k', trap: o.trap }); return this; }
+  fill(col, path, o = {}) { this.items.push({ col, path, rule: o.rule ?? 'nonzero', cut: o.cut, knock: o.knock ?? col !== 'k', trap: o.trap, S: o.S }); return this; }
   line(path, o = {}) { return this.fill(o.col ?? 'k', path, { rule: 'evenodd', ...o, knock: false }); }
   get inks() { const s = []; for (const it of this.items) if (!s.includes(it.col)) s.push(it.col); return s; }
 }
@@ -61,11 +62,15 @@ function blur(A, w, h, r) {
   return O;
 }
 // bake: a 2D context whose device px are page px × dpr, with no transform of its own (as rubricate's bake)
-export function render(P, bake, { dpr = 2, pal, seed = 1, box, slip = .6, trap = .45, res = Math.max(2, dpr), order, keys = ['k'], grainAmt = 1 } = {}) {
+export function render(P, bake, { dpr = 2, pal, seed = 1, box, slip = .6, trap = .45, res = Math.max(2, dpr), order, keys = ['k'], grainAmt = 1, pens = null, wash = null } = {}) {
   const r = stream(seed, 'register'), inks = order ? order.filter(c => P.inks.includes(c)) : P.inks.filter(c => c !== 'k').concat(P.inks.includes('k') ? ['k'] : []);
   for (const col of inks) {
     const key = keys.includes(col), a = r() * Math.PI * 2, sl = key ? [0, 0] : [Math.cos(a) * slip, Math.sin(a) * slip];
+    // written: an ink whose lines are pen strokes (S) is written by the pen; whatever else is in it (a seed) is poured
+    if (pens?.includes(col)) { const S = P.items.filter(it => it.col === col && it.S).map(it => it.S);
+      if (S.length && inkWrite(bake, S, rgbOf(pal[col]), { dpr, box, seed })) { const rest = new Plate(); rest.items = P.items.filter(it => !(it.col === col && it.S)); const L = stone(rest, col, box, res, [0, 0], 0); if (L) inkLetter(bake, { ...L, wet: .1, dry: .1 }, rgbOf(pal[col]), { dpr }); continue; } }
     const L = stone(P, col, box, res, sl, key ? 0 : trap); if (!L) continue;
+    if (wash && !key) { const o = wash[col] ?? {}; washPour(bake, L, rgbOf(pal[col]), { dpr, seed: seed + col.charCodeAt(0) * 7 + col.length, ...wash.all, ...o }); continue; }
     const M = key ? L : grain(L, seed + col.length * 131 + col.charCodeAt(0), grainAmt);
     inkLetter(bake, { ...M, wet: key ? .05 : .08, dry: key ? .18 : .1 }, rgbOf(pal[col]), { dpr });
   }

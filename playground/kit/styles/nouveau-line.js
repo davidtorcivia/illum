@@ -102,7 +102,7 @@ export function stroke(pts, prof = {}, ds = .5) {
   // an eye: a spiral's end wound into a solid seed at its centre of curvature (the comma of the Combinaisons' spirals)
   let eye = null; if (prof.eye) { const q = p[n - 1], o = p[n - 3], dx = q[0] - o[0], dy = q[1] - o[1], l = Math.hypot(dx, dy) || 1, kk = k[n - 2] || 1e-6;
     eye = [q[0] - dy / l / kk, q[1] + dx / l / kk, Math.max(0, Math.abs(1 / kk) - w[n - 1] * .25) * prof.eye]; }
-  return { p, w, ds, L, eye, col: prof.col, ends: [prof.a?.kind ?? 'hair', prof.b?.kind ?? 'hair'] };
+  return { p, w, ds, L, eye, hair, col: prof.col, ends: [prof.a?.kind ?? 'hair', prof.b?.kind ?? 'hair'] };
 }
 function smooth(w, r) { if (r < 1) return; const n = w.length, c = Float32Array.from(w);
   for (let i = 0; i < n; i++) { let s = 0, m = 0; for (let j = -r; j <= r; j++) { const q = i + j; if (q < 0 || q >= n) continue; const g = 1 - Math.abs(j) / (r + 1); s += c[q] * g; m += g; } w[i] = s / m; } }

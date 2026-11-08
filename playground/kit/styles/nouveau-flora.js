@@ -58,7 +58,7 @@ export function iris(P, at, s, a, r, o = {}) {
   lay3(P, S, 'irisL', 'irisLD', k, { cut, veins: [[.12, .85, 0, .45], [.2, .7, .5], [.2, .7, -.5]] });
   // the falls: out along the haft, then down; the far one first
   for (const m of [1, -1]) { const d = .5 + J(r, .08), reach = .46 + J(r, .05);
-    const O = organ({ axisCp: [T(0, .12), T(m * .12, .2), T(m * reach * .62, .16), T(m * reach * .9, -.04 - d * .1), T(m * reach, -.24 - d * .25)], W: s * (.13 + J(r, .012)), ea: 1.3, eb: .42, asym: .75 + r() * .4, frill: { amp: s * .012, n: 14, from: .6 }, r });
+    const O = organ({ axisCp: [T(0, .12), T(m * .1, .17), T(m * reach * .55, .12), T(m * reach * .8, -.06), T(m * reach * .88, -.26 - d * .12), T(m * reach * .8, -.42 - d * .2)], W: s * (.16 + J(r, .015)), ea: 1.7, eb: .5, asym: .75 + r() * .4, frill: { amp: s * .016, n: 16, from: .55 }, r });
     lay3(P, O, 'iris', 'irisD', k, { cut, veins: [[.3, .92, .45], [.3, .95, 0, .4], [.3, .9, -.45], [.45, .85, .8, .25], [.45, .85, -.8, .25]], shadeSide: m > 0 ? 0 : 1 });
     // the signal: a gold streak down the haft
     const sig = []; for (let i = 0; i <= 12; i++) sig.push(O.at(.08 + .5 * i / 12, .05));
@@ -78,19 +78,22 @@ export function iris(P, at, s, a, r, o = {}) {
 // A cup seen from the side: two broad petals behind, two in front overlapping, crumpled at the rim; a dark blotch at each
 // petal's base, fine folds running up from it; the seed capsule's crown above the cup.
 export function poppy(P, at, s, a, r, o = {}) {
-  const k = o.kw ?? Math.max(.6, s * .014), cut = o.cut, T = (x, y) => { const [u, v] = rotp([y * s, x * s], a); return [at[0] + u, at[1] + v]; };
-  const petal = (cp, W, asym, sh, folds, blotch) => { const O = organ({ axisCp: cp, W, ea: .55, eb: .32, asym, frill: { amp: s * .014, n: 18, from: .5 }, r });
-    lay3(P, O, 'poppy', 'poppyD', k, { cut, shadeSide: sh, veins: folds });
-    if (blotch) { const bl = organ({ axisCp: [cp[0], cp[1]], W: W * .5, ea: .5, eb: .9, r }); P.fill('poppyB', shape(bl.loop), { knock: false, cut, trap: 0 }); }
-    return O; };
-  // the two behind, rising as a cup, their crumpled rims at the top; the crown seen between them; the two in front, lower
-  petal([T(.02, .02), T(-.24, .26), T(-.46 + J(r, .03), .58), T(-.38, .82 + J(r, .03))], s * .21, .95 + r() * .15, 1, [[.3, .9, .3], [.3, .9, -.3]]);
-  petal([T(-.02, .02), T(.24, .28), T(.46 + J(r, .03), .6), T(.36, .8 + J(r, .03))], s * .21, .95 + r() * .15, 0, [[.3, .9, .3], [.3, .9, -.3]]);
-  const cr = organ({ axisCp: [T(-.11, .66), T(0, .71 + J(r, .02)), T(.11, .66)], W: s * .035, ea: .5, eb: .5, r });
-  P.fill('crown', shape(cr.loop), { cut }); KEY(P, cr.loop, k * .7, { lift: 0, cut });
-  for (let i = -3; i <= 3; i++) P.fill('k', path(stroke([T(i * .028, .66), T(i * .04, .72)], { hair: k * .22, a: { kind: 'taper', len: s * .02 } })), { knock: false, cut });
-  petal([T(0, 0), T(-.2, .16), T(-.36 + J(r, .02), .38), T(-.24, .56)], s * .2, .85 + r() * .25, 1, [[.25, .85, .25], [.3, .9, -.3]], true);
-  petal([T(0, 0), T(.2, .18), T(.36 + J(r, .02), .4), T(.22, .55)], s * .19, .85 + r() * .25, 0, [[.25, .85, -.25], [.3, .9, .3]], true);
+  // seen three-quarters from above, so it reads as a poppy at any size: four broad petals round the cup, crumpled at the
+  // rim, each with its dark blotch at the base; the seed capsule in the middle with its rayed crown. The flower's plane is
+  // tilted toward us (its depth foreshortened by .62), the far petals laid first.
+  const k = o.kw ?? Math.max(.6, s * .014), cut = o.cut, fs = .62, tilt = a + Math.PI / 2;
+  const T = (u, v) => { const [x, y] = rotp([u * s, v * s * fs], tilt); return [at[0] + x, at[1] + y]; };
+  const th0 = r() * .5 - .25 + Math.PI / 4, pet = [0, 1, 2, 3].map(i => th0 + i * Math.PI / 2 + J(r, .12)).sort((p, q) => Math.sin(p) - Math.sin(q));
+  for (const th of pet) { const L = .5 + J(r, .05), dd = J(r, .25);
+    const cp = [[0, 0], [Math.cos(th + dd * .3) * L * .35, Math.sin(th + dd * .3) * L * .35], [Math.cos(th + dd * .2) * L * .75, Math.sin(th + dd * .2) * L * .75], [Math.cos(th) * L, Math.sin(th) * L]].map(([u, v]) => T(u, v));
+    const O = organ({ axisCp: cp, W: s * (.27 + J(r, .03)), ea: .5, eb: .22, asym: .85 + r() * .3, frill: { amp: s * .014, n: 20, from: .5 }, r });
+    lay3(P, O, 'poppy', 'poppyD', k, { cut, shadeSide: Math.cos(th) > 0 ? 1 : 0, veins: [[.32, .9, .45, .26], [.3, .92, 0, .26], [.32, .9, -.45, .26]] });
+    const bl = organ({ axisCp: [cp[0], cp[1], [cp[0][0] + (cp[2][0] - cp[0][0]) * .55, cp[0][1] + (cp[2][1] - cp[0][1]) * .55]], W: s * .12, ea: .5, eb: .8, r });
+    P.fill('poppyB', shape(bl.loop), { knock: false, cut, trap: 0 }); }
+  // the capsule: a green dome, its crown a flat disc with dark rays
+  const cap = []; for (let i = 0; i < 36; i++) { const t = i / 36 * Math.PI * 2; cap.push(T(Math.cos(t) * .11, Math.sin(t) * .11 - .02)); }
+  P.fill('crown', shape(cap), { cut }); KEY(P, cap, k * .8, { lift: .2, cut });
+  for (let i = 0; i < 9; i++) { const t = i / 9 * Math.PI * 2 + th0; P.fill('k', path(stroke([T(Math.cos(t) * .02, Math.sin(t) * .02 - .02), T(Math.cos(t) * .095, Math.sin(t) * .095 - .02)], { hair: k * .22, a: { kind: 'taper', len: s * .02 } })), { knock: false, cut }); }
 }
 // a nodding bud: an egg in two hairy sepals, the seam between them; or (kind 'iris') a furled iris in its spathe
 export function bud(P, at, s, a, r, o = {}) {
@@ -141,8 +144,8 @@ export function umbel(P, node, dir, len, r, o = {}) {
   const n = o.n ?? 7, fan = o.fan ?? 1.3, k = o.kw ?? Math.max(.5, len * .025), ink = o.ink ?? 'k', seed = o.seedInk ?? ink;
   for (let i = 0; i < n; i++) { const u = i / (n - 1) - .5, a = dir + u * fan + J(r, .05), L = len * (.78 + .22 * Math.cos(u * 2.6)) * (1 + J(r, .06));
     const e = [node[0] + Math.cos(a) * L, node[1] + Math.sin(a) * L], mid = [node[0] + Math.cos(a - u * .35) * L * .55, node[1] + Math.sin(a - u * .35) * L * .55];
-    P.fill(ink, path(stroke(bspline([node, mid, e], 12), { hair: k * .55, a: { kind: 'taper', len: L * .2 } })), { knock: false });
+    { const S = stroke(bspline([node, mid, e], 12), { hair: k * .55, a: { kind: 'taper', len: L * .2 } }); P.fill(ink, path(S), { knock: false, S }); }
     const dr = organ({ axisCp: [e, [e[0] + Math.cos(a) * len * .06, e[1] + Math.sin(a) * len * .06], [e[0] + Math.cos(a) * len * .12, e[1] + Math.sin(a) * len * .12]], W: len * .028, ea: .5, eb: .55, asym: .9, r });
     P.fill(seed, shape(dr.loop)); }
-  for (const m of [-1, 1]) { const a = dir + Math.PI + m * .55; P.fill(ink, path(stroke([node, [node[0] + Math.cos(a) * len * .14, node[1] + Math.sin(a) * len * .14]], { hair: k * .5, a: { kind: 'point', len: len * .1, fat: k * 1.1 } })), { knock: false }); }
+  for (const m of [-1, 1]) { const a = dir + Math.PI + m * .55; const S = stroke([node, [node[0] + Math.cos(a) * len * .14, node[1] + Math.sin(a) * len * .14]], { hair: k * .5, a: { kind: 'point', len: len * .1, fat: k * 1.1 } }); P.fill(ink, path(S), { knock: false, S }); }
 }

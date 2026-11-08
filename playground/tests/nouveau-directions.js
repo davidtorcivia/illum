@@ -24,6 +24,12 @@ export const PAL = {
 };
 export const ORDER = { fouet: ['olive', 'whip', 'letter', 'k'], plante: ['ground', 'leafB', 'leaf', 'leafD', 'irisL', 'irisLD', 'iris', 'irisD', 'beard', 'poppy', 'poppyD', 'poppyB', 'crown', 'letter', 'k'] };
 export const KEYS = { fouet: ['letter', 'whip', 'olive', 'k'], plante: ['k'] };
+export const PENS = { fouet: ['whip', 'olive'] };
+// B in watercolour: the same drawing, its colours laid as washes (nouveau-ink.js washPour), the key a finer sepia line
+export const PALW = { light: { ...PAL.plante.light, k: [98, 76, 54] }, dark: { ...PAL.plante.dark, k: [200, 178, 128] } };
+export const WASH = { all: { ink: .32, edge: 1, bloom: .5, gran: .28 }, ground: { ink: .2, bloom: 1, edge: .8, gran: .12 }, leafD: { soft: 1.2, ink: .34, bloom: 0 }, irisD: { soft: 1, ink: .36, bloom: 0 },
+  irisLD: { soft: 1.2, ink: .3, bloom: 0 }, poppyD: { soft: 1, ink: .34, bloom: 0 }, poppyB: { soft: .8, ink: .4, bloom: 0 }, beard: { bloom: 0, ink: .42 }, letter: { ink: .4, bloom: .35 } };
+let LINE = 1; export const setLine = v => { LINE = v; };
 
 const hairOf = H => Math.max(.62, H * .0048);   // a hairline's half-width: ≥ 1.25 device px wide at dpr 1
 // An echo of the letter's right side: for each height from y0 to y1, its rightmost ink, d further out, smoothed (as a
@@ -50,6 +56,7 @@ function clearance(W, H, feat, sc = 2) {
   const D = dist(f, w, h); return (x, y) => D[Math.max(0, Math.min(h - 1, y / sc | 0)) * w + Math.max(0, Math.min(w - 1, x / sc | 0))] * sc;
 }
 
+const pen = (P, ink, S, o = {}) => P.fill(ink, path(S), { knock: false, ...o, S });   // a line the pen will write
 // ==== A · le fouet ==============================================================================================================
 function fouetInitial(J, H, seed) {
   const r = stream(seed, 'fouet-i'), hair = hairOf(H), cap = H * .6, lx = H * .2, base = H * .97, Lt = placeLetter(J, lx, base, cap), W = lx + Lt.w + H * .34, P = new Plate();
@@ -61,18 +68,18 @@ function fouetInitial(J, H, seed) {
   const root = [ec[0][0] + H * .02, H * .995];
   const mainCp = [root, ...ec, [rx + H * .03, Lt.top - H * .02], [rx - H * .02, top + H * .02], [lx + Lt.w * .45, top - H * .005], [H * .1, top + H * .02], [H * .055, top + H * .1]];
   const main = curl(bspline(mainCp, 30), -1.15, H * .03);
-  P.fill('whip', path(stroke(main, { hair, a: { kind: 'point', len: H * .2, fat: hair * 6 }, b: { kind: 'club', len: H * .14, fat: hair * 2.4 }, eye: 1, swell: .6, press: .55 })), { cut, knock: false });
+  pen(P, 'whip', stroke(main, { hair, a: { kind: 'point', len: H * .2, fat: hair * 6 }, b: { kind: 'club', len: H * .14, fat: hair * 2.4 }, eye: 1, swell: .6, press: .55 }), { cut });
   // the doubling: a hairline beside the whip along the bowls, taken up and put down again
   const run2 = echo(Lt, H * .13, Lt.top + cap * .35, base - cap * .3, solid);
-  if (run2.length > 8) P.fill('whip', path(stroke(sample(run2, 5), { hair: hair * .7, a: { kind: 'taper', len: H * .08 }, b: { kind: 'point', len: H * .07, fat: hair * 2.2 } })), { cut, knock: false });
+  if (run2.length > 8) pen(P, 'whip', stroke(sample(run2, 5), { hair: hair * .7, a: { kind: 'taper', len: H * .08 }, b: { kind: 'point', len: H * .07, fat: hair * 2.2 } }), { cut });
   // the counter-stem: from the root, across the whip, up into the seed head in the corner
   const node = [W - H * .08, H * .22 + r() * H * .02], mid = ec[Math.floor(ec.length / 2)];
   const second = bspline([[root[0] + H * .03, H * .995], [mid[0] + H * .13, base - cap * .25], [mid[0] + H * .02, mid[1] - H * .02], [rx + H * .1, Lt.top + cap * .2], node], 30);
-  P.fill('olive', path(stroke(second, { hair: hair * .9, a: { kind: 'taper', len: H * .1 }, press: .35 })), { cut, knock: false });
+  pen(P, 'olive', stroke(second, { hair: hair * .9, a: { kind: 'taper', len: H * .1 }, press: .35 }), { cut });
   umbel(P, node, -Math.PI / 2 - .3, H * .15, r, { n: 9, fan: 1.7, ink: 'olive', kw: hair * 1.3 });
   // a shoot off the whip, as Obrist's thorns: a short curve out into a seed-shaped bud
   const j = main[Math.round(main.length * .42)], sh = bspline([j, [j[0] + H * .05, j[1] + H * .01], [j[0] + H * .12, j[1] - H * .02], [j[0] + H * .16, j[1] - H * .08]], 16);
-  P.fill('whip', path(stroke(sh, { hair: hair * .8, a: { kind: 'taper', len: H * .04 }, b: { kind: 'point', len: H * .09, fat: hair * 3.6 } })), { cut, knock: false });
+  pen(P, 'whip', stroke(sh, { hair: hair * .8, a: { kind: 'taper', len: H * .04 }, b: { kind: 'point', len: H * .09, fat: hair * 3.6 } }), { cut });
   P.fill('letter', Lt.path);
   return { P, W, H };
 }
@@ -84,23 +91,23 @@ function fouetBreak(W, h, seed) {
     const T = q => s > 0 ? q : [W - q[0], h - q[1]];
     const cp = [[W * .14, cy - h * .02], [W * .26, cy + h * .26], [W * .45, cy + h * .14], [W * .6, cy - h * .2], [W * .78, cy - h * .3], [W * .93, cy - h * .36]].map(T);
     const pts = curlStart(bspline(cp, 26), 1.3, h * .055).reverse();
-    P.fill(ink, path(stroke(pts, { hair, a: { kind: 'point', len: h * .5, fat: hair * 5.5 }, b: { kind: 'club', len: h * .3, fat: hair * 2.2 }, eye: 1, swell: .5, press: .5 })), { knock: false });
+    pen(P, ink, stroke(pts, { hair, a: { kind: 'point', len: h * .5, fat: hair * 5.5 }, b: { kind: 'club', len: h * .3, fat: hair * 2.2 }, eye: 1, swell: .5, press: .5 }));
     const dbl = bspline([[W * .3, cy + h * .33], [W * .45, cy + h * .23], [W * .58, cy - h * .06]].map(T), 16);
-    P.fill(ink, path(stroke(dbl, { hair: hair * .65, a: { kind: 'taper', len: h * .3 }, b: { kind: 'point', len: h * .25, fat: hair * 2 } })), { knock: false });
+    pen(P, ink, stroke(dbl, { hair: hair * .65, a: { kind: 'taper', len: h * .3 }, b: { kind: 'point', len: h * .25, fat: hair * 2 } }));
   }
   return { P, W, H: h };
 }
 function fouetFiller(w, h, seed) {
   const hair = hairOf(h * 4), y = h * .62, L = Math.min(w, h * 9), P = new Plate();
   const pts = curl(bspline([[0, y], [L * .3, y + h * .12], [L * .62, y - h * .1], [L - h * 1.1, y - h * .04]], 20), -1.2, h * .075);
-  P.fill('whip', path(stroke(pts, { hair, a: { kind: 'taper', len: h * .8 }, b: { kind: 'club', len: h * .5, fat: hair * 2 }, eye: 1, press: .5 })), { knock: false });
-  P.fill('whip', path(stroke(bspline([[L * .28, y + h * .26], [L * .45, y + h * .2], [L * .6, y + h * .02]], 12), { hair: hair * .65, a: { kind: 'taper', len: h * .5 }, b: { kind: 'point', len: h * .4, fat: hair * 1.8 } })), { knock: false });
+  pen(P, 'whip', stroke(pts, { hair, a: { kind: 'taper', len: h * .8 }, b: { kind: 'club', len: h * .5, fat: hair * 2 }, eye: 1, press: .5 }));
+  pen(P, 'whip', stroke(bspline([[L * .28, y + h * .26], [L * .45, y + h * .2], [L * .6, y + h * .02]], 12), { hair: hair * .65, a: { kind: 'taper', len: h * .5 }, b: { kind: 'point', len: h * .4, fat: hair * 1.8 } }));
   return { P, W: L, H: h };
 }
 
 // ==== B · la plante ==============================================================================================================
 function planteInitial(J, H, seed) {
-  const r = stream(seed, 'plante-i'), lw = Math.max(.8, H * .0075), cap = H * .56, lx = H * .1, base = H * .9, Lt = placeLetter(J, lx, base, cap), W = lx + Lt.w + H * .38, P = new Plate();
+  const r = stream(seed, 'plante-i'), lw = LINE * Math.max(.8, H * .0075), cap = H * .56, lx = H * .1, base = H * .9, Lt = placeLetter(J, lx, base, cap), W = lx + Lt.w + H * .38, P = new Plate();
   const x0 = lw, y0 = lw, x1 = W - lw, y1 = H - lw, rad = (x1 - x0) / 2, arch = [];
   for (let i = 0; i <= 40; i++) { const a = Math.PI + Math.PI * i / 40; arch.push([(x0 + x1) / 2 + Math.cos(a) * rad, y0 + rad * .55 + Math.sin(a) * rad * .55]); }
   const panel = [[x0, y1], ...arch, [x1, y1]], panelPath = shape(panel), cut = { path: solidOf(Lt), w: H * .045 };
@@ -131,7 +138,7 @@ function planteInitial(J, H, seed) {
   return { P, W, H };
 }
 function planteBreak(W, h, seed) {
-  const r = stream(seed, 'plante-b'), lw = Math.max(.8, h * .014), cx = W / 2, by = h * .86, P = new Plate();
+  const r = stream(seed, 'plante-b'), lw = LINE * Math.max(.8, h * .014), cx = W / 2, by = h * .86, P = new Plate();
   for (const m of [-1, 1]) {
     const X = x => cx + m * x;
     blade(P, [[X(W * .04), by + h * .02], [X(W * .14), by - h * .1], [X(W * .28), by - h * .24], [X(W * .32 + r() * W * .01), by - h * .5]], h * .07, r, { twist: m > 0 ? .7 : null, kw: lw * .85 });
@@ -139,12 +146,12 @@ function planteBreak(W, h, seed) {
     const S = stem(P, pts, { w: lw * .8, foot: 'hair' }), e = S.p.at(-1), q = S.p.at(-10);
     bud(P, e, h * .26, Math.atan2(e[1] - q[1], e[0] - q[0]), r, { kw: lw * .8 });
   }
-  stem(P, bspline([[cx, by + h * .03], [cx, by - h * .14], [cx, by - h * .3]], 10), { w: lw * .9, foot: 'point', footLen: h * .12 });
-  poppy(P, [cx, by - h * .3], h * .5, -Math.PI / 2, r, { kw: lw * .85 });
+  stem(P, bspline([[cx, by + h * .03], [cx, by - h * .24], [cx, by - h * .5]], 10), { w: lw * .9, foot: 'point', footLen: h * .12 });
+  poppy(P, [cx, by - h * .52], h * .6, -Math.PI / 2, r, { kw: lw * .85 });
   return { P, W, H: h };
 }
 function planteFiller(w, h, seed) {
-  const r = stream(seed, 'plante-f'), lw = Math.max(.8, h * .035), y = h * .66, L = Math.min(w, h * 6), P = new Plate();
+  const r = stream(seed, 'plante-f'), lw = LINE * Math.max(.8, h * .035), y = h * .66, L = Math.min(w, h * 6), P = new Plate();
   const pts = curl(bspline([[0, y], [L * .35, y + h * .06], [L * .55, y - h * .02], [L * .72, y - h * .3]], 20), .3, h * .2);
   const S = stem(P, pts, { w: lw * .7, foot: 'taper', footLen: h * .6 });
   const j = S.p[Math.round(S.p.length * .35)];
