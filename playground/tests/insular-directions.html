@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Insular directions</title>
+<!--
+  Insular, direction studies (research/20-insular.md): each direction with a drop initial, a paraph, a line-filler, a break
+  and a frame at page size in light and dark, then enlarged. Drawn live as vector, poured through the ink engine
+  (tests/insular-directions.js on kit/styles/insular-knot.js).   ?only=lind|kells|durrow  ?letters=EIQB  #seed=n
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  @font-face { font-family: InsularUncial; src: url(../fonts/insular/UncialAntiqua.woff2) format("woff2"); font-display: block; }
+  html { background: rgb(232 226 214); }
+  body { margin: 0; font: 400 20px/1.6 "EB Garamond", Garamond, serif; color: #2b2119; -webkit-font-smoothing: antialiased; }
+  header { max-width: 1320px; margin: 0 auto; padding: 40px 24px 0; }
+  header h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; margin: 0; }
+  header p { font-style: italic; margin: .2em 0 0; font-size: .9em; }
+  section.dir { max-width: 1320px; margin: 0 auto; padding: 36px 24px 12px; }
+  section.dir > h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; margin: 0 0 .2em; }
+  section.dir > p.note { margin: 0 0 1em; font-style: italic; font-size: .9em; max-width: 52em; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel { position: relative; padding: 44px 44px 40px 56px; background: var(--paper); color: var(--ink); overflow: hidden; }
+  [data-theme=light] { --paper: rgb(241 233 214); --ink: #2b2119; }
+  [data-theme=dark] { --paper: rgb(30 26 23); --ink: rgb(222 210 190); }
+  .panel .text { position: relative; hyphens: auto; text-align: justify; max-width: 560px; }
+  .panel p { margin: 0; } .panel p.par { text-indent: 0; }
+  .panel hr { border: 0; height: 2.6em; margin: .5em 0; }
+  .panel blockquote { margin: 1.2em 0 .4em; padding: 1.1em 1.4em; position: relative; font-style: italic; }
+  .ini { float: left; color: transparent; }
+  .pmark { display: inline-block; width: 1.25em; height: 1em; vertical-align: -.12em; }
+  .zoom { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; align-items: flex-start; }
+  .zoom figure { margin: 0; background: var(--paper); padding: 16px; max-width: 100%; box-sizing: border-box; }
+  .zoom figcaption { font: italic 13px/1.3 "EB Garamond", serif; color: var(--ink); opacity: .7; margin-top: 6px; }
+  .zoom canvas { display: block; max-width: 100%; height: auto !important; }
+  @media (max-width: 900px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .pair { grid-template-columns: 1fr; }
+    .panel { padding: 32px 20px 28px 20px; }
+    .panel .text { text-align: left; }
+    section.dir { padding: 28px 0 8px; } header, section.dir > h2, section.dir > p.note { padding-left: 16px; padding-right: 16px; }
+  }
+</style>
+</head>
+<body>
+<header><h1>Insular · three directions</h1><p>Each: a drop initial, a paraph, a line-filler, a break and a frame at page size, light and dark; then enlarged. Seed <span id="seed"></span>.</p></header>
+<template id="txt">
+  <p><span class="ini">E</span>adfrith, Bishop of the Lindisfarne Church, originally wrote this book, for God and for Saint Cuthbert and, jointly, for all the saints whose relics are in the island. Ethelwald, Bishop of the Lindisfarne islanders, impressed it on the outside and covered it.</p>
+  <p class="par fill"><span class="pmark"></span>Billfrith the anchorite forged the ornaments which are on it on the outside and adorned it with gold and with gems.</p>
+  <hr>
+  <blockquote>Aldred, unworthy and most miserable priest, glossed it in English between the lines.</blockquote>
+</template>
+<main id="out"></main>
+<script type="module">
+import * as D from './insular-directions.js';
+const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+document.getElementById('seed').textContent = seed;
+const letters = (q.get('letters') ?? 'EIQB').split('');
+await document.fonts.load('40px InsularUncial'); await document.fonts.load('20px "EB Garamond"');
+const dpr = Math.min(2, devicePixelRatio || 1), t0 = performance.now(), timing = {};
+// a piece printed onto its own canvas at zoom
+function printed(dir, theme, piece, zoom = 1) {
+  const { S, W, H } = piece, d = dpr * zoom, cv = document.createElement('canvas');
+  cv.width = Math.ceil(W * d); cv.height = Math.ceil(H * d); cv.style.width = W * zoom + 'px'; cv.style.height = H * zoom + 'px';
+  S.print(cv.getContext('2d'), D.PAL[dir.pal][theme], { dpr: d, order: dir.order, seed, tex: dir.tex });
+  return cv;
+}
+const DIRS = D.DIRS;
+for (const key of ['lind', 'kells', 'durrow']) { const dir = DIRS[key];
+  if (q.get('only') && q.get('only') !== key) continue;
+  const t1 = performance.now();
+  const sec = document.createElement('section'); sec.className = 'dir'; sec.id = key;
+  sec.innerHTML = `<h2>${dir.name}</h2><p class="note">${dir.note}</p><div class="pair"></div><div class="zoom"></div>`;
+  document.getElementById('out').append(sec);
+  const z = sec.querySelector('.zoom'), fig = (el, cap, theme) => { const f = document.createElement('figure'); f.dataset.theme = theme; f.append(el); const fc = document.createElement('figcaption'); fc.textContent = cap; f.append(fc); z.append(f); return f; };
+  for (const theme of ['light', 'dark']) {
+    const tp = performance.now();
+    const panel = document.createElement('div'); panel.className = 'panel'; panel.dataset.theme = theme;
+    const text = document.createElement('div'); text.className = 'text'; text.append(document.getElementById('txt').content.cloneNode(true)); panel.append(text);
+    sec.querySelector('.pair').append(panel);
+    const fs = parseFloat(getComputedStyle(text).fontSize), lh = parseFloat(getComputedStyle(text).lineHeight), n = innerWidth < 600 ? 3 : 4;
+    const capTop = (lh - fs) / 2 + fs * .3, H = (n - 1) * lh + fs * .66, rs = dpr;
+    const ini = dir.initial('E', H, seed, { theme, res: rs }), ispan = text.querySelector('.ini');
+    Object.assign(ispan.style, { width: ini.W - 2 * ini.P + fs * .55 + 'px', height: n * lh + 'px', lineHeight: '1px', fontSize: '1px' });
+    const place = (cv, x, y) => { cv.style.position = 'absolute'; cv.style.left = x + 'px'; cv.style.top = y + 'px'; cv.style.pointerEvents = 'none'; text.append(cv); };
+    const tr = text.getBoundingClientRect(), ir = ispan.getBoundingClientRect();
+    place(printed(dir, theme, ini), ir.left - tr.left - ini.P, ir.top - tr.top + capTop - ini.P);
+    // paraph, in the space kept for it
+    const pm = text.querySelector('.pmark').getBoundingClientRect(), ps = fs * .62, pp = dir.paraph(ps, seed, { theme, res: rs });
+    place(printed(dir, theme, pp), pm.left - tr.left + (pm.width - pp.W) / 2, pm.top - tr.top + (pm.height - pp.H) / 2);
+    // the filler: the free end of the paragraph's last line
+    const p = text.querySelector('p.fill'), rg = document.createRange(); rg.selectNodeContents(p); const last = [...rg.getClientRects()].at(-1);
+    const x0 = last.right - tr.left + fs * .35, gw = tr.width - x0;
+    if (gw > fs * 2) { const fl = dir.filler(gw, fs * .62, seed, { theme, res: rs }); place(printed(dir, theme, fl), x0 - fl.pad, last.top - tr.top + last.height / 2 - fl.H / 2); }
+    // the break
+    const hr = text.querySelector('hr').getBoundingClientRect(), bw = Math.min(tr.width * .62, 340), bk = dir.brk(bw, fs * 1.05, seed, { theme, res: rs });
+    place(printed(dir, theme, bk), (tr.width - bk.W) / 2, hr.top - tr.top + hr.height / 2 - bk.H / 2);
+    // the frame round the quotation
+    const bq = text.querySelector('blockquote').getBoundingClientRect(), fr = dir.frame(bq.width, bq.height, seed, { theme, res: rs });
+    place(printed(dir, theme, fr), bq.left - tr.left - fr.pad, bq.top - tr.top - fr.pad);
+    timing[key + ' page ' + theme] = Math.round(performance.now() - tp);
+    if (q.has('fast')) continue;
+    // enlarged
+    fig(printed(dir, theme, dir.initial(theme === 'light' ? 'E' : letters[1] ?? 'I', H, seed, { theme, res: rs * 4 }), 4), `initial, 4× (${theme})`, theme);
+    fig(printed(dir, theme, dir.paraph(ps, seed, { theme, res: rs * 4 }), 4), `paraph, 4×`, theme);
+    fig(printed(dir, theme, dir.brk(bw, fs * 1.05, seed, { theme, res: rs * 2 }), 2), `break, 2×`, theme);
+    fig(printed(dir, theme, dir.frame(220, 90, seed, { theme, res: rs * 2 }), 2), `frame, 2×`, theme);
+  }
+  for (const theme of ['light', 'dark']) {
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
+    for (const ch of letters) row.append(printed(dir, theme, dir.initial(ch, 3 * 32 + 13, seed + ch.charCodeAt(0), { theme, res: dpr })));
+    fig(row, `${letters.join(' ')}, page size (${theme})`, theme);
+  }
+  timing[key] = Math.round(performance.now() - t1);
+}
+document.body.dataset.timing = `drawn in ${Math.round(performance.now() - t0)} ms ` + JSON.stringify(timing);
+</script>
+</body>
+</html>
