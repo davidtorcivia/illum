@@ -22,6 +22,8 @@
 import { stream, noise2 } from '../marks.js';
 import { stroke, path, loadLetter, setHand } from './nouveau-line.js';
 import { stone, grain, blur } from './nouveau-print.js';
+import { washPour, lineInto } from './nouveau-ink.js';
+import { inkLetter } from '../inkletter.js';
 import * as PC from './nouveau-pieces.js';
 
 let KIND = 'plante', PAINT = 'watercolour', FPAINT = 'wash';
@@ -38,7 +40,7 @@ export const palette = {
   get light() { return KIND === 'fouet' ? FOUET.light : PAINT === 'printed' ? PC.PAL.plante.light : PC.PALW.light; },
   get dark() { return KIND === 'fouet' ? FOUET.dark : PAINT === 'printed' ? PC.PAL.plante.dark : PC.PALW.dark; },
 };
-const ORDER = { fouet: ['olive', 'whip', 'letter', 'k'], plante: PC.ORDER.plante };
+const ORDER = { fouet: ['olive', 'whip', 'letter', 'k'], plante: ['paper', ...PC.ORDER.plante] };
 
 // ---- placing pieces ---------------------------------------------------------------------------------------------------------------
 // a piece: built when it is printed (its plate in its own px), set at x, y on the page (y may be moved by rubricate's fitIn)
@@ -59,7 +61,7 @@ function initial({ ch = 'B', G, big = true, seed = 1, u = 8 }) {
 initial.width = ch => { const J = LET[letterOf(ch)]; return J ? BIG[KIND](J.b[2]) : 1.2; };
 initial.line = ch => { const J = LET[letterOf(ch)]; return J ? SMALL[KIND](J.b[2]) : 1.2; };
 initial.lines = 4;    // the composition is drawn for four lines (the host's data-lines rules)
-initial.phone = 3;
+Object.defineProperty(initial, 'phone', { get: () => KIND === 'fouet' ? 4 : 3 });   // (the whip needs the room of a fourth line on a phone)
 initial.margin = .32;
 initial.fills = true;
 initial.load = () => { const need = new Set(['B', 'O']); try { document.querySelectorAll('.ini').forEach(s => need.add(letterOf(s.textContent))); } catch {}
@@ -142,22 +144,43 @@ function bleed(L, damp, seed) {
     O[q] = Math.max(M[q], d * Math.min(.62, (B1[q] * 1.1 + B2[q] * .5) * f)); }
   return { ...L, M: O };
 }
-// the plate's inks as pours, in the order they are laid
-function pours(P, box, res, seed, dark) {
+// The plate's inks, in the order they are laid, as layers: { L (its mask), col, how }. A piece is one pour that lays itself
+// (rubricate's pour.paint): each layer in turn into the ink engine — a watercolour wash (washPour: its own medium, the
+// shade glazed in wet, the pigment pooled and lifted), the line laid into the washes still damp (lineInto: the water
+// and the line in one sheet, so its ink runs out along the fibres), or a printed ink poured as a mask (inkLetter: the
+// litho's grain, the gouache's coat, a key).
+// Watercolour body (the user: "all too transparent"): a full load of pigment, so the colour reads rich and the letter
+// solid; the paper shows only at the edges, in the lifts and the back-runs. In the dark, watercolour cannot be
+// transparent on a dark ground: DARKWC 'body' lays it as body colour (opaque, its edge not darkened) and 'toned' paints
+// the panel on a light-toned paper of its own, the colours as watercolour on it.
+let DARKWC = 'body';
+const WC = { ground: { ink: .5, bloom: .9, edge: .7, gran: .15, lifts: .4 }, leaf: { ink: .78 }, leafB: { ink: .6 }, irisL: { ink: .62 }, iris: { ink: .85 }, beard: { ink: .8, bloom: 0 },
+  poppy: { ink: .85 }, poppyB: { ink: .9, bloom: 0 }, crown: { ink: .8, bloom: 0 }, letter: { ink: 1.05, bloom: .3, lifts: .55, pool: .4 }, whip: { ink: .8 }, olive: { ink: .8 } };
+function layers(P, box, res, seed) {
   const out = [], kind = KIND, wash = kind === 'plante' ? PAINT === 'watercolour' : FPAINT === 'wash', gou = kind === 'fouet' && FPAINT === 'gouache';
-  const r = stream(seed, 'register'), slip = kind === 'plante' && !wash ? .6 : gou ? .55 : .25, keys = kind === 'fouet' ? ['letter', 'k'] : ['k'];
+  const r = stream(seed, 'register'), slip = kind === 'plante' && !wash ? .6 : gou ? .55 : .2, keys = kind === 'fouet' ? ['letter', 'k'] : ['k'];
   const inks = ORDER[kind].filter(c => P.items.some(it => it.col === c)), damp = wash ? WASHDAMP[kind].filter(c => inks.includes(c)) : [];
   for (const col of inks) {
     if (wash && SHADED.has(col) && kind === 'plante') continue;   // (in watercolour a shade is glazed into its own colour's wash)
-    const key = keys.includes(col), a = r() * Math.PI * 2, sl = key ? [0, 0] : [Math.cos(a) * slip, Math.sin(a) * slip];
-    let L = stone(P, col, box, res, sl, key ? 0 : .45); if (!L) continue; const sd = seed + col.charCodeAt(0) * 13 + col.length;
-    if (key && wash && damp.length) { const D = new Float32Array(L.w * L.h); for (const c of damp) { const W = stone(P, c, box, res, [0, 0], 0); if (W) for (let q = 0; q < D.length; q++) D[q] = Math.max(D[q], W.M[q]); } L = bleed(L, D, sd); }
-    else if (!key && wash) { const S = SHADE[col] && kind === 'plante' ? stone(P, SHADE[col], box, res, sl, 0) : null; L = washTex(L, sd, S?.M, WASHM[col] ?? .4); }
-    else if (!key && gou) L = gouacheTex(L, sd);
-    else if (!key) L = grain(L, sd);
-    out.push({ ...L, col, wet: key ? (wash ? .2 : .05) : wash ? .3 : .08, dry: key ? .16 : wash ? .3 : .1, items: P.items.filter(it => it.col === col || (wash && SHADE[col] === it.col)) });
+    if (col === 'paper') { const L = stone(P, col, box, res, [0, 0], 0); if (L) out.push({ L, col, how: 'pour', wet: .03, dry: 0 }); continue; }   // (the toned sheet: laid flat and whole)
+    const key = keys.includes(col), a = r() * Math.PI * 2, sl = key ? [0, 0] : [Math.cos(a) * slip, Math.sin(a) * slip], sd = seed + col.charCodeAt(0) * 13 + col.length;
+    const L = stone(P, col, box, res, sl, key ? 0 : .45); if (!L) continue;
+    if (key && wash && damp.length) { const D = new Float32Array(L.w * L.h); for (const c of damp) { const W = stone(P, c, box, res, [0, 0], 0); if (W) for (let q = 0; q < D.length; q++) D[q] = Math.max(D[q], W.M[q]); } out.push({ L, col, how: 'line', damp: D }); }
+    else if (!key && wash) { const S = SHADE[col] && kind === 'plante' ? stone(P, SHADE[col], box, res, sl, 0) : null; out.push({ L, col, how: 'wash', glaze: S?.M, sd }); }
+    else if (!key && gou) out.push({ L: gouacheTex(L, sd), col, how: 'pour', wet: .08, dry: .1 });
+    else if (!key) out.push({ L: grain(L, sd), col, how: 'pour', wet: .08, dry: .1 });
+    else out.push({ L, col, how: 'pour', wet: .05, dry: .16 });
   }
   return out;
+}
+const TONED = [214, 206, 182];   // the toned sheet under a panel on the dark page: a warm grey paper
+function lay(ls, bake, dpr, dark, onPaper) {
+  const pal = onPaper ? { ...palette.light, paper: TONED } : dark ? palette.dark : palette.light, body = dark && !onPaper;
+  for (const l of ls) { const rgb = pal[l.col];
+    if (l.how === 'wash') { const o = { ...WC[l.col] }; if (body) { o.ink = Math.min(1.5, (o.ink ?? .7) * 1.45); o.edge = .2; o.bloom = 0; o.gran = .05; }
+      washPour(bake, l.L, rgb, { dpr, seed: l.sd, glaze: l.glaze, ...o }); }
+    else if (l.how === 'line') { lineInto(bake, l.L, l.damp, rgb, { dpr, onlyDamp: true }); inkLetter(bake, { ...l.L, wet: .06, dry: .16 }, rgb, { dpr }); }   // (the bleed into the damp washes, then the line itself, crisp)
+    else inkLetter(bake, { ...l.L, wet: l.wet, dry: l.dry }, rgb, { dpr }); }
 }
 // the fouet in wash: the whip laid as a wash wider than its line, and a fine ink line drawn down the middle of it; its eye
 // a pooled drop of both
@@ -171,7 +194,11 @@ function asWash(P) {
 }
 // growth: each item's moment in the piece's growth (in the order it was drawn: stems before leaves, leaves before flowers),
 // and how it comes: along its line (a stroke), out from its base (a leaf, a petal: the flower opens), else up from the foot
-function growth(P, h) { const n = P.items.length; P.items.forEach((it, i) => { const t0 = n > 1 ? .78 * i / (n - 1) : 0; it.g = { t0, t1: Math.min(1, t0 + (it.S ? .32 : .26)), h }; }); }
+// (paint the ground, apply the letter, grow in the gaps: the ground and the letter come first, so the ground is never seen
+// with the letter's place left bare)
+function growth(P, h) { const L = P.items.filter(it => it.col !== 'ground' && it.col !== 'paper' && it.col !== 'letter'), n = L.length;
+  for (const it of P.items) if (it.col === 'ground' || it.col === 'paper') it.g = { t0: 0, t1: .12 }; else if (it.col === 'letter') it.g = { t0: .06, t1: .2 };
+  L.forEach((it, i) => { const t0 = .2 + (n > 1 ? .6 * i / (n - 1) : 0); it.g = { t0, t1: Math.min(1, t0 + (it.S ? .26 : .2)), h }; }); }
 function reveal(items, box) {
   const R = Math.hypot(box[2] - box[0], box[3] - box[1]);
   return (c, f) => { c.fillStyle = c.strokeStyle = '#000'; c.lineJoin = c.lineCap = 'round';
@@ -189,23 +216,27 @@ const CACHE = new Map();
 function print(made, { dpr = 1, animate = false, kind } = {}) {
   const res = dpr >= 1.5 ? 2 : 1, all = [], seq = [], dark = isDark();
   for (const b of made.letters ?? []) { if (b.shape !== 'nv') continue;
-    const key = [KIND, PAINT, FPAINT, dark, res, b.x.toFixed(1), b.y.toFixed(1), b.w.toFixed(1), b.h.toFixed(1), b.seed, animate].join('|');
-    let list = CACHE.get(key);
-    if (!list) { const { P } = b.build(); if (KIND === 'fouet' && FPAINT === 'wash') asWash(P); growth(P); shift(P, b.x, b.y);
-      const box = [b.x - 8, b.y - 8, b.x + b.w + 8, b.y + b.h + 8]; list = pours(P, box, res, b.seed ?? 1, dark);
-      if (animate) for (const p of list) p.grow = { mode: 'reveal', fn: reveal(p.items, box) };
-      for (const p of list) delete p.items; if (CACHE.size > 400) CACHE.clear(); CACHE.set(key, list); }
-    const d = kind === 'drop' ? 5 : kind === 'initial' ? 2 : Math.min(2.4, .9 + (b.w + b.h) / 600);
-    for (const p of list) { all.push(p); seq.push({ pour: p, d }); }
+    const key = [KIND, PAINT, FPAINT, DARKWC, dark, res, b.x.toFixed(1), b.y.toFixed(1), b.w.toFixed(1), b.h.toFixed(1), b.seed, animate].join('|');
+    let p = CACHE.get(key);
+    if (!p) { const { P } = b.build(); if (KIND === 'fouet' && FPAINT === 'wash') asWash(P); const onPaper = KIND === 'plante' && dark && DARKWC === 'toned' && toned(P); growth(P); shift(P, b.x, b.y);
+      const box = [b.x - 8, b.y - 8, b.x + b.w + 8, b.y + b.h + 8], ls = layers(P, box, res, b.seed ?? 1);
+      // (the pour's box is the piece's; it lays itself, each of its layers in turn)
+      p = { x0: box[0], y0: box[1], w: Math.ceil((box[2] - box[0]) * res), h: Math.ceil((box[3] - box[1]) * res), res, col: 'k', paint: (bake, { dpr }) => lay(ls, bake, dpr, dark, onPaper) };
+      if (animate) p.grow = { mode: 'reveal', fn: reveal(P.items, box) };
+      if (CACHE.size > 400) CACHE.clear(); CACHE.set(key, p); }
+    all.push(p); seq.push({ pour: p, d: kind === 'drop' ? 5 : kind === 'initial' ? 2 : Math.min(2.4, .9 + (b.w + b.h) / 600) });
   }
   const ys = (made.letters ?? []).map(b => b.y);
   return { pours: all, letters: [], seq, runs: [], y0: ys.length ? Math.min(...ys) : 0 };
 }
+// the dark page, DARKWC 'toned': the panel's ground a light-toned paper of its own (a Grasset study laid on the dark page),
+// so the colours in it stay watercolour; the line on it the light page's
+function toned(P) { let any = false; for (const it of P.items) if (it.col === 'ground') { it.col = 'paper'; any = true; } return any; }
 // a case on the painter's clock: every ink of a piece over the same span (the growth order is in each pour's reveal), the
 // pieces of a case one after another
 function timeline(pr, kind, animate) {
-  const own = []; let u = 0, cur = null, t = 0;
-  for (const e of pr.seq) { if (e.d !== cur) { t = u; cur = e.d; u += animate ? e.d : 0; } own.push({ t0: animate ? t : 0, t1: animate ? t + e.d : 0, pour: e.pour }); }
+  const own = []; let u = 0;
+  for (const e of pr.seq) { own.push({ t0: animate ? u : 0, t1: animate ? u + e.d : 0, pour: e.pour }); if (animate) u += e.d * .85; }
   return { own, u: Math.max(u, .01), cap: kind === 'drop' ? 6 : 2.4 };
 }
 
@@ -217,5 +248,7 @@ export const nouveau = { label: 'Nouveau', minGap: 2, theme: { rubric: 'rgb(176 
   // (the site's Adjust sets these as the style's own module settings, { mod: true } in site/js/catalogue.js)
   set kind(v) { KIND = v === 'fouet' ? 'fouet' : 'plante'; }, get kind() { return KIND; },
   set paint(v) { PAINT = v === 'printed' ? 'printed' : 'watercolour'; }, get paint() { return PAINT; },
-  set fpaint(v) { FPAINT = v === 'gouache' ? 'gouache' : 'wash'; }, get fpaint() { return FPAINT; } };
+  set fpaint(v) { FPAINT = v === 'gouache' ? 'gouache' : 'wash'; }, get fpaint() { return FPAINT; },
+  get variant() { return [KIND, PAINT, FPAINT, DARKWC].join(','); },
+  set darkPaint(v) { DARKWC = v === 'body' ? 'body' : 'toned'; }, get darkPaint() { return DARKWC; } };
 export default nouveau;

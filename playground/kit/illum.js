@@ -565,7 +565,8 @@ function piece(e, t0, t1, it, P, c, animate) {
     const lay = () => { if (L.red) inkLetter(c.g, { ...L, M: L.red, wet: L.redWet ?? L.wet, dry: L.redDry ?? L.dry }, red, { dpr }); inkLetter(c.g, L, ink, { dpr }); };   // the red first, the black (or the letter's own colour) over it
     return { t0, t1, it, ink: '', as: 'letter', box: boxOf(L), at: (_, f) => lw?.at(f), done: () => lw ? lw.done() : lay() }; }
   if (e.pour) { const p = e.pour, sw = animate ? sweepIn(c.g, p, P[p.col], { dpr }) : null;
-    return { t0, t1, it, ink: '', as: 'colour:' + p.col, box: boxOf(p), at: (_, f) => sw?.at(f), done: () => sw ? sw.done() : inkLetter(c.g, p, P[p.col], { dpr }) }; }
+    // (p.paint: a pour that lays itself, a style's own medium (Nouveau's watercolour washes): used in place of inkLetter)
+    return { t0, t1, it, ink: '', as: 'colour:' + p.col, box: boxOf(p), at: (_, f) => sw?.at(f), done: () => sw ? sw.done() : p.paint ? p.paint(c.g, { dpr }) : inkLetter(c.g, p, P[p.col], { dpr }) }; }
   const p = e.run, col = p.col ?? 'k', rgb = P[col] ?? P.k, box = p.strokes.reduce((b, s) => s.pts.reduce((b, [x, y]) => [Math.min(b[0], x - p.w), Math.min(b[1], y - p.w), Math.max(b[2], x + p.w), Math.max(b[3], y + p.w)], b), [Infinity, Infinity, -Infinity, -Infinity]);
   return W ? { ...inMedium(c, t0, t1, p.strokes.map(s => ({ pts: s.pts, angle: s.angle, press: s.press, rho: s.rho })), rgb, { width: p.w, hair: p.hair }), it, ink: col, as: 'line', box, loose: true }
     : { t0, t1, it, ink: col, as: 'line', box, at: (g, f) => p.strokes.slice(0, Math.floor(f * p.strokes.length)).forEach(s => stamp(g, s, p, rgb, c)), done: g => p.strokes.forEach(s => stamp(g, s, p, rgb, c)) };
@@ -623,7 +624,9 @@ export function rubricate(root, opts = {}) {
   if (cacheOn()) manifest(baked());   // (asked for now, while the fonts load)
   const keyOf = () => { const { on, host: _h, cache, baked, ...rest } = o, cs = getComputedStyle(root), dpr = Math.min(2, devicePixelRatio || 1);
     return [hashText(text), Math.round(host.getBoundingClientRect().width), JSON.stringify(rest, (k, v) => typeof v === 'function' ? String(v) : v), themeMode(), dpr,
-      ...['--paper', '--ink', '--rubric'].map(v => cs.getPropertyValue(v).trim())].join('|'); };
+      ...['--paper', '--ink', '--rubric'].map(v => cs.getPropertyValue(v).trim()),
+      // (a style with settings of its own, its `variant`: a getter on it that names them, so the store keeps one drawing per setting)
+      ...(STYLES[o.style]?.variant != null ? [STYLES[o.style].variant] : [])].join('|'); };
   const inis = () => [...root.querySelectorAll({ ...SELECT, ...o.select }.initial)];
   const setStyles = (els, list) => els.forEach((e, i) => list[i] == null ? e.removeAttribute('style') : e.setAttribute('style', list[i]));
   // a record laid if the text falls where it fell (its initials set first, as they were when it was drawn); else nothing changed

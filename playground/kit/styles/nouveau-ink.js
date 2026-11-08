@@ -106,17 +106,17 @@ function brushStroke(Md, S, ox, oy, r, wob, speed, n, dpr, eyes) {
 // no pigment: it only lends the ink somewhere to go), then the line; where the line lies in damp wash its ink runs out
 // into it along the fibres and settles soft and dark beside it; on dry paper it spreads only a little, more where the
 // pen paused (its ends and its heaviest parts). damp: { M } on the line's grid (0 dry .. 1 wet).
-export function lineInto(bake, L, damp, rgb, { dpr = 2, wet = .9, ink = 1.3 } = {}) {
+export function lineInto(bake, L, damp, rgb, { dpr = 2, wet = .9, ink = 1.3, onlyDamp = false } = {}) {
   if (!supported()) return false;
   const { M, w, h, x0, y0, res } = L, D = new Uint8Array(w * h * 4);
   for (let q = 0; q < w * h; q++) { const m = M[q], d = damp ? damp[q] : 0;
-    D[q * 4] = Math.round(Math.max(m, d * .95) * 255); D[q * 4 + 1] = Math.round(Math.min(1, m * ink * (1 + .35 * d)) / 2 * 255 * (m > .02 ? 1 : 0)); D[q * 4 + 2] = Math.round(.08 * m * 255); }
+    D[q * 4] = Math.round(Math.max(m, d * .95) * 255); D[q * 4 + 1] = Math.round(Math.min(1, m * ink * (onlyDamp ? d : 1 + .35 * d)) / 2 * 255 * (m > .02 ? 1 : 0)); D[q * 4 + 2] = Math.round(.08 * m * 255); }   // (onlyDamp: only the line's ink that lies in a wet wash runs out into it; the line itself is laid crisp after)
   inWindow(bake, [x0, y0, x0 + w / res, y0 + h / res], dpr, rgb, wet, (Md, ox, oy) => {
     // (the ink runs through the water by diffusion, so a bleed some 2–3 px wide takes time in proportion to the square of
     // the device px it crosses: the steps scale with dpr, the level is set as fast as the scheme stays stable)
     Md.settings.level = .1; Md.settings.creep = .02;
     Md.pour(D, w, h, [(x0 - ox) * dpr, (y0 - oy) * dpr, w / res * dpr, h / res * dpr]);
-    for (let k = 0, n = Math.round(22 * dpr); k < n; k++) Md.step(16);
+    for (let k = 0, n = Math.round(14 * dpr); k < n; k++) Md.step(16);
   });
   return true;
 }
@@ -130,7 +130,7 @@ function blur(A, w, h, r) {
     for (let y = 0; y < h; y++) { O[y * w + x] = s / k; s += T[Math.min(h - 1, y + r + 1) * w + x] - T[Math.max(0, y - r) * w + x]; } }
   return O;
 }
-export function washPour(bake, L, rgb, { dpr = 2, seed = 1, ink = .42, edge = 1, bloom = .5, soft = 0, wet = .35, gran = .42, pool = .3, lifts = .5 } = {}) {
+export function washPour(bake, L, rgb, { dpr = 2, seed = 1, ink = .42, edge = 1, bloom = .5, soft = 0, wet = .35, gran = .42, pool = .3, lifts = .5, glaze = null, steps = 18 } = {}) {
   const { M, w, h, x0, y0, res } = L;
   if (!supported()) { const c = new OffscreenCanvas(w, h), g = c.getContext('2d'), im = g.createImageData(w, h);
     for (let i = 0; i < w * h; i++) { im.data.set([rgb[0], rgb[1], rgb[2], Math.round(Math.min(1, M[i]) * 150)], i * 4); } g.putImageData(im, 0, 0); bake.drawImage(c, x0 * dpr, y0 * dpr, w / res * dpr, h / res * dpr); return; }
@@ -142,18 +142,19 @@ export function washPour(bake, L, rgb, { dpr = 2, seed = 1, ink = .42, edge = 1,
   const R = Math.round(2.2 * res), Bl = blur(blur(C, w, h, R), w, h, R), D = new Uint8Array(w * h * 4);
   // the wash's own extent, so it can pool toward one side (the board tilted: the pigment runs down and right and settles)
   let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9; for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (C[j * w + i] > .3) { bx0 = Math.min(bx0, i); bx1 = Math.max(bx1, i); by0 = Math.min(by0, j); by1 = Math.max(by1, j); }
-  const lift = noise2(seed ^ 0x6d);
+  const lift = noise2(seed ^ 0x6d), Gz = glaze ? blur(glaze, w, h, Math.max(1, Math.round(.6 * res))) : null;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i, m = C[q]; if (m <= .01) continue; const x = x0 + i / res, y = y0 + j / res;
     const rim = Math.max(0, 1 - Bl[q]) * 1.7;   // 0 inside .. ~1 at the edge: the pigment drawn there as it dried
     // a back-run: a pale cauliflower where the noise rises past a level, its lip darker
     const b = bl(x / 26, y / 26), lip = Math.exp(-Math.pow((b - .72) / .02, 2)), pale = b > .72 ? .8 : 1;
     const gx = (i - bx0) / Math.max(1, bx1 - bx0), gy = (j - by0) / Math.max(1, by1 - by0), tone = 1 + pool * ((gx * .45 + gy * .9) / 1.35 - .5) * 2;
     const lifted = 1 - lifts * Math.max(0, lift(x / 30 + y / 90, y / 14 - x / 60) - .62) * 2.2;   // where the brush ran dry and lifted
-    const k = ink * tone * lifted * (1 + .28 * (slow(x / 16, y / 16) - .5) * 2) * (1 + edge * 1.5 * rim * rim) * (bloom ? (1 - bloom * (1 - pale) + bloom * .7 * lip) : 1);
+    const gz = Gz ? 1 + 1.05 * Gz[q] : 1;   // (the shade glazed in wet: the same pigment, denser, its inner edge soft)
+    const k = ink * gz * tone * lifted * (1 + .28 * (slow(x / 16, y / 16) - .5) * 2) * (1 + edge * 1.5 * rim * rim) * (bloom ? (1 - bloom * (1 - pale) + bloom * .7 * lip) : 1);
     D[q * 4] = Math.round(m * 255); D[q * 4 + 1] = Math.round(Math.min(1, k / 2) * 255); D[q * 4 + 2] = Math.round(gran * 255); }
   const box = [x0, y0, x0 + w / res, y0 + h / res];
   inWindow(bake, box, dpr, rgb, wet, (Md, ox, oy, cw, ch) => {
     Md.pour(D, w, h, [(x0 - ox) * dpr, (y0 - oy) * dpr, w / res * dpr, h / res * dpr]);
-    for (let k = 0; k < 40; k++) Md.step(16);
+    for (let k = 0; k < steps; k++) Md.step(16);
   });
 }

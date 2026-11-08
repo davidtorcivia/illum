@@ -131,7 +131,7 @@ STYLES.nouveau = nouveau;   // (in the registry, as kelmscott.html does; kit/ill
 
 const q = new URLSearchParams(location.search), sd = location.hash.match(/seed=(\d+)/)?.[1];
 document.documentElement.dataset.theme = q.get('theme') === 'dark' || (!q.get('theme') && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-nouveau.kind = q.get('kind') ?? 'plante'; nouveau.paint = q.get('paint') ?? 'watercolour'; nouveau.fpaint = q.get('fpaint') ?? 'wash';
+nouveau.kind = q.get('kind') ?? 'plante'; nouveau.paint = q.get('paint') ?? 'watercolour'; nouveau.fpaint = q.get('fpaint') ?? 'wash'; nouveau.darkPaint = q.get('darkpaint') ?? 'toned';
 document.getElementById('redraw').href = '?' + new URLSearchParams([...q.entries(), ['draw', '']]).toString().replace(/=$/, '') + location.hash;
 if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.dataset.lines = Math.max(2, Math.min(9, +q.get('lines') || 4)));
 await nouveau.initial.load();

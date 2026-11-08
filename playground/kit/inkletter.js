@@ -207,7 +207,7 @@ export function sweepIn(bake, p, rgb, { dpr = 2 } = {}) {
     const cv = new OffscreenCanvas(w, h), g = cv.getContext('2d', { willReadFrequently: true });
     const proxy = { save() {}, restore() {}, setTransform() {}, set globalCompositeOperation(v) {},
       drawImage(c, ...a) { if (a.length === 8) g.drawImage(c, a[0], a[1], a[2], a[3], a[4] - X0, a[5] - Y0, a[6], a[7]); else g.drawImage(c, a[0] * dpr - X0, a[1] * dpr - Y0, a[2] * dpr, a[3] * dpr); } };
-    inkLetter(proxy, p, rgb, { dpr });
+    if (p.paint) p.paint(proxy, { dpr }); else inkLetter(proxy, p, rgb, { dpr });   // (p.paint: a pour that lays itself)
     sc = g.getImageData(0, 0, w, h); tmp = new OffscreenCanvas(w, h);
     // (p.grow: the piece printed whole beneath, and its garden grown over it frame by frame: p.grow.fn(ctx, f, mode) draws in
     // page px what has not grown ('cover', in the ink, over a block) or what has ('reveal', the mask an ink piece is seen through))
