@@ -116,7 +116,7 @@ def to_path(polys):
 def from_path(P): return [np.array([q for verb, ps in cnt.segments for q in ps], float) for cnt in P.contours]
 
 # ---- the hand -------------------------------------------------------------------------------------------------------------------
-DBGL = []
+DBGL = []; CUTS = []
 def hand(font, ch, seed, ref='I'):
     rng = np.random.default_rng([seed, ord(ch)]); f = TTFont(font); gs = f.getGlyphSet(); cm = f.getBestCmap(); E = EDIT.get(ch, {})
     pen = Flat(gs); gs[cm[ord(ref)]].draw(pen); Rf = np.vstack([np.array(c) for c in pen.C]); top, bot = Rf[:, 1].max(), Rf[:, 1].min(); U = top - bot
@@ -180,16 +180,18 @@ def hand(font, ch, seed, ref='I'):
     nb = nd.convolve(sk.astype(int), np.ones((3, 3), int), mode='constant') - 1
     ends = [(i, j) for i, j in zip(*np.nonzero(sk & (nb == 1))) if dist[i, j] < .02]
     cx, cy = ((x0 + x1) / 2 + ox) * R, ((y0 + y1) / 2 + oy) * R; ends.sort(key=lambda e: -((e[1] - cx) ** 2 + (e[0] - cy) ** 2))
-    cand = []; seen = []
+    # Third pass ("too many small knobby balls on thin stalks; his ends are fewer, fuller drops that belong to the stroke"):
+    # at most MAXEND ends a letter finish in a full drop (never two within SEP: a serif's two arms take one), one of them
+    # a hook; every other free hairline end is LIFTED: thickened to a blunt round end, as a brush lifting off, not a pin
+    cand = []; full = []; SEP = float(os.environ.get('SEP', .2)); NF = int(E.get('ends', os.environ.get('MAXEND', 3)))
     for i, j in ends:
         p = np.array([j / R - ox, i / R - oy])
-        if any(np.hypot(*(p - q)) < .07 for q in seen): continue
+        if any(np.hypot(*(p - c_[0])) < .05 for c_ in cand): continue
         path = [(i, j)]   # back along the axis while the stroke stays thin: the spur's run
         for _ in range(int(.06 * R)):
             cur = path[-1]; nx = [(cur[0] + a, cur[1] + b) for a in (-1, 0, 1) for b in (-1, 0, 1) if (a or b) and 0 <= cur[0] + a < Hh and 0 <= cur[1] + b < W and sk[cur[0] + a, cur[1] + b] and (cur[0] + a, cur[1] + b) not in path]
             if not nx or dist[nx[0]] > .028: break
             path.append(nx[0])
-        seen.append(p)
         if len(path) < .022 * R: continue   # (a nub, not a hairline: left as the face drew it)
         q = np.array([path[min(len(path) - 1, 12)][1] / R - ox, path[min(len(path) - 1, 12)][0] / R - oy]); v = p - q; v /= np.hypot(*v)
         tip = p.copy()   # (the axis stops short of a pointed tip: run on to the face's real end)
@@ -197,27 +199,39 @@ def hand(font, ch, seed, ref='I'):
             qq = p + v * s_; ii, jj = int((qq[1] + oy) * R), int((qq[0] + ox) * R)
             if not (0 <= ii < Hh and 0 <= jj < W) or not acc[ii, jj]: break
             tip = qq
-        cand.append((p, v, tip, path))
-    cand = cand[:int(E.get('ends', os.environ.get('MAXEND', 5)))] if not os.environ.get('NOTERM') else []
-    # the hooks: one or two, where he turns them: the ends reaching most sideways out of the letter (a serif's outer arm)
-    side_ = sorted(range(len(cand)), key=lambda k: -abs(cand[k][1][0]) * (abs(cand[k][2][0] - (x0 + x1) / 2) + .2))
-    hk = set(side_[:int(os.environ.get('HOOKS', 1))]) if cand else set()
-    terms = []; cen = np.array([(x0 + x1) / 2, (y0 + y1) / 2])
-    for k, (p, v, tip, path) in enumerate(cand):
+        isfull = len(full) < NF and not any(np.hypot(*(p - q_)) < SEP for q_ in full)
+        if isfull: full.append(p)
+        cand.append((p, v, tip, path, isfull))
+    if os.environ.get('NOTERM'): cand = []
+    # the hook (HOOKS, default 1): of the full ends, the one reaching most sideways out of the letter (a serif's outer arm)
+    fk = [k for k in range(len(cand)) if cand[k][4]]
+    side_ = sorted(fk, key=lambda k: -abs(cand[k][1][0]) * (abs(cand[k][2][0] - (x0 + x1) / 2) + .2))
+    hk = set(side_[:int(os.environ.get('HOOKS', 1))])
+    terms = []; FP = []; cen = np.array([(x0 + x1) / 2, (y0 + y1) / 2])
+    for k, (p, v, tip, path, isfull) in enumerate(cand):
         st = path[-1]; s0 = np.array([st[1] / R - ox, st[0] / R - oy]); w0 = dist[st]   # (from where the spur leaves the body)
         a0 = math.atan2(v[1], v[0])
-        if k in hk:   # a hook: the hairline (his h) drawn on, turning away from the letter, the ball where the pen stops
-            w_ = cen - tip; turn = -(np.sign(v[0] * w_[1] - v[1] * w_[0]) or 1); rb = r * rng.uniform(1.0, 1.3); Rr = rb * rng.uniform(1.2, 1.6); sweep = math.pi * rng.uniform(.7, 1.05)
+        if k in hk:   # a hook: the hairline drawn on, turning away from the letter, filling steadily into the ball where the pen stops
+            w_ = cen - tip; turn = -(np.sign(v[0] * w_[1] - v[1] * w_[0]) or 1); rb = r * rng.uniform(1.2, 1.45); Rr = rb * rng.uniform(1.0, 1.25); sweep = math.pi * rng.uniform(.7, .95)
             Lp = [s0 + (tip - s0) * u for u in np.linspace(0, 1, 10)]; c0 = tip + Rr * np.array([-math.sin(a0), math.cos(a0)]) * turn
             for u in np.linspace(0, 1, 40)[1:]: ang = a0 - turn * math.pi / 2 + turn * sweep * u; Lp.append(c0 + Rr * (1 - .3 * u) * np.array([math.cos(ang), math.sin(ang)]))
-            Lp = np.array(Lp); fu = np.linspace(0, 1, len(Lp)); hw = max(h * 1.05, 0)
-            wid = np.where(fu < .2, w0 + (hw - w0) * (fu / .2), hw) + (rb - hw) * np.clip((fu - .6) / .4, 0, 1) ** 1.6
-        else:   # a drop: the stroke run on a little past the tip, sinking (gravity in the brush), and swelling to its ball
-            rb = r * rng.uniform(1.0, 1.4); L_ = np.hypot(*(tip - s0)) + rb * rng.uniform(.5, .9)
-            bend = np.array([0, 1]) * L_ * rng.uniform(.1, .3) * (1 if abs(v[0]) > .5 else 0)
+            Lp = np.array(Lp); fu = np.linspace(0, 1, len(Lp)); hw = max(w0, h * 1.8)
+            wid = hw + (rb - hw) * np.clip((fu - .15) / .85, 0, 1) ** 1.2
+        elif isfull:   # a drop: his full teardrop, belonging to the stroke: it fattens at once from where it leaves the body,
+            # its ball near the face's tip, sinking a little (gravity in the brush)
+            rb = r * rng.uniform(1.25, 1.6); L_ = max(np.hypot(*(tip - s0)), rb * 1.3) + rb * rng.uniform(0, .25)
+            bend = np.array([0, 1]) * L_ * rng.uniform(.08, .2) * (1 if abs(v[0]) > .5 else 0)
             Lp = np.array([s0 + v * L_ * u + bend * u * u for u in np.linspace(0, 1, 30)])
-            fu = np.linspace(0, 1, len(Lp)); wid = w0 + (rb - w0) * fu ** 2.2
+            fu = np.linspace(0, 1, len(Lp)); wid = w0 + (rb - w0) * np.sin(fu * math.pi / 2) ** .7
+        else:   # lifted: the spur thickened toward its tip into a blunt round end (no ball, no pin)
+            # (the spur is cut back by CUTB of its run first, so it stops short and blunt: CUTS, applied after the union)
+            Ls = np.hypot(*(tip - s0)); cb = min(Ls * float(os.environ.get('CUTB', .4)), .035); e_ = tip - v * cb; CUTS.append((tip + v * .025, cb + .025))   # (wide enough to take a tip that curls off the line)
+            re_ = max(w0, h * 1.1); Lp = np.array([s0 + (e_ - s0) * u for u in np.linspace(0, 1, 20)])
+            fu = np.linspace(0, 1, len(Lp)); wid = re_ * (1 - .15 * fu)   # (its own width, easing off: no knob)
         terms += chain(Lp, np.maximum(wid, w0 * .98))
+        if isfull: FP.append(np.column_stack([Lp, wid]))
+    if FP:   # (a cut never takes the bridge to a drop or hook)
+        A_ = np.vstack(FP); CUTS[:] = [(c, rr) for c, rr in CUTS if np.min(np.hypot(*(A_[:, :2] - c).T) - A_[:, 2]) > rr + .004]
     # the face's own outline joined in, so what the strokes cannot draw (a serif's flared wedge, a crisp tip) stays the face's
     fp = to_path(C); fp.fillType = pathops.FillType.EVEN_ODD; fp.simplify(fix_winding=True)   # (even-odd, as the face was measured: its W's contours overlap)
     fa = abs(sum(area(np.array([pt for verb, ps in c_.segments for pt in ps], float)) for c_ in fp.contours if len(list(c_.segments)) > 2))
@@ -247,7 +261,7 @@ def chain(P, rL, rR=None, step=.004):
         out.append(hp if area(hp) > 0 else hp[::-1])
     return out
 
-def union(polys):
+def union(polys, cuts=(), after=()):
     """the pieces' union, by GEOS (shapely): robust where skia's boolean is not, on hundreds of small overlapping pieces.
     A piece is a polygon (array) or a pathops.Path (its contours combined even-odd, as the face was measured)"""
     from shapely.geometry import Polygon
@@ -263,8 +277,12 @@ def union(polys):
             if g is not None: G.append(g)
         elif len(P) > 2: G.append(make_valid(Polygon(np.asarray(P, float))))
     U = unary_union(G); res = []
+    if cuts:
+        from shapely.geometry import Point
+        U = U.difference(unary_union([Point(*c).buffer(rr, 32) for c, rr in cuts])).union(unary_union(G[-len(after):]) if after else Polygon())
+    big = max((g.area for g in getattr(U, 'geoms', [U])), default=0)
     for poly in getattr(U, 'geoms', [U]):
-        if poly.geom_type != 'Polygon' or poly.area < 1e-7: continue
+        if poly.geom_type != 'Polygon' or poly.area < max(1e-7, big * .03): continue   # (no stray islands)
         res.append(np.array(poly.exterior.coords[:-1])); res += [np.array(r.coords[:-1]) for r in poly.interiors if len(r.coords) > 3]
     return res
 
@@ -272,8 +290,8 @@ if __name__ == '__main__':
     a = sys.argv[1:]; font, outd = a[0], a[1]; want = a[2] if len(a) > 2 else 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; seed = int(a[3]) if len(a) > 3 else 7
     os.makedirs(outd, exist_ok=True); fam = TTFont(font)['name'].getDebugName(1)
     for ch in want:
-        body, hooks, box = hand(font, ch, seed, os.environ.get('REF', 'I'))
-        Uc = union(body + hooks)
+        CUTS.clear(); body, hooks, box = hand(font, ch, seed, os.environ.get('REF', 'I'))
+        Uc = union(body + hooks, CUTS, hooks)   # (the cut-back spurs: the terminals are laid again after the cuts)
         cont = []
         for pts in Uc:   # (the strokes and terminals, all ink: their union makes the counters)
             if len(pts) > 2:

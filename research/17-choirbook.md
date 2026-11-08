@@ -257,3 +257,43 @@ port. EB Garamond 600 painted stays (approved; humanist precedent).
 The capitals are cleaner and more geometric than 466773's lumpy, loop-studded domes; bundles in the counters are still 03's
 full ruling, not the source's central column flanked by eyes; the parted body is a parchment hair, not red-filled; no
 rosettes of concentric rings yet; no zigzag motif. The filigree is far sparser than the K's (a narrow roman letter has no panels to fill): no double-line scrolls, no trefoils, no red points in the white.
+
+## 4i. Third pass: the ends, the filigree grown, the dark page
+
+**The ends** (user: "too many small knobby balls on thin stalks; his ends are fewer, fuller drops that belong to the stroke").
+tools/lombhand.py now finishes at most MAXEND = 3 free hairline ends a letter in a full drop (never two within SEP = .2 H, so a
+serif's two arms take one), one of them a hook (HOOKS = 1). A drop fattens at once from where the spur leaves the body (width
+w0 → 1.25–1.6 × .038 H along sin^.7, so no stalk), its ball near the face's tip, sinking a little. A hook fills steadily into
+its ball. Every other free end is cut back (a shapely difference of a disc at its tip, the terminals laid again after the cut,
+never across a drop's bridge) and finished at its own width, so it stops blunt: no pin, no pinhead. Islands under 3 % of the
+letter are dropped. Set: `research/choirbook/hand2`, fonts `playground/fonts/choirbook/hand2` (default); `?lombard=hand` the
+second pass. Short: S, G and F keep a beak-and-drop pair at the top where the face's beak spur stands next to the drop.
+
+**The filigree, grown** (choirbook.js `filigrana`, the default; `?work=le73` the paused field pass). Read at 4× in his B and P:
+every bay is first contained, then filled by its shape. The box: the letter's ink box out by [1.1, .7, .75, .9] sp (sp = .05 H,
+his spacing), its frame a double hairline. 1. Contained: two lines a hair apart (.15 and .62 sp into each bay: the level sets of
+the bay's depth) hug the letter a reserve off its paint and run on as the frame's inner line; an outer frame line outside.
+2. Filled, by shape: a closed round counter gets an eye (ring and point at its deepest place) with 6–12 spokes run up the depth
+to the contour and small scrolls hung from the spokes in the sectors; every other bay gets its middle line (the core thinned,
+Zhang–Suen, spurs pruned) as a spine where it is broad, with scrolls hung alternately either side, and pearls (small rings)
+strung down it where it narrows; then a fringe of small scrolls hung off the inner contour wherever there is room; then any
+attractor still clear (Poisson) reached by a scroll branching off the nearest line laid so far, so the work grows outward from
+the structure. A scroll is one stroke: it leaves its parent 25–40° out, bends steadily (a cubic) into a circle entered along its
+own direction, and winds in a turn as the radius closes; it is laid only if it keeps a gap from every other line. 3. The frame's
+outer side: pearls and spikes in turn, a finial (tall spike, two small scrolls) at the middle of top and foot, a corner spike;
+none on the margin's side or into words. Order written (?draw): contour and frame, spines, eyes and spokes, scrolls as they
+grew, pearls, spikes. The margin's staff, domes and pendants are kept; the text-side panel and 03's top line give way to the box.
+
+Measured (tools/penmeasure.py, inside the letter's ink box): ours coverage .24–.27, gap p25/50/75 .008/.012–.015/.024–.027 H,
+width .0076 H; his B .135, .020/.042/.073, .0089 H. By the metric ours is tighter: the double contour hugging every edge
+dominates it, and his pale, blurred hairlines in a JPEG scan read as less line than they are. By eye at page size and 4× the
+density is close; his counters are fuller (more scrolls per sector) and his line paler and finer.
+
+**Dark**: the letter in two coats, as on a stained leaf: a deep murrey ground coat (palette 'f', [74, 40, 74]) and the bright
+pigment over it (vermilion [232, 98, 62], ultramarine [78, 118, 238]) whose opacity pools at the rim and is mottled over the
+middle (.72–1), so its body varies between the two and never shows the page through. The penwork in dark carries inks of
+lightness over .64 ([240, 126, 94], [112, 148, 242]) so kit/illum.js's `lift` leaves them as designed, and is written a little
+thinner (light lines on dark read heavier).
+**Hooks kit/illum.js would need**: (1) a mark's own dark ink without `lift` (illum.js lifts every `s.ink` on a dark page); (2) a
+pigment letter painted on dark with texture (paintField composited for a dark ground, e.g. `letter.pigmentDark`), instead of a
+flat colour or this two-coat workaround.

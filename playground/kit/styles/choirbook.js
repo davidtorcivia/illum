@@ -20,14 +20,15 @@
 //   bare, so the page's own colour in light and dark). Drop initials, usual budget up; ?filigree=0|1 overrides.
 // - a small cross of points in the margin (467763), on the finer budgets.
 // - the stave (every leaf): four red rules, the square notes in black, the finalis, as the chapter break.
-// The letter is GENERATED from a stroke model of one rubricator's hand (Free Library of Philadelphia, Lewis E 73, a Gradual,
-// Bologna?, c. 1425; tools/lombgen.py), measured on the letters traced from his book (?lombard=traced shows those), one small
-// webfont per letter; the box round it worked to his rules (counterWork) (research/17 §4c; see "the letter" below); EB Garamond if a face is missing.
+// The letter is George Williams' Lombardic painted by the hand of one rubricator (Free Library of Philadelphia, Lewis E 73, a
+// Gradual, Bologna?, c. 1425; tools/lombhand.py), one small webfont per letter; the box round it is the filigree grown in its
+// gaps (filigrana: contained, then filled by each bay's shape; research/17 §4i); EB Garamond if a face is missing.
 //
 // Marks are the registry's: strokes { pts, col, w, start, end, load, dry, broad, swell, nib, ink? } and points
 // { dot, p, r, col, ink? }; col 'a' | 'b' (red and blue in turn), 'k' the notes' black.
 import { tendril, resample, stream, noise1, noise2, PIGMENTS } from '../marks.js';
 import { edt, drawn } from '../penwork.js';
+import { poisson } from '../spray.js';
 import { STYLES, wander, arc, hook, hair, bead, paraph as wParaph, filler as wFiller, breakMark as wBreak, FILLERS as wFillers } from '../wayfinding.js';
 import { quoteFrame, figureFrame, codeFrame, asideFrame, navFrame } from '../frames.js';
 
@@ -256,6 +257,242 @@ export function counterWork(L, seed, g = 2.6, keep = []) {
   return out;
 }
 
+// ---- the filigree, grown (third pass: "paint the ground, apply the letter, grow in the gaps") --------------------------------------
+// Read at 4x in his B and P (Lewis E 73): every bay of the letter's box is first CONTAINED (a double hairline a gap off
+// the paint, running on round the inside of the box, so the frame and the letter's echo are one line), then FILLED by
+// its shape: a round counter gets an eye (a ring, its point) with spokes radiating from it to the contour, and small
+// scrolls branching off the spokes into the sectors; a broad bay gets scrolls branching off its contour; a channel too
+// narrow for scrolls a string of pearls (small rings) down its middle. Round the box, the frame's outer side: pearls set
+// on it and spikes radiating between them, a taller finial at the middle of the top and the foot. Everything is a pen
+// line: no stamped dot but the eye's point. Each scroll is one stroke leaving its parent at an easy angle, bending
+// steadily and winding in at its end, its curvature continuous (a Bezier run into a spiral of the same sense); it may
+// branch off a scroll laid before it (the growth's hierarchy: contour, spokes, scrolls, scrollets). Spacing is his
+// (research/17 §4f: the gap between neighbouring hairlines a median ~.044 H): sp = .05 H, a pen a hairline of ~.01 H.
+// The only raster is the clearance field (the bay's distance to its edge), which the growth steers by.
+// Returns strokes in page px in the order a hand would write them, and the eyes' points ({ kind: 'dot' }).
+// the middle lines of a mask (a bay's core), as polylines in page px: the mask at one cell a px, thinned (Zhang and Suen
+// 1984), its pixel graph cut at forks and ends into runs, the spurs (a run ending free, shorter than `spur`) pruned twice
+function middles({ M, w, h, x0, y0, res }, spur) {
+  const s = Math.max(1, Math.round(res)), W = Math.ceil(w / s) + 2, H = Math.ceil(h / s) + 2, B = new Uint8Array(W * H);
+  for (let J = 1; J < H - 1; J++) for (let I = 1; I < W - 1; I++) { const i = Math.min(w - 1, (I - 1) * s + (s >> 1)), j = Math.min(h - 1, (J - 1) * s + (s >> 1)); B[J * W + I] = M[j * w + i] > .5 ? 1 : 0; }
+  const nb = k => [B[k - W], B[k - W + 1], B[k + 1], B[k + W + 1], B[k + W], B[k + W - 1], B[k - 1], B[k - W - 1]];
+  for (let changed = true; changed;) { changed = false;
+    for (const step of [0, 1]) { const del = [];
+      for (let J = 1; J < H - 1; J++) for (let I = 1; I < W - 1; I++) { const k = J * W + I; if (!B[k]) continue; const n = nb(k), b = n.reduce((a, v) => a + v, 0); if (b < 2 || b > 6) continue;
+        let a = 0; for (let q = 0; q < 8; q++) if (!n[q] && n[(q + 1) % 8]) a++; if (a !== 1) continue;
+        if (step === 0 ? (n[0] * n[2] * n[4] || n[2] * n[4] * n[6]) : (n[0] * n[2] * n[6] || n[0] * n[4] * n[6])) continue; del.push(k); }
+      for (const k of del) B[k] = 0; if (del.length) changed = true; } }
+  const N8 = [-W, -W + 1, 1, W + 1, W, W - 1, -1, -W - 1], deg = k => N8.reduce((a, d) => a + B[k + d], 0);
+  const trace = () => { const runs = [], seen = new Set(), ek = (a, b) => a < b ? a + ',' + b : b + ',' + a;
+    const nodes = []; for (let k = 0; k < W * H; k++) if (B[k] && deg(k) !== 2) nodes.push(k);
+    for (const k0 of nodes) for (const d of N8) { const k1 = k0 + d; if (!B[k1] || seen.has(ek(k0, k1))) continue; const run = [k0, k1]; seen.add(ek(k0, k1)); let prev = k0, cur = k1;
+      while (deg(cur) === 2) { const nx = N8.map(e => cur + e).find(q => B[q] && q !== prev && !seen.has(ek(cur, q))); if (nx === undefined) break; seen.add(ek(cur, nx)); run.push(nx); prev = cur; cur = nx; }
+      runs.push(run); }
+    return runs; };
+  for (let pass = 0; pass < 2; pass++) for (const run of trace()) { const a = run[0], b = run.at(-1), free = deg(a) === 1 || deg(b) === 1;
+    if (free && run.length < spur) for (const k of run) if (deg(k) <= 2) B[k] = 0; }
+  return trace().filter(r => r.length > 2).map(r => r.map(k => [x0 + (((k % W) - 1) * s + s / 2) / res, y0 + ((((k / W) | 0) - 1) * s + s / 2) / res]));
+}
+// the box's margins round the letter's ink, [left, top, right, bottom] in px (his B: the frame stands off the letter most on
+// the left, where the drops of its serifs reach, least on the right and the top)
+export const boxMargins = H => { const sp = Math.max(1.7, H * .05); return [sp * 1.1, sp * .7, sp * .75, sp * .9]; };
+export function filigrana(L, seed, keep = [], level = 2, o = {}) {
+  const { M, w, h, x0, y0, res } = L, ink = new Uint8Array(w * h); let bx0 = w, by0 = h, bx1 = 0, by1 = 0;
+  for (let k = 0; k < w * h; k++) if (M[k] > .5) { ink[k] = 1; const i = k % w, j = k / w | 0; if (i < bx0) bx0 = i; if (i > bx1) bx1 = i; if (j < by0) by0 = j; if (j > by1) by1 = j; }
+  const H = (by1 - by0) / res, r = stream(seed, 'filigrana'), sp = Math.max(1.7, H * .05), LW = .3;
+  const small = H < 60;   // (a phone's drop: his thinning rule, fewer and plainer parts)
+  const out = { frame: [], spokes: [], scrolls: [], pearls: [], spikes: [], dots: [] };
+  const Px = (i, j) => [x0 + (i + .5) / res, y0 + (j + .5) / res];
+  const inWords = (x, y, m = 1) => keep.some(k => x >= k[0] - m && x <= k[2] + m && y >= k[1] - m && y <= k[3] + m);
+  const wob = (pts, a = .18) => { const n = noise1((seed * 31 + pts.length * 7) | 0); return pts.map((p, i) => [p[0] + (n(i * .09) - .5) * a, p[1] + (n(i * .09 + 50) - .5) * a]); };
+  const smooth = (p, closed, n = 4) => { let q = p; const m = q.length; for (let it = 0; it < n; it++) q = q.map((pt, i) => {
+    if (!closed && (i === 0 || i === m - 1)) return pt; const a = q[closed ? (i - 1 + m) % m : i - 1], b = q[closed ? (i + 1) % m : i + 1]; return [(a[0] + 2 * pt[0] + b[0]) / 4, (a[1] + 2 * pt[1] + b[1]) / 4]; }); return q; };
+  const stroke = (list, pts, extra = {}) => { if (pts.length > 1) list.push({ pts: wob(pts), kind: 'cw', w: LW, start: 'cut', end: 'cut', ...extra }); };
+  // the frame: the letter's ink box, a little out (his frame is close: the serifs' drops reach it)
+  const fm = boxMargins(H), fb = [x0 + bx0 / res - fm[0], y0 + by0 / res - fm[1], x0 + (bx1 + 1) / res + fm[2], y0 + (by1 + 1) / res + fm[3]];
+  // the bays: the box less the letter (a gap off the paint) and less the words
+  const Din = edt(ink, w, h), off = sp * .22 * res, bay = new Uint8Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i, [x, y] = Px(i, j); if (!ink[k] && Din[k] > off && x > fb[0] && x < fb[2] && y > fb[1] && y < fb[3] && !inWords(x, y)) bay[k] = 1; }
+  const notBay = new Uint8Array(w * h); for (let k = 0; k < w * h; k++) notBay[k] = !bay[k];
+  const Db = edt(notBay, w, h); for (let k = 0; k < w * h; k++) Db[k] /= res;   // (px from the bay's edge)
+  const at = (x, y) => { const i = Math.round((x - x0) * res - .5), j = Math.round((y - y0) * res - .5); return i < 0 || j < 0 || i >= w || j >= h ? 0 : Db[j * w + i]; };
+  const grad = (x, y) => { const e = .5, gx = at(x + e, y) - at(x - e, y), gy = at(x, y + e) - at(x, y - e), l = Math.hypot(gx, gy) || 1; return [gx / l, gy / l]; };
+  // components (bays), each with its deepest cell and whether it is a closed counter (it never meets the frame)
+  const lab = new Int32Array(w * h), comps = [];
+  for (let s0 = 0; s0 < w * h; s0++) { if (!bay[s0] || lab[s0]) continue; const id = comps.length + 1, st = [s0]; let n = 0, best = s0, open = false; lab[s0] = id;
+    while (st.length) { const k = st.pop(); n++; if (Db[k] > Db[best]) best = k; const i = k % w, j = k / w | 0, [x, y] = Px(i, j);
+      if (x - fb[0] < 1.5 || fb[2] - x < 1.5 || y - fb[1] < 1.5 || fb[3] - y < 1.5) open = true;
+      for (const q of [i > 0 ? k - 1 : -1, i < w - 1 ? k + 1 : -1, j > 0 ? k - w : -1, j < h - 1 ? k + w : -1]) if (q >= 0 && bay[q] && !lab[q]) { lab[q] = id; st.push(q); } }
+    comps.push({ id, n, best, rad: Db[best], open, area: n / res / res }); }
+  const compAt = (x, y) => { const i = Math.round((x - x0) * res - .5), j = Math.round((y - y0) * res - .5); return i < 0 || j < 0 || i >= w || j >= h ? 0 : lab[j * w + i]; };
+
+  // occupancy: every laid line's points, in cells of sp, so a new line keeps its distance
+  const occ = new Map(), OK = (i, j) => i * 7919 + j, occAdd = (pts, id) => { for (const p of resample(pts, .7)) { const k = OK(Math.floor(p[0] / sp), Math.floor(p[1] / sp)); (occ.get(k) ?? occ.set(k, []).get(k)).push([p[0], p[1], id]); } };
+  const clear = (p, d, skip) => { const i0 = Math.floor(p[0] / sp), j0 = Math.floor(p[1] / sp), n = Math.ceil(d / sp);
+    for (let i = i0 - n; i <= i0 + n; i++) for (let j = j0 - n; j <= j0 + n; j++) for (const q of occ.get(OK(i, j)) ?? []) if (!skip?.has(q[2]) && (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2 < d * d) return false;
+    return true; };
+  // attach points: places a scroll may branch from (with the line's tangent), by bay
+  const anchors = []; let nid = 0;
+  const addAnchors = (pts, id, kind, depth) => { const q = resample(pts, sp * .5); q.forEach((p, i) => { if (i < 2 || i > q.length - 3) return; const a = q[i - 1], b = q[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    anchors.push({ p, t: [(b[0] - a[0]) / l, (b[1] - a[1]) / l], id, kind, depth, comp: compAt(p[0], p[1]) }); }); };
+
+  // 1. CONTAINED: the double line round every bay (the level sets of the bay's depth), the frame's inner side with it
+  const edges = [], v1 = sp * .15, v2 = sp * .62;   // (two lines a hair apart hug the letter a reserve off its paint, and run on as the frame's inner lines)
+  const iso = v => { const segs = [], F = (i, j) => (i < 0 || j < 0 || i >= w || j >= h || !bay[j * w + i]) ? -1 : Db[j * w + i];
+    for (let j = -1; j < h; j++) for (let i = -1; i < w; i++) { const a = F(i, j), b = F(i + 1, j), c = F(i + 1, j + 1), d = F(i, j + 1); if (a < v && b < v && c < v && d < v) continue; if (a >= v && b >= v && c >= v && d >= v) continue;
+      const cs = [[i, j, a], [i + 1, j, b], [i + 1, j + 1, c], [i, j + 1, d]], pts = [];
+      for (let e = 0; e < 4; e++) { const [ix, iy, va] = cs[e], [jx, jy, vb] = cs[(e + 1) % 4]; if ((va >= v) !== (vb >= v)) { const t = (v - va) / (vb - va); pts.push([ix + (jx - ix) * t, iy + (jy - iy) * t]); } }
+      if (pts.length === 2) segs.push(pts); else if (pts.length === 4) segs.push([pts[0], pts[1]], [pts[2], pts[3]]); }
+    const key = p => Math.round(p[0] * 64) + ',' + Math.round(p[1] * 64), ends = new Map(), done = new Uint8Array(segs.length), lines = [];
+    segs.forEach((sg, n) => { for (const e of [0, 1]) { const k2 = key(sg[e]); (ends.get(k2) ?? ends.set(k2, []).get(k2)).push(n); } });
+    for (let n = 0; n < segs.length; n++) { if (done[n]) continue; done[n] = 1; const line = [segs[n][0], segs[n][1]];
+      for (const dir of [1, 0]) for (;;) { const tip = dir ? line.at(-1) : line[0], nx = (ends.get(key(tip)) ?? []).find(m => !done[m]); if (nx === undefined) break; done[nx] = 1;
+        const sg = segs[nx], other = key(sg[0]) === key(tip) ? sg[1] : sg[0]; dir ? line.push(other) : line.unshift(other); }
+      const closed = Math.hypot(line[0][0] - line.at(-1)[0], line[0][1] - line.at(-1)[1]) < 1.5;
+      const pg = line.map(([i, j]) => [x0 + (i + .5) / res, y0 + (j + .5) / res]);
+      if (arclen(pg) > sp * 1.5) lines.push({ pts: smooth(resample(pg, .6), closed, 5), closed }); }
+    return lines; };
+  for (const [v, inner] of [[v1, false], [v2, true]]) for (const ln of iso(v)) {
+    // (a closed line is begun where a hand would set the pen down: its top-left, and written round once)
+    let pts = ln.pts; if (ln.closed) { let s = 0; pts.forEach((p, i) => { if (p[0] + p[1] < pts[s][0] + pts[s][1]) s = i; }); pts = [...pts.slice(s), ...pts.slice(0, s + 1)]; }
+    const id = ++nid; stroke(out.frame, pts); occAdd(pts, id); if (inner) { addAnchors(pts, id, 'edge', 0); edges.push([pts, id]); } }
+  // the frame's outer line, a little outside the inner (his frame is a double hairline), begun at its top left
+  { const g = sp * .62, [X0, Y0, X1, Y1] = [fb[0] - g, fb[1] - g, fb[2] + g, fb[3] + g], pts = [];
+    for (const [a, b] of [[[X0, Y0], [X1, Y0]], [[X1, Y0], [X1, Y1]], [[X1, Y1], [X0, Y1]], ...(o.panel ? [] : [[[X0, Y1], [X0, Y0]]])]) for (let t = 0; t < 1; t += .02) { const p = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+      if (inWords(p[0], p[1], 1)) { if (pts.length > 3) { const id = ++nid; stroke(out.frame, pts.splice(0)); } else pts.length = 0; } else pts.push(p); }
+    if (pts.length > 3) stroke(out.frame, pts); fb.outer = [X0, Y0, X1, Y1]; }
+  const deep = v2 + sp * .38;   // (the core: where the fill may run, a gap inside the inner line)
+
+  // 2. FILLED, bay by bay, by its shape
+  const coreOK = (p, d = deep) => at(p[0], p[1]) >= d;
+  const eyes = [], sector = [], eyeComp = new Set();
+  for (const c of comps) {
+    const room = c.rad - deep; if (room < sp * .15) continue;
+    const [cx, cy] = Px(c.best % w, c.best / w | 0), round = c.area / (Math.PI * c.rad * c.rad);
+    if (!c.open && room > sp * 1.4 && round < 2.6 && !small) {
+      // an eye: a ring and its point at the counter's deepest place, spokes radiating from it to the contour (each run
+      // up the bay's depth from the ring, so they fan to its shape), every other one the longer
+      const re = sp * .55, id = ++nid, ring = []; const a0 = r() * 6.283;
+      for (let k = 0; k <= 30; k++) { const a = a0 + k / 30 * 2.08 * Math.PI; ring.push([cx + Math.cos(a) * re, cy + Math.sin(a) * re]); }
+      stroke(out.spokes, ring); occAdd(ring, id); out.dots.push({ kind: 'dot', p: [cx, cy], r: Math.max(.55, sp * .17) }); eyes.push([cx, cy, re]);
+      const ns = Math.max(6, Math.min(12, Math.round(2 * Math.PI * Math.min(c.rad, sp * 6) / (sp * 2.9)) & ~1));
+      for (let k = 0; k < ns; k++) { const a = a0 + (k + .5) / ns * 2 * Math.PI; let p = [cx + Math.cos(a) * (re + sp * .35), cy + Math.sin(a) * (re + sp * .35)], d = [Math.cos(a), Math.sin(a)]; const pts = [p];
+        for (let s = 0; s < c.rad * 3; s += .5) { const g = grad(p[0], p[1]), mix = Math.min(1, s / (c.rad * 1.2)) * .55; d = [d[0] * (1 - mix * .2) - g[0] * mix * .2, d[1] * (1 - mix * .2) - g[1] * mix * .2]; const l = Math.hypot(...d); d = [d[0] / l, d[1] / l];
+          const q = [p[0] + d[0] * .5, p[1] + d[1] * .5]; if (at(q[0], q[1]) < v2 + sp * .12) break; p = q; pts.push(p); }
+        if (arclen(pts) < sp * .8) continue; const sid = ++nid; stroke(out.spokes, pts, { end: 'cut' }); occAdd(pts, sid); addAnchors(pts, sid, 'spoke', 1);
+        // (in the sector after it, a scroll hung from this spoke, curling out at three fifths of the way to the contour)
+        const b2 = a + Math.PI / ns, db = [Math.cos(b2), Math.sin(b2)]; let rim = re; while (rim < c.rad * 3 && at(cx + db[0] * rim, cy + db[1] * rim) > v2 + sp * .2) rim += .5;
+        const span = rim - re - sp * .4, frs = span > sp * 2.6 ? [.3 + r() * .08, .72 + r() * .08] : span > sp * 1.2 ? [.55 + r() * .1] : [];
+        for (const fr of frs) sector.push([cx + db[0] * (re + span * fr), cy + db[1] * (re + span * fr)]); }
+      eyeComp.add(c.id);
+    }
+  }
+  const RHO = sp * (small ? .4 : .33), SPAN = sp * (small ? 1.4 : 1.12);
+  // the spines: down the middle of every bay that has no eye (the ridge of its depth), a long line where the bay is broad,
+  // with scrolls hung from it on alternate sides at his spacing; where it narrows, pearls strung down the middle instead
+  { const coreM = new Float32Array(w * h); for (let k = 0; k < w * h; k++) coreM[k] = bay[k] && !eyeComp.has(lab[k]) && Db[k] >= v2 + sp * .5 ? 1 : 0;
+    const lines = middles({ M: coreM, w, h, x0, y0, res }, sp * 2).filter(l => arclen(l) > sp * .8);
+    for (const ln of lines) {
+      const q = resample(ln, .5), cls = q.map(p => { const d = at(p[0], p[1]) - v2 - sp * .3; return d >= sp * 1.15 ? 2 : d >= sp * .55 ? 1 : 0; });
+      // (runs of one kind, a short run of another inside a long one taken into it)
+      const runs = []; q.forEach((p, i) => { const last = runs.at(-1); if (last && last.k === cls[i]) last.pts.push(p); else runs.push({ k: cls[i], pts: [p] }); });
+      for (let i = 1; i < runs.length - 1; i++) if (arclen(runs[i].pts) < sp * .8 && runs[i - 1].k === runs[i + 1].k) { runs[i - 1].pts.push(...runs[i].pts, ...runs[i + 1].pts); runs.splice(i, 2); i--; }
+      for (const run of runs) { const L2 = arclen(run.pts);
+        if (run.k === 2 && L2 >= sp * 2) {
+          const pts = smooth(run.pts, false, 6), id = ++nid; stroke(out.frame, pts, { end: 'taper' }); occAdd(pts, id); addAnchors(pts, id, 'spine', 1);
+          // its scrolls, alternately either side, each leaving it forward at an easy angle and winding in
+          const qq = resample(pts, .5); let side = r() < .5 ? 1 : -1;
+          for (let sA = sp * .6; sA < L2 - sp * .4; sA += sp * (.95 + r() * .2)) { const i = Math.min(qq.length - 2, Math.round(sA / .5)), a = qq[i - 1] ?? qq[i], b = qq[i + 1], tl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = [(b[0] - a[0]) / tl, (b[1] - a[1]) / tl], nn = [-t[1] * side, t[0] * side];
+            const avail = at(qq[i][0], qq[i][1]) - v2 - sp * .3, rho = Math.max(sp * .26, Math.min(sp * .5, (avail - sp * .42) / 2.1)), dd = sp * .42 + rho;
+            const c = [qq[i][0] + nn[0] * dd + t[0] * sp * .55, qq[i][1] + nn[1] * dd + t[1] * sp * .55]; side = -side;
+            if (avail < sp * .42 + rho * 2) continue; sector.push([c, { p: qq[i], t, id, depth: 1 }, rho]); }
+        } else if (run.k >= 1 && L2 >= sp * .6) {
+          const pp = resample(run.pts, .5); let last = null;
+          for (const p of pp) { const d = at(p[0], p[1]) - v2 - sp * .3, R = Math.max(sp * .26, Math.min(sp * .46, d - sp * .12)); if (d < sp * .5) continue;
+            if (last && Math.hypot(p[0] - last[0], p[1] - last[1]) < R + last[2] + sp * .5 || !clear(p, R + sp * .45)) continue; last = [p[0], p[1], R];
+            const id = ++nid, rg = [], a0 = r() * 6.283; for (let k = 0; k <= 18; k++) { const a = a0 + k / 18 * 2.1 * Math.PI; rg.push([p[0] + Math.cos(a) * R, p[1] + Math.sin(a) * R]); } stroke(out.pearls, rg); occAdd(rg, id); } } } } }
+  // the scrolls: attractors set evenly in the cores (Poisson disc at his spacing), each reached by one stroke branching
+  // off the nearest line laid so far (contour, spoke, or an earlier scroll), nearest first, so the work grows outward
+  // from the structure and later scrolls hang from earlier ones
+  const W0 = fb[2] - fb[0], H0 = fb[3] - fb[1];
+  const att = poisson(W0, H0, SPAN, r, q => { const p = [q[0] + fb[0], q[1] + fb[1]]; return coreOK(p, deep + RHO * .3) && clear(p, RHO + sp * .34) && !eyes.some(e => Math.hypot(p[0] - e[0], p[1] - e[1]) < e[2] + RHO + sp * .7); })
+    .map(q => [q[0] + fb[0], q[1] + fb[1]]);
+  const nearAnchor = (p, comp) => { let best = null, bd = 1e9; for (const a of anchors) { if (a.comp !== comp && a.comp) continue; const d = Math.hypot(a.p[0] - p[0], a.p[1] - p[1]); if (d < bd && d > RHO * 1.2) { bd = d; best = a; } } return [best, bd]; };
+  const bez = (A, B, C, D, u) => { const v = 1 - u; return [v * v * v * A[0] + 3 * v * v * u * B[0] + 3 * v * u * u * C[0] + u * u * u * D[0], v * v * v * A[1] + 3 * v * v * u * B[1] + 3 * v * u * u * C[1] + u * u * u * D[1]]; };
+  // one scroll from anchor a to curl round c: leave the parent at an easy angle toward c, bend steadily, enter a circle
+  // round c along its own direction and wind in a turn, the radius closing as a pen's spiral does
+  const scroll = (a, c, rho) => {
+    const v = [c[0] - a.p[0], c[1] - a.p[1]], dl = Math.hypot(...v), u = [v[0] / dl, v[1] / dl];
+    let t = a.t[0] * u[0] + a.t[1] * u[1] >= 0 ? a.t : [-a.t[0], -a.t[1]];
+    const side = Math.sign(t[0] * u[1] - t[1] * u[0]) || 1, off = .45 + r() * .25;   // (leaves its parent 25-40 degrees out, toward c)
+    const d0 = [t[0] * Math.cos(off * side) - t[1] * Math.sin(off * side), t[0] * Math.sin(off * side) + t[1] * Math.cos(off * side)];
+    const turn = Math.sign(d0[0] * u[1] - d0[1] * u[0]) || side, n = [-u[1], u[0]], E = [c[0] - turn * rho * n[0], c[1] - turn * rho * n[1]];
+    const L = Math.hypot(E[0] - a.p[0], E[1] - a.p[1]); if (L < sp * .4) return null;
+    const B = [a.p[0] + d0[0] * L * .4, a.p[1] + d0[1] * L * .4], C = [E[0] - u[0] * L * .35, E[1] - u[1] * L * .35], pts = [];
+    const nb = Math.max(4, Math.ceil(L / .5)); for (let k = 0; k <= nb; k++) pts.push(bez(a.p, B, C, E, k / nb));
+    const th0 = Math.atan2(E[1] - c[1], E[0] - c[0]), sweep = (1.05 + r() * .35) * 2 * Math.PI, ns = Math.ceil(sweep * rho / .45);
+    for (let k = 1; k <= ns; k++) { const f = k / ns, th = th0 + turn * sweep * f, rr = rho * (1 - .62 * f ** 1.2); pts.push([c[0] + Math.cos(th) * rr, c[1] + Math.sin(th) * rr]); }
+    return pts; };
+  // (a stroke is accepted only if it keeps his gap from everything else laid, outside its first stretch off its parent,
+  // and stays in the core once it has left the contour; its own curl may come close to itself, as a pen's does)
+  const fits = (pts, a) => { const skip = new Set([a.id]); let s = 0;
+    for (let i = 1; i < pts.length; i++) { s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); if (i % 2) continue; const p = pts[i];
+      if (s > sp * .8 && !coreOK(p, v2 + sp * .32)) return false;
+      if (inWords(p[0], p[1], 1.5)) return false;
+      if (s > sp * .55 && !clear(p, sp * .33, skip)) return false; }
+    return true; };
+  const MAXS = small ? 50 : 110; let ns = 0;
+  // (first the set scrolls: a spine's, from their own place on it; an eye's sectors'; then the attractors that are still
+  // clear, nearest the work first, each from the nearest line it can reach)
+  const lay = (pts, a) => { const id = ++nid, sm2 = smooth(resample(pts, .45), false, 3); stroke(out.scrolls, sm2, { end: 'taper', depth: a.depth + 1 }); occAdd(sm2, id);
+    const stemLen = Math.max(2, Math.round(sm2.length * .55)); if (a.depth < 2) addAnchors(sm2.slice(0, stemLen), id, 'scroll', a.depth + 1); ns++; };
+  for (const e of sector) if (typeof e[0] !== 'number') { const [c, a, rho] = e; const pts = scroll(a, c, rho); if (pts && fits(pts, a)) lay(pts, a); }
+  // (an eye's sectors: each scroll hung from the nearer spoke, a little smaller than the rest)
+  for (const c of sector) if (typeof c[0] === 'number') { const comp = compAt(c[0], c[1]);
+    const cand = anchors.filter(a => a.kind === 'spoke' && a.comp === comp).map(a => [Math.hypot(a.p[0] - c[0], a.p[1] - c[1]), a]).filter(([d]) => d > sp * .5).sort((x, y) => x[0] - y[0]).slice(0, 6);
+    for (const [, a] of cand) { const pts = scroll(a, c, sp * (.26 + r() * .05)); if (pts && fits(pts, a)) { lay(pts, a); break; } } }
+  // the fringe: along the inner contour, small scrolls hung into the bay one after another at his spacing, wherever there is
+  // room for one (in a narrow bay they are all its work; in a broad one they line its edge)
+  for (const [pts, id] of edges) { const qq = resample(pts, .5), L2 = arclen(qq); let last = -1e9;
+    for (let sA = sp * .5; sA < L2 - sp * .3; sA += .5) { if (sA - last < sp * (1.2 + r() * .15)) continue; const i = Math.min(qq.length - 2, Math.max(1, Math.round(sA / .5))), a = qq[i - 1], b = qq[i + 1], tl = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = [(b[0] - a[0]) / tl, (b[1] - a[1]) / tl];
+      let nn = [-t[1], t[0]]; if (at(qq[i][0] + nn[0] * sp * .5, qq[i][1] + nn[1] * sp * .5) < at(qq[i][0] - nn[0] * sp * .5, qq[i][1] - nn[1] * sp * .5)) nn = [-nn[0], -nn[1]];
+      // (the room ahead into the bay: as far as the depth keeps rising, less a gap)
+      let room = 0; while (room < sp * 3 && at(qq[i][0] + nn[0] * (room + .5), qq[i][1] + nn[1] * (room + .5)) > at(qq[i][0] + nn[0] * room, qq[i][1] + nn[1] * room) - .05) room += .5;
+      const rho = Math.min(sp * .38, (room - sp * .3) / 2.4); if (rho < sp * .2) continue;
+      const fw = r() < .5 ? 1 : -1, c = [qq[i][0] + nn[0] * (sp * .25 + rho * 1.4) + t[0] * fw * sp * .35, qq[i][1] + nn[1] * (sp * .25 + rho * 1.4) + t[1] * fw * sp * .35];
+      const anc = { p: qq[i], t, id, depth: 0 }, sc = scroll(anc, c, rho); if (sc && fits(sc, anc)) { lay(sc, anc); last = sA; } } }
+  const rest = att.filter(p => clear(p, RHO + sp * .45)); rest.sort((p, q) => nearAnchor(p, compAt(...p))[1] - nearAnchor(q, compAt(...q))[1]);
+  att.splice(0, att.length, ...rest);
+  for (const c of att) { if (ns >= MAXS) break; const comp = compAt(c[0], c[1]);
+    // (the nearest few anchors are tried, nearest first; a scroll that cannot be laid without crowding is not laid)
+    const cand = anchors.filter(a => !a.comp || a.comp === comp).map(a => [Math.hypot(a.p[0] - c[0], a.p[1] - c[1]), a]).filter(([d]) => d > RHO * 1.3 && d < SPAN * 2.4).sort((x, y) => x[0] - y[0]).slice(0, 8);
+    for (const [, a] of cand) { const rho = RHO * (.85 + r() * .3), pts = scroll(a, c, rho); if (!pts || !fits(pts, a)) continue;
+      lay(pts, a); break; } }
+
+  // 3. the frame's outer side: pearls set on it and spikes radiating between them; a finial at the middle of top and foot;
+  // the left side (the margin's panel stands there) and wherever words stand left bare
+  const [X0, Y0, X1, Y1] = fb.outer, e = 0;   // (from the frame's outer line)
+  const side = (a, b, nrm, finial) => { const L2 = Math.hypot(b[0] - a[0], b[1] - a[1]), step = sp * 1.45, n = Math.max(2, Math.round(L2 / step)), mid = n / 2;
+    for (let k = 1; k < n; k++) { const t = k / n, p = [a[0] + (b[0] - a[0]) * t + nrm[0] * e, a[1] + (b[1] - a[1]) * t + nrm[1] * e];
+      if (inWords(p[0] + nrm[0] * sp, p[1] + nrm[1] * sp, 2) || inWords(p[0], p[1], 2)) continue;
+      const tg = [(b[0] - a[0]) / L2, (b[1] - a[1]) / L2];
+      if (finial && Math.abs(k - mid) < .6) {   // the finial: a tall spike, a pair of small scrolls springing from its foot
+        const ln = sp * 2.4, tip = [p[0] + nrm[0] * ln, p[1] + nrm[1] * ln]; stroke(out.spikes, [p, [p[0] + nrm[0] * ln * .5 + tg[0] * .15, p[1] + nrm[1] * ln * .5 + tg[1] * .15], tip], { end: 'taper' });
+        for (const sg of [-1, 1]) { const pts = []; for (let q = 0; q <= 26; q++) { const f = q / 26, th = f * Math.PI * 1.5, R = sp * .62 * (1 - .45 * f);
+            const base = [p[0] + nrm[0] * sp * .35, p[1] + nrm[1] * sp * .35], cx2 = [base[0] + tg[0] * sg * sp * .62, base[1] + tg[1] * sg * sp * .62];
+            const ang = Math.atan2(-tg[1] * sg, -tg[0] * sg) - sg * th * (nrm[1] > 0 || nrm[0] > 0 ? -1 : 1); pts.push([cx2[0] + Math.cos(ang) * R + nrm[0] * f * sp * .35, cx2[1] + Math.sin(ang) * R + nrm[1] * f * sp * .35]); }
+          stroke(out.spikes, pts, { end: 'taper' }); }
+        continue; }
+      if ((k + (finial ? 0 : 1)) % 2) {   // a pearl, sitting on the line
+        const R = sp * .3, c2 = [p[0] + nrm[0] * R, p[1] + nrm[1] * R], rg = [], a0 = Math.atan2(-nrm[1], -nrm[0]); for (let q = 0; q <= 16; q++) { const an = a0 + q / 16 * 2.05 * Math.PI; rg.push([c2[0] + Math.cos(an) * R, c2[1] + Math.sin(an) * R]); } stroke(out.spikes, rg); }
+      else { const ln = sp * (1.05 + (k % 4 === 0 ? .35 : 0)) * (.92 + r() * .16); stroke(out.spikes, [p, [p[0] + nrm[0] * ln, p[1] + nrm[1] * ln]], { end: 'taper' }); } } };
+  side([X0, Y0], [X1, Y0], [0, -1], true); side([X0, Y1], [X1, Y1], [0, 1], true); side([X1, Y0], [X1, Y1], [1, 0], false);
+  // the corners: a spike out along the diagonal (not on the margin's side)
+  for (const [cx, cy, sx, sy] of [[X1, Y0, 1, -1], [X1, Y1, 1, 1]]) { const ln = sp * 1.5, p = [cx, cy], q = [cx + sx * ln * .7071, cy + sy * ln * .7071]; if (!inWords(q[0], q[1], 2)) stroke(out.spikes, [p, q], { end: 'taper' }); }
+  // the order a hand writes them: the contour and frame, the eyes' spokes, the scrolls as they grew, the pearls, the spikes
+  return [...out.frame, ...out.spokes, ...out.scrolls, ...out.pearls, ...out.spikes, ...out.dots];
+}
+
 // ---- the split body (his parted letters: a stem in the other colour) -------------------------------------------------------------
 // kit/illum.js paints a registry letter in one pigment (letter: { M, pigment }); a letter in two needs a hook there, e.g.
 // letter.parts: [{ M, pigment }...] painted in turn in score()'s paint(). Until then the style prototypes it: the stem (the
@@ -282,7 +519,7 @@ export function splitBody(L, seed) {
 // text-side panel [x0, y0, x1, y1] or null.
 export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap = true, seed = 1, level = 2, right = g, tp = null, own = false }) {
   // own: the letter's box is worked by counterWork (Lewis E 73's rules), so the penwork here leaves it alone
-  const r = stream(seed, 'penwork'), out = [], B = own ? { ...BUDGETS[level], counterEyes: 0, counterRules: false } : BUDGETS[level];
+  const r = stream(seed, 'penwork'), out = [], B = own ? { ...BUDGETS[level], counterEyes: 0, counterRules: false, top: false } : BUDGETS[level];
   const { M, w: gw, h: gh, x0: gx, y0: gy, res } = glyph, ink = new Uint8Array(gw * gh);
   for (let i = 0; i < gw * gh; i++) ink[i] = M[i] > .5;
   let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9;
@@ -463,7 +700,7 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
 // 03's geometry and inks exactly (kit/initials.js gothic), the text-side panel from the usual budget up
 const GEOM = { panelW: [.3, .4, .52, .6, .68], rise: [0, .03, .06, .14, .22], staff: [1.4, 3.2, 5.5, 7, 9], wider: [0, 0, 4, 6, 9],
   small: { panelW: [5, 7, 8.5, 10, 12], staff: [.7, 1.2, 1.6, 2.2, 3] } };
-const INKS = { azurite: [212, 108, 82], minium: [60, 86, 164] };
+const INKS = { azurite: [214, 116, 90], minium: [78, 106, 182] }, INKS_DARK = { azurite: [240, 126, 94], minium: [112, 148, 242] };   // (dark: lightness over .64, so kit/illum.js's lift leaves them as designed)   // (the penwork's: a fine pen's line reads lighter than the paint)
 // the dark page's paints: the pigment laid flat (kit/illum.js lifts it), its body thick where the brush pooled at the
 // edge and thinner over the middle, so it reads laid, not printed
 PIGMENTS.cbAzureDark ??= { rgb: [52, 88, 206], gran: .03, rim: .42 };
@@ -474,8 +711,8 @@ function pooled(L, seed) {
   const { M, w, h, res } = L, paper = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) paper[i] = M[i] <= .5;
   const D = edt(paper, w, h), n = noise2(seed ^ 0x2b), n2 = noise2(seed ^ 0x6c), n3 = noise2(seed ^ 0x13), out = new Float32Array(w * h);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; if (!M[k]) continue; const d = D[k] / res, x = i / res, y = j / res;
-    const a = .76 + .2 * Math.exp(-d / 1.4) + .12 * (n(x / 7, y / 7) - .5) * 2 + .06 * (n2(x / 2.2, y / 2.2) - .5) * 2 + .04 * (n3(x / .7, y / .7) - .5) * 2;
-    out[k] = M[k] * Math.max(.55, Math.min(1, a)); }
+    const a = .78 + .22 * Math.exp(-d / 1.2) + .07 * (n(x / 7, y / 7) - .5) * 2 + .05 * (n2(x / 2.2, y / 2.2) - .5) * 2 + .03 * (n3(x / .7, y / .7) - .5) * 2;
+    out[k] = M[k] * Math.max(.72, Math.min(1, a)); }   // (over the deep ground coat, never the page: see initial())
   return { ...L, M: out };
 }
 // ---- the letter: the choir book's own Lombards ------------------------------------------------------------------------------------
@@ -486,10 +723,10 @@ function pooled(L, seed) {
 // would stand, and floats it as wide as itself. The host sets its initials in the face (CSS: .ini { font-family: "Choir
 // Lombard", "EB Garamond" }); initial.load() fetches the letters the page uses before anything is measured.
 export const FAMILY = 'Choir Lombard';
-// (the letters: George Williams' Lombardic, painted by his hand, tools/lombhand.py, research/17 §4h; ?lombard=gen: the letters
-// generated from the hand's stroke model alone, tools/lombgen.py; ?lombard=hand1: the first face+hand pass; ?lombard=traced: the letters traced from his book, for study)
+// (the letters: George Williams' Lombardic, painted by his hand, tools/lombhand.py, research/17 §4h and §4i; ?lombard=gen: the letters
+// generated from the hand's stroke model alone, tools/lombgen.py; ?lombard=hand: the second pass (the ends before the third pass); ?lombard=hand1: the first face+hand pass; ?lombard=traced: the letters traced from his book, for study)
 const LOMB = new URLSearchParams(globalThis.location?.search ?? '').get('lombard');
-const fontDir = new URL({ traced: '../../fonts/choirbook/traced/', gen: '../../fonts/choirbook/', hand1: '../../fonts/choirbook/hand1/' }[LOMB] ?? '../../fonts/choirbook/hand/', import.meta.url), loaded = new Set();
+const fontDir = new URL({ traced: '../../fonts/choirbook/traced/', gen: '../../fonts/choirbook/', hand1: '../../fonts/choirbook/hand1/', hand: '../../fonts/choirbook/hand/' }[LOMB] ?? '../../fonts/choirbook/hand2/', import.meta.url), loaded = new Set();
 export async function loadLetters(chars) {
   await Promise.all([...new Set(chars)].filter(c => /^[A-Z]$/.test(c) && !loaded.has(c)).map(async c => {
     const f = new FontFace(FAMILY, `url(${new URL(`choir-lombard-${c}.woff2`, fontDir)})`, { unicodeRange: 'U+' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'), weight: '100 900' });
@@ -530,9 +767,10 @@ export function initial({ G: G0, keep, lh, big, level: li, seed, room: margin, b
   // his colours: the body red (minium) or blue (azurite), the work in the other; read from his book, about three of every five
   // large letters are red, and a page alternates them, so a drop is red or blue by its seed and a line initial the other
   const redDrop = stream(seed >>> 0, 'colour')() < .6 || q0.get('colour') === 'red', blueForce = q0.get('colour') === 'blue';
-  const pig = (big ? redDrop && !blueForce : !(redDrop && !blueForce)) ? 'minium' : 'azurite', ink = INKS[pig], [lx0, ly0, lx1, ly1] = G.box, Hl = ly1 - ly0, dark = isDark();
+  const pig = (big ? redDrop && !blueForce : !(redDrop && !blueForce)) ? 'minium' : 'azurite', ink = (isDark() ? INKS_DARK : INKS)[pig], [lx0, ly0, lx1, ly1] = G.box, Hl = ly1 - ly0, dark = isDark();
   const gap = big ? 2.6 : 2.1, roomL = Math.max(0, margin - gap * 3);
-  const panel = big ? [lx0 - Math.min(GEOM.panelW[li] * Hl, roomL), ly0 - GEOM.rise[li] * Hl, lx0 - gap * .7, ly1]
+  const grownBox = big && li >= 1 && (q0.get('work') ?? 'grown') === 'grown', bm = boxMargins(Hl), pr = grownBox ? bm[0] + Math.max(1.7, Hl * .05) * .62 + gap * .45 : gap * .7;   // (the grown box's frame stands off the letter: the panel stands off the frame)
+  const panel = big ? [lx0 - Math.max(pr + gap * 4, Math.min(GEOM.panelW[li] * Hl + pr, roomL)), ly0 - GEOM.rise[li] * Hl, lx0 - pr, ly1]
     : [lx0 - Math.min(GEOM.small.panelW[li], roomL), ly0 - 1, lx0 - gap * .6, ly1 + 1];
   const staff = { y1: Math.min(bottom, ly1 + Math.round((big ? GEOM.staff[li] : GEOM.small.staff[li]) * lh)) };
   const right = big && li >= 2 ? lh * .42 + GEOM.wider[li] : gap;
@@ -542,10 +780,12 @@ export function initial({ G: G0, keep, lh, big, level: li, seed, room: margin, b
   // the filigree, in a drop initial (the line initial is too small to be worked): its reserve cut from the paint, its
   // channel laid in the other colour (minium in azurite) after the paint and before the penwork; the penwork keeps to the
   // letter as painted, its worked counters included
-  const work = q.get('work') ?? 'le73', le = big && work === 'le73' && li >= 1;
+  // (?work=grown, the default: the filigree grown in the box, filigrana; ?work=le73: the field-first pass, counterWork;
+  // ?work=roundels: 467763's worked panels)
+  const work = q.get('work') ?? 'grown', le = big && (work === 'le73' || work === 'grown') && li >= 1;
   const F = big && !le && (fq ?? BUDGETS[li].filigree) ? filigree(L, seed) : { M: L, full: L, marks: [] };
-  const marks = flourish({ glyph: F.full, panel, keep, staff, g: gap, seed, level: li, right, tp, own: le });
-  if (le) marks.push(...counterWork(L, seed, gap, keep));
+  const marks = flourish({ glyph: F.full, panel, keep, staff, g: gap, seed, level: li, right, tp: le && work === 'grown' ? null : tp, own: le });   // (the grown box has its own frame on the text side)
+  if (le) marks.push(...(work === 'grown' ? filigrana(L, seed, keep, li) : counterWork(L, seed, gap, keep)));
   // his parted letters: about one in four of his large letters is split (?split=1|0 to force)
   const sq = q0.get('split'), sp = big && (sq ? sq !== '0' : stream(seed >>> 0, 'split')() < .25) ? splitBody(F.M, seed) : null;
   if (sp) { F.M = sp.M; F.marks = [...F.marks, ...sp.marks]; }
@@ -556,10 +796,13 @@ export function initial({ G: G0, keep, lh, big, level: li, seed, room: margin, b
   // dark: the letter laid flat in the style's own designed dark paint (its inkDark: 'b' is the drop's blue, 'a' the line
   // initial's red), its opacity pooled at the rim. (kit/illum.js lays a pigment letter on a dark page as the pigment
   // lifted to a pastel; a designed dark pigment needs a hook there: letter.pigmentDark, or flat() not lifting it.)
-  return { letter: dark ? { M: pooled(F.M, seed), col: pig === 'minium' ? 'a' : 'b' } : { M: F.M, pigment: pig },
+  // dark: the letter painted in two coats, as on a stained leaf: a deep murrey ground coat (the palette's 'f'), the bright
+  // pigment over it, thickest where it pooled at the edge, thinner and mottled over the middle, so its body varies between the
+  // two and never shows the page through it
+  return { letter: dark ? { M: pooled(F.M, seed), col: pig === 'minium' ? 'a' : 'b', ghost: { col: 'f', off: [0, 0] } } : { M: F.M, pigment: pig },
     marks: [...channel, ...reds, ...marks.map((s, i) => s.kind === 'dot'
       ? { dot: true, p: s.p, r: s.r, col: s.accent ? 'a' : 'b', ink: s.accent ? PIGMENTS[pig].rgb : ink }
-      : { pts: s.pts, col: 'b', ink, seed: seed + i * 13, w: s.w * 1.15, rho: s.rho, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 })] };
+      : { pts: s.pts, col: 'b', ink, seed: seed + i * 13, w: s.w * (dark ? 1 : 1.15), rho: s.rho, start: s.start, end: s.end, load: .78 * (s.rho ?? 1), dry: .3, broad: .42, swell: .25, nib: .5 })] };
 }
 initial.wider = GEOM.wider;
 // before the page is measured: the Lombards of every initial on it
@@ -635,8 +878,10 @@ const frames = { quote: columnFrame, figure: figureFrame, code: codeFrame, pull:
 // ---- the style -------------------------------------------------------------------------------------------------------------------
 export const choirbook = { label: 'Choir book', pair: ['red', 'blue'], alternate: true, minGap: 1.4,
   // vermilion and azurite as 03 had them; the notes in the book's brown-black
-  ink: { red: { solid: [200, 66, 40], hair: RED_HAIR }, blue: { solid: [40, 70, 160], hair: [56, 84, 166] }, black: { solid: [44, 34, 27], hair: [58, 46, 36] } },
-  inkDark: { red: { solid: [214, 88, 60], hair: [226, 118, 94] }, blue: { solid: [70, 108, 206], hair: [120, 150, 228] }, black: { solid: [222, 212, 196], hair: [214, 204, 188] } },
+  ink: { red: { solid: [200, 66, 40], hair: RED_HAIR }, blue: { solid: [40, 70, 160], hair: [56, 84, 166] }, black: { solid: [44, 34, 27], hair: [58, 46, 36] }, flesh: { solid: [120, 52, 40], hair: [120, 52, 40] } },
+  // dark (designed, not lifted): the pigments as they read on a stained or black leaf, brighter and more saturated than on
+  // parchment, vermilion toward the page's own rubric, azurite lifted to a clear ultramarine; 'f' the letters' deep ground coat
+  inkDark: { red: { solid: [232, 98, 62], hair: [238, 128, 98] }, blue: { solid: [78, 118, 238], hair: [140, 166, 238] }, black: { solid: [222, 212, 196], hair: [214, 204, 188] }, flesh: { solid: [74, 40, 74], hair: [74, 40, 74] } },
   setup: seed => { const r = stream(seed, 'choirbook'); return { kinds: pickKinds(r, FILLERS, 3) }; },
   kinds: (v, rich) => rich < .25 ? ['beads'] : rich < .5 ? ['beads', 'pendants'] : v.kinds,
   paraph: (x, base, u, seed, rich) => wParaph(x, base, u, seed, rich),
