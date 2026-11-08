@@ -204,3 +204,49 @@ The user: "I like A and C, let's refine and make them look beautiful, painted, i
   - Every part of their letters is worked: panels, spirals, birds, many colours.
   - Ours still leaves black ground between bands, and has no zoomorphic work. A beast head was not attempted: a clumsy one would be worse than none.
 - **Timing at dpr 2** for the page-size set: 290–375 ms per theme, over budget.
+
+## Stage 3 (the letters rebuilt as compartments; the small pieces lightened)
+
+Read against the masters at equal height (scratchpad shots/cmp2-*, cmp3-*), the stage 2 letters were a black body with a
+thin band of plait in it: the black was the void. The masters divide the letter instead.
+
+- **Measured.** f. 139r's bowl (BL photograph, 3840 px): the band between its orpiment rims ~120 px; sections between
+  orpiment bars 6–8 band-widths long; the blue knots set in the red interlace every ~1.8 band-widths, each ~1 long; a bar
+  ~0.15 of the band. Durrow fol. 86r's stem: two columns of plait, each ~0.28 of the stem, orpiment bands ~0.35 of it in
+  all; a plain block of colour at each column's head, ~1.2 column-widths tall. Its line-fillers are a red pen line: a
+  spiral, then loops rolling forward, the stroke heavy and light with the nib.
+- **A · Lindisfarne.**
+  - The body is divided by orpiment bars into compartments, measured off along each stroke: long (about two band-widths) and short (about one) in turn. The grounds are red lead, black and purple.
+  - A long compartment holds a plait whose rows come from the stroke's width there, stretched or pressed to follow it.
+  - A short compartment holds the closed square knot, or a cross of four lentoids where only one row fits.
+  - A thin long compartment holds a running loop-scroll: a prolate trochoid, x = t − d·sin t.
+  - A free end that swells enough holds a roundel with a triple spiral. A bare tip is a block of red, and the uncovered body is orpiment.
+  - The fine second plait is gone.
+- **C · Durrow.**
+  - The letter is red lead inside an ink and orpiment outline. Its long compartments are pale, broad-stranded plait on black (the stem's columns); its short compartments are plain blocks of orpiment and red (the stem's heads).
+  - A compartment no plait fits becomes a block of colour.
+  - The free ends are swollen: a disc 1.4× the end is joined to the letter's coverage before anything is built on it, so the outline and the dots go round it. Each is wound as a coil: two pen arms half a turn apart at a pitch of at least 1.25 px, a pigment eye, a band of red or orpiment.
+- **Small pieces.** The key-pattern strips are gone. A break is one centred panel (a knot for A, a ribbon knot for C) with
+  fine rules running out to a positura at each end. A frame is fine rules (ink and orpiment for A; a double hairline for C)
+  with a knot or a coil at each corner, a panel at the middle of each long side and one row of dots outside. The fillers:
+  A, a row of red dots closed by the positura; C, fol. 86r's red pen line. The paraphs: A, the square knot and positura;
+  C, two coils in a ring of dots.
+- **Timing** (the page set: initial, paraph, filler, break and frame; `?fast`; headless Chrome on the Arc A770; dpr 2):
+  - Stage 2 was 265–419 ms per theme. Now it is 199–220 ms per theme warm; the first theme drawn costs ~300–340 ms, which is the engine's and the font's start-up. At dpr 1 it is 100–130 ms.
+  - Grain was measured and is not the cost: the times are the same with it off. The cost is the medium's pours, by count and area. So each ink is poured over its own bounds only, and the dots are poured with the red lead (`alias`).
+  - The Durrow filler's nib line is one outline path, not a quad per point: 32 ms → 1 ms.
+- **Self-scores** (05-the-bar, Beauty ×3):
+
+| | Beauty | Craft | Viewport | Text | Behaviour | System | Imperfection | Restraint | History | Longevity | POV | Provenance | total |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A Lindisfarne | 2 | 2 | 3 | 2 | 1 | 2 | 1 | 3 | 2 | 3 | 2 | 2 | 29 |
+| C Durrow | 2 | 2 | 2 | 2 | 1 | 2 | 1 | 3 | 3 | 3 | 2 | 2 | 29 |
+
+  The stage 2 totals were misadded: the table's own cells give 27 and 26, with Beauty ×3.
+- **Still weak.**
+  - At 4× both letters are far sparser than the masters. That is deliberate, so that they read at page size, but it is not museum density.
+  - Durrow's coils sit at the pen's pitch floor at page size and read as ringed discs more than spirals.
+  - C's I swells into a dumbbell beside its serif nubs.
+  - C's B and Q keep black areas where no plait fits.
+  - The plait cords are flat fills with an even outline.
+  - No birds: one at page size could not be made well, so none was attempted.
