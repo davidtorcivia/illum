@@ -11,3 +11,5 @@
 - out12 fix: tendrils capped at .11 and always curling (no straight hairlines).
 - out12 fix 2: only stems >= .018 wide carried across his letter's room, at most .16, gently curving (the straight hairlines were thin carried shoots).
 - out12 result: white .35-.40; no stray hairlines; E G R read as his set at page size; seeds give distinct blocks (mirror + bend + regrown terminals); X Y still fragmentary. Fonts fonts12/kelmscott-gen-*.woff2 (32 KB for 7).
+- out13 (step 13, kdonor4.py): fragments rejoined (closing 5px), slivers < .0011 removed (round dots kept), white dilated 2px; X/Y tried from his K and V.
+- out13 result: white .40-.43 (E .41 G .43 R .42 X(K) .37 Y(V) .39); bolder, joined; X from his K and Y from his V chosen. Wired: playground/fonts/kelmscott/kelmscott-gen-n{E,G,R,X,Y}.woff2 + GL-Morris-LICENSE.txt; kelmscott.js GLYPHS nE..nY (gen: 2), ?caps=gen in shapeFor + setter + needed(); kelmscott-letters.html caption logic. Default stays grow.
