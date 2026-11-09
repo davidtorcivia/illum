@@ -54,7 +54,7 @@ function dropPiece(ch, H, seed, d, face, medium) {
   const lobes = ro.lobes.map(([i0, i1], k) => ({ path: smooth(ro.pts.slice(i0, i1 + 1).concat(k < ro.lobes.length - 1 ? [ro.pts[ro.lobes[k + 1][0]]] : []), H * .03) })), first = 2;
   const plan = [{ go: ro.pts[0], look: H * .25 }, ...lobes, { go: tail[0], look: H * .2 }, { go: tail[1], look: H * .2 }, { go: tail[2], look: H * .15 }, { curl: H * .075, sense: -1, turns: 1.25 }];
   let mv = move(entry[0], -PI * .1, [{ go: entry[1], look: H * .2 }, ...plan], { lag: H * .03 });
-  const lower = new Set(ro.lobes.map(([, , a], k) => Math.sin(a) > .5 ? first + k : -1)), t0 = first + lobes.length;
+  const lower = new Set(), t0 = first + lobes.length;   // (the ovals are hairline, as Bickham's: the shade is the letter's and the tail's)
   mv = fit(mv, [1, 1, W - 1, H - 1], { at: c, pad: H * .01 });
   const pk = H * .045;
   return { W, H, strokes: [flourish(mv, seed + 1, { hair: medium === 'quill' ? .3 : hairOf(pk, d), peak: pk, start: 'point', end: 'ball', shadeOn: q => lower.has(q), extra: [[t0 + 1, .1, .9, pk * .7, .45]] })],
@@ -64,7 +64,7 @@ function dropPiece(ch, H, seed, d, face, medium) {
 // larger), a curl and a ball
 function paraphPiece(fs, seed, d, medium) {
   const W = fs * 1.35, H = fs * .95, pk = fs * .13, a = [W * .22, H * .62], b = [W * .78, H * .42];
-  const plan = [{ go: a, look: fs * .3 }, ...chain(a, b, 2, fs * .5, { sense: -1, first: .75, peak: .9, last: 1, oval: .35 }), { go: [W * .95, H * .55], look: fs * .25 }, { curl: fs * .09, sense: -1, turns: 1.1 }];
+  const plan = [{ go: a, look: fs * .3 }, ...chain(a, b, 2, fs * .5, { sense: -1, first: .75, peak: .9, last: 1, aspect: 1.8 }), { go: [W * .95, H * .55], look: fs * .25 }, { curl: fs * .09, sense: -1, turns: 1.1 }];
   const mv = move([0, H * .85], -PI * .2, plan, { lag: fs * .05 });
   return { W, H, base: .92, strokes: [flourish(fit(mv, [1, 1, W - 1, H - 1], { grow: true }), seed + 3, { hair: medium === 'quill' ? .3 : hairOf(pk, d), peak: pk, start: 'point', end: 'ball', amp: .04, shadeOn: q => plan[q]?.loop })], medium };
 }
@@ -73,7 +73,7 @@ function paraphPiece(fs, seed, d, medium) {
 function fillerPiece(gw, lh, seed, d, medium) {
   const H = lh * .8, pk = lh * .1, n = Math.max(1, Math.min(3, Math.floor(gw / (lh * 3)))), size = lh * .7, span = Math.min(gw * .55, n * size * .95);
   const a = [gw - span - lh * .5, H * .62], b = [gw - lh * .5, H * .5];
-  const plan = [{ go: a, look: lh * 2 }, ...chain(a, b, n, size, { sense: -1, first: .7, last: .62, oval: .4 }), { go: [gw - lh * .12, H * .62], look: lh * .5 }, { curl: lh * .14, sense: -1, turns: 1.2 }];
+  const plan = [{ go: a, look: lh * 2 }, ...chain(a, b, n, size, { sense: -1, first: .7, last: .62 }), { go: [gw - lh * .12, H * .62], look: lh * .5 }, { curl: lh * .14, sense: -1, turns: 1.2 }];
   const mv = move([lh * .1, H * .66], -.02, plan, { lag: lh * .12 });
   const loops = new Set(plan.map((m, i) => m.loop ? i : -1).filter(i => i >= 0));
   return { W: gw, H, strokes: [flourish(fit(mv, [1, 1, gw - 1, H - 1]), seed + 4, { hair: medium === 'quill' ? .3 : hairOf(pk, d), peak: pk, start: 'point', end: 'ball', amp: .08, shadeOn: q => loops.has(q), extra: [[0, .55, 1, pk * .8, .7]] })], medium };
@@ -82,11 +82,11 @@ function fillerPiece(gw, lh, seed, d, medium) {
 // the middle (the largest second), the exit sweep out to a curl at the right; the two sweeps shaded on their long runs
 function breakPiece(bw, hb, seed, d, medium) {
   const pk = hb * .085, n = 4, size = hb * .62, a = [bw * .4, hb * .55], b = [bw * .66, hb * .45];
-  const plan = [{ go: [bw * .2, hb * .62], look: hb }, { go: a, look: hb * .8 }, ...chain(a, b, n, size, { sense: -1, first: .62, last: .55, peak: .4, oval: .38 }), { go: [bw * .8, hb * .6], look: hb }, { go: [bw * .93, hb * .45], look: hb * .5 }, { curl: hb * .12, sense: -1, turns: 1.25 }];
+  const plan = [{ go: [bw * .2, hb * .62], look: hb }, { go: a, look: hb * .8 }, ...chain(a, b, n, size, { sense: -1, first: .62, last: .55, peak: .4 }), { go: [bw * .8, hb * .58], look: hb * .7 }, { go: [bw * .93, hb * .45], look: hb * .5 }, { curl: hb * .12, sense: -1, turns: 1.25 }];
   // (the movement starts in the left curl's eye and runs out of it into the entry sweep: the curl written backwards)
   const lead = move([bw * .1, hb * .62], PI * 1.05, [{ curl: hb * .12, sense: 1, turns: 1.2 }], { lag: hb * .05 });
   const joined = { p: lead.p.slice().reverse(), part: lead.part.map(() => -1) };
-  const rest = move(joined.p.at(-1), 0, plan, { lag: hb * .15 }); joined.p = joined.p.concat(rest.p.slice(1)); joined.part = joined.part.concat(rest.part.slice(1));
+  const rest = move(joined.p.at(-1), 0, plan, { lag: hb * .07 }); joined.p = joined.p.concat(rest.p.slice(1)); joined.part = joined.part.concat(rest.part.slice(1));
   return { W: bw, H: hb, strokes: [flourish(joined, seed + 5, { hair: medium === 'quill' ? .3 : hairOf(pk, d), peak: pk, start: 'ball', end: 'ball', shadeOn: q => plan[q]?.loop, extra: [[1, .15, .9, pk * .75, .55], [plan.length - 3, .1, .9, pk * .7, .5]] })], medium };
 }
 // The quotation's head: one gesture from the far end of the head, in along it, a single knot at the corner, then down

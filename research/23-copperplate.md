@@ -200,6 +200,11 @@ also carry lenses on their long level sweeps.
   arm's free swing at the foot and outer right), not with jitter.
 
 ### The generator (kit/styles/copperplate-hand.js)
+The chains' loops are true ellipses (`loop` with `aspect`, the turning of an ellipse a/b), at 2.2 in the filler and break and
+1.8 in the paraph. The measured 2.3–2.5 is taken a little rounder, so the loops still read as loops at text size. An earlier
+version modulated the radius with the heading (`oval`); that saturates near an aspect of 1.6. The rosette's ovals and the
+quotation's knot keep it.
+
 A flourish is a plan of intentions executed by a pen with momentum. The heading turns at a curvature that follows the
 intention through a lag, so direction and bend carry from one step into the next.
 - **Steps:** `go` (steer for a point with a look-ahead), `loop` (an oval turn), `curl` (the measured terminal curl, ×.38 a turn),
@@ -212,7 +217,7 @@ intention through a lag, so direction and bend carry from one step into the next
 
 ### The pieces (both directions)
 - **Drop:** Pinyon's capital (C) or Imperial's (B), with six overlapping ovals round it. Their sizes come from the arm's reach,
-  between .89 and 1.3 of the smallest, and the stations fall where the hand puts them (±7°). The ovals are written as one movement,
+  so the largest is about 1.6× the smallest (scale factors .86–1.37), and the stations fall where the hand puts them (±7°). The ovals are written as one movement,
   entered by a short sweep and left by a tail under the letter closing in a curl and a ball. Only the tail's swell is shaded, as
   Bickham's flourish is hairline round a shaded letter.
 - **Paraph:** two loops riding a rising hairline, then a curl and a ball.
@@ -237,7 +242,9 @@ Each panel is written as it comes into view (IntersectionObserver), and never un
 3. Then the paraph, filler, break and quotation, each at the hand's pace: quick on long runs, slower into turns (the two-thirds
    power law), easing at the ends.
 
-A panel takes about 10 s to write (frames in the scratchpad: shots/dh-*.png, dp-*.png).
+A panel takes about 10 s to write. The page has one hand: panels that come into view together join one queue in reading order,
+and a single runner writes the queue, so two pieces never share the ink media at once (frames in the scratchpad:
+shots/dh-*.png, dp-*.png, dpp-*.png).
 
 ### Speed
 Chrome, a panel's five pieces, load average 9–10 on the shared machine, the first panel including the engine's warm-up:

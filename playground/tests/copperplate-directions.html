@@ -106,13 +106,16 @@ function printed(key, theme, make, zoom = 1, live = false) {
   else { if (Lm) inkLetter(g, { ...Lm, wet: .1, dry: .2 }, rgb, { dpr: d }); quill(g, strokes, rgb, { dpr: d, box, seed }); }
   return cv;
 }
-// the score: a panel's writers one after another at the hand's pace, begun when the panel comes into view
-function score(panel, writers) {
-  let k = 0, st = 0, on = false;
-  const frame = now => { const w = writers[k]; if (!w) return; if (!st) st = now; const f = (now - st) / Math.max(1, w.dur);
-    if (f >= 1) { w.done(); k++; st = 0; } else w.at(f); if (writers[k]) requestAnimationFrame(frame); };
-  new IntersectionObserver((es, ob) => { if (!on && es.some(e => e.isIntersecting)) { on = true; ob.disconnect(); requestAnimationFrame(frame); } }, { threshold: .15 }).observe(panel);
-}
+// the score: one hand for the page. A panel's writers join the queue when it comes into view (panels seen together in
+// reading order), and a single runner writes them one after another at the hand's pace: the ink media are shared, so two
+// pieces are never written at once
+const queue = []; let running = false, st = 0;
+function run(now) { const w = queue[0]; if (!w) { running = false; return; } if (!st) st = now; const f = (now - st) / Math.max(1, w.dur);
+  if (f >= 1) { w.done(); queue.shift(); st = 0; } else w.at(f); requestAnimationFrame(run); }
+const seen = new IntersectionObserver(es => { for (const e of es.filter(e => e.isIntersecting).sort((a, b) => a.target.compareDocumentPosition(b.target) & 4 ? -1 : 1)) {
+  seen.unobserve(e.target); queue.push(...e.target._writers); }
+  if (queue.length && !running) { running = true; requestAnimationFrame(run); } }, { threshold: .15 });
+function score(panel, writers) { panel._writers = writers; seen.observe(panel); }
 const ONLY = q.get('only'), PERF = [];
 for (const key of Object.keys(DIRS).filter(k => !ONLY || ONLY === k)) {
   const D = DIRS[key], sec = document.createElement('section'); sec.className = 'dir'; sec.id = key;

@@ -7,7 +7,8 @@
 // plan steps (page px, radians; heading 0 = rightward, a positive turn is clockwise on the page):
 //   { go: [x, y], look, near }          steer toward a point (pure pursuit with a look-ahead) until within `near`
 //   { loop: r, sense, turn, oval, lean } turn through `turn` (default one turn) at radius r, an oval: the radius r(1 + oval)
-//                                        while the heading runs along `lean`, r(1 - oval) across it (a long axis at lean)
+//                                        while the heading runs along `lean`, r(1 - oval) across it (a long axis at lean);
+//                                        or aspect: a true ellipse a/b = aspect along lean, of the area of radius r
 //   { follow: points, look }            follow a planned path with the pen's momentum (it rounds what the plan draws sharp)
 //   { path: points }                    lay a planned path already rounded (smooth()), then carry on from its end
 //   { run: length, bend }               run on at a set curvature
@@ -31,7 +32,11 @@ export function move(p0, h0, plan, { ds = .5, lag = 8 } = {}) {
       // (the hand leaves the loop the way it is going next: past three quarters of the turn it lets go as soon as it is
       // heading within ~20 deg of the next point it steers for)
       const nx = plan.slice(i + 1).find(q => q.go)?.go;
-      for (let n = 0; n < 40000 && turned < turn * 1.3; n++) { const r = m.loop * (1 + e * Math.cos(2 * (th - lean))); const t0 = th; step(s / r, lgl, i); turned += Math.abs(th - t0);
+      // (m.aspect: a true ellipse's turning, its radius of curvature a^2 b^2 / (a^2 sin^2 psi + b^2 cos^2 psi)^1.5 at the
+      // heading psi off its long axis, a/b = aspect, its area that of the circle of radius m.loop)
+      const q = m.aspect, ea = q ? m.loop * Math.sqrt(q) : 0, eb = q ? m.loop / Math.sqrt(q) : 0;
+      const rad = () => { if (!q) return m.loop * (1 + e * Math.cos(2 * (th - lean))); const ps = th - lean, sn = Math.sin(ps), cs = Math.cos(ps); return ea * ea * eb * eb / Math.pow(ea * ea * sn * sn + eb * eb * cs * cs, 1.5); };
+      for (let n = 0; n < 40000 && turned < turn * 1.3; n++) { const r = Math.max(.4, rad()); const t0 = th; step(s / r, lgl, i); turned += Math.abs(th - t0);
         if (turned >= turn * (nx ? .75 : 1)) { if (!nx) break; if (Math.abs(wrap(Math.atan2(nx[1] - y, nx[0] - x) - th)) < .35) break; } } }
     else if (m.follow) {
       // follow a planned path (the movement's intention, drawn exactly) with the pen's momentum: steer for the point a
@@ -59,11 +64,11 @@ export function fit(mv, box, { at = null, pad = 0, grow = false } = {}) {
 
 // A chain of loops riding a sweep from a to b (the dove's wings, Universal Penman 0220): n loops of the hand's turning sense,
 // their size a spindle along the chain (largest at `peak` of the way), pitch .9 of a loop's length, long along the sweep.
-export function chain(a, b, n, size, { sense = -1, peak = .62, first = .55, last = .5, oval = .35 } = {}) {
+export function chain(a, b, n, size, { sense = -1, peak = .62, first = .55, last = .5, aspect = 2.2 } = {}) {
   const plan = [], L = Math.hypot(b[0] - a[0], b[1] - a[1]), dir = Math.atan2(b[1] - a[1], b[0] - a[0]);
   for (let i = 0; i < n; i++) { const u = n === 1 ? .5 : i / (n - 1), env = u < peak ? first + (1 - first) * Math.sin(Math.PI / 2 * u / peak) : last + (1 - last) * Math.cos(Math.PI / 2 * (u - peak) / (1 - peak));
     const f = (i + .5) / n, q = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
-    plan.push({ go: q, look: L / n * .9, near: size * .2 }, { loop: size * env * .5, sense, oval, lean: dir, turn: TAU * .98 }); }
+    plan.push({ go: q, look: L / n * .9, near: size * .2 }, { loop: size * env * .5, sense, aspect, lean: dir, turn: TAU * .98 }); }
   return plan;
 }
 
