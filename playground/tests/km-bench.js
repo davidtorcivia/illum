@@ -11,6 +11,8 @@ import * as KM from './km-paint.js';
 
 export const MM = .15;   // mm per css px at the page's size
 export const rect = ([x0, y0, x1, y1]) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+// a fill as two pigments by its loads' mix (each load a little more of one than the other): the same pot, unevenly stirred
+const split = (tau, mix, a, b, k, kind) => { const A = new Float32Array(tau.length), B = new Float32Array(tau.length); for (let q = 0; q < tau.length; q++) { const m = k * mix[q]; A[q] = tau[q] * (1 - m); B[q] = tau[q] * m; } return [{ pig: a, tau: A, kind }, { pig: b, tau: B, kind: kind + '2' }]; };
 const n1 = (seed, scale) => { const f = noise1(seed); return x => (f(x / scale) - .5) * 2; };
 const parch = (G, cheap, seed) => cheap ? KM.flatParchment(G) : KM.parchment(G, { seed });
 const lev = (tau, P, cheap) => cheap ? tau : KM.level(tau, P);
@@ -29,8 +31,11 @@ function reserveCut(G, M, { m, cv = .27, gone = .27, lo = 0, line = .08, seed = 
 // ---- the knot ---------------------------------------------------------------------------------------------------------------------
 export function knotGeometry(seed = 1, hand = 1) {
   const A = 6, B = 3, u = 9, ox = 10, oy = 10, PW = ox * 2 + 2 * A * u, PH = oy * 2 + 2 * B * u;
-  const K = plait(A, B, () => true, (x, y) => y === 3 && (x === 3 || x === 9));
-  const C = measure(cords(K, { ox, oy, u, inset: .32, round: 1.05 }), u), W = u * 1.02;
+  // hand: a free knot, not a lattice — breaks open the centre and part the rows (walls on interior edges), the outer turns
+  // set wider and rounder, the whole eased outward so the outer loops are bigger than the inner
+  const walls = hand ? new Set(['6,1', '6,5', '3,2', '9,4']) : new Set(), K = plait(A, B, () => true, (x, y) => walls.has(x + ',' + y));
+  const C = measure(cords(K, { ox, oy, u, inset: hand ? .36 : .32, round: 1.05, edgeInset: hand ? .5 : null, edgeRound: hand ? 1.45 : null }), u), W = u * 1.02;
+  if (hand) { const cx0 = PW / 2, cy0 = PH / 2; for (const c of C) c.pts = c.pts.map(([x, y]) => { const dx = (x - cx0) / (PW / 2), dy = (y - cy0) / (PH / 2), k = 1 + .045 * Math.hypot(dx, dy) - .03; return [cx0 + (x - cx0) * k, cy0 + (y - cy0) * k]; }); }
   const nx = noise2(11 * seed), ny = noise2(29 * seed), wx = noise2(41 * seed), wy = noise2(57 * seed), lam = u * 3.2, amp = u * .06, aw = W * .1;
   const out = C.map((c, t) => { const fb = noise2(100 + t + seed * 7), gb = noise2(200 + t + seed * 7), cw = hand ? 1 + .09 * (hash2(t, seed, 5) - .5) * 2 : 1;   // each cord its own pass of the pen: a little wider or narrower
     const pts = c.pts.map(([x, y]) => [(x + amp * (nx(x / lam, y / lam) - .5) * 2 + aw * (wx(x / u, y / u) - .5) * 2) * MM, (y + amp * (ny(x / lam, y / lam) - .5) * 2 + aw * (wy(x / u, y / u) - .5) * 2) * MM]);
@@ -40,25 +45,26 @@ export function knotGeometry(seed = 1, hand = 1) {
       f[k] = cw * (1 + .2 * (fb(s / (u * 1.3), t * 3.1) - .5) * 2); g[k] = .7 + .9 * turn + .35 * (gb(s / (u * .8), t) - .5); }
     return { pts, f, g, ev: c.ev, sFrac: c.s.map(v => v / c.L) }; });
   // the fine red pen-knotwork the ground was laid round (a plait at a third of the scale)
-  const fine = hand ? cords(plait(13, 7), { ox: 4.5, oy: 5.5, u: 4.5, inset: .3, round: 1.05 }).map(c => c.pts.map(([x, y]) => [x * MM, y * MM])) : [];
+  const fine = hand ? cords(plait(10, 5), { ox: 5, oy: 6, u: 5.9, inset: .3, round: 1.05 }).map(c => c.pts.map(([x, y]) => [x * MM, y * MM])) : [];
   return { cords: out, W: W * MM, box: [0, 0, PW * MM, PH * MM], frame: [3.4 * MM, 3.4 * MM, (PW - 3.4) * MM, (PH - 3.4) * MM], fine, hand };
 }
 // layers, bottom first: the pen (drawn first), the ground, the red knotwork where the ground left it, the blue-grey tint
 export function knotLayers(G, geo, { seed = 1, cheap = false, tint = .66 } = {}) {
   const hand = geo.hand, P = parch(G, cheap, 3), F = KM.knotFields(G, geo.cords, geo.W);
-  const ink = KM.knotLines(G, F, geo.cords, geo.W, { seed, wander: hand ? .22 : 0, lw: hand ? .11 : .085 }); KM.ruled(G, rect(geo.frame), { tau: ink, seed, wob: hand ? .012 : 0, wander: hand ? .25 : 0 });
+  const ink = KM.knotLines(G, F, geo.cords, geo.W, { seed, wander: hand ? .22 : 0, lw: hand ? .1 : .085 }); KM.ruled(G, rect(geo.frame), { tau: ink, seed, wob: hand ? .012 : 0, wander: hand ? .25 : 0 });
   const [fx0, fy0, fx1, fy1] = geo.frame, M = new Float32Array(G.n);
   for (let j = 0; j < G.h; j++) for (let i = 0; i < G.w; i++) { const q = j * G.w + i, x = G.x(i), y = G.y(j); if (x < fx0 + .03 || x > fx1 - .03 || y < fy0 + .03 || y > fy1 - .03) continue;
     M[q] = F.id[q] < 0 ? 1 : Math.max(0, Math.min(1, (Math.abs(F.d[q]) - F.hw[q]) * G.pxmm + .5)); }
   const ground = lev(KM.fillLoads(G, M, { seed: seed + 4, swath: 1.4, axis: 0, dragP: 0, scale: hand ? 1 : 2.2 }).tau, P, cheap);
   const cx = (geo.box[0] + geo.box[2]) / 2, cy = (geo.box[1] + geo.box[3]) / 2;
   const tn = lev(KM.knotTint(G, F, geo.cords, geo.W, { seed: seed + 9, frac: tint, ...(hand ? { reserve: { m: .17, line: .11 }, scuff: { amp: .55, centre: [cx, cy], R: [cx * .85, cy * .8] } } : {}) }), P, cheap);
-  const layers = [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: hand ? KM.PIG.groundRB : KM.PIG.dark, tau: ground, kind: 'dark' }];
-  if (hand && geo.fine.length) {   // the red lines: visible where the ground's load ran thin over them, covered where it was heavy
-    const red = new Float32Array(G.n); geo.fine.forEach((pts, k) => KM.penLine(G, [...pts, pts[0]], { lw: .1, od: 1, seed: seed * 7 + k, tau: red, floor: .4 }));
-    for (let q = 0; q < G.n; q++) red[q] *= M[q] * KM.smooth(.95, .72, ground[q]) * 1.2;
+  const layers = [{ pig: hand ? KM.PIG.pen : KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: hand ? KM.PIG.groundRB : KM.PIG.dark, tau: ground, kind: 'dark' }];
+  if (hand && geo.fine.length) {   // the red knotwork the ground was laid round, as on f. 139r: bold red-lead strands in the dark, stopping at the knot's pen line
+    const red = new Float32Array(G.n); geo.fine.forEach((pts, k) => KM.penLine(G, [...pts, pts[0]], { lw: .24, od: 1, seed: seed * 7 + k, tau: red, floor: .5, wob: .015 }));
+    for (let q = 0; q < G.n; q++) { red[q] = Math.min(1.3, red[q] * 1.3) * M[q]; ground[q] *= 1 - Math.min(1, red[q] * 1.2); }   // the ground laid round them
     layers.push({ pig: KM.PIG.redlead, tau: red, kind: 'redline' }); }
-  layers.push({ pig: KM.PIG.knot, tau: tn, kind: 'knot' });
+  // the blue from strand to strand, load to load: the same pot, more or less of its indigo stirred up
+  if (hand) layers.push(...split(tn, tn.mix, KM.PIG.knot, KM.PIG.blue, .55, 'knot')); else layers.push({ pig: KM.PIG.knot, tau: tn, kind: 'knot' });
   // hand-placed losses for the page-size path: at a stroke's end beside a crossing, on the outer loops
   const losses = [];
   geo.cords.forEach((c, t) => c.under && c.under.slice(1, 3).forEach((uu, k) => { if ((t + k) % 2) return; const p = c.pts[Math.floor(((uu + geo.W * .8) % c.L) / c.L * c.pts.length)]; losses.push([p[0], p[1], .07]); }));
@@ -93,14 +99,16 @@ export function bandGeometry(seed = 1, hand = 1) {
 const ringPoly = (A, B) => poly([...A, ...B.slice().reverse()]);
 export function bandLayers(G, geo, { seed = 1, cheap = false } = {}) {
   const P = parch(G, cheap, 5), { cx, cy, R0, hand } = geo, wob = hand ? .012 : 0, wander = hand ? .25 : 0;
-  const ink = KM.mask(G, ringPoly(geo.arc(1, .02), geo.arc(2))); for (let q = 0; q < G.n; q++) ink[q] *= 1.1;
-  [0, 1, 2].forEach(i => KM.penLine(G, geo.arc(i, i === 0 ? -.05 : 0), { lw: hand ? .17 : i ? .1 : .09, od: hand ? .7 : i ? .9 : .8, seed: seed + 3 + 2 * i, tau: ink, wob, wander }));
+  const ink = KM.mask(G, ringPoly(geo.arc(1, .02), geo.arc(2))), pen = new Float32Array(G.n); for (let q = 0; q < G.n; q++) ink[q] *= 1.1;
+  [0, 1, 2].forEach(i => KM.penLine(G, geo.arc(i, i === 0 ? -.05 : 0), { lw: hand ? .13 : i ? .1 : .09, od: hand ? 1 : i ? .9 : .8, seed: seed + 3 + 2 * i, tau: hand ? pen : ink, wob, wander, soft: hand ? .025 : .012 }));
   let M = KM.mask(G, ringPoly(geo.arc(0), geo.arc(1)));
   M = hand ? reserveCut(G, M, { m: .3, gone: .5, lo: -.03, line: .17, seed: seed + 2 }) : (() => { const N = KM.mask(G, ringPoly(geo.arc(0, .08), geo.arc(1, -.02))); return N; })();
   const uv = (x, y) => { const a = Math.atan2(y - cy, x - cx), rr = Math.hypot(x - cx, y - cy); return [a * R0, rr - (geo.r[0] + geo.r[1]) / 2]; };
-  const orp = lev(KM.fillLoads(G, M, { seed: seed + 11, swath: hand ? 1.8 : 1.3, uv, scale: 1.25, seg: hand ? 8 : 0, pool: .35 }).tau, P, cheap);
+  const F = KM.fillLoads(G, M, { seed: seed + 11, swath: hand ? 1.8 : 1.3, uv, scale: 1.25, seg: hand ? 8 : 0, pool: .35, dragP: hand ? .7 : null }), orp = lev(F.tau, P, cheap);
   const a = Math.PI * 1.33, losses = [[cx + (geo.r[1] - .35) * Math.cos(a), cy + (geo.r[1] - .35) * Math.sin(a), .16], [cx + (geo.r[0] + .3) * Math.cos(a + .35), cy + (geo.r[0] + .3) * Math.sin(a + .35), .1]];
-  return { P, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: KM.PIG.orpiment, tau: orp, kind: 'orpiment' }], losses };
+  // olive-gold where a load was richer, paler gold where it was scrubbed thin
+  const fill = hand ? split(orp, F.mix, KM.PIG.orpOlive, KM.PIG.orpGold, .8, 'orpiment') : [{ pig: KM.PIG.orpiment, tau: orp, kind: 'orpiment' }];
+  return { P, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, ...(hand ? [{ pig: KM.PIG.pen, tau: pen, kind: 'ink' }] : []), ...fill], losses };
 }
 
 // ---- the step grid (keys): drawn, not constructed --------------------------------------------------------------------------
@@ -130,15 +138,18 @@ function keysMasks(G, geo) {
 function keysInk(G, geo, seed, frameM) {
   const H = geo.hand, o = { wob: H ? .02 : 0, wander: H ? .32 : 0 }, ink = new Float32Array(G.n), t = new Float32Array(G.n), f = geo.frame;
   for (let k = 0; k < 4; k++) { const a = f[k], b = f[(k + 1) % 4], mid = [(a[0] + b[0]) / 2 + (H ? .12 * (hash2(k, seed, 9) - .5) : 0), (a[1] + b[1]) / 2 + (H ? .12 * (hash2(k, seed, 10) - .5) : 0)];
-    KM.penLine(G, H ? [a, mid, b] : [a, b], { lw: H ? .19 : .1, od: H ? .65 : .85, seed: seed + 50 + k, tau: ink, floor: .25, ...o }); }
-  geo.stairs.forEach((st, k) => KM.penLine(G, st, { lw: H ? .17 : .085, od: H ? .6 : .85, seed: seed + 3 + k, tau: t, floor: .22, ...o }));
+    KM.penLine(G, H ? [a, mid, b] : [a, b], { lw: H ? .14 : .1, od: H ? 1 : .85, soft: H ? .025 : .012, seed: seed + 50 + k, tau: ink, floor: .25, ...o }); }
+  geo.stairs.forEach((st, k) => KM.penLine(G, st, { lw: H ? .12 : .085, od: H ? 1 : .85, soft: H ? .025 : .012, seed: seed + 3 + k, tau: t, floor: .22, ...o }));
   for (let q = 0; q < G.n; q++) ink[q] = Math.max(ink[q], t[q] * frameM[q]); return ink;
 }
+const RED2 = KM.fromColour([168, 86, 60]);   // red lead ground a little coarser in one load than the next: deeper
 const shrink = (G, M, d) => { const b = KM.blur(M, G.w, G.h, d * G.pxmm * .8); for (let q = 0; q < G.n; q++) M[q] = Math.max(0, Math.min(1, (b[q] - .89) * d * G.pxmm * 2.5 + .5)) * M[q]; return M; };
 export function keysLayers(G, geo, { seed = 1, cheap = false } = {}) {
   const P = parch(G, cheap, 6), { frame, B, R } = keysMasks(G, geo), ink = keysInk(G, geo, seed, frame);
-  const cut = (M, s) => geo.hand ? reserveCut(G, M, { m: .25, gone: .08, line: .17, seed: s }) : shrink(G, M, .14);
-  const blue = lev(KM.fillLoads(G, cut(B, seed + 1), { seed: seed + 3, swath: 1.6, dragP: 0 }).tau, P, cheap), red = lev(KM.fillLoads(G, cut(R, seed + 2), { seed: seed + 5, swath: 1.6, scale: 1.1, dragP: 0 }).tau, P, cheap);
+  const cut = (M, s) => geo.hand ? reserveCut(G, M, { m: .25, gone: .08, line: .12, seed: s }) : shrink(G, M, .14);
+  const FB = KM.fillLoads(G, cut(B, seed + 1), { seed: seed + 3, swath: 1.6, dragP: geo.hand ? .35 : 0 }), FR = KM.fillLoads(G, cut(R, seed + 2), { seed: seed + 5, swath: 1.6, scale: 1.1, dragP: geo.hand ? .35 : 0 });
+  const blue = lev(FB.tau, P, cheap), red = lev(FR.tau, P, cheap);
   const st = geo.stairs[9], losses = [[st[6][0] + .25, st[6][1] + .3, .12], [geo.frame[2][0] - .45, geo.frame[2][1] - .4, .1]];
-  return { P, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: KM.PIG.blue, tau: blue, kind: 'blue' }, { pig: KM.PIG.redlead, tau: red, kind: 'redlead' }], losses };
+  const fills = geo.hand ? [...split(blue, FB.mix, KM.PIG.blue, KM.PIG.knot, .5, 'blue'), ...split(red, FR.mix, KM.PIG.redlead, RED2, .5, 'redlead')] : [{ pig: KM.PIG.blue, tau: blue, kind: 'blue' }, { pig: KM.PIG.redlead, tau: red, kind: 'redlead' }];
+  return { P, layers: [{ pig: geo.hand ? KM.PIG.pen : KM.PIG.ink, tau: ink, kind: 'ink' }, ...fills], losses };
 }
