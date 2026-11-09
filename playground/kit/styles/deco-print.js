@@ -18,7 +18,7 @@ export class Sheet {
   constructor() { this.layers = []; }
   // col: a palette key; draw(g): paints the shape in any colour into g (piece px); o.medium: gouache | stipple | metal | press;
   // o.fade: { from: [x, y], to: [x, y], solid: .5 } for stipple; o.key: printed in register (no slip, no trap)
-  ink(col, draw, o = {}) { this.layers.push({ col, draw, medium: o.medium ?? 'gouache', fade: o.fade, key: !!o.key, trap: o.trap, seam: o.seam ?? true }); return this; }
+  ink(col, draw, o = {}) { this.layers.push({ col, draw, medium: o.medium ?? 'gouache', fade: o.fade, key: !!o.key, trap: o.trap, seam: o.seam ?? true, despeck: o.despeck ?? 0 }); return this; }
 }
 const rgbOf = s => Array.isArray(s) ? s : s.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number);
 const clamp = v => v < 0 ? 0 : v > 1 ? 1 : v;
@@ -31,10 +31,20 @@ function mask(L, box, res, sl, trap) {
   L.draw(g, trap);
   const d = g.getImageData(0, 0, w, h).data, M = new Float32Array(w * h);
   for (let q = 0; q < w * h; q++) M[q] = d[q * 4 + 3] / 255;
+  if (L.despeck) despeck(M, w, h, L.despeck * res * res);
   // the trap: the coat grown by trap px (a slipped stencil still overlaps its neighbour rather than leaving paper)
   if (trap > 0) { const r = Math.max(1, Math.round(trap * res)), B = blur(M, w, h, r);
     for (let q = 0; q < w * h; q++) if (B[q] > 0) M[q] = Math.max(M[q], clamp(B[q] * 2.2)); }
   return { M, w, h, x0, y0, res };
+}
+
+// a fleck of a shape cut off from the rest (a ruling's end clipped to a sliver) is not printed: every mark is meant
+function despeck(M, w, h, minArea) {
+  const lab = new Int32Array(w * h), st = []; let n = 0;
+  for (let q0 = 0; q0 < w * h; q0++) { if (M[q0] <= .05 || lab[q0]) continue; n++; const cells = []; st.push(q0); lab[q0] = n;
+    while (st.length) { const q = st.pop(); cells.push(q); const i = q % w;
+      for (const o of [i > 0 ? q - 1 : -1, i < w - 1 ? q + 1 : -1, q - w, q + w]) if (o >= 0 && o < w * h && !lab[o] && M[o] > .05) { lab[o] = n; st.push(o); } }
+    if (cells.length < minArea) for (const q of cells) M[q] = 0; }
 }
 
 // ---- the media: each turns a coverage into what the engine pours (density in the coverage) -------------------------------

@@ -146,9 +146,9 @@ const C = {
     // the lotus behind the letter, in the red forme, kept clear of the letter and its shadow by a channel
     const fan = lotus([W * .5, H * .93], H * .1, H * .78, PI * 1.08, PI * 1.92, 9, r, .7);
     S.ink('red', g => { g.save(); g.beginPath(); g.rect(W * .1, H * .1, W * .8, H * .8); g.clip(); for (const p of fan) g.fill(p); g.restore();
-      g.globalCompositeOperation = 'destination-out'; L.grown(g, H * .06); L.grown(g, H * .06, off[0], off[1]); g.globalCompositeOperation = 'source-over'; }, { medium: 'press' });
+      g.globalCompositeOperation = 'destination-out'; L.grown(g, H * .06); L.grown(g, H * .06, off[0], off[1]); g.globalCompositeOperation = 'source-over'; }, { medium: 'press', despeck: 2.5 });
     S.ink('ink', g => { g.save(); L(g, off[0], off[1]); g.globalCompositeOperation = 'destination-in'; g.beginPath(); for (let y = 0; y < H; y += per) g.rect(0, y, W, per * .42); g.fill(); g.restore();
-      g.globalCompositeOperation = 'destination-out'; L(g, 0, 0); g.globalCompositeOperation = 'source-over'; L(g, -H * .006, -H * .004); }, { medium: 'press' });
+      g.globalCompositeOperation = 'destination-out'; L(g, 0, 0); g.globalCompositeOperation = 'source-over'; L(g, -H * .006, -H * .004); }, { medium: 'press', despeck: 2.5 });
     return { S, W, H };
   },
   // the lotus fan of the Chrysler doors, small: five petals alternating black and vermilion, scalloped between, on a collar
