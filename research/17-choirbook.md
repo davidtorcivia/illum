@@ -350,3 +350,41 @@ dark solid ('a'/'b'), not a lifted pastel. No illum.js edit was needed.
   the style joins the site: `['staff', 'Music staff', [['on', 'On'], ['off', 'Off']], { mod: true }]`.
 - No stamped rows. Each fringe scroll has its own size (×.72–1.12) and spacing (1.05–1.65 sp). Its curl turns opposite to the
   last about three times in four. The spine scrolls vary in size too.
+
+## 4k. Fifth pass: the page in the drop's hand; speed; the library and the site
+
+**What the masters mark besides the initial** (read again at full size: Cleveland 1950.391 and 1985.60, Met 467763, Lewis
+E 73). The rubrics' paraphs are Lombardic Cs (c1950.391: blue, a little taller than the text's capitals, the back swelled,
+the head drawn out into a hair, a hair down the mouth), red and blue in turn. The small Lombards among the chant (467763's A,
+B, K, X) carry at the text's size few and large pieces of the same penwork: a contour a gap off the letter with a row of
+points, a roundel with a trefoil of points in a counter, and on the head a crest: two volutes springing from a short stem and
+rolling outward and down, a spiral rising between them, a point in its eye. Line fillers are rare (the chant fills the
+line); the stave is everywhere. Lesson from the first attempts (three were made and looked at at 1x and 4x before this one):
+the box's small work shrunk to the text's size reads as dotted borders and tiny rings, "digital"; rows of points read as
+dotted lines. What read as the same scribe at 1x was the drop's own margin staff (03's chain: scallops strung in runs,
+pendants with a point, hooks turned over with a ball, eyes on stalks) and his crest at the size of a capital.
+
+**What was built** (kit/styles/choirbook.js, "the page in his hand"): every mark at the drop's gap g = 2.6 px, in the drop's
+penwork inks (the palette's hairline is now the drop's penwork ink, light and dark) and widths, written by the same quill.
+- Paraph: the C laid with the broad nib held near level (the back full, head and foot thin) and a second stroke down the
+  back, a drop at its head. Modest: a hairline round the bowl in the other colour, scallops on its back in runs; usual: the
+  scallops full, pendants, the crest out into the margin from its back (over its head there is only the line above); fine:
+  the crest's eye in the paraph's colour; lavish: larger, eyes on stalks.
+- Fillers: one hairline from the last word to the measure, its end hooked over inside it; scallops over it in runs; kinds
+  (the copy's): scallops, pendants hung under it, eyes on stalks. Plain: the hairline; lavish: the crest at the end.
+- Breaks: rank 1, the stave (crests out from its ends; staff off, the staff laid level round an eye); rank 2, the column
+  laid level as a band (two hairlines strung outside, 466773's dome over the middle, crests at the ends); rank 3, the band
+  wider with domes over and under and crests from them.
+- Frames: the quotation and aside, the column (a bundle crowned with the dome, the chain down its outer side); the figure,
+  the box's frame (a double hairline, the chain outside, crests at the corners, the dome over its head at fine); the code,
+  two corners of it; the pull quote, the part's break above and below; the contents, the staff with a stalk and an eye at
+  each entry.
+- The scroll and fleuron are the grown filigree's own code, lifted out of it unchanged (the drop pixel-identical).
+
+**Speed** (all pixel-identical, checked by snapshots light, dark, staff off, plain and lavish at dpr 1 and 2): the clearance
+stamped only as far as any query reads it (~40 ms a drop); the letter's waver measured only in the band its edge can move
+(drawnNear: the same cells as penwork.js drawn, its distances searched ring by ring); the words near the letter only; the
+letter read back among the page's own initials; the registry's guard (kit/illum.js hits) asks a stroke only of the words its
+box could touch; the page's hairlines handed to the ink engine at a point every .75 px.
+
+**Bytes**: the 26 Lombards are 27.6 kB in all (hand3, a letter to a file, ~1.0–1.3 kB each); a page fetches only its initials'.
