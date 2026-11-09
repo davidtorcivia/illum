@@ -193,7 +193,7 @@ honest figure in these mediums yet; they are left out rather than invented.
 - Making the red look like the carvings' own colour.
 
 ## Recommendation
-**B**, the rock, for wekwos.com, with **A** a close second. B harmonises with what the site already has (its oxblood
+**B**, the rock, for wekwos.com, with **A** a close second. The rubric's own tie-break (Beauty equal, then the total) puts A first; I put B ahead on fit to the site, which the rubric does not weigh. B harmonises with what the site already has (its oxblood
 migration plate, its running horses, Archivo's weight) and is the only one that can carry the myth as figures. A is the
 finer, quieter grammar if the user wants ornament subordinate to the page. C should be dropped unless the user wants
 metal; if kept, its relief must be re-measured against the disc (sharper ridges, broader flats, specular breaks) before

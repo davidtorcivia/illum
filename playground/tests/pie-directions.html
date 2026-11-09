@@ -132,7 +132,7 @@ function page(key, theme, host) {
 
 for (const key of Object.keys(DIRS).filter(k => !ONLY || ONLY === k)) {
   const D = DIRS[key], sec = document.createElement('section'); sec.className = 'dir'; sec.id = key;
-  if (BARE) { const pr = document.createElement('div'); document.getElementById('out').append(pr); page(key, q.get('theme') ?? 'light', pr); continue; }
+  if (BARE) { const pr = document.createElement('div'); document.getElementById('out').append(pr); page(key, q.get('theme') === 'dark' ? 'dark' : 'light', pr); continue; }
   sec.innerHTML = `<h2 class="display">${NAMES[key]}</h2><p class="note">${NOTES[key]}</p><div class="pair"></div><div class="zoom"></div>`;
   document.getElementById('out').append(sec);
   let m; for (const theme of ['light', 'dark']) m = page(key, theme, sec.querySelector('.pair'));

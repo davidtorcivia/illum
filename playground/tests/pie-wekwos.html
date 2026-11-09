@@ -76,9 +76,10 @@
 <script type="module">
 import { DIRS, NAMES, print } from './pie-directions.js';
 await Promise.all(['900 20px Archivo', '500 20px Newsreader', 'italic 20px "Instrument Serif"', '20px "Illum PIE Archivo"', '20px "Illum PIE Cinzel"'].map(f => document.fonts.load(f)));
-const q = new URLSearchParams(location.search), key = q.get('dir') ?? 'potter', D = DIRS[key], seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+const q = new URLSearchParams(location.search), raw = q.get('dir'), key = Object.hasOwn(DIRS, raw ?? '') ? raw : 'potter', D = DIRS[key], seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
 const DRAW = q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches, dpr = Math.min(2, devicePixelRatio || 1), ws = [], t0 = performance.now();
-document.getElementById('dirs').innerHTML = Object.keys(DIRS).map(k => `<a href="?dir=${k}" class="${k === key ? 'on' : ''}">${NAMES[k]}</a>`).join('') + `<a href="?dir=${key}&draw">made</a>`;
+{ const nav = document.getElementById('dirs'), link = (href, text, on) => { const a = document.createElement('a'); a.href = href; a.textContent = text; if (on) a.className = 'on'; nav.append(a); };
+  for (const k of Object.keys(DIRS)) link(`?dir=${encodeURIComponent(k)}`, NAMES[k], k === key); link(`?dir=${encodeURIComponent(key)}&draw`, 'made'); }
 const put = (host, pc, x, y, theme = 'light') => { const o = print(key, theme, pc, { dpr, live: DRAW }), el = o.cv ?? o; if (o.w) ws.push(o.w); el.className = 'orn'; Object.assign(el.style, { left: x + 'px', top: y + 'px' }); host.append(el); };
 const rel = (host, el) => { const a = host.getBoundingClientRect(), b = el.getBoundingClientRect(); return { x: b.left - a.left, y: b.top - a.top, w: b.width, h: b.height }; };
 for (const sec of document.querySelectorAll('.sec')) {
