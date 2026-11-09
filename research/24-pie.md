@@ -258,3 +258,55 @@ At 1× the pieces read as red paint on pecked granite, and the panels hold a pag
 rock, but the granite's crystals are still a little too regular (a Voronoi mosaic you can see as such), the letter's
 paint reads flatter than the master's (its strokes are straight runs), and the horse is better but still a sketch.
 Beauty 2, not yet 3.
+
+## Stage 3: B with its own alphabet and a wider vocabulary (the user: "lose the granite background, add more variation of figures and designs … design real letters … a page with all 26 letters and all the design elements")
+
+- **No rock ground anywhere.** The panels, outcrops and tiles are gone (`ground` is 'none' throughout; ?ground=outcrop|slab
+  still shows the stage 2 options on the mock for comparison). The granite field is kept only as the surface the paint
+  takes on: where the brush skipped a low grain the pecked floor shows as a pale fleck inside the figure, which is caused,
+  and the pits, the pooled rim and the brush direction stay.
+- **The alphabet** (kit/styles/pie-letters.js): A–Z as data, each capital a few strokes with a skeleton and a width
+  profile, pecked and then painted along each stroke (so ?draw carves and paints it stroke by stroke). Family logic:
+  - strokes swell from ~.075 to ~.22 of the cap height (about 3×: the low end of the figures' measured 3–7×, so the
+    letters stay letters);
+  - blunt round ends, heavier at the foot; no serifs and no square corners (a corner is two strokes meeting);
+  - proportions informed by Archivo only;
+  - the hand's wander added to every stroke (~.03 of its width off its line, its width breathing ±6 %).
+
+  Tanum's vocabulary is used where it serves the form: O and Q are sun-wheels (ring and spokes), U is a hull with its
+  ends curled up, C G J S end in cup marks, Y forks like the world-tree. The Archivo-glyph drops of stages 1–2 and the
+  skeleton-carving experiment are gone.
+- **The drop** is the carved capital with a figure composed into the room it leaves, chosen by letter and seed: a ship
+  under it whose crew reach up into the letter (sharing its line), a deer, horse or crane walking away from its foot, the
+  sun (wheel or rayed) at its shoulder over a row of cups, or a rider with a spiral or rings.
+- **The vocabulary** (tests/pie-alphabet.html, "The figures"):
+  - ships: plain, high prow and stern, double hull, sun-ship;
+  - horse, rider;
+  - **the Tanum chariot** (Bronze Age Scandinavia: seen from above, its four-spoked wheels laid flat beside the axle, a
+    horse each side of the pole, backs to it);
+  - **the ox cart** with solid disc wheels (the older, **PIE-era** layer: the Yamnaya wagon burials; spoked chariots
+    come later, with Sintashta c. 2000 BCE);
+  - sun-wheel, rayed sun, cup marks, footsoles, hands, spiral, concentric rings;
+  - axe-bearer, lur-blower, adorant, serpent, world-tree, deer, crane.
+
+  All are drawn by eye from the panels' proportions, not traced.
+- **Variation down a page and between seeds:**
+  - paraph: a cup, a ringed cup or a footsole;
+  - filler: ship types, a serpent, or a rider and a deer;
+  - break 1: cups, cups joined by a channel, or footsoles;
+  - break 2: a sign between a pair (wheel and footsoles, rayed sun and cups, spiral and hands, rings and cranes);
+  - break 3: seven panels (a fleet under the sun, dawn, the serpent-slayer, the sky-father, a chariot and a rider, the
+    ox cart, two lur-blowers under the sun);
+  - frames: the world-tree or a serpent beside quotations; the Twins as horses or as two lur-blowers over the pull
+    quote; cups or spirals at an aside's corners;
+  - the heading run-out: an uneven row of cups (spacing, size and depth varying); rules: pecked grooves swelling along
+    their length.
+- **Liberties** (unchanged and named): the drop compositions, the Twins, the world-tree, dawn, the serpent-slayer, the
+  sky-father, the letters' Tanum details.
+- **Speed.** Mock (pie-wekwos.html?dir=rock), the pieces in the first view: 36–50 ms at dpr 1 and 2 (1440 and 390);
+  every piece at once 158 ms (dpr 1) / 294 ms (dpr 2). The alphabet specimen prints everything (26 drops, 26 line
+  initials, 22 figures, all breaks and panels, twice) in ~1.2 s at dpr 1.
+- **Where it stands (honest).** The alphabet is legible and reads as one carved family. At 1× the pages hold, and the
+  vocabulary is broad enough for a page to vary. At 4× the paint is mottled (pit by pit) where the Vitlycke paint is a
+  smoother, glossier film. Some figures are still sketches beside the panels: the horse's head, the chariot's horses, the
+  lur's horn. The drop compositions sometimes crowd, a figure close to a letter's leg. Beauty 2.

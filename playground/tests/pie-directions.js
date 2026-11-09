@@ -17,8 +17,8 @@ export const LOOKS = {
             dark: u => ({ kind: 'clay', paste: hex('#f6f1e4'), pk: .9, shadow: [0, 0, 0], lip: [.62, .56, .48], ks: .6, kh: .55, kc: 0, dref: .5 * u }) },
   // the rock (stage 2): iron-oxide red, a little warmer and brighter than the site's oxblood where the brush laid it thick,
   // pooled dark in the pits, thin and dry paler; on the ink, the same rock and a brighter paint
-  rock: { light: () => ({ tone: [1.04, .99, .95], pecked: [.88, .84, .8], paint: [hex('#b9624b'), hex('#a5361e'), hex('#561810')] }),
-          dark: () => ({ tone: [.9, .86, .84], pecked: [.82, .78, .74], paint: [hex('#d27159'), hex('#c4432a'), hex('#6a1d11')] }) },
+  rock: { light: () => ({ paper: hex('#efe7d6'), lift: .5, tone: [1.04, .99, .95], pecked: [.88, .84, .8], paint: [hex('#b9624b'), hex('#a5361e'), hex('#561810')] }),
+          dark: () => ({ paper: hex('#0e0d0b'), lift: .55, tone: [.9, .86, .84], pecked: [.82, .78, .74], paint: [hex('#d27159'), hex('#c4432a'), hex('#6a1d11')] }) },
   smith: { light: u => ({ kind: 'metal', ramp: BRONZE, gold: GOLD, base: .45, kd: 1.1, spec: .3, patina: hex('#2e5b3a').map(v => v * 1.3), pk: .7, pref: .12 * u }),
            dark: u => ({ kind: 'metal', ramp: BRONZE, gold: GOLD, base: .5, kd: 1.1, spec: .35, patina: hex('#2e5b3a').map(v => v * 1.4), pk: .65, pref: .12 * u }) },
 };

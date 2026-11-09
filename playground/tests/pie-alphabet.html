@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIE alphabet</title>
+<!--
+  PIE · B, the rock, stage 3 (research/24-pie.md): the carved alphabet A-Z (kit/styles/pie-letters.js) as drops with their
+  figures and as line initials; every design element on the specimen page; the figure vocabulary as a sheet; light on
+  wekwos.com's paper and dark on its ink sections; enlarged beside the panels. ?draw (pecked, then painted, as each part
+  comes into view)  #seed=n
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500&family=Archivo:wdth,wght@125,900&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@500&display=block" rel="stylesheet">
+<style>
+  :root { --yellow: #ffd21a; --ink: #0e0d0b; --paper: #efe7d6; --chalk: #f6f1e4; }
+  body { margin: 0; background: var(--yellow); color: var(--ink); font: 500 19px/1.58 Newsreader, Georgia, serif; }
+  .display { font-family: Archivo, sans-serif; font-weight: 900; font-variation-settings: 'wdth' 125; letter-spacing: -.03em; }
+  header { padding: 48px clamp(16px, 3.2vw, 48px) 24px; max-width: 1400px; margin: 0 auto; }
+  header h1 { font-size: clamp(48px, 8vw, 128px); line-height: .85; margin: 0; }
+  header p { font: italic 400 21px/1.3 "Instrument Serif", serif; max-width: 62ch; }
+  section { padding: 40px clamp(16px, 3.2vw, 48px); }
+  section.paper { background: var(--paper); } section.ink { background: var(--ink); color: var(--chalk); }
+  section > h2 { font-size: clamp(30px, 4vw, 56px); line-height: .9; margin: 0 auto .5em; max-width: 1400px; }
+  section > p.note { font: italic 400 18px/1.35 "Instrument Serif", serif; max-width: 70ch; margin: 0 auto 1.2em; max-width: 1400px; }
+  .grid { display: flex; flex-wrap: wrap; gap: 18px 14px; max-width: 1400px; margin: 0 auto; align-items: flex-end; }
+  .cell { display: flex; flex-direction: column; align-items: center; }
+  .cell span { font: 500 11px "JetBrains Mono", monospace; letter-spacing: .12em; text-transform: uppercase; opacity: .6; margin-top: 6px; text-align: center; max-width: 18em; }
+  .side { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; max-width: 1400px; margin: 0 auto 18px; }
+  .side img { display: block; }
+  iframe { width: 100%; max-width: 780px; height: 3600px; border: 0; display: block; }
+  .pair { display: flex; gap: 16px; flex-wrap: wrap; max-width: 1600px; margin: 0 auto; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<header><h1 class="display">*PIE · the carved alphabet</h1>
+<p>Twenty-six capitals cut in the Tanum hand: each a few swelling strokes with blunt round ends, pecked and then painted along their length; O and Q are sun-wheels, U a hull, C G J S end in cup marks. Beside each, a figure from the panels. <span id="timing"></span></p></header>
+<main id="out"></main>
+<script type="module">
+import { print } from './pie-directions.js';
+import * as rock from '../kit/styles/pie-rock.js';
+await Promise.all(['900 20px Archivo', '500 20px Newsreader', 'italic 20px "Instrument Serif"', '500 11px "JetBrains Mono"'].map(f => document.fonts.load(f)));
+const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), dpr = Math.min(2, devicePixelRatio || 1);
+const DRAW = q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches, LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const fs = 19, lh = fs * 1.58, H = 3 * lh + fs * .72, t0 = performance.now();
+// ?draw: pieces made one after another as their section comes into view
+const queue = []; let running = false, st = 0;
+function run(now) { const w = queue[0]; if (!w) { running = false; return; } if (!st) st = now; const f = (now - st) / w.dur; if (f >= 1) { w.done(); queue.shift(); st = 0; } else w.at(f); requestAnimationFrame(run); }
+const seen = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { seen.unobserve(e.target); queue.push(...e.target._w); } if (queue.length && !running) { running = true; requestAnimationFrame(run); } }, { threshold: .05 });
+const out = document.getElementById('out');
+function section(theme, title, note) { const s = document.createElement('section'); s.className = theme === 'dark' ? 'ink' : 'paper'; s.innerHTML = `<h2 class="display">${title}</h2>${note ? `<p class="note">${note}</p>` : ''}`; out.append(s); s._w = []; if (DRAW) seen.observe(s); return s; }
+function grid(sec) { const g = document.createElement('div'); g.className = 'grid'; sec.append(g); return g; }
+function cell(sec, g, theme, piece, label, zoom = 1) { const o = print('rock', theme, piece, { dpr, zoom, live: DRAW }), c = document.createElement('div'); c.className = 'cell'; c.append(o.cv ?? o);
+  if (o.w) sec._w.push(o.w); if (label) c.insertAdjacentHTML('beforeend', `<span>${label}</span>`); g.append(c); return c; }
+for (const theme of ['light', 'dark']) {
+  const tag = theme === 'light' ? 'on the paper' : 'on the ink';
+  { const s = section(theme, `Drops, A–Z, ${tag}`, theme === 'light' ? 'Each at the drop size of a wekwos.com paragraph (four lines). The figure beside a letter is chosen by the letter and the seed: a ship whose crew reach up into it, an animal at its foot, the sun at its shoulder over a row of cups, or a rider and a spiral.' : ''), g = grid(s);
+    for (const ch of LETTERS) cell(s, g, theme, rock.initial(ch, H, seed, fs), ch); }
+  { const s = section(theme, `Line initials, ${tag}`), g = grid(s); for (const ch of LETTERS) cell(s, g, theme, rock.lineInitial(ch, fs, seed), ''); }
+  { const s = section(theme, `The figures, ${tag}`, theme === 'light' ? 'The vocabulary, drawn from the Tanum and Bohuslän panels’ proportions. The chariot is Bronze Age Scandinavian (seen from above, its wheels laid flat beside the axle, a horse each side of the pole); the solid-wheeled ox cart is the older, PIE-era layer (the Yamnaya wagons).' : ''), g = grid(s);
+    rock.SHEET.forEach(([name], k) => cell(s, g, theme, rock.sheetPiece(k, 110, seed), name)); }
+  { const s = section(theme, `Breaks and small pieces, ${tag}`), g = grid(s);
+    for (let v = 0; v < 3; v++) cell(s, g, theme, rock.brk(1, 500, lh * 1.4, seed, v), `break 1 · ${['cups', 'cups and channel', 'footsoles'][v]}`);
+    for (let v = 0; v < 4; v++) cell(s, g, theme, rock.brk(2, 500, lh * 2.6, seed, v), `break 2 · ${['wheel, footsoles', 'rayed sun, cups', 'spiral, hands', 'rings, cranes'][v]}`);
+    for (let v = 0; v < 3; v++) cell(s, g, theme, rock.paraph(fs, seed + v * 5 + (v === 1 ? 1 : 0)), 'paraph');
+    for (let v = 0; v < 4; v++) cell(s, g, theme, rock.filler(300, lh, seed + v * 3), 'filler');
+    cell(s, g, theme, rock.runout(360, fs * 1.4, seed), 'heading run-out');
+    cell(s, g, theme, rock.frame('figure', 360, 60, seed, fs), 'rule (figure, code)'); }
+  { const s = section(theme, `The end panels, ${tag}`, theme === 'light' ? 'The third rank of break, chosen by seed and position down a page. Three are our liberties, named as such.' : ''), g = grid(s);
+    rock.BRK3.forEach((name, v) => cell(s, g, theme, rock.brk(3, 700, 7 * fs * 1.15, seed, v), name)); }
+}
+// every element on the specimen page, light and dark (the directions page, bare)
+{ const s = section('light', 'Every element on a page', 'The specimen page (pie-directions.html, B): drop, paraph, filler, run-out, the three breaks, quote, pull quote, aside, figure, code, contents. Light, and the ink.');
+  const p = document.createElement('div'); p.className = 'pair'; p.innerHTML = `<iframe src="pie-directions.html?only=rock&bare${DRAW ? '&draw' : ''}#seed=${seed}" title="light"></iframe><iframe src="pie-directions.html?only=rock&bare&theme=dark${DRAW ? '&draw' : ''}#seed=${seed}" title="dark"></iframe>`; s.append(p); }
+// enlarged beside the panels
+{ const s = section('light', 'Enlarged, beside the panels');
+  for (const [ch, zoom] of [['R', 4], ['O', 4], ['S', 4]]) { const side = document.createElement('div'); side.className = 'side'; const cv = print('rock', 'light', rock.initial(ch, H, seed, fs), { dpr, zoom }), im = new Image();
+    im.src = ch === 'O' ? 'pie-refs/vitlycke-rider.jpg' : 'pie-refs/vitlycke-crew.jpg'; im.style.height = cv.style.height; side.append(im, cv); s.append(side); }
+  const g = grid(s); for (const k of [0, 5, 6, 7, 16, 20]) cell(s, g, 'light', rock.sheetPiece(k, 110, seed), rock.SHEET[k][0] + ', 3×', 3); }
+const ms = Math.round(performance.now() - t0); document.body.dataset.timing = `${ms} ms`; document.getElementById('timing').textContent = `Printed in ${ms} ms (a specimen: every letter, figure and piece, twice).`;
+</script>
+</body>
+</html>

@@ -83,6 +83,7 @@
 import { DIRS, NAMES, print } from './pie-directions.js';
 await Promise.all(['900 20px Archivo', '500 20px Newsreader', 'italic 20px "Instrument Serif"', '500 13px "JetBrains Mono"', '20px "Illum PIE Archivo"', '20px "Illum PIE Cinzel"'].map(f => document.fonts.load(f)));
 const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), BARE = q.has('bare');
+if (['none', 'outcrop', 'slab'].includes(q.get('ground'))) DIRS.rock.DROP_GROUND.v = q.get('ground');
 const DRAW = q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (BARE) { document.body.classList.add('bare'); document.querySelector('header.top').remove(); }
 const NOTES = {

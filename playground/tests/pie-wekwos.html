@@ -77,6 +77,7 @@
 import { DIRS, NAMES, print } from './pie-directions.js';
 await Promise.all(['900 20px Archivo', '500 20px Newsreader', 'italic 20px "Instrument Serif"', '20px "Illum PIE Archivo"', '20px "Illum PIE Cinzel"'].map(f => document.fonts.load(f)));
 const q = new URLSearchParams(location.search), raw = q.get('dir'), key = Object.hasOwn(DIRS, raw ?? '') ? raw : 'potter', D = DIRS[key], seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+if (['none', 'outcrop', 'slab'].includes(q.get('ground'))) DIRS.rock.DROP_GROUND.v = q.get('ground');
 const DRAW = q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches, dpr = Math.min(2, devicePixelRatio || 1), ws = [], t0 = performance.now();
 { const nav = document.getElementById('dirs'), link = (href, text, on) => { const a = document.createElement('a'); a.href = href; a.textContent = text; if (on) a.className = 'on'; nav.append(a); };
   for (const k of Object.keys(DIRS)) link(`?dir=${encodeURIComponent(k)}`, NAMES[k], k === key); link(`?dir=${encodeURIComponent(key)}&draw`, 'made'); }
