@@ -672,8 +672,9 @@ export function rubricate(root, opts = {}) {
   }
   // the parts of these cases in reading order: the registry's from the page's one score, a written style's made and
   // scored now
-  const made = (list, c, animate) => { for (const it of list) if (it.written && !it.marks) { Object.assign(it, asMade(it.make()));
-    const S = STYLES[it.style]; if (S.print) Object.assign(it, S.print(it, { dpr: c.dpr, kind: it.kind, u: c.u, y: it.y, seed: c.SEED, animate })); } return list; };
+  // (wait: the host will await a case's `ready` before it paints, so a style may finish its pieces elsewhere meanwhile)
+  const made = (list, c, animate, wait = false) => { for (const it of list) if (it.written && !it.marks) { Object.assign(it, asMade(it.make()));
+    const S = STYLES[it.style]; if (S.print) Object.assign(it, S.print(it, { dpr: c.dpr, kind: it.kind, u: c.u, y: it.y, seed: c.SEED, animate, wait })); } return list; };
   function partsOf(k, list, animate) {
     const set = new Set(list), wr = scoreWritten(made(list.filter(it => it.written), k.c, animate), k.c, animate); state.drawn.push(...wr.drawn);
     return [...k.reg.parts.filter(p => set.has(p.it)), ...wr.parts].sort((a, b) => a.it.i - b.it.i);
@@ -720,7 +721,8 @@ export function rubricate(root, opts = {}) {
     // never wait on a long task; true if a newer drawing has begun meanwhile)
     let t1 = performance.now();
     const slice = async () => { if (performance.now() - t1 < 10) return false; await (globalThis.scheduler?.yield?.() ?? new Promise(r => setTimeout(r))); t1 = performance.now(); return !alive || tok !== gen; };
-    const draw = async list => { for (const it of list) if (it.written && !it.marks) { made([it], k.c, false); if (await slice()) return true; }
+    const draw = async list => { for (const it of list) if (it.written && !it.marks) { made([it], k.c, false, true); if (await slice()) return true; }
+      const rd = list.map(it => it.ready).filter(Boolean); if (rd.length) { await Promise.all(rd); if (!alive || tok !== gen) return true; }
       const ps = partsOf(k, list, false), wr = ps.filter(p => p.it.written), wb = inkOrder(wr.filter(p => !p.under && !p.over)); let j = 0;
       const seq = [...wr.filter(p => p.under), ...ps.filter(p => !p.under && !p.over).map(p => p.it.written ? wb[j++] : p), null, ...wr.filter(p => p.over)];
       // (a registry style's stamped marks are laid without a pause: the 2D canvas may raster a stroke cut across tasks a level differently)

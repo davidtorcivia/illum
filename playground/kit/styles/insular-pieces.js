@@ -63,11 +63,11 @@ const FAMILY = 'InsularUncial';
 // (kept by letter, size and grid: a page drawn again — another seed, the other theme, a richer level — sets it once;
 // whoever changes one (swell) works on its own copy)
 const LETTERS = new Map();
-export function letterField(ch, H, o = {}) { const k = [ch, H, o.res ?? 2, o.pad ?? .22, o.bold ?? 0, document.fonts?.check?.(`12px ${FAMILY}`)].join('|'); let L = LETTERS.get(k);
+export function letterField(ch, H, o = {}) { const k = [ch, H, o.res ?? 2, o.pad ?? .22, o.bold ?? 0, (globalThis.document ?? globalThis).fonts?.check?.(`12px ${FAMILY}`)].join('|'); let L = LETTERS.get(k);
   if (!L) { if (LETTERS.size > 24) LETTERS.clear(); LETTERS.set(k, L = letterField0(ch, H, o)); }
   return L; }
 function letterField0(ch, H, { res = 2, pad = .22, bold = 0 } = {}) {
-  const c = document.createElement('canvas').getContext('2d'); c.font = `${H * 1.45}px ${FAMILY}`;
+  const c = new OffscreenCanvas(1, 1).getContext('2d'); c.font = `${H * 1.45}px ${FAMILY}`;   // (no page needed: a worker sets letters too)
   const m = c.measureText(ch), asc = m.actualBoundingBoxAscent, desc = m.actualBoundingBoxDescent, l = m.actualBoundingBoxLeft, r = m.actualBoundingBoxRight;
   const s = H / (asc + desc), P = Math.ceil(H * pad), W = Math.ceil((l + r) * s) + 2 * P, Ht = Math.ceil(H) + 2 * P;
   const w = W * res, h = Ht * res, cv = new OffscreenCanvas(w, h), g = cv.getContext('2d', { willReadFrequently: true });

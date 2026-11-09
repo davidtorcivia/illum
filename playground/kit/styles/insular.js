@@ -27,11 +27,12 @@ export const palette = { get light() { return PAL().light; }, get dark() { retur
 const isDark = () => { try { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; } };
 
 // ---- placing pieces ---------------------------------------------------------------------------------------------------------------
-// a piece: build(res, theme) -> { S (its Sheet), ox, oy (where the Sheet's origin lies from the piece's x, y) }; rot: a
-// band stood upright (a margin), the Sheet built lying down and turned
+// a piece: its job, [builder, ...arguments] (BUILD below: a plain list, so a worker can build it as well) -> { S (its Sheet),
+// ox, oy (where the Sheet's origin lies from the piece's x, y) }; rot: a band stood upright (a margin), the Sheet built
+// lying down and turned
 // (a piece drawn for a page given its own seed is told so in its key: its choices are that seed's)
 const V = vary => vary ? ':v' + vary : '';
-const piece = (x, y, w, h, build, seed, rot = 0, what = 'piece') => ({ shape: 'ins', x, y, w, h, build, seed, rot, what, bkey: [what, w.toFixed(1), h.toFixed(1), seed, rot].join('|') });
+const piece = (x, y, w, h, job, seed, rot = 0, what = 'piece') => ({ shape: 'ins', x, y, w, h, job, kind: KIND, seed, rot, what, bkey: [KIND, what, w.toFixed(1), h.toFixed(1), seed, rot].join('|') });
 
 // ---- the initials ---------------------------------------------------------------------------------------------------------------
 // The drop: the panel letter, its cap on the first line's cap height and its foot on the last baseline (the face's
@@ -45,10 +46,10 @@ function widthOf(ch) {   // the built letter's width less its margins, in its he
     return WID[c] = (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) * s / 100 + .11; } catch { return 1; } }
 // the line's initial: the letter in ink (pale vellum in the dark, Lindisfarne), an orpiment band inside the pen line and its
 // body red lead (Durrow: orpiment over red, as its big letter), one row of red dots round it
-function smallInitial(c, H, seed, res, theme) {
+function smallInitial(kind, c, H, seed, res, theme) {
   const L = D.letterField(c, H, { res, bold: H * .08 }), S = new Sheet([0, 0, L.W, L.Ht], res), px = 1 / res, dk = theme === 'dark';
   const pen = Math.max(.7 * px, H * .045), band = Math.max(.8 * px, H * .07), lay = (ink, d0) => { const M = new Float32Array(L.w * L.h); for (let q = 0; q < M.length; q++) M[q] = Math.max(0, Math.min(1, (L.Din[q] - d0) * res + .5)) * (L.M[q] > .02 ? 1 : 0); S.image(ink, M); };
-  lay(KIND === 'lind' && dk ? 'l' : 'k', 0); lay('y', pen); lay('r', pen + band);
+  lay(kind === 'lind' && dk ? 'l' : 'k', 0); lay('y', pen); lay('r', pen + band);
   const dr = Math.max(.7 * px, H * .035); for (const lp of D.ring(L, dr * 1.45)) S.dots(dotsAlong(lp, dr * 2 * 1.85, dr, true, { load: 11 }), 'd');
   // its counters: the diaper of red dots f. 27r sets in a closed counter, in a lozenge lattice clear of the letter's edge
   const pit = dr * 2 * 1.9, hd = []; for (let y = L.P, row = 0; y < L.Ht - L.P; y += pit * .87, row++) for (let x = L.P + (row % 2) * pit / 2; x < L.W - L.P; x += pit) if (L.at(x, y, L.hole) && L.at(x, y, L.Dout) > dr * 1.6) hd.push([x, y, dr * .9, 0, 1]);
@@ -58,8 +59,8 @@ function smallInitial(c, H, seed, res, theme) {
 }
 function initial({ ch = 'E', G, big = true, seed = 1, rich = .5 }) {
   const c = letterOf(ch), [x0, y0, , y1] = G.box, H = y1 - y0, W = widthOf(c) * H, rk = rich >= 1 ? 1 : rich >= .75 ? .75 : .5;
-  const vary = insular.seeded | 0, build = (res, theme) => { if (!big) return smallInitial(c, H, seed, res, theme); const r = DIR().initial(c, H, seed, { theme, res, rich: rk, vary }); return { S: r.S, ox: r.P, oy: r.P }; };
-  return { marks: [], letters: [piece(x0, y0, W, H, build, seed, 0, (big ? 'drop:' : 'line:') + c + ':' + rk + V(vary))], width: W };
+  const vary = insular.seeded | 0, job = big ? ['drop', c, H, seed, rk, vary] : ['line', c, H, seed];
+  return { marks: [], letters: [piece(x0, y0, W, H, job, seed, 0, (big ? 'drop:' : 'line:') + c + ':' + rk + V(vary))], width: W };
 }
 initial.width = ch => widthOf(ch) + .04;
 initial.line = ch => widthOf(ch) + .04;
@@ -68,14 +69,14 @@ initial.lines = 4; initial.phone = 3; initial.margin = .3;
 // Reserved Font Name is not used for a modified version), loaded once (a page that declares it itself
 // in CSS has it already)
 const fontDir = new URL('../../fonts/insular/', import.meta.url); let faceP = null;
-initial.load = () => faceP ??= (document.fonts.check(`40px ${FACE}`) && [...document.fonts].some(f => f.family.replace(/"/g, '') === FACE) ? Promise.resolve()
-  : new FontFace(FACE, `url(${new URL('illum-uncial-caps.woff2', fontDir)})`).load().then(f => { document.fonts.add(f); }).catch(e => console.warn('insular:', e)));
+initial.load = () => (pool(), faceP ??= (document.fonts.check(`40px ${FACE}`) && [...document.fonts].some(f => f.family.replace(/"/g, '') === FACE) ? Promise.resolve()
+  : new FontFace(FACE, `url(${new URL('illum-uncial-caps.woff2', fontDir)})`).load().then(f => { document.fonts.add(f); }).catch(e => console.warn('insular:', e))));
 
 // ---- the paraph, fillers, breaks ---------------------------------------------------------------------------------------------------
 // the paraph: in the gap the indent keeps (u: the x-height): Lindisfarne's small knot and three dots, Durrow's two coils
 function paraph(x, base, u, seed) {
-  const size = u * (KIND === 'durrow' ? 1.25 : 1.55), vary = insular.seeded | 0, build = (res, theme) => { const r = DIR().paraph(size, seed, { theme, res, vary }); return { S: r.S, ox: size * .3, oy: size * .3 }; };
-  return { marks: [], letters: [piece(x, base - u * .5 - size / 2, size * 1.9, size, build, seed, 0, 'paraph' + V(vary))] };
+  const size = u * (KIND === 'durrow' ? 1.25 : 1.55), vary = insular.seeded | 0;
+  return { marks: [], letters: [piece(x, base - u * .5 - size / 2, size * 1.9, size, ['paraph', size, seed, vary], seed, 0, 'paraph' + V(vary))] };
 }
 // a paragraph's free end: Lindisfarne's row of dots closed by the positura, Durrow's red wave scroll; a heading's run-out,
 // a short one
@@ -86,16 +87,16 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
   // (Durrow's red scroll is a large mark: it closes a short last line only — a third of the line free, less as the page is
   // richer — not every paragraph's end)
   if (KIND === 'durrow' && kind !== 'rule' && room < u * (rich >= 1 ? 18 : rich >= .75 ? 24 : 30)) return { marks: [], letters: [] };
-  const ht = u * 1.45, build = (res, theme) => { const r = (KIND === 'durrow' ? D.durFiller : D.lindFiller)(L, ht, seed, { theme, res }); return { S: r.S, ox: r.pad, oy: r.pad }; };
-  return { marks: [], letters: [piece(x0 + u * .2, (yTop + yBase) / 2 - ht / 2, L, ht, build, seed, 0, 'filler')] };
+  const ht = u * 1.45;
+  return { marks: [], letters: [piece(x0 + u * .2, (yTop + yBase) / 2 - ht / 2, L, ht, ['filler', L, ht, seed], seed, 0, 'filler')] };
 }
 // three ranks: a part (half the measure, one knot panel on its rules), a chapter (wider and taller), the end (across the
 // measure). The budget: plain, a part's smaller; fine, a part's in a chapter's form; lavish, a chapter's wider still
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8) {
   const rk = rank === 1 && rich >= .75 ? 2 : rank, wide = rich >= 1 ? 1.12 : 1;
   const W = rk > 2 ? measure * .92 : rk > 1 ? Math.min(measure * .72 * wide, u * 62 * wide) : u * 14 * (rich < .25 ? .8 : 1), ht = u * (rk > 2 ? 3 : rk > 1 ? 3.2 : 2.6);
-  const vary = insular.seeded | 0, build = (res, theme) => { const r = (KIND === 'durrow' ? D.durBand : D.lindBand)(W, ht, seed + rk, { theme, res, rank: rk, vary }); return { S: r.S, ox: (r.W - W) / 2, oy: (r.H - ht) / 2 }; };
-  return { marks: [], letters: [piece(cx - W / 2, y - ht / 2, W, ht, build, seed, 0, 'break' + rk + V(vary))] };
+  const vary = insular.seeded | 0;
+  return { marks: [], letters: [piece(cx - W / 2, y - ht / 2, W, ht, ['band', W, ht, seed + rk, rk, vary], seed, 0, 'break' + rk + V(vary))] };
 }
 
 // ---- frames ----------------------------------------------------------------------------------------------------------------------
@@ -103,13 +104,12 @@ const linesBox = (box, lines) => !lines?.length ? box : [Math.min(...lines.map(L
 // a quotation's or an aside's margin: a knot panel on its rules (Lindisfarne) or a ribbon knot on double rules (Durrow),
 // stood upright beside the lines
 const margin = (xl, top, bot, u, seed) => { const ht = Math.min(u * 2.6, Math.max(u * 1.6, xl - u * .9 - 4)), len = bot - top + u * 2.4; if (len < u * 6) return [];
-  const vary = insular.seeded | 0, build = (res, theme) => { const r = (KIND === 'durrow' ? D.durBand : D.lindBand)(len, ht, seed, { theme, res, vary }); return { S: r.S, ox: (r.W - len) / 2, oy: (r.H - ht) / 2 }; };
-  return [piece(Math.max(4, xl - u * .9 - ht), top - u * 1.2, ht, len, build, seed, 1, 'margin' + V(vary))]; };
+  const vary = insular.seeded | 0;
+  return [piece(Math.max(4, xl - u * .9 - ht), top - u * 1.2, ht, len, ['band', len, ht, seed, 2, vary], seed, 1, 'margin' + V(vary))]; };
 // a frame: built as its four sides' strips (the corners with the top and bottom), so its empty middle is never rastered
 const frameAround = ([X0, Y0, X1, Y1], seed, level = 1) => { const bw = X1 - X0, bh = Y1 - Y0, st = D.frameStrip(bw, bh), vary = insular.seeded | 0;
   return ['t', 'b', 'l', 'r'].map(part => { const [sx0, sy0, sx1, sy1] = st[part];
-    const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durFrame : D.lindFrame)(bw, bh, seed, { theme, res, level, part, vary }); return { S: r.S, ox: 0, oy: 0, trim: st.trim[part] }; };   // (the strip's sheet starts where the piece does)
-    return piece(X0 - st.pad + sx0, Y0 - st.pad + sy0, sx1 - sx0, sy1 - sy0, build, seed, 0, 'frame' + level + part + ':' + bw.toFixed(1) + 'x' + bh.toFixed(1) + V(vary)); }); };
+    return piece(X0 - st.pad + sx0, Y0 - st.pad + sy0, sx1 - sx0, sy1 - sy0, ['frame', bw, bh, seed, level, part, vary], seed, 0, 'frame' + level + part + ':' + bw.toFixed(1) + 'x' + bh.toFixed(1) + V(vary)); }); };
 const levelOf = rich => rich < .25 ? 0 : rich < .75 ? 1 : rich < 1 ? 2 : 3;
 const frames = {
   quote: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : margin(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
@@ -117,8 +117,8 @@ const frames = {
   aside: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : [...margin(L[0], L[1], L[3] + u * .3, u, seed + 4), ...(rich >= 1 && box ? frameAround([box[0] + u, box[1] + u, box[2] - u * .4, box[3] - u], seed + 9, 1) : [])] }; },
   pull: ({ cx, yTop, yBot, measure, u, seed = 1, rich = .5 }) => { if (rich < .25) return { marks: [], letters: [] };
     // (modest and usual: a knot panel on its rules; fine, longer; lavish, a band of knotwork)
-    const rk = rich >= 1 ? 3 : 2, W = Math.min(measure * (rich >= 1 ? .6 : .42), u * (rich >= .75 ? 36 : 30)), ht = u * 2.4, f = KIND === 'durrow' ? D.durBand : D.lindBand, vary = insular.seeded | 0;
-    const one = (yc, s) => piece(cx - W / 2, yc - ht / 2, W, ht, (res, theme) => { const r = f(W, ht, s, { theme, res, rank: rk, vary }); return { S: r.S, ox: (r.W - W) / 2, oy: (r.H - ht) / 2 }; }, s, 0, 'pull' + rk + V(vary));
+    const rk = rich >= 1 ? 3 : 2, W = Math.min(measure * (rich >= 1 ? .6 : .42), u * (rich >= .75 ? 36 : 30)), ht = u * 2.4, vary = insular.seeded | 0;
+    const one = (yc, s) => piece(cx - W / 2, yc - ht / 2, W, ht, ['band', W, ht, s, rk, vary], s, 0, 'pull' + rk + V(vary));
     return { marks: [], letters: [one(yTop - ht * .2, seed + 2), one(yBot + ht * .35, seed + 7)] }; },
   // (plain: the rules and corners alone; usual: dots and the long sides' panels; fine: the short sides' knots too; lavish:
   // a second row of dots, and the figure's margin band beside it)
@@ -135,36 +135,79 @@ const CACHE = new Map(), MADE = new Map();
 export const TIME = { build: 0, paint: 0, pieces: 0, PT };   // (where the time goes: the Sheets' geometry, and their painting)
 function turn(c) { const o = new OffscreenCanvas(c.height, c.width), g = o.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return o; }
 function turnT(T, w, h) { if (!T) return T; const O = new Float32Array(T.length); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) O[i * h + (h - 1 - j)] = T[j * w + i]; return O; }
-// (a still page's pieces are built without the making's clock: nothing reads it)
-const built = (b, res, theme, animate) => { Sheet.clocked = animate; try { return b.build(res, theme); } finally { Sheet.clocked = true; } };
-function print(made, { dpr = 1, animate = false, kind } = {}) {
-  const res = Math.min(4, Math.max(1, Math.round(dpr))), theme = isDark() ? 'dark' : 'light', all = [], seq = [];
+// the builders, by name: (kind, res, theme, ...the job's arguments) -> { S, ox, oy[, trim] }
+const BUILD = {
+  drop: (k, res, theme, c, H, seed, rich, vary) => { const r = D.DIRS[k].initial(c, H, seed, { theme, res, rich, vary }); return { S: r.S, ox: r.P, oy: r.P }; },
+  line: (k, res, theme, c, H, seed) => smallInitial(k, c, H, seed, res, theme),
+  paraph: (k, res, theme, size, seed, vary) => { const r = D.DIRS[k].paraph(size, seed, { theme, res, vary }); return { S: r.S, ox: size * .3, oy: size * .3 }; },
+  filler: (k, res, theme, L, ht, seed) => { const r = D.DIRS[k].filler(L, ht, seed, { theme, res }); return { S: r.S, ox: r.pad, oy: r.pad }; },
+  band: (k, res, theme, W, ht, seed, rank, vary) => { const r = D.DIRS[k].brk(W, ht, seed, { theme, res, rank, vary }); return { S: r.S, ox: (r.W - W) / 2, oy: (r.H - ht) / 2 }; },
+  // (a frame's side: its sheet starts where the piece does, built with an overlap and trimmed back to its own rows)
+  frame: (k, res, theme, bw, bh, seed, level, part, vary) => { const r = D.DIRS[k].frame(bw, bh, seed, { theme, res, level, part, vary }); return { S: r.S, ox: 0, oy: 0, trim: D.frameStrip(bw, bh).trim[part] }; },
+};
+// One piece built and painted: { canvas, T (its clock, drawn), w, h, dx, dy, tb, tp (ms) }. (A still page's pieces are built
+// without the making's clock: nothing reads it.) Here or in a worker (kit/styles/insular-worker.js), the same.
+export function makePiece(b, res, theme, animate = false, paint = 'hand') {
+  const X = D.DIRS[b.kind], pal = D.PAL[X.pal][theme], t0 = performance.now(); let o; Sheet.clocked = animate;
+  try { o = BUILD[b.job[0]](b.kind, res, theme, ...b.job.slice(1)); } finally { Sheet.clocked = true; }
+  const { S, ox, oy, trim = null } = o, tp = performance.now();
+  let canvas, T = null;
+  if (paint === 'engine') { canvas = new OffscreenCanvas(S.w, S.h); const g = canvas.getContext('2d'); g.scale(res, res); S.print(g, pal, { dpr: res, order: X.order, seed: b.seed, tex: X.tex, alias: X.alias }); }
+  else ({ canvas, T } = paintSheet(S, pal, { order: X.order, seed: b.seed, grow: animate }));
+  let w = S.w, h = S.h, dx = ox, dy = oy;
+  if (trim) { const tr = Math.round(trim[0] * res), h2 = h - tr - Math.round(trim[1] * res), c2 = new OffscreenCanvas(w, h2); c2.getContext('2d').drawImage(canvas, 0, -tr);   // (a strip trimmed back to its own rows)
+    if (T) T = T.slice(tr * w, (tr + h2) * w); canvas = c2; h = h2; dy -= tr / res; }
+  if (b.rot) { T = turnT(T, w, h); canvas = turn(canvas); [w, h] = [h, w]; dx = oy; dy = ox; }
+  return { canvas, T, w, h, dx, dy, tb: tp - t0, tp: performance.now() - tp };
+}
+const tally = (b, m) => { TIME.build += m.tb; TIME.paint += m.tp; TIME.pieces++; const k = b.what.split(':')[0]; TIME[k] = (TIME[k] ?? 0) + m.tb; };
+
+// The workers: a still page's pieces built off the page's thread, several at once, while the host waits (it asks, `wait`,
+// and awaits the case's `ready`). Started when the face is asked for and warmed on a small letter, so the first page's
+// pieces are not their first; none (no Worker, no OffscreenCanvas, ?worker=0, or one that fails) and every piece is
+// built here, as before. (The same code paints the same pixels in a worker: a software canvas either way.)
+const POOL = { ws: null, jobs: new Map(), id: 0 };
+function pool() {
+  if (POOL.ws !== null) return POOL.ws; POOL.ws = false;
+  try { if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || /[?&]worker=0\b/.test(location.search)) return false;
+    const n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1)), font = new URL('illum-uncial-caps.woff2', fontDir).href;
+    const dead = w => { w.dead = true; for (const [id, j] of POOL.jobs) if (j.w === w) { POOL.jobs.delete(id); j.no(new Error('insular worker failed')); } if (POOL.ws.every(x => x.dead)) POOL.ws = false; };
+    POOL.ws = Array.from({ length: n }, () => { const w = new Worker(new URL('./insular-worker.js', import.meta.url), { type: 'module' }); w.n = 0;
+      w.onmessage = ({ data }) => { if (data.fail) return dead(w); const j = POOL.jobs.get(data.id); if (!j) return; POOL.jobs.delete(data.id); w.n--; data.error ? j.no(new Error(data.error)) : j.ok(data); };
+      w.onerror = () => dead(w); w.postMessage({ init: { font, kind: KIND } }); return w; });
+  } catch { POOL.ws = false; }
+  return POOL.ws;
+}
+const inWorker = (b, res, theme) => new Promise((ok, no) => { const ws = POOL.ws && POOL.ws.filter(w => !w.dead); if (!ws?.length) return no(new Error('no worker'));
+  const w = ws.reduce((a, x) => x.n < a.n ? x : a), id = ++POOL.id; w.n++; POOL.jobs.set(id, { ok, no, w });
+  w.postMessage({ id, b: { job: b.job, kind: b.kind, seed: b.seed, rot: b.rot }, res, theme }); });
+
+function print(made, { dpr = 1, animate = false, kind, wait = false } = {}) {
+  const res = Math.min(4, Math.max(1, Math.round(dpr))), theme = isDark() ? 'dark' : 'light', all = [], seq = [], waits = [];
   for (const b of made.letters ?? []) { if (b.shape !== 'ins') continue;
     const key = [KIND, PAINT, theme, res, b.x.toFixed(1), b.y.toFixed(1), b.bkey, animate].join('|');
     let p = CACHE.get(key);
     if (!p) {
       // (the piece itself — its geometry and its paint — does not depend on where it stands: kept by what it is, its size
-      // and seed, so a page laid out again, or a mode come back to, reuses it)
-      const pk = [KIND, PAINT, theme, res, b.bkey, animate].join('|'); let made = MADE.get(pk);
-      if (!made) { const tb = performance.now(), { S, ox, oy, trim = null } = built(b, res, theme, animate), pal = PAL()[theme], tp = performance.now(); TIME.build += tp - tb; TIME[b.what.split(':')[0]] = (TIME[b.what.split(':')[0]] ?? 0) + tp - tb;
-        let canvas, T = null;
-        if (PAINT === 'engine') { canvas = new OffscreenCanvas(S.w, S.h); const g = canvas.getContext('2d'); g.scale(res, res); S.print(g, pal, { dpr: res, order: DIR().order, seed: b.seed, tex: DIR().tex, alias: DIR().alias }); }
-        else ({ canvas, T } = paintSheet(S, pal, { order: DIR().order, seed: b.seed, grow: animate }));
-        let w = S.w, h = S.h, dx = ox, dy = oy;
-        if (trim) { const tr = Math.round(trim[0] * res), h2 = h - tr - Math.round(trim[1] * res), c2 = new OffscreenCanvas(w, h2); c2.getContext('2d').drawImage(canvas, 0, -tr);   // (a strip trimmed back to its own rows)
-          if (T) T = T.slice(tr * w, (tr + h2) * w); canvas = c2; h = h2; dy -= tr / res; }
-        if (b.rot) { T = turnT(T, w, h); canvas = turn(canvas); [w, h] = [h, w]; dx = oy; dy = ox; }
-        TIME.paint += performance.now() - tp; TIME.pieces++;
-        made = { canvas, T, w, h, dx, dy }; if (MADE.size > 200) MADE.clear(); MADE.set(pk, made); }
-      let { canvas, T, w, h, dx, dy } = made; const x0 = b.x - dx, y0 = b.y - dy;
-      const pour = { x0, y0, w, h, res, col: 'k', paint: bake => bake.drawImage(canvas, x0, y0, w / res, h / res) };
-      if (animate && T) { const mk = new OffscreenCanvas(w, h), mg = mk.getContext('2d'), im = new ImageData(w, h); let last = -1;
-        pour.grow = { mode: 'reveal', fn: (ctx, f) => { if (f !== last) { last = f; for (let q = 0; q < T.length; q++) im.data[q * 4 + 3] = T[q] <= f ? 255 : 0; mg.putImageData(im, 0, 0); } ctx.drawImage(mk, x0, y0, w / res, h / res); } }; }
+      // and seed, so a page laid out again, or a mode come back to, reuses it; one still being built elsewhere is waited for
+      // by a host that waits, built again here for one that cannot)
+      const pk = [KIND, PAINT, theme, res, b.bkey, animate].join('|'); let m = MADE.get(pk);
+      if (!m || (m.ready && !m.canvas && !wait)) {
+        if (wait && !animate && PAINT === 'hand' && pool()) { const e = m = {};
+          e.ready = inWorker(b, res, theme).then(r => { tally(b, r); return Object.assign(e, r); }, () => { const r = makePiece(b, res, theme); tally(b, r); return Object.assign(e, r); }); }
+        else { m = makePiece(b, res, theme, animate, PAINT); tally(b, m); }
+        if (MADE.size > 200) MADE.clear(); MADE.set(pk, m); }
+      const pour = { res, col: 'k', paint: bake => bake.drawImage(m.canvas, pour.x0, pour.y0, pour.w / res, pour.h / res) };
+      const place = () => { const { T, w, h, dx, dy } = m, x0 = b.x - dx, y0 = b.y - dy; Object.assign(pour, { x0, y0, w, h });
+        if (animate && T) { const mk = new OffscreenCanvas(w, h), mg = mk.getContext('2d'), im = new ImageData(w, h); let last = -1;
+          pour.grow = { mode: 'reveal', fn: (ctx, f) => { if (f !== last) { last = f; for (let q = 0; q < T.length; q++) im.data[q * 4 + 3] = T[q] <= f ? 255 : 0; mg.putImageData(im, 0, 0); } ctx.drawImage(mk, x0, y0, w / res, h / res); } }; } };
+      if (m.canvas) place(); else pour.ready = m.ready.then(place);
       p = [pour]; if (CACHE.size > 300) CACHE.clear(); CACHE.set(key, p); }
+    for (const q of p) if (q.ready) waits.push(q.ready);
     const d = kind === 'drop' ? 3 : kind === 'initial' ? 1.4 : Math.min(2, .8 + (b.w + b.h) / 600);
     for (const q of p) { all.push(q); seq.push({ pour: q, d, piece: b }); } }
   const ys = (made.letters ?? []).map(b => b.y);
-  return { pours: all, letters: [], seq, runs: [], y0: ys.length ? Math.min(...ys) : 0 };
+  return { pours: all, letters: [], seq, runs: [], y0: ys.length ? Math.min(...ys) : 0, ready: waits.length ? Promise.all(waits) : undefined };
 }
 // a case on the painter's clock: its pieces one after another, each over its own span (its making is in its reveal)
 function timeline(pr, kind, animate) {
