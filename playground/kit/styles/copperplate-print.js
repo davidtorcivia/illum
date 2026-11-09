@@ -160,7 +160,15 @@ export function thinShades(L, k = .3, tau0 = 2) {
 // ---- the media ----------------------------------------------------------------------------------------------------------------
 // Intaglio: the ink lies in the cut and is pressed out onto the paper whole: the engine's coat with almost no creep and
 // no drying at the rim (a pen's pooling is wrong here); the crispness is the engraving's.
-export function engrave(bake, L, rgb, { dpr = 2, wet = .03, dry = .04 } = {}) { inkLetter(bake, { ...L, wet, dry }, rgb, { dpr }); }
+// flat: the coverage laid as it is (its own anti-aliasing the only softness): an engraver's line can be finer than the ink
+// engine can hold (the engine breaks a line under ~1.2 device px into beads), and a fine engraved line is black, only
+// narrow, so a hairline narrower than a pixel is laid as the share of the pixel it covers
+export function engrave(bake, L, rgb, { dpr = 2, wet = .03, dry = .04, flat = false } = {}) {
+  if (!flat) { inkLetter(bake, { ...L, wet, dry }, rgb, { dpr }); return; }
+  const { M, w, h, x0, y0, res } = L, c = new OffscreenCanvas(w, h), g = c.getContext('2d'), im = g.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) { if (!M[i]) continue; im.data[i * 4] = rgb[0]; im.data[i * 4 + 1] = rgb[1]; im.data[i * 4 + 2] = rgb[2]; im.data[i * 4 + 3] = Math.round(Math.min(1, M[i]) * 255); }
+  g.putImageData(im, 0, 0); bake.save(); bake.setTransform(dpr, 0, 0, dpr, 0, 0); bake.imageSmoothingQuality = 'high'; bake.drawImage(c, x0, y0, w / res, h / res); bake.restore();
+}
 
 // The writing master's pen (after kit/styles/nouveau-ink.js inkWrite, the approved pointed pen): each stroke written at
 // a hand's pace, quick on the long runs and slower into turns and at its ends, its designed swell given as pressure, so the
@@ -186,13 +194,13 @@ function pace(p, vmax) {
 // quillWriter: the strokes written one after another at the hand's pace (each stroke's t, ms; a lift of 120 ms between),
 // the medium's window shown live over the page at `pos` in `host` while it writes, then pressed into bake. .at(f) f 0..1,
 // .done(), .dur (ms). quill(): the same, written at once.
-export function quillWriter(bake, strokes, rgb, { dpr = 2, box, seed = 1, wet = .3, speed = .8, host = null, pos = [0, 0] } = {}) {
+export function quillWriter(bake, strokes, rgb, { dpr = 2, box, seed = 1, wet = .3, speed = .8, host = null, pos = [0, 0], rough = null, rim = null } = {}) {
   if (!supported()) return { dur: 0, at() {}, done() {} };
   const plan = []; let T0 = 0;
   for (const S of strokes) { const T = S.t ?? pace(S.p, speed); plan.push({ S, T, start: T0 }); T0 += T.at(-1) + 60 + 120; }
   const ox = Math.floor(box[0]), oy = Math.floor(box[1]), cw = Math.ceil((box[2] - ox) * dpr), ch = Math.ceil((box[3] - oy) * dpr), wob = noise1(seed ^ 0x3c);
   let cv = null, Md = null, pen = null, now = 0, k = -1, fin = false;
-  const open = () => { ({ cv, Md } = mediumFor(cw, ch, dpr)); Md.clear(); Md.wetness(wet); Md.settings.ink = rgb; Md.makePaper([ox * dpr, oy * dpr], [0, 0, cw, ch]);
+  const open = () => { ({ cv, Md } = mediumFor(cw, ch, dpr)); Md.clear(); Md.wetness(wet); Md.settings.ink = rgb; if (rough != null) Md.settings.rough = rough; if (rim != null) Md.settings.rim = rim; Md.makePaper([ox * dpr, oy * dpr], [0, 0, cw, ch]);
     pen = new Pen(Md, { exact: true, flex: 0, use: 1.2, angle: .62 });
     if (host) { Object.assign(cv.style, { position: 'absolute', left: pos[0] + ox + 'px', top: pos[1] + oy + 'px', width: cv.width / dpr + 'px', height: cv.height / dpr + 'px', pointerEvents: 'none' }); cv.setAttribute('aria-hidden', 'true'); host.append(cv); } };
   // a dot: the pen set down and lifted, the ink a little pool
@@ -224,11 +232,13 @@ export function quill(bake, strokes, rgb, o = {}) { if (!supported()) return fal
 // (each stroke's t, ms; a lift of 120 ms between): the finished print is made at once, and each device pixel takes the
 // time of the nearest point of the stroke that laid it; .at(f) lays the pixels whose time has come (each once, onto bake,
 // over what is there), so the cut runs along the line with a crisp front and nothing fades. L: the strokes' coverage.
-export function engraveWriter(bake, L, strokes, rgb, { dpr = 2 } = {}) {
+// cellT (0..1 a cell of L, e.g. a letter's skeleton order from letterWriter) and dur: cut in that order instead of along strokes
+export function engraveWriter(bake, L, strokes, rgb, { dpr = 2, flat = false, cellT = null, dur = 1300 } = {}) {
   const W = bake.canvas.width, H = bake.canvas.height, off = new OffscreenCanvas(W, H), og = off.getContext('2d', { willReadFrequently: true });
-  engrave(og, L, rgb, { dpr }); const fin = og.getImageData(0, 0, W, H);
+  engrave(og, L, rgb, { dpr, flat }); const fin = og.getImageData(0, 0, W, H);
   // the time of each coverage cell: the earliest point of any stroke whose disc (its width and a px of creep) covers it
   const { w, h, res } = L, Tc = new Float32Array(w * h).fill(Infinity); let T0 = 0;
+  if (cellT) { for (let q = 0; q < w * h; q++) if (L.M[q] > .01) Tc[q] = cellT[q] * dur; T0 = dur; }
   for (const S of strokes) { const T = S.t ?? pace(S.p);
     for (let i = 0; i < S.p.length; i++) { const [x, y] = S.p[i], rr = (S.w[i] + 1.4) * res, cx = (x - L.x0) * res, cy = (y - L.y0) * res, t = T0 + T[i];
       for (let j = Math.max(0, Math.floor(cy - rr)); j <= Math.min(h - 1, Math.ceil(cy + rr)); j++) for (let q = Math.max(0, Math.floor(cx - rr)); q <= Math.min(w - 1, Math.ceil(cx + rr)); q++) {
@@ -252,4 +262,46 @@ export function engraveWriter(bake, L, strokes, rgb, { dpr = 2 } = {}) {
   return { dur: T0,
     at(f) { if (done) return; const now = Math.min(1, f) * T0; let lo = at, hi = times.length; while (lo < hi) { const m = (lo + hi) >> 1; if (times[m] <= now) lo = m + 1; else hi = m; } lay(lo); },
     done() { if (done) return; lay(order.length); done = true; } };
+}
+
+// ---- a capital written by the pen ---------------------------------------------------------------------------------------------
+// The face's letter as the strokes of a pen: its skeleton (Zhang & Suen's thinning at a cell a px) walked into strokes, each
+// from an end (the topmost first), on along the straightest way at a fork, the skeleton's half-width (the distance to paper)
+// carried as the stroke's width, so the pen lays the face's own thicks and thins and pools and runs as the flourish does.
+// L: the letter's coverage { M, w, h, x0, y0, res }. Returns strokes { p, w } in page px.
+export function glyphStrokes(L, { min = 3 } = {}) {
+  const { M, w, h, x0, y0, res } = L, k = Math.max(1, Math.round(res)), sw = Math.ceil(w / k) + 2, sh = Math.ceil(h / k) + 2, B = new Uint8Array(sw * sh), I = new Uint8Array(sw * sh);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (M[j * w + i] > .5) B[(Math.floor(j / k) + 1) * sw + Math.floor(i / k) + 1]++;
+  for (let q = 0; q < B.length; q++) { B[q] = B[q] * 2 >= k * k ? 1 : 0; I[q] = B[q]; }
+  const paper = new Uint8Array(sw * sh); for (let q = 0; q < B.length; q++) paper[q] = !I[q]; const D = dist(paper, sw, sh);
+  for (let changed = true; changed;) { changed = false;
+    for (const pass of [0, 1]) { const del = [];
+      for (let j = 1; j < sh - 1; j++) for (let i = 1; i < sw - 1; i++) { const q = j * sw + i; if (!B[q]) continue;
+        const P = [B[q - sw], B[q - sw + 1], B[q + 1], B[q + sw + 1], B[q + sw], B[q + sw - 1], B[q - 1], B[q - sw - 1]], n = P.reduce((a, v) => a + v, 0);
+        if (n < 2 || n > 6) continue; let a = 0; for (let t = 0; t < 8; t++) a += !P[t] && P[(t + 1) % 8]; if (a !== 1) continue;
+        if (pass ? P[0] * P[2] * P[6] || P[0] * P[4] * P[6] : P[0] * P[2] * P[4] || P[2] * P[4] * P[6]) continue; del.push(q); }
+      for (const q of del) B[q] = 0; if (del.length) changed = true; } }
+  const N8 = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]], seen = new Uint8Array(sw * sh);
+  const nbs = q => N8.map(([dx, dy]) => q + dy * sw + dx).filter(o => B[o]), out = [];
+  const px = q => [x0 + ((q % sw) - 1 + .5) * k / res, y0 + (((q / sw) | 0) - 1 + .5) * k / res];
+  for (;;) { let st = -1, best = Infinity;
+    for (let q = 0; q < B.length; q++) if (B[q] && !seen[q]) { const end = nbs(q).filter(o => !seen[o]).length <= 1, v = (q / sw | 0) * 2 + (q % sw) * .5 - (end ? 1e5 : 0); if (v < best) { best = v; st = q; } }
+    if (st < 0) break;
+    const path = [st]; seen[st] = 1; let cur = st, dir = null;
+    for (;;) { const c = nbs(cur).filter(o => !seen[o]); if (!c.length) break;
+      const pick = dir ? c.reduce((a, o) => { const v = [(o % sw) - (cur % sw), (o / sw | 0) - (cur / sw | 0)], l = Math.hypot(...v), sc = (v[0] * dir[0] + v[1] * dir[1]) / l; return !a || sc > a.sc ? { o, sc } : a; }, null).o : c[0];
+      for (const o of c) if (o !== pick && Math.abs((o % sw) - (pick % sw)) <= 1 && Math.abs((o / sw | 0) - (pick / sw | 0)) <= 1) seen[o] = 1;   // (the stair beside it)
+      const v = [(pick % sw) - (cur % sw), (pick / sw | 0) - (cur / sw | 0)], l = Math.hypot(...v), nd = [v[0] / l, v[1] / l]; dir = dir ? [dir[0] * .6 + nd[0] * .4, dir[1] * .6 + nd[1] * .4] : nd;
+      seen[pick] = 1; path.push(pick); cur = pick; }
+    if (path.length < min) continue;
+    const p = path.map(px), ww = Float32Array.from(path, q => Math.max(.3, (D[q] - .5) * k / res));
+    // (the width smoothed along the stroke: the skeleton's distance steps by whole cells)
+    const sm = Float32Array.from(ww, (_, i) => { let a = 0, n = 0; for (let j = Math.max(0, i - 2); j <= Math.min(ww.length - 1, i + 2); j++) { a += ww[j]; n++; } return a / n; });
+    // (the skeleton's cell stair smoothed out of the path: a running mean over ~3 px, its ends held)
+    const r = Math.max(1, Math.round(3 * res / k)), ps = p.map((_, i) => { const m = Math.min(r, i, p.length - 1 - i); let x = 0, y = 0; for (let j = i - m; j <= i + m; j++) { x += p[j][0]; y += p[j][1]; } return [x / (2 * m + 1), y / (2 * m + 1)]; });
+    out.push({ p: resample(ps, .5), w: null, _w: sm, _n: p.length });
+  }
+  // (widths onto the resampled points)
+  for (const S of out) { const n = S.p.length; S.w = Float32Array.from({ length: n }, (_, i) => S._w[Math.min(S._n - 1, Math.round(i * (S._n - 1) / Math.max(1, n - 1)))]); delete S._w; delete S._n; S.balls = []; }
+  return out;
 }

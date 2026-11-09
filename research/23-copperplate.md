@@ -330,3 +330,42 @@ text capital, dot-curls, and a tail. It falls short in two ways:
 **B.** It is distinct again: one shaded oval in iron-gall ink, clearly a pen.
 
 **Both.** The shade now comes from the pen's pressure along the stroke rather than from lenses laid by hand.
+
+## Stage 4: B made by a hand; C lighter, lace not knot
+
+The user on stage 3: "refine both, now we're cooking. B needs to feel more drawn/engraved/etched — it's too digital still."
+
+### B, term by term (before/after on the B drop at 4×; scratchpad shots/t4-*.png)
+Each term was tested alone against stage 3. Only the terms that moved the picture toward the refs were kept.
+
+| term | what was tried | what it did | kept |
+|---|---|---|---|
+| 1 geometry | The oval no longer closes on itself: it turns in ~×.9 over the turn. Champion's O is written as a spiral, its inner turn well inside its outer (scratchpad walk-O.json). The slant drifts ~3° through the turn (the stroke-to-stroke slant sd is 4°), the middle is carried on ~3 % by the arm, and one side is ~5 % fuller. All of it follows the turn's own progress; none of it is noise. The oval now begins at its foot, moving right, so the hairline entry runs straight into it with no corner. | The end passes inside the start, as a written oval's does, and the entry is one movement. This is the largest change. | yes |
+| 2 ink: wetter | iron-gall wetness .3 → .45 | more pooling at the swell's end and slow turns; small | yes |
+| 2 ink: rails | the engine's rim term (the flexed tines draw the ink to the swell's two edges), .7 | the swell's edges are darker than its middle, as the Forbes lion's are; visible at 4×, faint at 1× | yes |
+| 3 paper tooth | rough .6 → 1 | nothing visible at 1× or 4× | no |
+| 4 the letter written by the pen | the face's skeleton walked into strokes and written by the same pen, at the face's own half-widths (`glyphStrokes`) | The capital broke into separate strokes with gaps at the joins and lost the face's swells: worse | no (the code stays, off) |
+
+The ellipse fit (py/ellfit.py) did not give a usable number: at the scan's 8 px/mm the walk stops at the O's crossing, and the
+0040 loop is a spiral, not an ellipse. The geometry term's amplitudes are therefore set from the spiral read by eye and from the
+slant's measured sd, not from a residual. They are marked so in the code.
+
+### C, lighter
+- **Fine hairlines.** C is now laid flat: the coverage itself, anti-aliased, not through the ink engine, which breaks a line under
+  ~1.2 device px into beads. Its hairline is the master's tenth of a shade, never under .55 of a device px. Seen small, that is a
+  fine grey thread, as an engraved hairline is.
+- **Swells only on the down-sweeps.** The engraver's second side is off (reverse 0, falloff 55°), so most of each oval is hairline
+  and each swells once, where the hand pulls down.
+- **A lighter capital.** UnifrakturMaguntia with its shades cut back 42 % (`thinShades`). The other OFL blackletters, compared on
+  a specimen (scratchpad shots/blackletters.png): Grenze Gotisch at 200–400 (light, but a narrow textura and less like Bickham's
+  curved Fraktur), Texturina, Pirata One, Fruktur, UnifrakturCook (all heavier).
+- **Unchanged:** the nesting, the dot-curls and the thorns. In ?draw the capital is cut along its skeleton's order (letterWriter's
+  walk), then the ring.
+
+### Speed
+Chrome, a panel's five pieces, load average 12–23 on the shared machine:
+
+| direction | light, dpr 1 / 2 | dark, dpr 1 / 2 |
+|---|---|---|
+| B (pen) | 136 / 152 ms | 69 / 86 ms |
+| C (hand) | 121 / 123 ms | 51 / 86 ms |

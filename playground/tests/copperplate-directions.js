@@ -13,8 +13,11 @@ import { stream, resample } from '../kit/marks.js';
 const PI = Math.PI, TAU = 2 * PI;
 // the shade axes. The pen: pulled down the slant toward the writer, and only that way (a pointed pen cannot shade an
 // up-stroke). The engraver of the command of hand: down the plate, both sides of an oval, the far one ~.7 as hard (0040).
-const PEN = { axis: [-Math.cos(SLANT), Math.sin(SLANT)], reverse: 0 }, BURIN = { axis: [0, 1], reverse: .7 };
+const PEN = { axis: [-Math.cos(SLANT), Math.sin(SLANT)], reverse: 0 }, BURIN = { axis: [0, 1], reverse: .7 }, LACE = { axis: [0, 1], reverse: 0, falloff: 55 };
 const hairOf = (peak, d) => Math.max(peak / 10, 1.2 / d) / 2;
+// C's hairline (stage 4): laid flat, not through the engine, so it can be finer than a device px: the master's tenth of a
+// shade, never under .55 of a device px (a fine grey thread at that, as an engraved hairline seen small)
+const fineOf = (peak, d) => Math.max(peak / 10, .55 / d) / 2;
 const deg = a => a * PI / 180;
 const slantPt = (c, a, b, t) => { const sd = [Math.cos(SLANT), -Math.sin(SLANT)], sn = [Math.sin(SLANT), Math.cos(SLANT)]; return [c[0] + sd[0] * a * Math.cos(t) + sn[0] * b * Math.sin(t), c[1] + sd[1] * a * Math.cos(t) + sn[1] * b * Math.sin(t)]; };
 
@@ -46,6 +49,13 @@ function thorn(p, h, L, sense, seed, { hair, peak }) {
 }
 
 // ==== B · the writing master's pen ================================================================================================
+// B's making, term by term (stage 4; the page sets these from ?geo= ?wet= ?rough= ?rim= ?letter=, for the before/after):
+//   geo     the hand's oval: it does not close on itself (it turns in, ~x.9 a turn, as Champion's O does), its slant drifts a few
+//           degrees through the turn and its middle moves on with the arm, and it is a little fuller on one side; 0: a true ellipse
+//   wet, rough, rim   the ink engine: how wet the iron gall, how much tooth the paper has, how much ink the flexed tines draw
+//           to the swell's two edges (the rails)
+//   letter  'pen': the capital written by the same pen along its skeleton (glyphStrokes); 'face': poured from the face
+export const B_OPTS = { geo: 1, wet: .45, rough: .6, rim: .7, letter: 'face' };   // (kept after the before/after: geo, wet, rim; rough showed nothing, the pen-written letter broke the face's swells and joins)
 // (the quill's hairline: never under the engine's floor, 1.1 device px, or the paper's tooth breaks it into beads)
 const penHair = d => Math.max(.3, .55 / (d || 2));
 // One great oval on the slant round the capital: entered as a hairline from below left, run once round and a little more,
@@ -53,12 +63,19 @@ const penHair = d => Math.max(.3, .55 / (d || 2));
 // the user liked, now with the pen's weight). The rest are the copybook's single gestures.
 const pen = {
   initial(ch, H, seed, d) {
-    const W = Math.round(H * 1.06), pk = H * .085, hair = penHair(d), c = [W * .52, H * .5], o = [];
-    for (let t = PI * .85; t <= PI * .85 + TAU * 1.08; t += .02) o.push(slantPt(c, H * .58, H * .34, -t));
-    const entry = cubic([W * .02, H * .98], [W * .08, H * .9], o[0], o[0], 20), how = PEN;
+    const W = Math.round(H * 1.06), pk = H * .085, hair = penHair(d), c = [W * .52, H * .5], o = [], g = B_OPTS.geo, r = stream(seed, 'pen-oval:' + ch);
+    // (the hand's oval: turning in by ~10 % over the turn, its slant drifting ~3 deg, its middle carried on by the arm, a
+    // little fuller on the side it pulls down; all from the turn's own progress u, none of it noise)
+    const t0 = PI * 1.12, ph = r() * TAU, tilt0 = (r() - .5) * deg(3);   // (begun at the oval's foot, moving right, so the hairline runs straight in)
+    for (let t = t0; t <= t0 + TAU * 1.08; t += .02) { const u = (t - t0) / TAU, sc = 1 - g * .1 * u, eg = 1 + g * .05 * Math.sin(t + ph), tl = g * (tilt0 + deg(3) * u);
+      const q = slantPt([c[0] + g * H * .03 * u, c[1] - g * H * .015 * u], H * .58 * sc * eg, H * .34 * sc, -t), ct = Math.cos(tl), st = Math.sin(tl);
+      o.push([c[0] + (q[0] - c[0]) * ct - (q[1] - c[1]) * st, c[1] + (q[0] - c[0]) * st + (q[1] - c[1]) * ct]); }
+    // (the entry runs into the oval along the way the oval sets off: no corner where the hand joins it)
+    const tg = [o[1][0] - o[0][0], o[1][1] - o[0][1]], tl = Math.hypot(...tg) || 1, u0 = [tg[0] / tl, tg[1] / tl], s0 = [Math.max(2, o[0][0] - H * .42), Math.min(H - 2, o[0][1] + H * .04)];
+    const entry = cubic(s0, [s0[0] + (o[0][0] - s0[0]) * .4, s0[1] + H * .02], [o[0][0] - u0[0] * H * .14, o[0][1] - u0[1] * H * .14], o[0], 24), how = PEN;
     const strokes = [written(join(entry, o), seed + 1, { hair, peak: pk, how, start: 'point', end: 'point', amp: .25 }),
       dotCurl([W * .2, H * .22], -PI * .62, H * .055, 1, seed + 2, { hair, how }), dotCurl([W * .86, H * .76], PI * .4, H * .05, 1, seed + 3, { hair, how })];
-    return { W, H, strokes, letter: { ch, face: '"CopperB"', cap: H * .66, cx: W * .55, cy: H * .48 }, medium: 'quill' };
+    return { W, H, strokes, letter: { ch, face: '"CopperB"', cap: H * .66, cx: W * .55, cy: H * .48, pen: B_OPTS.letter === 'pen' }, medium: 'quill', ink: { wet: B_OPTS.wet, rough: B_OPTS.rough, rim: B_OPTS.rim } };
   },
   // the copybook's oval: entered from below, once round on the slant, the pen opening down its left side, out to a dot
   paraph(fs, seed, d) {
@@ -94,7 +111,7 @@ const pen = {
 // round the letter clockwise (the hand turning each outward and on), the largest at the foot and the outer right where the
 // arm swings freest, then the exit tail out to the right, closing in a curl and a ball (Bickham's ABC headpiece, 0414).
 function dropPiece(ch, H, seed, d) {
-  const r = stream(seed, 'drop:' + ch), W = Math.round(H * 1.12), c = [W * .52, H * .5], pk = H * .023, hair = hairOf(H * .05, d);
+  const r = stream(seed, 'drop:' + ch), W = Math.round(H * 1.12), c = [W * .52, H * .5], pk = H * .03, hair = fineOf(H * .03, d);
   // six ovals round the letter, after Bickham's B (0414): each lying along the way round, the largest at the foot and outer
   // right where the arm swings freest; at the foot and the sides the hand turns a second, smaller oval inside the first
   // before it moves on (ovals within and through each other); the stations where the hand puts them (+-7 deg). One
@@ -108,13 +125,13 @@ function dropPiece(ch, H, seed, d) {
   const plan = [{ go: ro.pts[0], look: H * .25 }, ...lobes, { go: tail[0], look: H * .2 }, { go: tail[1], look: H * .2 }, { go: tail[2], look: H * .15 }, { curl: H * .075, sense: -1, turns: 1.25 }];
   let mv = move(entry[0], -PI * .1, [{ go: entry[1], look: H * .2 }, ...plan], { lag: H * .03 });
   mv = fit(mv, [1, 1, W - 1, H - 1], { at: c, pad: H * .01 }); const k = mv.k ?? 1, at = q => [c[0] + (q[0] - c[0]) * k, c[1] + (q[1] - c[1]) * k];
-  const strokes = [written(mv, seed + 1, { hair, peak: pk, how: BURIN, start: 'point', end: 'ball' })];
+  const strokes = [written(mv, seed + 1, { hair, peak: pk, how: LACE, start: 'point', end: 'ball' })];
   // the accents in the gaps: dot-curls between the letter and the ring, thorns beside the letter
   const g = r() * .4;
-  for (const [a, h, sn] of [[deg(255) + g, -PI * .1, 1], [deg(20) + g, PI * .5, 1], [deg(140) + g, PI * 1.1, -1]]) strokes.push(dotCurl(at([c[0] + H * .36 * Math.cos(a), c[1] + H * .34 * Math.sin(a)]), h, H * .04 * k, sn, seed + 9, { hair, how: BURIN }));
+  for (const [a, h, sn] of [[deg(255) + g, -PI * .1, 1], [deg(20) + g, PI * .5, 1], [deg(140) + g, PI * 1.1, -1]]) strokes.push(dotCurl(at([c[0] + H * .36 * Math.cos(a), c[1] + H * .34 * Math.sin(a)]), h, H * .04 * k, sn, seed + 9, { hair: Math.max(hair, .45 / d), how: LACE }));
   strokes.push(thorn(at([c[0] - H * .33, c[1] - H * .2]), -PI * .12, H * .14 * k, 1, seed + 11, { hair, peak: H * .026 }), thorn(at([c[0] + H * .3, c[1] + H * .28]), PI * .92, H * .12 * k, 1, seed + 12, { hair, peak: H * .022 }));
   // the capital: Bickham's rosettes hold a heavy text letter that anchors the ovals; UnifrakturMaguntia, at its own weight
-  return { W, H, strokes, letter: { ch, face: '"CopperC"', cap: H * .5, cx: c[0] + H * .01, cy: c[1], thin: 0 }, medium: 'engrave' };
+  return { W, H, strokes, letter: { ch, face: '"CopperC"', cap: H * .5, cx: c[0] + H * .01, cy: c[1], thin: .42 }, medium: 'engrave', flat: true };
 }
 // The paraph: the filler's motif in small, rising: a hairline in from below left, two loops riding it (the second the
 // larger), a curl and a ball
@@ -122,7 +139,7 @@ function paraphPiece(fs, seed, d) {
   const W = fs * 1.35, H = fs * .95, pk = fs * .13, a = [W * .22, H * .62], b = [W * .78, H * .42];
   const plan = [{ go: a, look: fs * .3 }, ...chain(a, b, 2, fs * .5, { sense: -1, first: .75, peak: .9, last: 1, aspect: 1.8 }), { go: [W * .95, H * .55], look: fs * .25 }, { curl: fs * .09, sense: -1, turns: 1.1 }];
   const mv = move([0, H * .85], -PI * .2, plan, { lag: fs * .05 });
-  return { W, H, base: .92, strokes: [written(fit(mv, [1, 1, W - 1, H - 1], { grow: true }), seed + 3, { hair: hairOf(pk, d), peak: pk, how: BURIN, start: 'point', end: 'ball', amp: .04 })], medium: 'engrave' };
+  return { W, H, base: .92, strokes: [written(fit(mv, [1, 1, W - 1, H - 1], { grow: true }), seed + 3, { hair: fineOf(pk, d), peak: pk, how: BURIN, start: 'point', end: 'ball', amp: .04 })], medium: 'engrave', flat: true };
 }
 // The filler: one gesture. A fine sweep out along the line, and near its end a short chain of loops (one to three, by the
 // room), the spindle's largest second, closing in a curl and a ball. The rest of the room is left quiet.
@@ -131,7 +148,7 @@ function fillerPiece(gw, lh, seed, d) {
   const a = [gw - span - lh * .5, H * .62], b = [gw - lh * .5, H * .5];
   const plan = [{ go: a, look: lh * 2 }, ...chain(a, b, n, size, { sense: -1, first: .7, last: .62 }), { go: [gw - lh * .12, H * .62], look: lh * .5 }, { curl: lh * .14, sense: -1, turns: 1.2 }];
   const mv = move([lh * .1, H * .66], -.02, plan, { lag: lh * .12 });
-  return { W: gw, H, strokes: [written(fit(mv, [1, 1, gw - 1, H - 1]), seed + 4, { hair: hairOf(pk, d), peak: pk, how: BURIN, start: 'point', end: 'ball', amp: .08 })], medium: 'engrave' };
+  return { W: gw, H, strokes: [written(fit(mv, [1, 1, gw - 1, H - 1]), seed + 4, { hair: fineOf(pk, d), peak: pk, how: BURIN, start: 'point', end: 'ball', amp: .08 })], medium: 'engrave', flat: true };
 }
 // The break: one gesture across the measure: an entry sweep from a curl at the left, a cluster of loops a little right of
 // the middle (the largest second), the exit sweep out to a curl at the right; the two sweeps shaded on their long runs
@@ -142,7 +159,7 @@ function breakPiece(bw, hb, seed, d) {
   const lead = move([bw * .1, hb * .62], PI * 1.05, [{ curl: hb * .12, sense: 1, turns: 1.2 }], { lag: hb * .05 });
   const joined = { p: lead.p.slice().reverse(), part: lead.part.map(() => -1) };
   const rest = move(joined.p.at(-1), 0, plan, { lag: hb * .07 }); joined.p = joined.p.concat(rest.p.slice(1)); joined.part = joined.part.concat(rest.part.slice(1));
-  return { W: bw, H: hb, strokes: [written(joined, seed + 5, { hair: hairOf(pk, d), peak: pk, how: BURIN, start: 'ball', end: 'ball' })], medium: 'engrave' };
+  return { W: bw, H: hb, strokes: [written(joined, seed + 5, { hair: fineOf(pk, d), peak: pk, how: BURIN, start: 'ball', end: 'ball' })], medium: 'engrave', flat: true };
 }
 // The quotation's head: one gesture from the far end of the head, in along it, a single knot at the corner, then down
 // the margin into a curl and a ball
@@ -150,7 +167,7 @@ function cornerPiece(cs, seed, d) {
   const W = cs * 6, H = cs * 2.4, pk = cs * .12;
   const plan = [{ go: [cs * 1.9, H * .13], look: cs * 2 }, { loop: cs * .42, sense: -1, oval: .3, lean: PI * .2, turn: TAU * .95 }, { go: [cs * .3, H * .62], look: cs * .9 }, { go: [cs * .55, H * .9], look: cs * .5 }, { curl: cs * .2, sense: -1, turns: 1.2 }];
   const mv = move([W - 2, H * .1], PI + .02, plan, { lag: cs * .2 });
-  return { W, H, strokes: [written(fit(mv, [1, 1, W - 1, H - 1]), seed + 7, { hair: hairOf(pk, d), peak: pk, how: BURIN, start: 'point', end: 'ball', amp: .08 })], medium: 'engrave' };
+  return { W, H, strokes: [written(fit(mv, [1, 1, W - 1, H - 1]), seed + 7, { hair: fineOf(pk, d), peak: pk, how: BURIN, start: 'point', end: 'ball', amp: .08 })], medium: 'engrave', flat: true };
 }
 
 const hand = { initial: dropPiece, paraph: paraphPiece, filler: fillerPiece, brk: breakPiece, corner: cornerPiece };

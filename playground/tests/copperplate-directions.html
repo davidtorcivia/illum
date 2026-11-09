@@ -64,10 +64,11 @@
 </template>
 <main id="out"></main>
 <script type="module">
-import { DIRS, PAL } from './copperplate-directions.js';
-import { coverage, glyph, thinShades, engrave, quill, engraveWriter, quillWriter } from '../kit/styles/copperplate-print.js';
+import { DIRS, PAL, B_OPTS } from './copperplate-directions.js';
+import { coverage, glyph, thinShades, engrave, quill, engraveWriter, quillWriter, glyphStrokes } from '../kit/styles/copperplate-print.js';
 import { inkLetter, letterWriter } from '../kit/inkletter.js';
 const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+for (const k of ['geo', 'wet', 'rough', 'rim']) if (q.has(k)) B_OPTS[k] = +q.get(k); if (q.has('letter')) B_OPTS.letter = q.get('letter');
 document.getElementById('seed').textContent = seed;
 // ?draw: each panel written as it comes into view (never under reduced motion)
 const DRAW = q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -85,7 +86,8 @@ const REFS = {
   hand: [['bickham-abc-rosettes.jpg', 'Bickham, the ABC headpiece: capitals in overlapping ovals (Universal Penman p. 209)'], ['bickham-dove.jpg', 'a dove in command of hand: chains of loops riding shaded sweeps'], ['bickham-band.jpg', 'John Bickham sculp., the foot of WIT (p. 46): a band of sweeps and long ovals']],
 };
 // the master beside ours: [what, the master's crop, the piece]
-const SIDES = [['drop', 'bickham-rosette-B.jpg'], ['filler', 'bickham-dove-wing.jpg'], ['break', 'bickham-band.jpg']];
+const SIDES_OF = { hand: [['drop', 'bickham-rosette-B.jpg'], ['filler', 'bickham-dove-wing.jpg'], ['break', 'bickham-band.jpg']],
+  pen: [['drop', 'champion-B.jpg'], ['drop', 'forbes-lion-detail.jpg']] };
 // a piece printed onto its own canvas, PAD px of margin round it, at zoom; the piece made for that zoom (its hairline floor).
 // live (?draw): the canvas comes back empty in a wrapper, with the piece's writers in the order the hand made it (the
 // capital first, written along its skeleton; then the flourish, cut or written along its path at the hand's pace)
@@ -99,12 +101,15 @@ function printed(key, theme, make, zoom = 1, live = false) {
   if (live) {
     const el = document.createElement('div'); el.style.position = 'absolute'; cv.style.display = 'block'; el.append(cv); const writers = [];
     const lw = (L, o) => { const w = letterWriter(g, L, { k: rgb }, { dpr: d, host: el, ...o }); return { dur: 1300, at: f => w.at(f), done: () => w.done() }; };
-    if (piece.medium === 'engrave') { if (Lm) writers.push(lw({ ...Lm }, { wet: .03, dry: .04 })); writers.push(engraveWriter(g, coverage(strokes, box, res), strokes, rgb, { dpr: d })); }
-    else { if (Lm) writers.push(lw({ ...Lm }, { wet: .1, dry: .2 })); writers.push(quillWriter(g, strokes, rgb, { dpr: d, box, seed, host: el })); }
+    if (piece.medium === 'engrave') { if (Lm && !piece.flat) writers.push(lw({ ...Lm }, { wet: .03, dry: .04 }));
+      // (laid flat: the capital is cut first, along its skeleton's order, as the same reveal)
+      if (Lm && piece.flat) { letterWriter(g, Lm, { k: rgb }, { dpr: d, host: el }); writers.push(engraveWriter(g, Lm, [], rgb, { dpr: d, flat: true, cellT: Lm.order.T, dur: 1300 })); }   // (letterWriter made only for its skeleton order, Lm.order)
+      writers.push(engraveWriter(g, coverage(strokes, box, res), strokes, rgb, { dpr: d, flat: piece.flat })); }
+    else { const ls = Lm && piece.letter.pen ? glyphStrokes(Lm) : []; if (Lm && !ls.length) writers.push(lw({ ...Lm }, { wet: .1, dry: .2 })); writers.push(quillWriter(g, ls.concat(strokes), rgb, { dpr: d, box, seed, host: el, ...piece.ink })); }
     return { el, writers };
   }
-  if (piece.medium === 'engrave') { const M = coverage(strokes, box, res); if (Lm) for (let i = 0; i < M.M.length; i++) M.M[i] = Math.max(M.M[i], Lm.M[i]); engrave(g, M, rgb, { dpr: d }); }
-  else { if (Lm) inkLetter(g, { ...Lm, wet: .1, dry: .2 }, rgb, { dpr: d }); quill(g, strokes, rgb, { dpr: d, box, seed }); }
+  if (piece.medium === 'engrave') { const M = coverage(strokes, box, res); if (Lm) for (let i = 0; i < M.M.length; i++) M.M[i] = Math.max(M.M[i], Lm.M[i]); engrave(g, M, rgb, { dpr: d, flat: piece.flat }); }
+  else { const ls = Lm && piece.letter.pen ? glyphStrokes(Lm) : []; if (Lm && !ls.length) inkLetter(g, { ...Lm, wet: .1, dry: .2 }, rgb, { dpr: d }); quill(g, ls.concat(strokes), rgb, { dpr: d, box, seed, ...piece.ink }); }
   return cv;
 }
 // the score: one hand for the page. A panel's writers join the queue when it comes into view (panels seen together in
@@ -156,7 +161,7 @@ for (const key of Object.keys(DIRS).filter(k => !ONLY || ONLY === k)) {
     fig(printed(key, theme, d => D.corner(csz, seed, d), 3), `quotation’s head, 3×`, theme);
   }
   // the master beside ours, at the same height: page size, then 4x (the master's 4x is its scan enlarged, so soft)
-  for (const [what, src] of SIDES) { const side = document.createElement('div'); side.className = 'side';
+  for (const [what, src] of SIDES_OF[key]) { const side = document.createElement('div'); side.className = 'side';
     const mk = d => what === 'drop' ? D.initial('B', iniH, seed, d) : what === 'filler' ? D.filler(300, 32, seed, d) : D.brk(380, 54, seed, d);
     for (const zz of [1, 4]) { const cv = printed(key, 'light', mk, zz), im = document.createElement('img'); im.src = `copperplate-refs/${src}`; im.style.height = cv.style.height; im.style.width = 'auto'; side.append(im, cv); }
     fig(side, `${what}: the master (left) beside ours, at the same height: page size, then 4×`, 'light'); }
