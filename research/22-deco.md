@@ -220,3 +220,32 @@ two-rule fillers, code and aside frames), .75 (the inline, three rules, more pet
 | 11 | Point of view | 2 | Deco as the jobbing printer's craft, not as the poster |
 | 12 | Provenance | 2 | measured on ATF 1934; sources and faces credited |
 | | total /42 | 31 | good work, not yet museum: Beauty is the gap |
+
+## Stage 3: refined after the user's verdict ("love it, improve the speed lines … more sophisticated so it's not so cliche")
+
+- **The cadence** (deco-pieces.js `cadence`) replaces the speed lines everywhere (fillers, the part break, the chapter mark's
+  wings, the pull quote's head and foot). A stack of graded rule set on the baseline and reaching the x-height: 1.6, 1 and
+  0.6 pt (the text's points) with gaps of 0.9 and 0.7 pt, each lighter rule .7 the length of the one below, its inner end stepped
+  back. It ends on a close chosen by the room: past 22 x-heights a stop (a short upright of rule as tall as the stack) and a
+  vermilion lozenge; 9–22 a diminuendo of three dashes (.8, .5, .28 x-height) and a vermilion dot; shorter, a period dash. ATF's
+  folio brackets and bullet separators (the 1934 book, pp. 198–199) were the hint for the closes; nothing is copied.
+- **Restraint.** The usual page (rich .5) fills only a last line left more than 22 x-heights open; .25 only past 30 (one rule);
+  .75 past 8; 1 past 4.5. Short ends stay open, as a book's do.
+- **Less literal.** Behind the drop initial, the rays give way to a grille: two banks of upright fine rule flanking the letter,
+  each a setback lower than the one outside it (the Chanin Building's grilles carry their sunburst in straight bars). The end
+  mark's lotus becomes a crown of upright rule on the stepped plinth with a black spire; the paraph a setback of three bars on a
+  vermilion foot. The earlier forms stay behind switches: ?burst=rays, ?lotus=on.
+- **The capital, offered not swapped.** ?face= sets the drop's face (limelight, the default; kalnia, the Ultra Bodoni-like fat
+  face; federo, the Peignot-like; italiana, the hairline) and ?lface= the line's; the inline is cut where a face's strokes are
+  heavy enough. Side by side: session scratchpad deco/shots/initial-alternatives.png.
+- **Weight.** The quotation's rule and the aside's brackets at the figure frame's weight (thin rule 1.15 pt, thick 3.7 pt).
+- **The line initial at 4×:** formes made at up to 4 cells a px (was 3).
+- tests/deco-fillers.html shows the whole cadence family at every room and level.
+
+Speed after (three runs): light dpr 1 84–98 ms, dpr 2 161–188 ms; dark dpr 1 73–81 ms, dpr 2 150–154 ms.
+
+Scores after (the same rubric): Beauty 2 (nearer 3: the cadence and the setbacks read as a compositor's work, the page breathes;
+the grille behind the drop is quiet, perhaps too quiet at page size), craft 3 (4× holds everywhere now), viewport 3, integration
+3 (the cadence sits on the baseline to the x-height, its close by the room), behaviour 2, system 2, imperfection 2, restraint 3,
+history without pastiche 2 (Limelight is still the loudest 1930s note; Kalnia is the calmer alternative), longevity 2, point of
+view 2, provenance 2: 35/42, still "good work, not yet museum" by the arithmetic, Beauty the gap.

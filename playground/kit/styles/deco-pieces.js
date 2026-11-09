@@ -10,7 +10,10 @@ import { Sheet, poly, arc } from './deco-print.js';
 import { dist } from '../inkletter.js';
 import { stream } from '../marks.js';
 
-export const FACE = 'DecoLimelight';
+// the capitals' faces (set by the style: the drop's and the line's), each an OFL face shipped in fonts/deco
+export const BURST = { kind: 'grille', lotus: false };   // (the drop's field and the end mark's crown: the style sets them)
+export const FACES = { drop: 'DecoLimelight', line: 'DecoLimelight' };
+export let FACE = 'DecoLimelight';
 const PI = Math.PI, clamp = v => v < 0 ? 0 : v > 1 ? 1 : v;
 export const gauss = rnd => { let s = 0; for (let i = 0; i < 4; i++) s += rnd(); return (s - 2) * 1.732; };
 
@@ -81,7 +84,7 @@ export function sun(c, rs, rIn, rOut, n, rnd, a0 = PI, a1 = 2 * PI) {
 
 // ---- the capital ---------------------------------------------------------------------------------------------------------------
 // the face's capital, cap height `cap`, its ink box centred on (cx, cy); .grown(g, w): it grown by w (its channel)
-export function glyph(ch, cap, cx, cy, face = FACE) {
+export function glyph(ch, cap, cx, cy, face = FACES.drop) {
   const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = `200px ${face}`; const m = c.measureText(ch), mH = c.measureText('H');
   const k = cap / mH.actualBoundingBoxAscent, w = (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) * k, a = m.actualBoundingBoxAscent * k, d = m.actualBoundingBoxDescent * k;
   const x = cx - w / 2 + m.actualBoundingBoxLeft * k, y = cy + (a - d) / 2, size = 200 * k;
@@ -89,7 +92,7 @@ export function glyph(ch, cap, cx, cy, face = FACE) {
   draw.grown = (g, wd, dx = 0, dy = 0) => { g.font = `${size}px ${face}`; g.textBaseline = 'alphabetic'; g.lineWidth = wd; g.lineJoin = 'round'; g.strokeText(ch, x + dx, y + dy); g.fillText(ch, x + dx, y + dy); };
   draw.w = w; draw.h = a + d; return draw;
 }
-export const ratio = ch => { try { const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = `200px ${FACE}`; const m = c.measureText(ch), mH = c.measureText('H'); return (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / mH.actualBoundingBoxAscent; } catch { return .8; } };
+export const ratio = (ch, face = FACES.drop) => { try { const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = `200px ${face}`; const m = c.measureText(ch), mH = c.measureText('H'); return (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / mH.actualBoundingBoxAscent; } catch { return .8; } };
 // the inline: a line of paper cut down the middle of the letter's heaviest strokes (where it lies deepest in the ink), as
 // an engraver cuts an inline into a display capital; nothing where the strokes are too thin to carry it
 export const inline = (share = .8, minPx = 1.3) => (M, w, h, res) => {
@@ -120,20 +123,28 @@ export function dropInitial(ch, H, seed, rich = .5) {
   // run out to a hair inside the frame; a channel of paper keeps them off the letter and its shadow
   const ib = th + gap + thin, capH = H * .5, L = glyph(ch, capH, W * .47, H * .555), sd = [H * .046, H * .036], gp = Math.max(1, H * .01);
   const c = [W / 2, H - ib - H * .018], rs = H * .09, pad = H * .045, top = ib + (steps ? st * steps : 0) + pad, lft = ib + pad;
-  const n = rich >= 1 ? 25 : 19, rw = Math.max(1.25, H * .011), rays = [];
-  for (let i = 0; i < n; i++) { const a = PI * 1.07 + PI * .86 * (i + .5) / n, dx = Math.cos(a), dy = Math.sin(a);
-    // (out to the frame's inside, along the ray: the nearer of its side and its head, the head lower where the steps are)
-    const tx = dx < 0 ? (lft - c[0]) / dx : dx > 0 ? (W - lft - c[0]) / dx : Infinity, ty = (top - c[1]) / dy, R = Math.min(tx, ty);
-    const r1 = i % 2 ? R * .72 : R; rays.push(...rule([[c[0] + dx * rs * 1.5, c[1] + dy * rs * 1.5], [c[0] + dx * r1, c[1] + dy * r1]], rw, r)); }
+  const rw = Math.max(1.25, H * .011), rays = [];
+  if (BURST.kind === 'rays') { const n = rich >= 1 ? 25 : 19;
+    for (let i = 0; i < n; i++) { const a = PI * 1.07 + PI * .86 * (i + .5) / n, dx = Math.cos(a), dy = Math.sin(a);
+      // (out to the frame's inside, along the ray: the nearer of its side and its head, the head lower where the steps are)
+      const tx = dx < 0 ? (lft - c[0]) / dx : dx > 0 ? (W - lft - c[0]) / dx : Infinity, ty = (top - c[1]) / dy, R = Math.min(tx, ty);
+      const r1 = i % 2 ? R * .72 : R; rays.push(...rule([[c[0] + dx * rs * 1.5, c[1] + dy * rs * 1.5], [c[0] + dx * r1, c[1] + dy * r1]], rw, r)); } }
+  else {
+    // the grille: two banks of upright fine rule flanking the letter on an even pitch, each rule a set-back lower than the one
+    // outside it, so the banks step down toward the letter as a tower's setbacks do (the Chanin Building's grilles carry their
+    // sunburst in straight bars: proportion and rhythm, not the motif); the outermost runs up to the head
+    const pitch = H * (rich >= 1 ? .04 : .05), inner = L.w / 2 + H * .07, cx0 = W * .47 + H * .02, outer = W / 2 - lft, n = Math.max(2, Math.floor((outer - inner) / pitch) + 1), tall = c[1] - top, fall = tall * .62 / Math.max(1, n - 1);
+    for (const side of [-1, 1]) for (let i = 0; i < n; i++) { const x = (side < 0 ? cx0 : W / 2) + side * (outer - i * pitch), hgt = tall - i * fall; if (Math.abs(x - cx0) < inner) continue;
+      rays.push(...rule([[x, c[1]], [x, c[1] - hgt]], rw, r)); } }
   const sil = silhouette(L, W, H, H * .05), channel = g => { g.globalCompositeOperation = 'destination-out'; g.drawImage(sil, 0, 0, W, H); g.drawImage(sil, sd[0], sd[1], W, H); g.globalCompositeOperation = 'source-over'; };
   S.ink('r', g => { if (rich >= .25) lay(g, ox.thin); if (rich >= .5) { lay(g, rays); channel(g); } shadowOf(L, sd[0], sd[1], gp)(g); }, { medium: 'press', despeck: 2.5, ang: .7 });
   S.ink('k', g => { lay(g, rich >= .25 ? ox.thick : rule(frame, thin * 1.4, r, { closed: true }));
     L(g); }, { medium: 'press', despeck: 2.5, ang: .7, post: rich >= .75 ? inlineInLetter(L, H) : null });
   return { S, W, H, box: [-2, -2, W + 2, H + 2] };
 }
-// the letter's silhouette (its counters filled) grown by w, on a canvas of the piece's size at 4 cells a px: the channel the
+// the letter's silhouette (its counters filled) grown by w, on a canvas of the piece's size at 3 cells a px: the channel the
 // rays keep from it (a ray seen through a counter would read as shading in the letter)
-function silhouette(L, W, H, w, k = 4) {
+function silhouette(L, W, H, w, k = 3) {
   const cw = Math.ceil(W * k), ch = Math.ceil(H * k), cv = new OffscreenCanvas(cw, ch), g = cv.getContext('2d', { willReadFrequently: true });
   g.scale(k, k); L.grown(g, w * 2);
   const im = g.getImageData(0, 0, cw, ch), d = im.data, out = new Uint8Array(cw * ch), st = [];
@@ -155,36 +166,60 @@ function inlineInLetter(L, H) {
 }
 // the capital in the line: the letter with its vermilion shadow, a line's height
 export function lineInitial(ch, H, seed) {
-  const r = ratio(ch), W = H * r + H * .1, S = new Sheet(), L = glyph(ch, H, H * r / 2, H / 2), sd = [H * .09, H * .07], gp = Math.max(1, H * .02);
+  const r = ratio(ch, FACES.line), W = H * r + H * .1, S = new Sheet(), L = glyph(ch, H, H * r / 2, H / 2, FACES.line), sd = [H * .09, H * .07], gp = Math.max(1, H * .02);
   S.ink('r', g => shadowOf(L, sd[0], sd[1], gp)(g), { medium: 'press', despeck: 2, ang: .7 });
   S.ink('k', g => L(g), { medium: 'press', ang: .7 });
   return { S, W, H, box: [-2, -2, W + 2, H + H * .1 + 2] };
 }
-// the paraph: a small lotus, its petals alternately black and vermilion, on a black collar; at the plainest a vermilion square
+// the paraph: a set-back, three bars of rule each narrower, stacked as a tower steps in (the Chanin and Chrysler setbacks), on
+// a vermilion foot; with the lotus asked for (BURST.lotus), the small lotus; at the plainest a vermilion square
 export function paraph(s, seed, rich = .5) {
   const r = stream(seed, 'par'), S = new Sheet();
   if (rich < .25) { S.ink('r', g => g.fill(poly(new Path2D(), [[s * .3, s * .45], [s * .7, s * .45], [s * .7, s * .85], [s * .3, s * .85]])), { medium: 'press', ang: 0 }); return { S, W: s, H: s, box: [0, 0, s, s] }; }
-  const c = [s * .5, s * .9], n = rich >= .75 ? 7 : 5, P = lotus(c, s * .17, s * .8, PI * 1.12, PI * 1.88, n, r, .78);
-  S.ink('r', g => { for (let i = 1; i < n; i += 2) g.fill(P[i]); }, { medium: 'press', ang: 1.57 });
-  S.ink('k', g => { for (let i = 0; i < n; i += 2) g.fill(P[i]); g.fill(poly(new Path2D(), arc(c, s * .15, PI, 2 * PI, r, 0, 16))); }, { medium: 'press', ang: 1.57 });
+  if (BURST.lotus) { const c = [s * .5, s * .9], n = rich >= .75 ? 7 : 5, P = lotus(c, s * .17, s * .8, PI * 1.12, PI * 1.88, n, r, .78);
+    S.ink('r', g => { for (let i = 1; i < n; i += 2) g.fill(P[i]); }, { medium: 'press', ang: 1.57 });
+    S.ink('k', g => { for (let i = 0; i < n; i += 2) g.fill(P[i]); g.fill(poly(new Path2D(), arc(c, s * .15, PI, 2 * PI, r, 0, 16))); }, { medium: 'press', ang: 1.57 });
+    return { S, W: s, H: s, box: [0, 0, s, s] }; }
+  const n = rich >= .75 ? 4 : 3, bh = s * .62 / (n + .6), w0 = s * .62, cx = s * .5, foot = s * .9, gap = Math.max(1, bh * .28), bars = [];
+  for (let i = 0; i < n; i++) { const w = w0 * (1 - i / (n + .4)), y1 = foot - bh * .6 - gap - i * (bh + gap); bars.push(...rule([[cx - w / 2, y1 - bh / 2], [cx + w / 2, y1 - bh / 2]], bh - gap * .2, r)); }
+  S.ink('r', g => lay(g, rule([[cx - w0 * .62, foot - bh * .3], [cx + w0 * .62, foot - bh * .3]], Math.max(1.2, bh * .45), r)), { medium: 'press', ang: 1.57 });
+  S.ink('k', g => lay(g, bars), { medium: 'press', ang: 1.57 });
   return { S, W: s, H: s, box: [0, 0, s, s] };
 }
-// speed lines: rules of falling weight, each a little longer than the one above, all running out flush to x1
-function speed(g, x0, x1, y, ws, gap, stagger, rnd, dir = 1) {
-  let yy = y; ws.forEach((w, i) => { const a = dir > 0 ? x0 + stagger * (ws.length - 1 - i) : x0, b = dir > 0 ? x1 : x1 - stagger * (ws.length - 1 - i);
-    lay(g, rule([[a, yy + w / 2], [b, yy + w / 2]], w, rnd)); yy += w + gap; });
-  return yy;
+// a cadence of graded rule (the fillers' and the breaks' family): rules falling in weight as they rise from a baseline yb,
+// each lighter one shorter by a measured fall (.7 of the one below, its left end stepped back), set right to x1 (dir 1) or left
+// to x0 (dir -1); then its close at the free end, chosen by the room: a stop (a short upright of rule as tall as the stack)
+// and a vermilion lozenge for a long run, a diminuendo of dashes and a vermilion dot for a middling one, a period dash for a
+// short. Returns { k: black pieces, r: vermilion paths, h: the stack's height }
+export function cadence(x0, x1, yb, u, rnd, { dir = 1, n = 3, close = 'auto' } = {}) {
+  const { pt } = weights(u), W = [1.6, 1, .6].slice(0, n).map(w => Math.max(1.2, pt * w)), G = [.9, .7].map(g => Math.max(1.1, pt * g));
+  const room = x1 - x0, kind = close === 'auto' ? (room > u * 22 ? 'stop' : room > u * 9 ? 'dim' : 'dash') : close, k = [], red = new Path2D();
+  const h = W.reduce((a, w) => a + w, 0) + G.slice(0, n - 1).reduce((a, g) => a + g, 0), mid = yb - h / 2;
+  // the close takes its room at the free end (x1 for dir 1); the rules run up to it
+  const loz = u * .42, dot = Math.max(1.3, pt * .9), at = x => dir > 0 ? x1 - x : x0 + x;   // (at(d): d in from the free end)
+  let end = 0;
+  if (kind === 'stop') { const sw = Math.max(1.3, pt * 1.1); poly(red, [[at(loz), mid - loz], [at(0), mid], [at(loz), mid + loz], [at(loz * 2), mid]]);
+    k.push(...rule([[at(loz * 2 + u * .45), yb - h], [at(loz * 2 + u * .45), yb]], sw, rnd)); end = loz * 2 + u * .45 + sw * 1.6; }
+  else if (kind === 'dim') { poly(red, arc([at(dot), mid], dot, 0, 2 * PI, rnd, 0, 12)); let d = dot * 2 + u * .38;
+    for (const f of [.28, .5, .8]) { const len = u * f; k.push(...rule([[at(d + len), mid], [at(d), mid]], Math.max(1.2, pt * .9), rnd)); d += len + u * .32; } end = d; }
+  else { poly(red, arc([at(dot), mid], dot, 0, 2 * PI, rnd, 0, 12)); const len = Math.min(room - dot * 2 - u * .4, u * 1.6); k.push(...rule([[at(dot * 2 + u * .3 + len), mid], [at(dot * 2 + u * .3), mid]], Math.max(1.3, pt * 1.3), rnd));
+    return { k, r: red, h, kind }; }
+  // the stack: the heaviest on the baseline, each above it lighter and shorter
+  const L = room - end; let y = yb;
+  for (let i = 0; i < n; i++) { const li = L * .7 ** i, w = W[i], a = dir > 0 ? x1 - end - li : x0 + end, b = dir > 0 ? x1 - end : x0 + end + li;
+    k.push(...rule([[a, y - w / 2], [b, y - w / 2]], w, rnd)); y -= w + (G[i] ?? 0); }
+  return { k, r: red, h, kind };
 }
-// a paragraph's free end: speed lines run out to the measure after a vermilion square; a heading's: one Oxford rule
+// a paragraph's free end: the cadence to the measure, on the baseline (its stack reaching the x-height), its close by the room;
+// a heading's: an Oxford rule after a vermilion square
 export function filler(L, u, seed, kind, rich = .5) {
-  const r = stream(seed, 'fill'), S = new Sheet(), { pt, hair, fine } = weights(u), H = u * 1.4;
+  const r = stream(seed, 'fill'), S = new Sheet(), { hair } = weights(u), H = u * 1.4;
   if (kind === 'rule') { const thin = hair, ox = oxford([[u * .9, H * .42], [L, H * .42]], thin, r);
     S.ink('r', g => g.fill(poly(new Path2D(), [[0, H * .42 - thin * 2], [thin * 4, H * .42 - thin * 2], [thin * 4, H * .42 + thin * 2], [0, H * .42 + thin * 2]])), { medium: 'press', ang: 0 });
     S.ink('k', g => { lay(g, ox.thick); lay(g, ox.thin); }, { medium: 'press', ang: 0 }); return { S, W: L, H, box: [0, 0, L, H] }; }
-  const ws = rich >= 1 ? [pt * 1.6, pt * 1.1, fine, hair] : rich >= .75 ? [pt * 1.4, fine, hair] : rich >= .5 ? [pt * 1.3, hair] : [fine], gp = Math.max(1.3, pt * 1.25);
-  const tot = ws.reduce((a, b) => a + b, 0) + gp * (ws.length - 1), y = (H - tot) / 2, sq = Math.max(3, pt * 2.2);
-  if (rich >= .5) S.ink('r', g => g.fill(poly(new Path2D(), [[0, H / 2 - sq / 2], [sq, H / 2 - sq / 2], [sq, H / 2 + sq / 2], [0, H / 2 + sq / 2]])), { medium: 'press', ang: 0 });
-  S.ink('k', g => speed(g, rich >= .5 ? sq + u * .6 : 0, L, y, ws, gp, u * 1.1, r), { medium: 'press', ang: 0 });
+  const yb = H / 2 + u / 2, c = cadence(0, L, yb, u, r, { n: rich >= .75 ? 3 : rich >= .5 ? 2 : 1 });
+  S.ink('r', g => g.fill(c.r), { medium: 'press', ang: 0 });
+  S.ink('k', g => lay(g, c.k), { medium: 'press', ang: 0 });
   return { S, W: L, H, box: [0, 0, L, H] };
 }
 // three ranks of break. 1, a part: a vermilion lozenge between speed lines; 2, a chapter: a stepped plinth in Oxford rule
@@ -192,34 +227,40 @@ export function filler(L, u, seed, kind, rich = .5) {
 // rule (thin, thick, thin) across the measure
 export function brk(W, H, rank, seed, u, rich = .5) {
   const r = stream(seed, 'brk' + rank), S = new Sheet(), { pt, hair, fine } = weights(u), cx = W / 2;
-  if (rank === 1) { const y = H / 2, d = u * .55, ws = rich >= .5 ? [pt * 1.6, hair] : [fine], gp = Math.max(1.3, pt), tot = ws.reduce((a, b) => a + b, 0) + gp * (ws.length - 1);
-    S.ink('r', g => g.fill(poly(new Path2D(), [[cx, y - d], [cx + d, y], [cx, y + d], [cx - d, y]])), { medium: 'press', ang: 0 });
-    S.ink('k', g => { speed(g, cx + d * 2.2, W, y - tot / 2, ws, gp, u * .9, r); speed(g, 0, cx - d * 2.2, y - tot / 2, ws, gp, u * .9, r, -1); }, { medium: 'press', ang: 0 });
+  if (rank === 1) { const y = H / 2, d = u * .55, n = rich >= .5 ? 2 : 1, cs = [cadence(W * .02, cx - d * 2.2, y + u * .3, u, r, { dir: -1, n, close: 'dim' }), cadence(cx + d * 2.2, W * .98, y + u * .3, u, r, { n, close: 'dim' })];
+    S.ink('r', g => { g.fill(poly(new Path2D(), [[cx, y - d], [cx + d, y], [cx, y + d], [cx - d, y]])); for (const c of cs) g.fill(c.r); }, { medium: 'press', ang: 0 });
+    S.ink('k', g => { for (const c of cs) lay(g, c.k); }, { medium: 'press', ang: 0 });
     return { S, W, H, box: [0, 0, W, H] }; }
   if (rank === 2) { const pw = H * 1.7, y1 = H * .92, st = H * .1, steps = rich >= 1 ? 3 : 2, thin = Math.max(1.2, pt * .9), x0 = cx - pw / 2;
     const plinth = zig(x0, H * .1, x0 + pw, y1, st, steps), ox = oxford(plinth.slice().reverse().map(p => p), thin, r);   // (run anticlockwise: its thin rule outside)
     const c = [cx, y1 - thin * 3], s = sun(c, H * .16, H * .24, H * .66 - st * (steps - 2) * .5, rich >= .75 ? 15 : 11, r);
-    S.ink('r', g => { lay(g, ox.thin); g.fill(s.disc); }, { medium: 'press', ang: 0 });
+    const cs = [cadence(x0 + pw + u * .9, W * .98, y1, u, r, { n: 3, close: 'dim' }), cadence(W * .02, x0 - u * .9, y1, u, r, { dir: -1, n: 3, close: 'dim' })];
+    S.ink('r', g => { lay(g, ox.thin); g.fill(s.disc); for (const c of cs) g.fill(c.r); }, { medium: 'press', ang: 0 });
     S.ink('k', g => { lay(g, ox.thick); g.fill(s.rays);
-      const ws = [pt * 1.6, fine, hair], gp = Math.max(1.3, pt); let yb = y1 - ws.reduce((a, b) => a + b, 0) - gp * 2;
-      speed(g, x0 + pw + u * .9, W * .98, yb, ws, gp, u * 1.4, r); speed(g, W * .02, x0 - u * .9, yb, ws, gp, u * 1.4, r, -1); }, { medium: 'press', ang: 0 });
+      for (const c of cs) lay(g, c.k); }, { medium: 'press', ang: 0 });
     return { S, W, H, box: [0, 0, W, H] }; }
   // rank 3
-  const y1 = H * .93, pw = H * .95, st = H * .085, x0 = cx - pw / 2, thin = Math.max(1.2, pt * .9);
+  const y1 = H * .93, pw = H * (BURST.lotus ? .95 : 1.1), st = H * .085, x0 = cx - pw / 2, thin = Math.max(1.2, pt * .9);
   const plinth = zig(x0, y1 - H * .2, x0 + pw, y1, st, 2), lc = [cx, y1 - H * .2 - thin * 3.5], P = lotus(lc, H * .05, H * .46, PI * 1.2, PI * 1.8, rich >= .75 ? 9 : 7, r, .7), tall = g => { g.translate(lc[0], lc[1]); g.scale(1, 1.45); g.translate(-lc[0], -lc[1]); };
   const sc = [[pt * .9, 0], [pt * 2.6, pt * 1.6], [pt * .9, pt * 1.6]];   // Scotch rule: thin, thick, thin with gaps
   // the vermilion: the alternate petals, and a hairline of rule following the plinth's steps a gap above them
-  S.ink('r', g => { g.save(); tall(g); for (let i = 1; i < P.length; i += 2) g.fill(P[i]); g.restore(); lay(g, rule(zig(x0 - thin * 3, y1 - H * .2 - thin * 3, x0 + pw + thin * 3, y1, st, 2, false), thin, r)); }, { medium: 'press', ang: 0 });
+  // (without the lotus: a crown of upright rule on the plinth, the same grille as the drop's, its middle a black spire)
+  const pt0 = y1 - H * .2, grille = [], spire = [], gp = H * .085, R = H * .6, gw = Math.max(1.2, pt * .9);
+  for (let k = -4; k <= 4; k++) { const x = cx + k * gp, dx = Math.abs(k * gp) / R, ht = k ? R * Math.sqrt(Math.max(0, 1 - dx * dx)) * .9 * (k % 2 ? .82 : 1) : H * .74;
+    (k ? grille : spire).push(...rule([[x, pt0 - thin * 3.5], [x, pt0 - thin * 3.5 - ht]], k ? gw : gw * 1.8, r)); }
+  S.ink('r', g => { if (BURST.lotus) { g.save(); tall(g); for (let i = 1; i < P.length; i += 2) g.fill(P[i]); g.restore(); } else lay(g, grille); lay(g, rule(zig(x0 - thin * 3, y1 - H * .2 - thin * 3, x0 + pw + thin * 3, y1, st, 2, false), thin, r)); }, { medium: 'press', ang: 0 });
   // the black: the petals between, the stepped plinth solid, and the Scotch rule from its foot out to the measure each side
-  S.ink('k', g => { g.save(); tall(g); for (let i = 0; i < P.length; i += 2) g.fill(P[i]); g.restore(); g.fill(poly(new Path2D(), plinth));
-    g.fill(poly(new Path2D(), [[cx - H * .05, lc[1] - H * .085], [cx + H * .05, lc[1] - H * .085], [cx + H * .035, y1 - H * .2], [cx - H * .035, y1 - H * .2]]));   // (the collar binding the lotus's waist to its plinth)
+  S.ink('k', g => { g.fill(poly(new Path2D(), plinth));
+    if (BURST.lotus) { g.save(); tall(g); for (let i = 0; i < P.length; i += 2) g.fill(P[i]); g.restore();
+      g.fill(poly(new Path2D(), [[cx - H * .05, lc[1] - H * .085], [cx + H * .05, lc[1] - H * .085], [cx + H * .035, y1 - H * .2], [cx - H * .035, y1 - H * .2]])); }   // (the collar binding the lotus's waist to its plinth)
+    else lay(g, spire);
     let y = y1 - sc.reduce((a, [w, gp]) => a + Math.max(1.2, w) + gp, 0);
     for (const [w, gp] of sc) { const ww = Math.max(1.2, w); y += gp; lay(g, rule([[W * .01, y + ww / 2], [x0 - u * .3, y + ww / 2]], ww, r)); lay(g, rule([[x0 + pw + u * .3, y + ww / 2], [W * .99, y + ww / 2]], ww, r)); y += ww; } }, { medium: 'press', ang: 0 });
   return { S, W, H, box: [0, 0, W, H] };
 }
 // a quotation's margin: an Oxford rule stood upright, its head and foot turned in by a step
 export function marginRule(len, u, seed, rich = .5) {
-  const r = stream(seed, 'margin'), S = new Sheet(), { pt } = weights(u), thin = Math.max(1.2, pt * .8), th = thin * 3.2, st = u * 1.1, x = th / 2;
+  const r = stream(seed, 'margin'), S = new Sheet(), { pt } = weights(u), thin = Math.max(1.3, pt * 1.15), th = thin * 3.2, st = u * 1.1, x = th / 2;
   const pts = rich >= .75 ? [[x + st * 1.6, 0], [x + st, 0], [x + st, st * .7], [x, st * .7], [x, len - st * .7], [x + st, len - st * .7], [x + st, len], [x + st * 1.6, len]] : [[x + st, 0], [x, 0], [x, len], [x + st, len]];
   const ox = oxford(pts.slice().reverse(), thin, r);
   S.ink('r', g => lay(g, ox.thin), { medium: 'press', ang: PI / 2 });
@@ -244,19 +285,20 @@ export function boxFrame(W, H, u, seed, { oxfordRule = true, steps = 1, rich = .
 }
 // an aside's two corners: brackets of Oxford rule stepped once, at its head on the left and its foot on the right
 export function brackets(W, H, u, seed) {
-  const r = stream(seed, 'brk2'), S = new Sheet(), { pt } = weights(u), thin = Math.max(1.2, pt * .8), a = u * 4.2, s = u * 1.1;
+  const r = stream(seed, 'brk2'), S = new Sheet(), { pt } = weights(u), thin = Math.max(1.3, pt * 1.15), a = u * 4.6, s = u * 1.2;
   const tl = [[a, 0], [s, 0], [s, s], [0, s], [0, a]], br = [[W - a, H], [W - s, H], [W - s, H - s], [W, H - s], [W, H - a]];
   const o1 = oxford(tl, thin, r), o2 = oxford(br, thin, r);
   S.ink('r', g => { lay(g, o1.thin); lay(g, o2.thin); }, { medium: 'press', ang: .7 });
   S.ink('k', g => { lay(g, o1.thick); lay(g, o2.thick); }, { medium: 'press', ang: .7 });
   return { S, W, H, box: [-u, -u, W + u, H + u] };
 }
-// a pull quote's head and foot: the sun's rays in a short fan between speed lines (the foot turned over)
+// a pull quote's head and foot: a vermilion lozenge between two cadences closing outward (the foot's stacks hang from its line)
 export function pullBand(W, H, u, seed, foot = false, rich = .5) {
-  const r = stream(seed, 'pull' + foot), S = new Sheet(), { pt, hair, fine } = weights(u), cx = W / 2, y = foot ? H * .3 : H * .7;
-  const c = [cx, y], s = sun(c, u * .55, u * .85, u * (rich >= .75 ? 2.4 : 2), 7, r, foot ? 0 : PI, foot ? PI : 2 * PI), ws = [pt * 1.4, hair], gp = Math.max(1.3, pt);
-  S.ink('r', g => g.fill(s.disc), { medium: 'press', ang: 0 });
-  S.ink('k', g => { g.fill(s.rays); const yy = foot ? y : y - ws[0] - ws[1] - gp; speed(g, cx + u * 1.2, W, yy, ws, gp, u, r); speed(g, 0, cx - u * 1.2, yy, ws, gp, u, r, -1); }, { medium: 'press', ang: 0 });
+  const r = stream(seed, 'pull' + foot), S = new Sheet(), cx = W / 2, y = H / 2, d = u * .5, n = rich >= .75 ? 3 : 2;
+  const yb = foot ? y - u * .3 + u : y + u * .3, cs = [cadence(0, cx - d * 2.4, yb, u, r, { dir: -1, n, close: 'dim' }), cadence(cx + d * 2.4, W, yb, u, r, { n, close: 'dim' })];
+  if (foot) for (const c of cs) for (const p of c.k) for (const q of p) q[1] = 2 * (yb - c.h / 2) - q[1];   // (turned over about its middle)
+  S.ink('r', g => { g.fill(poly(new Path2D(), [[cx, yb - u * .35 - d], [cx + d, yb - u * .35], [cx, yb - u * .35 + d], [cx - d, yb - u * .35]])); for (const c of cs) g.fill(c.r); }, { medium: 'press', ang: 0 });
+  S.ink('k', g => { for (const c of cs) lay(g, c.k); }, { medium: 'press', ang: 0 });
   return { S, W, H, box: [0, 0, W, H] };
 }
 // a contents entry's mark: a vermilion square on a hairline

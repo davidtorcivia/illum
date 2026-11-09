@@ -24,15 +24,18 @@ export const palette = {
 };
 const isDark = () => { try { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; } };
 let BITE = true;
+const FACE_OF = { limelight: 'DecoLimelight', kalnia: 'DecoKalnia', federo: 'DecoFedero', italiana: 'DecoItaliana' };
+
 
 // ---- placing pieces -------------------------------------------------------------------------------------------------------------
 // a piece: build() -> { S, box } in its own px, (0, 0) at the piece's x, y
-const piece = (x, y, w, h, build, seed, what) => ({ shape: 'deco', x, y, w, h, build, seed, what, bkey: [what, w.toFixed(1), h.toFixed(1), seed].join('|') });
+const piece = (x, y, w, h, build, seed, what) => ({ shape: 'deco', x, y, w, h, build, seed, what, bkey: [what, w.toFixed(1), h.toFixed(1), seed, D.FACES.drop, D.FACES.line, D.BURST.kind, D.BURST.lotus].join('|') });
 const none = { marks: [], letters: [] };
 // a frame round a box is printed as its sides, each a piece of its own (the box's middle has no ink: it is never made or poured);
 // m: how far the rule and its steps reach in from the box's edge
-const sides = (x, y, W, H, build, seed, what, m) => [[-m, -m, W + m, m], [-m, H - m, W + m, H + m], [-m, m, m, H - m], [W - m, m, W + m, H - m]]
-  .map((box, i) => ({ ...piece(x, y, W, H, build, seed, what + ':' + i), box }));
+const once = f => { let v; return () => v ??= f(); };   // (the four sides share one build)
+const sides = (x, y, W, H, build, seed, what, m) => { const b = once(build); return [[-m, -m, W + m, m], [-m, H - m, W + m, H + m], [-m, m, m, H - m], [W - m, m, W + m, H - m]]
+  .map((box, i) => ({ ...piece(x, y, W, H, b, seed, what + ':' + i), box })); };
 
 // ---- the initials -----------------------------------------------------------------------------------------------------------------
 const letterOf = ch => { const c = String(ch).normalize('NFD')[0].toUpperCase(); return /[A-Z]/.test(c) ? c : 'O'; };
@@ -40,13 +43,13 @@ function initial({ ch = 'B', G, big = true, seed = 1, rich = .5 }) {
   const c = letterOf(ch), [x0, y0, x1, y1] = G.box, H = y1 - y0;
   if (big) return { marks: [], letters: [piece(x0, y0, H, H, () => D.dropInitial(c, H, seed, +rich), seed, `drop:${c}:${rich}`)], width: H };
   // in the line: the capital fills the room the span keeps for it (its font's cap, wider than the text's), its foot on the baseline
-  const Hl = Math.min((x1 - x0) / (D.ratio(c) + .1), H * 1.8), r = D.lineInitial(c, Hl, seed);
+  const Hl = Math.min((x1 - x0) / (D.ratio(c, D.FACES.line) + .1), H * 1.8), r = D.lineInitial(c, Hl, seed);
   return { marks: [], letters: [piece(x0, y1 - Hl, r.W, Hl, () => D.lineInitial(c, Hl, seed), seed, 'line:' + c + ':' + Hl.toFixed(1))], width: r.W };
 }
 initial.width = () => 1.02;
-initial.line = ch => D.ratio(letterOf(ch)) + .08;
+initial.line = ch => D.ratio(letterOf(ch), D.FACES.line) + .08;
 initial.lines = 4; initial.phone = 3; initial.margin = .32;
-initial.load = () => document.fonts.load(`40px ${D.FACE}`).then(() => {});
+initial.load = () => Promise.all([D.FACES.drop, D.FACES.line].map(f => document.fonts.load(`40px ${f}`))).then(() => {});
 
 // ---- the paraph, fillers, breaks ---------------------------------------------------------------------------------------------------
 function paraph(x, base, u, seed, rich = .5) {
@@ -54,8 +57,9 @@ function paraph(x, base, u, seed, rich = .5) {
 }
 function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
   if (kind === 'none' || (kind === 'rule' && rich < .25)) return none;
-  const u = yBase - yTop, L = Math.min(x1 - x0 - u * .3, kind === 'rule' ? u * 16 : u * (rich >= 1 ? 30 : 22));
-  if (L < u * (kind === 'rule' ? 5 : 4.5)) return none;
+  // (restraint: the usual page fills only a line left well open; a short end stays open until the page is richer)
+  const u = yBase - yTop, room = x1 - x0 - u * .3, L = Math.min(room, kind === 'rule' ? u * 16 : u * (rich >= 1 ? 34 : 26));
+  if (L < u * (kind === 'rule' ? 5 : rich >= 1 ? 4.5 : rich >= .75 ? 8 : rich >= .5 ? 22 : 30)) return none;
   const ht = u * 1.4; return { marks: [], letters: [piece(x0 + u * .3, (yTop + yBase) / 2 - ht / 2, L, ht, () => D.filler(L, u, seed, kind, +rich), seed, `filler:${kind}:${rich}`)] };
 }
 // three ranks: a part's (a short lozenge and speed lines), a chapter's (the plinth and its sun), the end's (the lotus over
@@ -110,10 +114,10 @@ function formes(b, res, dark) {
     const cv = new OffscreenCanvas(w, h), g = cv.getContext('2d'), im = g.createImageData(w, h), [R, G, Bl] = palette.light.b;
     for (let q = 0; q < B.length; q++) if (B[q] > 0) { im.data[q * 4] = R; im.data[q * 4 + 1] = G; im.data[q * 4 + 2] = Bl; im.data[q * 4 + 3] = Math.round(B[q] * 255); }
     g.putImageData(im, 0, 0); bite = { ...all[0], M: B, cv }; }
-  f = { byCol, angs, bite }; TIME.masks += performance.now() - t0; TIME.pieces++; if (MADE.size > 300) MADE.clear(); MADE.set(key, f); return f;
+  f = { byCol, angs, bite }; const dt = performance.now() - t0, wk = b.what.split(':')[0]; TIME.masks += dt; TIME[wk] = (TIME[wk] ?? 0) + dt; TIME.pieces++; if (MADE.size > 300) MADE.clear(); MADE.set(key, f); return f;
 }
 function print(made, { dpr = 1, animate = false, kind } = {}) {
-  const res = Math.min(3, Math.max(1, Math.round(dpr * 2) / 2)), dark = isDark(), pours = [], seq = [];
+  const res = Math.min(4, Math.max(1, Math.round(dpr * 2) / 2)), dark = isDark(), pours = [], seq = [];
   for (const b of made.letters ?? []) { if (b.shape !== 'deco') continue;
     const { byCol, angs, bite } = formes(b, res, dark), at = c => ({ ...c, x0: b.x + c.x0, y0: b.y + c.y0 });
     const bw = b.box ? b.box[2] - b.box[0] : b.w, bh = b.box ? b.box[3] - b.box[1] : b.h, ang = (bh > bw * 1.6 ? Math.PI / 2 - .06 : bw > bh * 1.6 ? .04 : .7);
@@ -138,5 +142,9 @@ export const deco = { label: 'Deco', minGap: 2, theme: { rubric: 'rgb(192 54 32)
   hurry: [4, 1, 1.5, 1.6], steady: ['drop'],
   paraph, filler, breakMark, initial, frames, palette, print, timeline,
   set bite(v) { BITE = v !== 'off' && v !== false; }, get bite() { return BITE; },
-  get variant() { return BITE ? 'bite' : 'flat'; } };
+  // the capitals' faces (?face= the drop's, ?lface= the line's: limelight, kalnia, federo, italiana); the drop's field (?burst=
+  // grille, the default, or rays) and the paraph's and end mark's crown (?lotus=on: the Chrysler lotus)
+  set face(v) { D.FACES.drop = FACE_OF[v] ?? 'DecoLimelight'; }, set lface(v) { D.FACES.line = FACE_OF[v] ?? D.FACES.drop; },
+  set burst(v) { D.BURST.kind = v === 'rays' ? 'rays' : 'grille'; }, set lotus(v) { D.BURST.lotus = v === 'on'; },
+  get variant() { return [BITE ? 'bite' : 'flat', D.FACES.drop, D.FACES.line, D.BURST.kind, D.BURST.lotus].join(','); } };
 export default deco;

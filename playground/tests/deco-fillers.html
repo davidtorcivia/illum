@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deco fillers</title>
+<!--
+  Le filet's cadence (kit/styles/deco-pieces.js cadence): the fillers at every room and rich level, the part break and the pull
+  quote's band, each sitting on a baseline (the hairline under each row), printed through the ink engine. ?theme=dark ?zoom=n
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-display: block; }
+  :root { --paper: rgb(242 236 222); --ink: #26211c; } :root[data-theme=dark] { --paper: rgb(22 21 20); --ink: rgb(222 216 204); }
+  html { background: var(--paper); } body { margin: 0; padding: 32px 24px; color: var(--ink); font: 400 20px/1.6 "EB Garamond", serif; }
+  .row { display: flex; align-items: flex-end; gap: 10px; margin: 6px 0; } .row span { width: 9em; font-size: 13px; font-style: italic; opacity: .7; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<main id="out"></main>
+<script type="module">
+import * as D from '../kit/styles/deco-pieces.js';
+import { render } from '../kit/styles/deco-print.js';
+import { palette } from '../kit/styles/deco.js';
+const q = new URLSearchParams(location.search), theme = q.get('theme') === 'dark' ? 'dark' : 'light', Z = +(q.get('zoom') ?? 2), dpr = Math.min(2, devicePixelRatio || 1);
+document.documentElement.dataset.theme = theme;
+const u = 9, out = document.getElementById('out');
+const show = (label, piece) => { const { S, W, H } = piece, P = 6, cv = document.createElement('canvas'), d = dpr * Z;
+  cv.width = Math.ceil((W + P * 2) * d); cv.height = Math.ceil((H + P * 2) * d); cv.style.width = (W + P * 2) * Z + 'px'; cv.style.height = (H + P * 2) * Z + 'px';
+  for (const L of S.layers) { const f = L.draw; L.draw = (g, t) => { g.translate(P, P); f(g, t); }; }
+  render(S, cv.getContext('2d'), { dpr: d, pal: palette[theme], seed: 3, box: [0, 0, W + P * 2, H + P * 2], slip: .3 });
+  const row = document.createElement('div'); row.className = 'row'; row.innerHTML = `<span>${label}</span>`; row.append(cv); out.append(row); };
+for (const rich of [.5, .75, 1]) for (const L of [6, 12, 18, 26, 34]) if (L >= (rich >= 1 ? 4.5 : rich >= .75 ? 8 : 22)) show(`filler ${L}u, rich ${rich}`, D.filler(L * u, u, 7 + L, 'row', rich));
+show('heading', D.filler(16 * u, u, 5, 'rule', .5));
+show('part break', D.brk(20 * u, 2.2 * u, 1, 9, u, .5));
+show('pull, head', D.pullBand(40 * u, 3 * u, u, 4, false, .5));
+show('pull, foot', D.pullBand(40 * u, 3 * u, u, 4, true, .5));
+document.body.dataset.timing = 'drawn';
+</script>
+</body>
+</html>
