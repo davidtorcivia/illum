@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIE rock check</title>
+<!--
+  PIE · B, the rock: the clipping check (research/24-pie.md, stage 10). Every piece type at several seeds and sizes (the
+  sizes a 1440 and a 390 page give them) is printed and its raster's border scanned: any painted pixel on the border means
+  the piece was cut off. body.dataset.check = 'ok' or the list of failures. Run by pie-rock.check.mjs at dpr 1 and 2.
+-->
+</head>
+<body>
+<pre id="out"></pre>
+<script type="module">
+import { print } from './pie-directions.js';
+import * as R from '../kit/styles/pie-rock.js';
+const dpr = Math.min(2, devicePixelRatio || 1), fails = [], seen = [];
+const scan = (name, piece) => { const cv = print('rock', 'light', piece, { dpr }), g = cv.getContext('2d'), w = cv.width, h = cv.height, d = g.getImageData(0, 0, w, h).data;
+  // (the shader leaves the outermost pixel row and column unpainted, so the ring one pixel in is the border that tells)
+  let n = 0; for (let x = 1; x < w - 1; x++) { if (d[(w + x) * 4 + 3] > 8) n++; if (d[((h - 2) * w + x) * 4 + 3] > 8) n++; } for (let y = 1; y < h - 1; y++) { if (d[(y * w + 1) * 4 + 3] > 8) n++; if (d[(y * w + w - 2) * 4 + 3] > 8) n++; }
+  seen.push(name); if (n) fails.push(`${name}: ${n} painted border px`); };
+for (const [fs, lh, measure] of [[19, 30, 680], [18, 28.4, 358]]) for (const seed of [1, 2, 7, 12]) {
+  const H = 3 * lh + fs * .72, tag = `fs${fs} s${seed}`;
+  for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') { scan(`drop ${ch} ${tag}`, R.initial(ch, H, seed + ch.charCodeAt(0), fs)); scan(`line ${ch} ${tag}`, R.lineInitial(ch, fs, seed)); }
+  scan(`paraph ${tag}`, R.paraph(fs, seed)); scan(`filler ${tag}`, R.filler(measure * .4, lh, seed)); scan(`runout ${tag}`, R.runout(measure * .5, fs * 1.4, seed));
+  for (const k of [1, 2]) scan(`break ${k} ${tag}`, R.brk(k, measure, lh * (k === 1 ? 1.4 : 2.6), seed));
+  for (let v = 0; v < R.BRK3.length; v++) scan(`panel ${v} ${tag}`, R.brk(3, measure, lh * 4.2, seed, v));
+  for (const k of ['quote', 'pull', 'aside', 'figure', 'code', 'contents']) scan(`frame ${k} ${tag}`, R.frame(k, measure, k === 'figure' ? 260 : 120, seed, fs));
+  R.SHEET.forEach((_, k) => scan(`sheet ${k} ${tag}`, R.sheetPiece(k, 110, seed)));
+}
+document.getElementById('out').textContent = `${seen.length} pieces, ${fails.length} cut off\n` + fails.join('\n');
+document.body.dataset.timing = document.body.dataset.check = fails.length ? fails.join('; ') : 'ok';
+</script>
+</body>
+</html>

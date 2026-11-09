@@ -532,3 +532,38 @@ and seed), the sun over a row of cups, the Vitlycke warrior, or a rider. Ships s
 The 1× crispness of dcc56ef is unchanged.
 
 Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at once: 237 ms at dpr 1, 435 ms at dpr 2.
+
+## Stage 10: partners out of the reading line; nothing cut off; small figures legible
+
+- **Legibility (the user: "2 then 1").** A partner beside the letter, on its baseline and in its red, read as the next
+  letter ("IHn the end", "Mo").
+  - It now sits in the letter's own open space (pie-letters.js SPACE): a counter, the room under an arm, a notch,
+    between legs. It is sized to the space with a clear gap from the strokes (fitted by drawing it once to measure, then
+    at the size that fits).
+  - The seed picks the space and the figure (round: wheel, sun, rings, spiral; wide: horse, deer, rider; tall: warrior,
+    adorant, crane, axe-bearer).
+  - I, J and S have no usable interior; their partner sits above the shoulder, above the first line's x-height band,
+    out of the reading line. O and Q are their own sun-wheels.
+  - The alphabet page has a legibility section (each drop set as on a page and followed by its word). On the mock,
+    "In the end" and "The lexicon" read as words.
+  - Honest limit: at drop size most counters are small, so most partners are small, often under 20 CSS px.
+- **Clipping (the user: "symbols … cut off on the edges").**
+  - Cause: the carver clamped its work to the piece's layout box, and the printer sized the raster to that box, so paint
+    the carver laid near or past the box (prows, rings, a figure's reach, the settle margin) was cut.
+  - Now the carver is unclamped, and the printer sizes every rock piece's raster from its paint (every pit's reach plus
+    the paint's margin), shifting the canvas back so the piece's origin stays where the page put it.
+  - Automated check: tests/pie-check.html with tests/pie-rock.check.mjs.
+    - It covers every piece type: drops and line initials A–Z, paraph, filler, run-out, breaks 1 and 2, all seven
+      panels, six frames and the 22 sheet figures.
+    - It runs at seeds 1, 2, 7 and 12, at the sizes a 1440 and a 390 page give them, and at dpr 1 and 2. It scans each
+      raster's border ring for paint.
+    - Stage 9 fails it at 531 pieces at dpr 1; stage 10 passes at dpr 1 and 2.
+- **Fat figures at small sizes (the user: "the fatter figures are harder to make out").** A figure's thickness follows
+  its size on the page.
+  - Drawn figures (horse, rider, people) are slimmer when small (widths ×.5–1 by size), so legs part and arms leave the
+    body.
+  - Traced figures shown small are drawn in (their outline eroded by up to ~1.2 % of their height), so their openings
+    stay open.
+  - At full size they keep the traced mass.
+- **Speed (mock).** In view: 53–58 ms (dpr 1), 77–79 ms (dpr 2), 64 ms at 390. Every piece at once: 256 ms (dpr 1),
+  414 ms (dpr 2).

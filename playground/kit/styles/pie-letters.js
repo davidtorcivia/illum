@@ -65,3 +65,18 @@ export function letterStrokes(ch, x0, y0, H, r) { const L = ALPHA[ch] ?? ALPHA.I
   return { strokes: out, wheel: L.wheel ? [x0 + L.wheel[0] * H, y0 + L.wheel[1] * H, L.wheel[2] * H] : null, W: L.w * H };
 }
 export const letterWidth = ch => (ALPHA[ch] ?? ALPHA.I).w;
+
+// ---- the letters' own open spaces (stage 10): where a drop's partner may sit inside the letter, never beside it in the
+// reading line. Each [x0, y0, x1, y1, kind] in the letter's units (cap height 1); kind: 'round' (a wheel, sun, rings,
+// spiral), 'wide' (an animal), 'tall' (a person, a crane). null: no usable interior; the partner goes above the
+// letter's shoulder instead, out of the reading line.
+export const SPACE = {
+  A: [[.3, .7, .52, .99, 'tall']], B: [[.2, .56, .53, .9, 'round'], [.2, .1, .46, .41, 'round']], C: [[.24, .22, .7, .8, 'wide'], [.24, .22, .66, .78, 'round']],
+  D: [[.24, .16, .6, .84, 'round'], [.24, .16, .6, .84, 'tall']], E: [[.25, .58, .62, .9, 'wide'], [.25, .1, .56, .43, 'wide']], F: [[.25, .56, .6, .99, 'wide'], [.25, .56, .6, .99, 'tall']],
+  G: [[.24, .2, .62, .52, 'round']], H: [[.24, .6, .56, .99, 'tall'], [.24, .02, .56, .42, 'round']], I: null, J: null,
+  K: [[.36, .28, .74, .72, 'round']], L: [[.27, .12, .62, .86, 'tall'], [.27, .4, .62, .86, 'wide']], M: [[.3, .7, .62, 1, 'tall'], [.28, .0, .64, .36, 'round']],
+  N: [[.42, .04, .62, .5, 'tall'], [.2, .52, .4, .98, 'tall']], O: [], P: [[.22, .1, .5, .44, 'round'], [.28, .6, .7, .99, 'wide']],
+  Q: [], R: [[.22, .1, .5, .42, 'round'], [.24, .6, .44, .99, 'tall']], S: null, T: [[.02, .2, .26, .99, 'tall'], [.5, .2, .74, .99, 'tall']],
+  U: [[.24, .04, .56, .62, 'round'], [.24, .04, .56, .62, 'tall']], V: [[.22, .0, .58, .56, 'tall'], [.24, .0, .56, .4, 'round']], W: [[.62, .0, .92, .5, 'tall'], [.12, .0, .42, .5, 'round']],
+  X: [[.24, .0, .54, .38, 'round'], [.24, .62, .54, 1, 'tall']], Y: [[.18, .0, .58, .38, 'round']], Z: [[.36, .26, .66, .86, 'tall'], [.06, .14, .38, .72, 'round']],
+};

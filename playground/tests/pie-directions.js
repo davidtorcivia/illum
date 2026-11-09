@@ -26,9 +26,21 @@ export const DIRS = { potter, rock, smith };
 export const NAMES = { potter: 'A · the potter', rock: 'B · the rock', smith: 'C · the smith' };
 
 // a piece printed onto its own canvas at zoom; live: returned empty with its writer (?draw)
-export function print(key, theme, piece, { zoom = 1, dpr = Math.min(2, devicePixelRatio || 1), live = false } = {}) {
+// (stage 10) a rock piece's raster is sized from its paint, not its layout box: every pit's reach plus the paint's
+// margin (the groove-depth and settle blurs), so nothing the carver laid outside the box is cut off. The canvas is then
+// shifted back so the piece's own origin stays where the page put it.
+const SHIFTED = new WeakMap();
+function painted(piece) { let v = SHIFTED.get(piece); if (v) return v;
+  const ms = piece.marks({}), pad = Math.max(2, 3 * (piece.g ?? 1)); let x0 = 0, y0 = 0, x1 = piece.W, y1 = piece.H;
+  for (const m of ms) if (m.k === 'pit') { const e = m.r * 1.35; x0 = Math.min(x0, m.x - e); y0 = Math.min(y0, m.y - e); x1 = Math.max(x1, m.x + e); y1 = Math.max(y1, m.y + e); }
+  const ox = Math.ceil(Math.max(0, -x0 + pad)), oy = Math.ceil(Math.max(0, -y0 + pad)), W = Math.ceil(Math.max(piece.W, x1 + pad) + ox), H = Math.ceil(Math.max(piece.H, y1 + pad) + oy);
+  const sh = ms.map(m => m.k === 'pit' ? { ...m, x: m.x + ox, y: m.y + oy } : m.p ? { ...m, p: m.p.map(([x, y]) => [x + ox, y + oy]) } : m);
+  v = { ...piece, W, H, ox, oy, marks: () => sh }; SHIFTED.set(piece, v); return v; }
+export function print(key, theme, piece0, { zoom = 1, dpr = Math.min(2, devicePixelRatio || 1), live = false } = {}) {
+  const piece = key === 'rock' ? painted(piece0) : piece0;
   const d = dpr * zoom, F = field(piece.W, piece.H, d), cv = document.createElement('canvas');
   cv.width = F.cw; cv.height = F.ch; cv.style.width = piece.W * zoom + 'px'; cv.style.height = piece.H * zoom + 'px';
+  if (piece.ox || piece.oy) { cv.style.transform = `translate(${-piece.ox * zoom}px, ${-piece.oy * zoom}px)`; cv.dataset.ox = piece.ox; cv.dataset.oy = piece.oy; }
   const g = cv.getContext('2d'), look = LOOKS[key][theme](piece.u ?? 4);
   if (key === 'rock') { if (live) return { cv, w: rockWriter(F, piece, look, g, { dur: piece.dur ?? 2400 }) }; g.putImageData(renderRock(F, piece, look), 0, 0); return cv; }
   const marks = piece.marks(F);
