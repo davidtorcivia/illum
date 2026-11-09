@@ -15,6 +15,8 @@
 <h1>illum on this device</h1>
 <p>A screenshot of this whole page tells us why the ink isn't painting here.</p>
 <canvas id="cv" width="300" height="120" style="width:300px;height:120px"></canvas>
+<p>The wash, one change at a time (each square says what it changed):</p>
+<div id="vars" style="display:flex;flex-wrap:wrap;gap:6px"></div>
 <pre id="out">testing…</pre>
 <script type="module">
 const out = document.getElementById('out'), L = [], log = (k, v) => { L.push(`${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`); out.textContent = L.join('\n'); };
@@ -38,6 +40,21 @@ try {
   const sq = (x0) => { const w = 80, h = 80, M = new Float32Array(w * h); for (let j = 8; j < 72; j++) for (let i = 8; i < 72; i++) M[j * w + i] = 1; return { M, w, h, x0, y0: 20, res: 1 }; };
   try { const { inkLetter } = await import('./kit/inkletter.js'); inkLetter(bake, { ...sq(20), wet: .06, dry: .16 }, [52, 48, 32], { dpr }); log('ink pour (left square)', stat(cv, 20, 20, 80, 80)); } catch (e) { log('ink pour', 'ERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
   try { const { washPour } = await import('./kit/styles/nouveau-ink.js'); washPour(bake, sq(160), [190, 78, 52], { dpr, seed: 3, ink: 1 }); log('wash pour (right square)', stat(cv, 160, 20, 80, 80)); } catch (e) { log('wash pour', 'ERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
+  // the wash bisected: from the failing default toward the ink pour that works, one parameter at a time
+  try { const { washPour } = await import('./kit/styles/nouveau-ink.js'), { inkLetter } = await import('./kit/inkletter.js');
+    const V = [['wash, as the page', o => washPour(o.g, o.L, [190, 78, 52], { dpr: 1, seed: 3, ink: 1 })],
+      ['wash, granulation 0', o => washPour(o.g, o.L, [190, 78, 52], { dpr: 1, seed: 3, ink: 1, gran: 0 })],
+      ['wash, wetness .06', o => washPour(o.g, o.L, [190, 78, 52], { dpr: 1, seed: 3, ink: 1, wet: .06 })],
+      ['wash, 24 steps', o => washPour(o.g, o.L, [190, 78, 52], { dpr: 1, seed: 3, ink: 1, steps: 24 })],
+      ['wash, ink 2', o => washPour(o.g, o.L, [190, 78, 52], { dpr: 1, seed: 3, ink: 2 })],
+      ['wash, gran 0 + wet .06 + 24 steps', o => washPour(o.g, o.L, [190, 78, 52], { dpr: 1, seed: 3, ink: 1, gran: 0, wet: .06, steps: 24 })],
+      ['wash, no bloom/edge/lifts/pool', o => washPour(o.g, o.L, [190, 78, 52], { dpr: 1, seed: 3, ink: 1, bloom: 0, edge: 0, lifts: 0, pool: 0 })],
+      ['ink pour, wetness .35', o => inkLetter(o.g, { ...o.L, wet: .35, dry: .16 }, [52, 48, 32], { dpr: 1 })]];
+    for (const [name, f] of V) { const c = document.createElement('canvas'); c.width = c.height = 96; c.style.cssText = 'width:96px;height:96px;background:rgb(243 237 225)';
+      const w = 80, h = 80, M = new Float32Array(w * h); for (let j = 8; j < 72; j++) for (let i = 8; i < 72; i++) M[j * w + i] = 1;
+      try { f({ g: c.getContext('2d'), L: { M, w, h, x0: 8, y0: 8, res: 1 } }); log(name, stat(c, 8, 8, 80, 80)); } catch (e) { log(name, 'ERROR ' + e.message); }
+      const fig = document.createElement('figure'); fig.style.margin = 0; fig.append(c, Object.assign(document.createElement('figcaption'), { textContent: name, style: 'font-size:10px;width:96px' })); document.getElementById('vars').append(fig); } }
+  catch (e) { log('variants', 'ERROR ' + e.message); }
   try { const h = await (await fetch('./kit/hash.json', { cache: 'no-store' })).json(); log('library hash', h.hash); } catch (e) { log('library hash', 'ERROR ' + e.message); }
 } catch (e) { log('load', 'ERROR ' + e.message); }
 log('done', new Date().toISOString());
