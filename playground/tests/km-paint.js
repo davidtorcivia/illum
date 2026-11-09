@@ -201,7 +201,7 @@ export function dots(G, D, { t0 = 1.6, load = 11, seed = 1, tau = new Float32Arr
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const dx = G.x(i) - cx, dy = G.y(j) - cy, u = (dx * ca + dy * sa) / el, v = -dx * sa + dy * ca, a = Math.atan2(v, u);
       const rr = Math.hypot(u, v) / (r * (1 + lk * Math.cos(a - lobe))), cov = clamp01((1 - rr) * r / e + .5), q = j * w + i;
       // the drop's water carried the finest pigment a little past the body of the dot: a thin pale fringe, not a rim
-      if (rr < 1.4) tau[q] += .14 * t * smooth(1.4, 1, rr) * (1 - cov);
+      if (rr < 1.4) tau[q] += .06 * t * smooth(1.4, 1, rr) * (1 - cov);
       if (cov > 0) tau[q] += cov * t * Math.max(.35, 1 - rr * rr) ** .4; } });
   return tau;
 }

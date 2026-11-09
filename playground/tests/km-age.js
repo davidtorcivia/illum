@@ -49,7 +49,7 @@ export function weather(G, P, layers, { age = .35, seed = 1, corner = null, cell
   const g = new Float32Array(n), paint = new Float32Array(n); for (const L of out) for (let q = 0; q < n; q++) paint[q] = Math.max(paint[q], Math.min(1, L.tau[q]));
   const lb = blur(lossAll, G.w, G.h, Math.max(.6, .04 * G.pxmm));
   for (let q = 0; q < n; q++) { let crk = 0; for (const L of out) if (L.crack) crk = Math.max(crk, L.crack[q]);
-    g[q] = age * ((.22 * H[q] + .1 * hollow[q]) * (1 - .7 * paint[q]) * (1 - lossAll[q]) + .9 * Math.max(0, lb[q] - lossAll[q]) * 2 + 1.4 * crk); }
+    g[q] = age * ((.22 * H[q] + .1 * hollow[q]) * (1 - .7 * paint[q]) * (1 - lossAll[q]) + .9 * Math.max(0, lb[q] - lossAll[q]) * 2 + .7 * crk); }
   out.push({ pig: { OD: [.6, .75, 1] }, tau: g, kind: 'grime' });
   return { layers: out, cracks, loss: lossAll };
 }
@@ -67,7 +67,7 @@ function crackAndFlake(G, T, A, { age, seed, crest, H, cell, flex }) {
   const S0 = 1.75 - 1.25 * age;
   for (let q = 0; q < N; q++) { if (tau[q] < A.tc) continue; sig[q] = A.b * tau[q] ** 1.2 * (1 + .8 * cr[q]) * flaw(q); Sb[q] = S0 * (1 - .35 * edge[q]); }
   // cracks, sequentially, each to extinction
-  const own = new Int32Array(N).fill(-1), cracks = [], Dr = q => .2 * Math.max(.6, tau[q]);
+  const own = new Int32Array(N).fill(-1), cracks = [], Dr = q => .28 * Math.max(.6, tau[q]);
   const cellOf = (x, y) => { const i = Math.floor((x - C.x0) / cell), j = Math.floor((y - C.y0) / cell); return i < 0 || j < 0 || i >= w || j >= h ? -1 : j * w + i; };
   // the worst flaws first (stress only falls as cracks relax it, so a flaw passed over stays passed)
   const cand = []; for (let q = 0; q < N; q++) if (sig[q] > Sb[q]) cand.push(q); cand.sort((a, b) => sig[b] / Sb[b] - sig[a] / Sb[a]);

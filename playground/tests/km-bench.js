@@ -43,7 +43,7 @@ export function knotSmoke(G, geo, { seed = 1, tint = .66 } = {}) {
   const sw = geo.cords.map((_, t) => SM.swell1(seed * 5 + t)), ed = geo.cords.map((_, t) => [SM.swell1(seed * 9 + t, 1.2), SM.swell1(seed * 9 + t + 40, 1.2)]), lw = .085, e = 1 / G.pxmm;
   const [fx0, fy0, fx1, fy1] = geo.frame, sx = new Float32Array(n);
   for (let j = 0; j < G.h; j++) for (let i = 0; i < G.w; i++) { const q = j * G.w + i, x = G.x(i), y = G.y(j), inF = x > fx0 && x < fx1 && y > fy0 && y < fy1;
-    const fr = Math.min(Math.abs(x - fx0), Math.abs(x - fx1), Math.abs(y - fy0), Math.abs(y - fy1)); line[q] = Math.max(0, Math.min(1, (lw * .45 - fr) / e + .5));
+    const inB = x > fx0 - lw && x < fx1 + lw && y > fy0 - lw && y < fy1 + lw, fr = Math.min(Math.abs(x - fx0), Math.abs(x - fx1), Math.abs(y - fy0), Math.abs(y - fy1)); line[q] = inB ? Math.max(0, Math.min(1, (lw * .45 - fr) / e + .5)) : 0;
     if (F.id[q] < 0) { if (inF) gr[q] = 1; continue; }
     const a = Math.abs(F.d[q]), hw = F.hw[q], t = F.id[q], cov = Math.max(0, Math.min(1, (hw - a) / e + .5)); gr[q] = inF ? 1 - cov : 0;
     band[q] = cov; line[q] = Math.max(line[q], cov * Math.max(0, Math.min(1, (lw - (hw - a)) / e + .5)));
@@ -60,7 +60,7 @@ export function dotsGeometry(seed = 1) {
   cols.forEach(([x0, x1], c) => { rules.push([[x0 - .55, 1], [x0 - .5 + .15 * c, 19]], [[x1 + .55, 1], [x1 + .6 - .1 * c, 19]]);
     const py = 1.08 * Math.sqrt(3) / 2, px = 1.08; let row = 0;
     for (let y = 1.6; y < 18.6; y += py, row++) { const off = row % 2 ? px / 2 : 0;
-      for (let x = x0 + .45 + off; x < x1 - .4; x += px) { const dx = .12 * (drift(x / 4, y / 4) - .5) * 2, dy = .1 * (drift(x / 4 + 9, y / 4) - .5) * 2; D.push([x + dx, y + dy, .36, 0]); } } });
+      for (let x = x0 + .45 + off; x < x1 - .4; x += px) { const dx = .12 * (drift(x / 4, y / 4) - .5) * 2, dy = .1 * (drift(x / 4 + 9, y / 4) - .5) * 2; D.push([x + dx, y + dy, .3, 0]); } } });
   return { box, D, rules };
 }
 export function dotsLayers(G, geo, { seed = 1 } = {}) {
@@ -113,7 +113,8 @@ function keysMasks(G, geo) {
     for (let q = 0; q < G.n; q++) T[q] = Math.max(T[q], M[q] * frame[q]); }
   return { frame, B, R };
 }
-const shrink = (G, M, d) => { const b = KM.blur(M, G.w, G.h, d * G.pxmm * .8); for (let q = 0; q < G.n; q++) M[q] = Math.max(0, Math.min(1, (b[q] - .5) * 3 + .5)) * M[q]; return M; };
+// erode a region by d mm (blurred with sigma .8 d, the eroded edge lies where the blur reads .89)
+const shrink = (G, M, d) => { const b = KM.blur(M, G.w, G.h, d * G.pxmm * .8); for (let q = 0; q < G.n; q++) M[q] = Math.max(0, Math.min(1, (b[q] - .89) * d * G.pxmm * 2.5 + .5)) * M[q]; return M; };
 function keysInk(G, geo, seed, frameM, opt = {}) {
   const ink = KM.ruled(G, rect(geo.fr), { lw: .1, od: .85, seed, ...opt }), t = new Float32Array(G.n);
   geo.stairs.forEach((st, k) => KM.penLine(G, st, { lw: .085, od: .85, seed: seed + 3 + k, tau: t, floor: .22, ...opt }));
@@ -121,12 +122,12 @@ function keysInk(G, geo, seed, frameM, opt = {}) {
 }
 export function keysLayers(G, geo, { seed = 1 } = {}) {
   const P = KM.parchment(G, { seed: 6 }), { frame, B, R } = keysMasks(G, geo), ink = keysInk(G, geo, seed, frame);
-  const blue = KM.level(KM.fillLoads(G, shrink(G, B, .2), { seed: seed + 3, swath: 1.6 }).tau, P), red = KM.level(KM.fillLoads(G, shrink(G, R, .2), { seed: seed + 5, swath: 1.6, scale: 1.1 }).tau, P);
+  const blue = KM.level(KM.fillLoads(G, shrink(G, B, .14), { seed: seed + 3, swath: 1.6 }).tau, P), red = KM.level(KM.fillLoads(G, shrink(G, R, .14), { seed: seed + 5, swath: 1.6, scale: 1.1 }).tau, P);
   return { P, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: KM.PIG.blue, tau: blue, kind: 'blue' }, { pig: KM.PIG.redlead, tau: red, kind: 'redlead' }] };
 }
 export function keysSmoke(G, geo, { seed = 1 } = {}) {
   const { frame, B, R } = keysMasks(G, geo), line = keysInk(G, geo, seed, frame, { wob: 0, floor: 1, od: 1 }); for (let q = 0; q < G.n; q++) line[q] = Math.min(1, line[q]);
   const sw = noise2(seed * 11), st = geo.stairs[9];
-  return SM.flat(G, [{ cov: shrink(G, B, .2), col: SM.FLAT.blue, swell: (x, y) => (sw(x / 7, y / 7) - .5) * 2 }, { cov: shrink(G, R, .2), col: SM.FLAT.redlead, swell: (x, y) => (sw(x / 7 + 5, y / 7) - .5) * 2, shift: [.03, .02] }, { cov: line, col: SM.FLAT.ink, hole: false }],
+  return SM.flat(G, [{ cov: shrink(G, B, .14), col: SM.FLAT.blue, swell: (x, y) => (sw(x / 7, y / 7) - .5) * 2 }, { cov: shrink(G, R, .14), col: SM.FLAT.redlead, swell: (x, y) => (sw(x / 7 + 5, y / 7) - .5) * 2, shift: [.03, .02] }, { cov: line, col: SM.FLAT.ink, hole: false }],
     { losses: [[st[4][0] + .3, st[4][1] + .25, .14], [geo.fr[2] - .4, geo.fr[3] - .4, .12]], seed });
 }

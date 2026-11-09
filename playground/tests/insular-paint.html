@@ -50,7 +50,7 @@ function bench(name, src, cap, geoF, layersF, smokeF, wopt = {}) {
       timing[name + 'Smoke'] = Math.round(t1 - t0); show(G, img, `control: smoke and mirrors (${Math.round(t1 - t0)} ms)`); }
   });
 }
-bench('knot', 'm-knot.png', 'master: f. 139r, a blue knot in the bowl', KM_B.knotGeometry, KM_B.knotLayers, KM_B.knotSmoke);
+bench('knot', 'm-knot.png', 'master: f. 139r, a blue knot in the bowl (white-balanced to our vellum)', KM_B.knotGeometry, KM_B.knotLayers, KM_B.knotSmoke);
 bench('dots', 'm-dots.png', 'master: f. 139r, red-lead dot fields', KM_B.dotsGeometry, KM_B.dotsLayers, KM_B.dotsSmoke);
 bench('band', 'm-O.png', 'master: f. 139r, the O: orpiment ring, red-lead and blue keys', KM_B.bandGeometry, KM_B.bandLayers, KM_B.bandSmoke);
 bench('keys', 'm-O.png', 'master: (same crop) the keys', KM_B.keysGeometry, KM_B.keysLayers, KM_B.keysSmoke);
