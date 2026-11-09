@@ -6,7 +6,7 @@
 # What it copies (from playground/, which stays the source of truth; never edit the copies):
 #   playground/kit/{illum,registry,all,marks,wayfinding,initials,frames,penwork,writer,medium,inkletter,cache,spray}.js  -> site/kit/
 #   playground/kit/styles/*.js                                                               -> site/kit/styles/
-#   playground/fonts/, fonts/kelmscott/, fonts/nouveau/, fonts/insular/ and fonts/deco/ (faces, letter outlines and licences) -> site/fonts/
+#   playground/fonts/, fonts/kelmscott/, fonts/nouveau/, fonts/insular/, fonts/deco/ and fonts/choirbook/hand3/ (faces, letter outlines and licences) -> site/fonts/
 # The styles find their faces at new URL('../../fonts/', import.meta.url), so kit/ and fonts/ must stay siblings.
 #
 # The site's own faces (site/faces/) are not copied: they are subsets made once with fontTools and kept in site/:
@@ -34,9 +34,12 @@ mkdir -p "$site/fonts/insular"; cp "$src"/fonts/insular/illum-uncial-caps.woff2 
 # (Deco's four capitals, each subset to A-Z and renamed, with their notes and licences; loaded one by one as chosen. The full
 # faces beside them in the source serve only the stage-1 direction page, so are not shipped)
 mkdir -p "$site/fonts/deco"; cp "$src"/fonts/deco/illum-deco-*.woff2 "$src"/fonts/deco/illum-deco-*-README.txt "$src"/fonts/deco/{Limelight,Kalnia,Federo,Italiana}-OFL.txt "$site/fonts/deco/"
+# (the choir book's Lombards, a letter to a file, fetched only for the initials a page has, and their licence; the earlier
+# passes beside them in the source, chosen only by ?lombard= for study, are not shipped)
+mkdir -p "$site/fonts/choirbook/hand3"; cp "$src"/fonts/choirbook/hand3/choir-lombard-*.woff2 "$src"/fonts/choirbook/hand3/OFL.txt "$site/fonts/choirbook/hand3/"
 # the library's hash (kit/cache.js keys every remembered or baked ornament by it): every module and face as shipped, so a
 # reader's browser need not read them all to know whether what it remembers is still current
-echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 "$site"/fonts/kelmscott/* "$site"/fonts/nouveau/* "$site"/fonts/insular/* "$site"/fonts/deco/* | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
+echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 "$site"/fonts/kelmscott/* "$site"/fonts/nouveau/* "$site"/fonts/insular/* "$site"/fonts/deco/* "$site"/fonts/choirbook/hand3/* | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
 
 # the ornament baked (tools/bake.mjs), so a first visit is drawn from it rather than by the ink engine: every page at 1440
 # and 390, light and dark, dpr 1 and 2, served from site/ itself on a spare port; into site/kit/bake.json and site/kit/bake/,

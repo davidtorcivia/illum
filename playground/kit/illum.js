@@ -73,7 +73,7 @@ let createWriter, supported = () => false, inkLetter, letterWriter, settle = () 
 // the code's own lines (starts: a line the box wraps runs on unruled).
 // (Order matters: the registry's style list keeps Draft, Occult, Astrology and Tarot where they stood, before Blackletter;
 // Draft stands where Cyber stood, and ?style=cyber, retired, is Draft.)
-export const WRITTEN = { draft: './styles/draft.js', occult: './styles/occult.js', astrology: './styles/astrology.js', tarot: './styles/tarot.js', blackletter: './styles/blackletter.js', kelmscott: './styles/kelmscott.js', nouveau: './styles/nouveau.js', insular: './styles/insular.js', deco: './styles/deco.js' };
+export const WRITTEN = { draft: './styles/draft.js', occult: './styles/occult.js', astrology: './styles/astrology.js', tarot: './styles/tarot.js', blackletter: './styles/blackletter.js', kelmscott: './styles/kelmscott.js', nouveau: './styles/nouveau.js', insular: './styles/insular.js', deco: './styles/deco.js', choirbook: './styles/choirbook.js' };
 const own = {}; let regP = null, engP = null;
 const put = k => { STYLES[k] = own[k]; if (k === 'draft') Object.defineProperty(STYLES, 'cyber', { value: own.draft, enumerable: false, configurable: true }); };
 export const loadRegistry = () => regP ??= Promise.all([import('./wayfinding.js'), import('./initials.js'), import('./frames.js')])
@@ -83,6 +83,7 @@ export async function loadStyles(keys) {
   keys = [...new Set(keys.filter(Boolean).map(k => k === 'cyber' ? 'draft' : k))];
   if (keys.some(k => !WRITTEN[k] && !isWritten(STYLES[k])) || !keys.length) await loadRegistry();
   const mods = await Promise.all(keys.filter(k => WRITTEN[k]).map(async k => [k, own[k] ??= (await import(WRITTEN[k])).default]));
+  if (mods.some(([, m]) => !isWritten(m))) await loadRegistry();   // (a module drawn on the registry's path: the choir book)
   for (const k of Object.keys(WRITTEN)) if (mods.some(([m]) => m === k)) put(k);   // (in the registry's order)
 }
 export const loadAll = async () => { await loadRegistry(); await loadStyles(Object.keys(WRITTEN)); };

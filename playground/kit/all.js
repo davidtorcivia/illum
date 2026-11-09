@@ -14,6 +14,7 @@ import './styles/kelmscott.js';
 import './styles/nouveau.js';
 import './styles/insular.js';
 import './styles/deco.js';
+import './styles/choirbook.js';
 import { loadAll } from './illum.js';
 await loadAll();   // (all here already: this only puts them in the registry, in its order)
 export * from './illum.js';

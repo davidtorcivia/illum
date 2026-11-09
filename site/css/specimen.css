@@ -52,6 +52,20 @@
 [data-style="blackletter"] .ini { font-weight: 600; }
 [data-style="blackletter"] .ini.line { margin-right: .1em; }
 
+/* Choir book: the initials set in its Lombards (kit/styles/choirbook.js loads the letters a page uses) */
+[data-style="choirbook"] .ini { font-weight: 600; font-family: "Choir Lombard", "EB Garamond", serif; }
+[data-style="choirbook"] .ini.line { display: inline; font-size: 1.5em; margin-right: .04em; }
+[data-style="choirbook"] p.par { text-indent: calc(1.6em * max(1, var(--orn, 1))); }
+[data-style="choirbook"] hr { height: 3.2em; }
+[data-style="choirbook"] hr[data-rank="2"] { height: 4.6em; margin: .4em 0; }
+[data-style="choirbook"] hr[data-rank="3"] { height: 6em; }
+[data-style="choirbook"] blockquote { margin: 1.4em 0; padding: 0 0 0 2.4em; }
+[data-style="choirbook"] blockquote footer { margin-top: 0; }
+[data-style="choirbook"] figure { margin: 2.8em auto 2em; }
+[data-style="choirbook"] pre { padding: 1.3em 1.6em; }
+[data-style="choirbook"] .pull { margin: 2.8em 1.5em; }
+[data-style="choirbook"] aside.note { margin: 2em 0 2em 2.5em; padding: 1em 0 .2em 1.4em; }
+
 /* Occult */
 [data-style="occult"] pre { padding: 6.6em 2.7em 2.2em; }
 [data-style="occult"] aside.note { padding: 2.8em 1.4em 3em; }
