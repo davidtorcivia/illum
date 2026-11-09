@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deco directions</title>
+<!--
+  Art Deco, direction studies (research/22-deco.md): A pochoir, B l'or et le noir, C le filet. Each: a drop initial, a paraph,
+  a line-filler, a break and a frame corner at page size in light and dark, then enlarged, and the master beside ours.
+  Drawn live as vector (tests/deco-directions.js) and printed through the ink engine (kit/styles/deco-print.js).
+  ?only=pochoir|or|filet  ?letters=BLRS  ?fa= ?fb= ?fc= (face file in fonts/deco/)  #seed=n
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  html { background: rgb(236 231 220); }
+  body { margin: 0; font: 400 20px/1.6 "EB Garamond", Garamond, serif; color: #2b2119; -webkit-font-smoothing: antialiased; }
+  header { max-width: 1320px; margin: 0 auto; padding: 40px 24px 0; }
+  header h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; margin: 0; }
+  header p { font-style: italic; margin: .2em 0 0; font-size: .9em; }
+  section.dir { max-width: 1320px; margin: 0 auto; padding: 36px 24px 12px; }
+  section.dir > h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; margin: 0 0 .2em; }
+  section.dir > p.note { margin: 0 0 1em; font-style: italic; font-size: .9em; max-width: 56em; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel { position: relative; padding: 44px 44px 40px 56px; background: var(--paper); color: var(--ink); overflow: hidden; }
+  [data-theme=light] { --paper: rgb(244 238 226); --ink: #2b2119; }
+  [data-theme=dark] { --paper: rgb(24 22 20); --ink: rgb(222 212 196); }
+  .panel .text { position: relative; hyphens: auto; text-align: justify; max-width: 560px; }
+  .panel p { margin: 0; } .panel p.par { text-indent: 0; margin-top: .5em; }
+  .panel .pf { display: inline-block; }
+  .panel hr { border: 0; height: 3.4em; margin: .4em 0; }
+  .panel blockquote { margin: .6em 0 0; padding: .5em 0 0 2.9em; font-style: italic; }
+  .ini { float: left; color: transparent; }
+  .zoom { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; align-items: flex-start; }
+  .zoom figure { margin: 0; background: var(--paper); padding: 16px; max-width: 100%; box-sizing: border-box; }
+  .zoom figcaption { font: italic 13px/1.3 "EB Garamond", serif; color: var(--ink); opacity: .75; margin-top: 6px; max-width: 46em; }
+  .zoom canvas, .zoom img { display: block; max-width: 100%; height: auto; }
+  .refs { display: flex; gap: 12px; flex-wrap: wrap; width: 100%; }
+  .refs figure { margin: 0; padding: 0; background: none; }
+  .refs img { height: 260px; width: auto; object-fit: contain; }
+  .side { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  @media (max-width: 900px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .pair { grid-template-columns: 1fr; }
+    .panel { padding: 32px 20px 28px 20px; }
+    .panel .text { text-align: left; }
+    section.dir { padding: 28px 0 8px; } header, section.dir > h2, section.dir > p.note { padding-left: 16px; padding-right: 16px; }
+    .refs img { height: 160px; }
+  }
+</style>
+</head>
+<body>
+<header><h1>Art Deco · three directions</h1><p>Each: a drop initial, a paraph, a line-filler, a break and a quotation’s corner at page size, light and dark; then enlarged; then the master beside ours. Seed <span id="seed"></span>. <span id="timing"></span></p></header>
+<template id="txt">
+  <p><span class="ini">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+  <p class="par fill"><span class="pf"></span>Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art for which rules can be given.</p>
+  <hr>
+  <p>A book had no page numbers, no index and no search. Its readers found their way by its ornament: every mark said where you were.</p>
+  <blockquote>Ornament is the mark of a hand that took its time.</blockquote>
+</template>
+<main id="out"></main>
+<script type="module">
+import { DIRS, PAL } from './deco-directions.js';
+import { render } from '../kit/styles/deco-print.js';
+const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+document.getElementById('seed').textContent = seed;
+// the letter faces (fonts/deco/): the shortlist's picks, swappable by ?fa= ?fb= ?fc=
+const FACES = { DecoA: q.get('fa') ?? 'Italiana-Regular.ttf', DecoB: q.get('fb') ?? 'FanwoodText-Regular.ttf', DecoC: q.get('fc') ?? 'Limelight-Regular.ttf' };
+await Promise.all(Object.entries(FACES).map(async ([fam, f]) => { const ff = new FontFace(fam, `url(../fonts/deco/${f})`, fam === 'DecoA' ? { weight: '400 900' } : {}); await ff.load(); document.fonts.add(ff); }));
+await document.fonts.load('20px "EB Garamond"');
+const letters = (q.get('letters') ?? 'BLRS').split(''), dpr = Math.min(2, devicePixelRatio || 1), PAD = 6, t0 = performance.now();
+const NOTES = {
+  pochoir: 'Pochoir after Séguy (Prismes, 1930) and Gladky (Fleurs, 1929): each colour opaque gouache dabbed through its own hand-cut stencil, flat as the master’s (measured: under 1 % slow variation), every straight cut leaning its own fraction of a degree (0.3–2°, as Prismes 27’s cloud steps), each stencil laid a fraction of a px off register with a darker seam where its film overlaps an earlier colour; the pale sky inside the bands worked in with the tampon from the cut and lifted (Prismes 1); the thin band gold powder. Paraph: Iribe’s rose, its petals the stencil’s ties.',
+  or: 'Gold and black after Schmied’s Les Climats (1924): the gold square with the black capital, its rays a second, paler gold; the paraph a small gold square in the line; the filler the gold bar Schmied runs to his titles; the break his inverted triangle (outline 1.7 % of its width, as on p. 21) holding a fan of rays. Gold ink as measured on the scan: a flat coat with a slow mottle of ~12 % and a fine tooth, no gradient and no sheen; the black is the press’s.',
+  filet: 'The rule, after Deberny & Peignot’s display specimens, Cassandre and the Chrysler Building’s lift doors (1930): letterpress rules in black and vermilion, printed through the press’s edge; the stepped (ziggurat) frame, a shaded letter whose shadow is a ruling, speed lines that taper in weight, the lotus fan with scalloped tips (the doors: five light petals between dark, a collar at the waist).',
+};
+const REFS = {
+  pochoir: [['seguy-prismes27.jpg', 'Séguy, Prismes 27 (1930), Glasgow School of Art via IA, scan CC BY-SA 3.0'], ['seguy-prismes27-detail.jpg', 'its bands: flat gouache, gold powder, the seam'], ['seguy-prismes1-tampon.jpg', 'Prismes 1: the tampon, solid at the cut, dissolving away from it']],
+  or: [['schmied-climats-p23.jpg', 'Schmied, Les Climats (1924) p. 23: bar, gold square, stanza bars, paraph square (Gallica, PD)'], ['schmied-climats-J.jpg', 'the J at 1:1 of the scan'], ['schmied-climats-p21-triangle.jpg', 'p. 21: the inverted triangle'], ['schmied-climats-laterre.jpg', 'p. 137: rays and stars']],
+  filet: [],   // (the Chrysler doors are known only from in-copyright photographs: looked at, not reproduced; see research/22-deco.md)
+};
+// a piece printed onto its own canvas, PAD px of margin round it, at zoom
+function printed(key, theme, piece, zoom = 1) {
+  const { S, W, H } = piece, d = dpr * zoom, cv = document.createElement('canvas');
+  cv.width = Math.ceil((W + PAD * 2) * d); cv.height = Math.ceil((H + PAD * 2) * d); cv.style.width = (W + PAD * 2) * zoom + 'px'; cv.style.height = (H + PAD * 2) * zoom + 'px';
+  for (const L of S.layers) if (!L.moved) { const f = L.draw; L.draw = (g, t) => { g.translate(PAD, PAD); f(g, t); }; L.moved = 1; }
+  render(S, cv.getContext('2d'), { dpr: d, pal: PAL[key][theme], seed, box: [0, 0, W + PAD * 2, H + PAD * 2], slip: Math.max(.25, Math.min(.6, H * .004)) });
+  return cv;
+}
+const ONLY = q.get('only'), PERF = [];
+for (const key of Object.keys(DIRS).filter(k => !ONLY || ONLY === k)) {
+  const D = DIRS[key], sec = document.createElement('section'); sec.className = 'dir'; sec.id = key;
+  sec.innerHTML = `<h2>${D.name}</h2><p class="note">${NOTES[key]}</p><div class="pair"></div><div class="zoom"></div>`;
+  document.getElementById('out').append(sec);
+  const z = sec.querySelector('.zoom'), fig = (el, cap, theme) => { const f = document.createElement('figure'); if (theme) f.dataset.theme = theme; f.append(el); const fc = document.createElement('figcaption'); fc.textContent = cap; f.append(fc); z.append(f); return f; };
+  { const f = document.createElement('div'); f.className = 'refs'; for (const [src, cap] of REFS[key]) { const fg = document.createElement('figure'); fg.innerHTML = `<img src="deco-refs/${src}" alt=""><figcaption>${cap}</figcaption>`; f.append(fg); } z.append(f); }
+  let iniH = 0;
+  for (const theme of ['light', 'dark']) {
+    const panel = document.createElement('div'); panel.className = 'panel'; panel.dataset.theme = theme;
+    const text = document.createElement('div'); text.className = 'text'; text.append(document.getElementById('txt').content.cloneNode(true)); panel.append(text);
+    sec.querySelector('.pair').append(panel);
+    const cs = getComputedStyle(text), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = 4;
+    const capTop = (lh - fs) / 2 + fs * .27, H = (n - 1) * lh + fs * .62; iniH = H;
+    const place = (cv, x, y) => { Object.assign(cv.style, { position: 'absolute', left: x - PAD + 'px', top: y - PAD + 'px', pointerEvents: 'none' }); text.append(cv); };
+    const tp = performance.now(), ini = D.initial('B', H, seed), ispan = text.querySelector('.ini');
+    Object.assign(ispan.style, { width: ini.W + fs * .45 + 'px', height: n * lh + 'px', lineHeight: '1px', fontSize: '1px' });
+    const par = D.paraph(fs, seed), pf = text.querySelector('.pf'); pf.style.width = par.W + fs * .35 + 'px'; pf.style.height = '1px';
+    const tr = text.getBoundingClientRect(), ir = ispan.getBoundingClientRect();
+    place(printed(key, theme, ini), ir.left - tr.left, ir.top - tr.top + capTop);
+    // the paraph: its foot on the baseline (B's square sits from the baseline up, as Schmied's)
+    const pr = pf.getBoundingClientRect(), base = pr.bottom - tr.top;
+    place(printed(key, theme, par), pr.left - tr.left, base - par.H * (par.base ?? (key === 'or' ? 1 : key === 'filet' ? .96 : .8)) + (key === 'or' ? 0 : fs * .05));
+    const p = text.querySelector('p.fill'), rg = document.createRange(); rg.selectNodeContents(p); const last = [...rg.getClientRects()].at(-1);
+    const x0 = last.right - tr.left + fs * .35, gw = tr.width - x0;
+    if (gw > fs * 2) { const fl = D.filler(gw, lh, seed); place(printed(key, theme, fl), x0, last.top - tr.top + (last.height - fl.H) / 2 + fs * .04); }
+    const hr = text.querySelector('hr').getBoundingClientRect(), bw = Math.min(tr.width * .7, 380), bk = D.brk(bw, hr.height, seed);
+    place(printed(key, theme, bk), (tr.width - bw) / 2, hr.top - tr.top);
+    const bq = text.querySelector('blockquote').getBoundingClientRect(), csz = fs * 1.9, co = D.corner(csz, seed);
+    place(printed(key, theme, co), bq.left - tr.left, bq.top - tr.top + fs * .1);
+    PERF.push(`${key} ${theme}: ${Math.round(performance.now() - tp)} ms`);
+    if (theme === 'light' || true) {
+      fig(printed(key, theme, D.initial(theme === 'light' ? 'B' : letters[2] ?? 'R', H, seed), 4), `initial, 4× (${theme})`, theme);
+    }
+    fig(printed(key, theme, D.paraph(fs, seed), 4), `paraph, 4×`, theme);
+    fig(printed(key, theme, D.filler(150, lh, seed), 4), `filler, 4×`, theme);
+    fig(printed(key, theme, D.brk(bw, hr.height, seed), 2), `break, 2×`, theme);
+    fig(printed(key, theme, D.corner(csz, seed), 4), `quotation corner, 4×`, theme);
+  }
+  // the master beside ours, at the same height: page size, then 4×
+  if (REFS[key].length) { const side = document.createElement('div'), m = REFS[key][1][0]; side.className = 'side';
+    for (const zz of [1, 4]) { const im = document.createElement('img'); im.src = `deco-refs/${m}`; im.style.height = (iniH + PAD * 2) * zz + 'px'; im.style.width = 'auto'; side.append(im, printed(key, 'light', D.initial(key === 'or' ? 'J' : 'B', iniH, seed), zz)); }
+    fig(side, 'master (left) beside ours, at the same height: page size, then 4×', 'light'); }
+  for (const theme of ['light', 'dark']) {
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
+    for (const ch of letters) row.append(printed(key, theme, D.initial(ch, iniH, seed + ch.charCodeAt(0))));
+    fig(row, `${letters.join(' ')}, page size (${theme})`, theme);
+  }
+}
+const ms = Math.round(performance.now() - t0); document.getElementById('timing').textContent = `Drawn in ${ms} ms.`; document.body.dataset.timing = `drawn in ${ms} ms`; document.body.dataset.perf = PERF.join('; '); document.getElementById('timing').textContent += ` A page's ornament (initial, paraph, filler, break, corner): ${PERF.join('; ')}.`;
+</script>
+</body>
+</html>
