@@ -122,3 +122,28 @@ the brush's distance from the line, absent where the brush ran up to it; the ban
 its fill in ~8 mm loads whose stops are bowed chords with a pool; the knot's cords each a little wider or narrower (±9 %),
 strand tops rubbed thin (broken, more on over-crossings and the outer loops), a dark red-brown ground (the master's median,
 80 38 21) over a fine red knotwork that shows where the ground's load ran thin.
+
+## The style (kit/styles/insular.js) and what ships
+
+The page-size paint is the printer of every piece (kit/styles/insular-print.js), the pieces are the directions' Sheets
+(kit/styles/insular-pieces.js on insular-knot.js), the paint's core is kit/styles/insular-paint.js; the bench's
+physical-paint tools (parchment, levelling, strand fields, weathering) stay in tests/ (km-paint.js, km-age.js).
+
+- **Making (?draw).** The geometry records beside its inks a clock (each cord in turn along its length) and the rubbing
+  of each strand's raised middle; the printer writes knots by that clock, the pen first where an ink is thin, each colour
+  pocket by pocket from where its brush touched down, the broad black after the colours, the dots touch by touch, a long
+  red line (Durrow's scroll) along its length. The last frame is the still.
+- **Richness.** plain: initials, paraphs, plain frames (rules and corners); modest: heading run-outs, pull-quote bands;
+  usual; fine: knots closer and roundels in the drop, rank-1 breaks in rank-2 form, frames with knots on all sides;
+  lavish: dot rows round the drop, pull-quote bands of knotwork, the aside framed, the figure's margin band, two rows of
+  dots on frames.
+- **Bytes** (uncompressed): insular.js 18 KB, insular-pieces.js 72 KB, insular-knot.js 28 KB, insular-paint.js 14 KB,
+  insular-print.js 12 KB (≈144 KB; all lazy, loaded only when the style is used); the face, Illum Uncial Caps, 4 KB
+  (Uncial Antiqua's A–Z, renamed as the OFL requires of a modified font with a Reserved Font Name).
+- **Speed** (whole page's ornament, first visit, live; see the report for both kinds): ~350–450 ms at dpr 1, ~0.7–0.9 s at
+  dpr 2, of which ~60 % is building the pieces' geometry (many Canvas2D fills, each knocking every other ink, then
+  reading each ink back) and ~40 % the paint. The site bakes first visits (tools/bake.mjs), so live speed matters for
+  unbaked settings. Done: frames built as four strips, compose only where there is ink, sRGB by table, pieces kept by
+  what they are (kind, letter, size, seed). Not done: the WebGL2 port of the per-pixel paint (brush loads, compose,
+  growth clock) — the plan above stands; with it, and the Sheet's knock-outs deferred to one pass per ink, the
+  estimate is ≤200 ms at dpr 2.
