@@ -18,13 +18,13 @@ export class Sheet {
   constructor() { this.layers = []; }
   // col: a palette key; draw(g): paints the shape in any colour into g (piece px); o.medium: gouache | stipple | metal | press;
   // o.fade: { from: [x, y], to: [x, y], solid: .5 } for stipple; o.key: printed in register (no slip, no trap)
-  ink(col, draw, o = {}) { this.layers.push({ col, draw, medium: o.medium ?? 'gouache', fade: o.fade, key: !!o.key, trap: o.trap, seam: o.seam ?? true, despeck: o.despeck ?? 0 }); return this; }
+  ink(col, draw, o = {}) { this.layers.push({ col, draw, medium: o.medium ?? 'gouache', fade: o.fade, key: !!o.key, trap: o.trap, seam: o.seam ?? true, despeck: o.despeck ?? 0, post: o.post, ang: o.ang }); return this; }
 }
 const rgbOf = s => Array.isArray(s) ? s : s.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number);
 const clamp = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
 // a layer's coverage on a grid of res cells a px over box, slipped by sl, grown by trap px
-function mask(L, box, res, sl, trap) {
+export function mask(L, box, res, sl = [0, 0], trap = 0) {
   const [x0, y0, x1, y1] = box, w = Math.ceil((x1 - x0) * res), h = Math.ceil((y1 - y0) * res);
   const g = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
   g.setTransform(res, 0, 0, res, (sl[0] - x0) * res, (sl[1] - y0) * res); g.fillStyle = g.strokeStyle = '#000'; g.lineJoin = 'miter';
@@ -32,6 +32,7 @@ function mask(L, box, res, sl, trap) {
   const d = g.getImageData(0, 0, w, h).data, M = new Float32Array(w * h);
   for (let q = 0; q < w * h; q++) M[q] = d[q * 4 + 3] / 255;
   if (L.despeck) despeck(M, w, h, L.despeck * res * res);
+  if (L.post) L.post(M, w, h, res);   // (a cut made in the printed face: an inline)
   // the trap: the coat grown by trap px (a slipped stencil still overlaps its neighbour rather than leaving paper)
   if (trap > 0) { const r = Math.max(1, Math.round(trap * res)), B = blur(M, w, h, r);
     for (let q = 0; q < w * h; q++) if (B[q] > 0) M[q] = Math.max(M[q], clamp(B[q] * 2.2)); }
@@ -74,12 +75,12 @@ function metal(L, seed, size) {
     O[q] = m * (.76 + .26 * (slow(x / S, y / S) - .5) + .06 * (tooth(x / .45, y / .45) - .5)); }
   return { ...L, M: O };
 }
-function press(L, seed) {
+export function press(L, seed) {
   // the forme's edge as the paper takes it: the antialiased rim pushed in or out by a slow grain (a fraction of a px; a
   // rule's edge stays true to ~.1 px at page size, as a cast rule prints)
-  const { M, w, h, res } = L, gr = noise2(seed ^ 0x45), O = Float32Array.from(M), amt = .35 * Math.min(1, 2 / res);
+  const { M, w, h, res, x0 = 0, y0 = 0 } = L, gr = noise2(seed ^ 0x45), O = Float32Array.from(M), amt = .35 * Math.min(1, 2 / res);
   for (let j = 1; j < h - 1; j++) for (let i = 1; i < w - 1; i++) { const q = j * w + i, m = M[q];
-    if (m > .02 && m < .98) O[q] = clamp(m + (gr(i / res / 1.6, j / res / 1.6) - .5) * amt); }
+    if (m > .02 && m < .98) O[q] = clamp(m + (gr((x0 + i / res) / 1.6, (y0 + j / res) / 1.6) - .5) * amt); }
   return { ...L, M: O };
 }
 

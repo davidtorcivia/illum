@@ -156,3 +156,45 @@ Gradient gold and bevels; sunbursts as clip art (every ray the same, a perfect c
 gouache is flatter than its paper); scattered dots; perfect geometry (each cut leans); a colour seam that gaps to paper (the
 master overlaps); hairlines under ~1.2 px; Erté-style figures and cocktail-glass pastiche; neon (Monoton-style) and
 "Great Gatsby" pastiche fonts.
+
+## Stage 2: le filet, the style (the user's choice: "for art deco, only le filet")
+
+A and B are dropped; the direction page stays as the stage-1 record. The style is kit/styles/deco.js (pieces in
+kit/styles/deco-pieces.js, coverage and the press edge in kit/styles/deco-print.js), its specimen tests/deco.html.
+
+**Measured on period letterpress** (ATF *Book of American Types*, 1934, p. 186: a box in Oxford rule, PD; the scan is the
+HathiTrust page enlarged ~4×, so its numbers are in its own px): thick 32 : gap 16 : thin 10 (3.2 : 1.6 : 1); edge wander sd
+~1 px on both (≈3 % of the thick rule); along the rule, the heavy rule's density is even (slow sd .018) and the hairline's
+uneven (slow sd .06, width cv .2, partly the scan); no paper gap at the corners: mitred. No two-colour period job reachable
+at full size, so the vermilion's register is set by hand (.32, .22 px, one forme for the page).
+
+**The material, not the look.** Every rule is a piece of brass rule: one piece a side, mitred at a joint and cut a hair short
+there (a seam of ~.1 px, seen at 4×), each piece laid ±.04° off true and inked at its own 94–100 %. Sizes are typographic:
+the point is the text's (x-height ≈ 4.8 pt); no rule under 1.2 px. The Oxford rule is ATF's ratio; the end break's Scotch rule
+thin–thick–thin. The stepped forms step by a constant unit (the initial's head 7 % of its height, twice; three times at the
+richest). The sunburst behind the drop initial is set in rule, as a jobbing comp built one: lengths of fine rule radiating from
+the frame's foot, long and short in turn, each run out to a hair inside the frame, a channel of paper round the letter's
+silhouette (counters filled, so no ray shows through a bowl). The lotus is the Chrysler doors': petals flaring from a bound
+waist to scalloped tips between spurs, alternately black and vermilion, a collar binding it to its plinth. The capital is
+Limelight (OFL) with a solid vermilion shadow swept down-right (an extrusion, not an offset copy) kept a hairline off the letter,
+and, from rich .75, an inline cut down its heaviest strokes (where it lies deepest in the ink).
+
+**Printed.** Each piece's formes become coverage at the device's resolution and are poured by the ink engine (inkLetter: the
+ink squeezed to the rim, the edge pushed by the paper's grain), at 84 % of a full coat so each piece's inking shows. On the light
+page a third pour, the bite: the impression's shoulder, a shade a fraction of a px wide on the side away from the light (off with
+?bite=off; none in the dark). ?draw prints each piece with sweepIn's press: the bite comes up first (a blind impression), then
+the vermilion forme, then the black, each rolling along the piece's length. A frame round a box is printed as its four sides
+(its middle has no ink and is never made).
+
+**Every case.** Drop initial (4 lines, 3 on a phone) and line initial; paraph (the lotus; a vermilion square at rich 0);
+fillers (speed lines after a vermilion square; a heading's Oxford rule); breaks at three ranks (a lozenge between speed lines;
+a stepped portal holding a rising sun with speed lines; the lotus on a solid stepped plinth over the Scotch rule); frames:
+quotation (an Oxford rule stood in the margin, turned in at head and foot), aside (two stepped brackets), pull (the sun between
+speed lines, turned over at the foot), figure (an Oxford box with stepped corners), code (a fine rule, every corner stepped), nav
+(a vermilion square on a hairline). Five levels of rich: 0 plain (a single rule round the letter, no fillers, a square for the
+paraph), .25 (Oxford frame, one rule fillers, the quotation's rule, the figure's box), .5 default (stepped head, the sunburst,
+two-rule fillers, code and aside frames), .75 (the inline, three rules, more petals, a stepped quotation rule), 1 (three steps,
+25 rays, four rules, a part's break in a chapter's form, an extra step in every box).
+
+**Speed** (tests/deco.html, Chrome, the whole page's ornament, three runs): light dpr 1 80–121 ms, dpr 2 180–190 ms; dark dpr 1
+67–69 ms, dpr 2 131–150 ms. Inside the 200 ms budget, the light page at dpr 2 only just.
