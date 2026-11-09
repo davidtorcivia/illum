@@ -17,6 +17,7 @@ export const STYLE = {
   kelmscott: { lines: null, filler: FILLER, lineDrop: 2 },   // (lineDrop: the in-line initial set two lines deep, as tests/kelmscott.html sets the Chaucer's small initials)
   nouveau: { lines: null, filler: FILLER },
   insular: { lines: null, filler: FILLER },
+  deco: { lines: null, filler: FILLER },
   draft: { lines: null, filler: '.text > p:not(.sub):not(.pull):not(.bare)' },
 };
 export const RICH = ['plain', 'modest', 'usual', 'fine', 'lavish'];
@@ -56,7 +57,8 @@ export function mount(sheet, { style, form, onSeed, onStart, styleParam = false 
   let shown = null;
   const start = async () => { const g = ++gen, M = mods();
     if (M.length) { const m = (await import(`../kit/styles/${state.style}.js`)).default; if (g !== gen) return;
-      for (const [k, , o] of M) m[k] = state[k] ?? o[0][0]; }
+      for (const [k, , o] of M) m[k] = state[k] ?? o[0][0];
+      if ('rich' in m) m.rich = state.rich; }   // (a style whose drop depth follows the richness keeps it as its own setting: Deco)
     prepare();
     if (r && shown === state.style) r.redraw(opts()); else { r?.destroy(); r = rubricate(text, opts()); window.R = r; shown = state.style; }
     onStart?.(state); };
