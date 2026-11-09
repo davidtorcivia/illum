@@ -6,6 +6,8 @@
 # What it copies (from playground/, which stays the source of truth; never edit the copies):
 #   playground/kit/{illum,registry,all,marks,wayfinding,initials,frames,penwork,writer,medium,inkletter,cache,spray}.js  -> site/kit/
 #   playground/kit/styles/*.js                                                               -> site/kit/styles/
+#     (Rock carving's own: rock.js, rock-pieces, -print, -paint, -relief, -letters, -traced, -worker; no face, its letters
+#     are carved strokes. The rock's parked direction studies, kit/pie/, are not under kit/styles/ and are not shipped.)
 #   playground/fonts/, fonts/kelmscott/, fonts/nouveau/, fonts/insular/, fonts/deco/, fonts/choirbook/hand3/ and fonts/copperplate/ (faces, letter outlines and licences) -> site/fonts/
 # The styles find their faces at new URL('../../fonts/', import.meta.url), so kit/ and fonts/ must stay siblings.
 #

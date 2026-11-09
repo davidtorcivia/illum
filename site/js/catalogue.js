@@ -3,7 +3,7 @@
 // under the specimen; rich: the highest richness level it has marks for (0 plain .. 4 lavish); own: its own choices,
 // [option, label, [[value, label]...] | default text, { mod: true }?].
 export const FAMILIES = [
-  ['manuscript', 'Manuscript'], ['print', 'Print'], ['esoteric', 'Esoteric'], ['technical', 'Technical'], ['modern', 'Modern'],
+  ['ancient', 'Ancient'], ['manuscript', 'Manuscript'], ['print', 'Print'], ['esoteric', 'Esoteric'], ['technical', 'Technical'], ['modern', 'Modern'],
 ];
 export const CATALOGUE = [
   { key: 'blackletter', name: 'Blackletter', family: 'manuscript', line: 'German books, fifteenth century', rich: 4,
@@ -44,6 +44,8 @@ export const CATALOGUE = [
   { key: 'copperplate', name: 'Copperplate', family: 'print', line: 'The English writing masters, 1733–41: Bickham’s Universal Penman', rich: 4,
     credit: 'After George Bickham’s <i>The Universal Penman</i>, 1733–41 (Getty Research Institute, Internet Archive), the engraving of Joseph Champion, and Jan van de Velde’s <i>Spieghel der Schrijfkonste</i>, 1605 (The Metropolitan Museum of Art). The capitals in Imperial Script and UnifrakturMaguntia, SIL Open Font License.',
     own: [['kind', 'Manner', [['pen', 'The pen'], ['hand', 'Command of hand']], { mod: true }]] },
+  { key: 'rock', name: 'Rock carving', family: 'ancient', line: 'The rock carvings of Tanum, Bohuslän, Bronze Age, c. 1700–500 BCE', rich: 4,
+    credit: 'After the pecked and painted rock carvings of Tanum, Bohuslän: Vitlycke and Tanumshede. Figures traced from photographs by Bengt A. Lundberg, Riksantikvarieämbetet (CC BY 2.5), Bjoertvedt (CC BY-SA 3.0) and Tulipasylvestris (CC0), Wikimedia Commons. The letters drawn for illum.' },
   { key: 'draft', name: 'Draft', family: 'technical', line: 'Apollo drawings, MIT, 1963–66', rich: 4,
     credit: 'After the Apollo guidance drawings of the MIT Instrumentation Laboratory, 1963–66. National Archives.',
     own: [['set', 'Initial', [['part', 'In section'], ['views', 'Two views'], ['leroy', 'Lettering']]]] },
