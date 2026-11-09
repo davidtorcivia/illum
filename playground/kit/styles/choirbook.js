@@ -1016,6 +1016,7 @@ const pickKinds = (r, all, min) => { const k = [...all].sort(() => r() - .5); re
 // eye in it, his crests out at the ends. The end (rank 3): the band wider, a dome over and under, eyes on stalks along it.
 const RED_HAIR = [212, 100, 74];
 const note = (x, y, s) => ({ col: 'k', broad: .9, nib: 0, w: s, load: 1.15, dry: .08, swell: .05, start: 'cut', end: 'cut', pts: [[x, y - s * .42], [x, y + s * .42]] });
+const CADENCES = [[5, 4, 5, 3, 2, 2], [6, 5, 4, 3, 4, 2, 2], [4, 5, 6, 5, 3, 2], [3, 4, 5, 4, 3, 3], [7, 6, 5, 4, 3, 2], [5, 6, 5, 4, 4, 2, 2], [4, 3, 4, 5, 3, 2, 2]];   // (half-spaces above the bottom rule)
 function stave(cx, y, measure, seed, rich, u) {
   const r = stream(seed, 'stave'), L = lv(rich), sp = u * .74, W = Math.min(measure * .4, u * 19), x0 = cx - W / 2, x1 = cx + W / 2, out = [], ly = k => y + (k - 1.5) * sp;
   for (let k = 0; k < 4; k++) out.push({ ...hair(wander([[x0, ly(k)], [x1, ly(k) + (r() - .5) * .3]], .1, seed + k, 40), 'a', { w: .5, start: 'cut', end: 'cut' }), ink: RED_HAIR });
@@ -1024,8 +1025,9 @@ function stave(cx, y, measure, seed, rich, u) {
   const cy = ly(1), cxL = x0 + u * .55;
   out.push({ col: 'k', broad: .9, nib: 0, w: u * .1, load: 1.1, dry: .08, swell: 0, start: 'cut', end: 'cut', pts: [[cxL - s * .42, cy - sp * .9], [cxL - s * .42, cy + sp * .9]] });
   out.push(note(cxL, cy - sp * .5, s * .62), note(cxL, cy + sp * .5, s * .62));
-  // the last notes: a short cadence falling to the final, set out along the rules
-  const steps = [5, 4, 5, 3, 2, 2], xs = steps.map((_, k) => x0 + u * 2.2 + k * (W - u * 4.6) / (steps.length + .5));
+  // the last notes: a short cadence falling to the final, set out along the rules (which cadence, by the seed: a new seed
+  // closes on other notes)
+  const steps = CADENCES[(stream(seed, 'cadence')() * CADENCES.length) | 0], xs = steps.map((_, k) => x0 + u * 2.2 + k * (W - u * 4.6) / (steps.length + .5));
   steps.forEach((st, k) => { const [x, yy] = at(xs[k], st); out.push(note(x, yy, s)); });
   // the finalis: a double bar across the rules, the second heavier
   for (const [dx, w] of [[-u * .5, u * .1], [-u * .22, u * .16]]) out.push({ col: 'k', broad: .9, nib: 0, w, load: 1.1, dry: .08, swell: 0, start: 'cut', end: 'cut', pts: [[x1 + dx, ly(0) - .4], [x1 + dx, ly(3) + .4]] });
