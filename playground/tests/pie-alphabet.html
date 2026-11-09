@@ -56,7 +56,7 @@ function cell(sec, g, theme, piece, label, zoom = 1) { const o = print('rock', t
 const PART = q.get('part');   // ?part=zoom: only the enlarged section (a full page is taller than a screenshot can hold)
 for (const theme of PART === 'zoom' ? [] : ['light', 'dark']) {
   const tag = theme === 'light' ? 'on the paper' : 'on the ink';
-  { const s = section(theme, `Drops, A–Z, ${tag}`, theme === 'light' ? 'Each at the drop size of a wekwos.com paragraph (four lines). The figure beside a letter is chosen by the letter and the seed: a ship whose crew reach up into it, an animal at its foot, the sun at its shoulder over a row of cups, or a rider and a spiral.' : ''), g = grid(s);
+  { const s = section(theme, `Drops, A–Z, ${tag}`, theme === 'light' ? 'Each at the drop size of a wekwos.com paragraph (four lines). The figure beside a letter is chosen by the letter and the seed: an animal (deer, horse or crane), the sun over a row of cups, the Vitlycke warrior, or a rider. Ships stay in the fillers, breaks and panels.' : ''), g = grid(s);
     for (const ch of LETTERS) cell(s, g, theme, rock.initial(ch, H, seed, fs), ch); }
   { const s = section(theme, `Line initials, ${tag}`), g = grid(s); for (const ch of LETTERS) cell(s, g, theme, rock.lineInitial(ch, fs, seed), ''); }
   { const s = section(theme, `The figures, ${tag}`, theme === 'light' ? 'The vocabulary, drawn from the Tanum and Bohuslän panels’ proportions. The chariot is Bronze Age Scandinavian (seen from above, its wheels laid flat beside the axle, a horse each side of the pole); the solid-wheeled ox cart is the older, PIE-era layer (the Yamnaya wagons).' : ''), g = grid(s);

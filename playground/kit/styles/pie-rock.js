@@ -151,24 +151,6 @@ export function ship(x, y, L, h, lw, rp, r, { high = 1, double = false, sun = fa
   if (double) out.push(...stroke(pts(t => [x + L * (.06 + .86 * t), y + h * .28 + h * .14 * Math.sin(Math.PI * t) ** .5], 30), swell(31, lw * .7, lw * 1.2, lw * .7), rp, r));   // a second keel line under the first
   if (sun) { const cx = x + L * (.45 + .1 * r()); out.push(...stroke([[cx, y - h * .5], [cx + h * .05 * gauss(r), y - h * 1.5]], [lw * 1.1, lw * .8], rp, r), ...wheel([cx, y - h * 1.9], h * .38, lw, rp, r)); }
   return out; }
-// the ship drawn for a drop (the traced ship is a band with prows at that size): in the traced ship's manner but
-// taller and simpler: a heavy keel thickening to the prow, a lighter gunwale over it, three struts making two or three
-// large openings, prow and stern rising and curling in, and five or six big crew strokes with heavy tops, uneven.
-// reach(x): the letter's lowest point above x, if any (a crew stroke under the letter rises into it)
-export function dropShip(x, y, L, h, lw, rp, r, reach = null) {
-  const ky = t => y + h * .08 * Math.sin(Math.PI * t), gy = t => y - h * .36 + h * .05 * Math.sin(Math.PI * t), out = [];
-  const keel = pts(t => [x + L * t, ky(t)], 24);
-  out.push(...stroke(keel, keel.map((_, i) => lw * (1.15 + .85 * Math.sin(Math.PI * i / 24) ** .6 + .6 * (i / 24) ** 2)), rp, r));
-  out.push(...stroke([[x + L * .06, gy(.06)], [x + L * .5, gy(.5)], [x + L * .9, gy(.9)]], [lw * 1.1, lw * 1.3, lw * 1.2], rp, r));
-  const kx = x + L, kyE = ky(1);   // the prow: up from the keel's end, curling back
-  out.push(...stroke([[kx, kyE], [kx + h * .16, kyE - h * .35], [kx + h * .2, kyE - h * .72], [kx + h * .1, kyE - h * .95], [kx - h * .06, kyE - h * .9]], [lw * 2.6, lw * 2, lw * 1.7, lw * 1.6, lw * 1.5], rp, r));
-  out.push(...stroke([[x, ky(0)], [x - h * .14, ky(0) - h * .38], [x - h * .16, ky(0) - h * .7], [x - h * .05, ky(0) - h * .82]], [lw * 2, lw * 1.6, lw * 1.4, lw * 1.3], rp, r));
-  for (const u of [.3, .55, .78]) { const uu = u + .03 * gauss(r); out.push(...stroke([[x + L * uu, gy(uu)], [x + L * uu + h * .03 * gauss(r), ky(uu)]], lw * 1.1, rp, r)); }
-  const n = 5 + (r() < .5 ? 1 : 0);
-  for (let i = 0; i < n; i++) { const u = .12 + .72 * (i + .3 * gauss(r)) / (n - 1), cx = x + L * u, y0 = gy(u), top = reach ? reach(cx) : null, yn = y0 - h * (.42 + .14 * r());
-    const y1 = top === null ? yn : i % 2 === 0 && top > y0 - h * 1.6 ? top + lw * .5 : Math.max(yn, top + lw * 3);
-    if (y0 - y1 > lw) out.push(...stroke([[cx, y0], [cx + h * .05 * gauss(r), y1]], [lw * 1.05, lw * 1.55], rp, r)); }
-  return out; }
 // a horse, as Tanum's carvers drew one: a long body thick at chest and rump, a neck rising at ~50 degrees to a small
 // head, four legs (front and back pairs apart), a hanging tail. s: body length; facing dir
 // the horse, from the Tanum horse (kit/styles/pie-traced.js HORSE: its long rising neck, small forward head, long thin back
@@ -254,23 +236,23 @@ const pick = (seed, k, n) => { const r = rng(seed * 7919 + k * 104729); r(); ret
 // the seed: a ship under it whose crew reach up into the letter; a deer, horse or crane walking along its foot; the sun
 // (wheel or rayed) at its shoulder over a row of cups; a rider or a spiral beside it. O and Q are themselves sun-wheels.
 // The drop's composition reflows to give its figure the room it needs, so a figure is never shrunk to fit:
-//   0 the ship under the letter, the full width; 1 an animal (the traced deer, a horse or a crane) beside it;
-//   2 the sun (wheel or rayed) beside it over a row of cups; 3 the Vitlycke warrior beside it.
+//   1 an animal (the traced deer, a horse or a crane) beside it; 2 the sun (wheel or rayed) beside it over a row of cups;
+//   3 the Vitlycke warrior beside it; 4 a rider beside it. (No ships in drops, at the user's word: they stay in the
+//   fillers, breaks and panels.)
 // The boxes do not overlap; the fit check stays as a guard (a figure is moved, not scaled, if it would touch the letter).
 function initial_(ch, H, seed, fs = 20) {
-  const r = rng(seed * 13 + ch.charCodeAt(0)), lay = pick(seed, ch.charCodeAt(0), 4), lw = H * .045, rp = lw / 4.5, m = H * .05, lw0 = letterWidth(ch);
-  const W = Math.round(H * [1.6, 1.4, 1.3, 1.55][lay]), cap = lay === 0 ? Math.min(H * .8, (W * .6) / lw0) : Math.min(H * .8, (W * (lay === 3 ? .42 : .52)) / lw0), x0 = lay === 0 ? m * 2 : m, y0 = m;
-  const L = letterStrokes(ch, x0, y0, cap, r), fx = lay === 0 ? 0 : x0 + L.W + m * 1.2, fw = W - fx - m * .3;
+  const r = rng(seed * 13 + ch.charCodeAt(0)), ix = Math.max(0, ch.charCodeAt(0) - 65), lay = 1 + (ix * 7 + seed * 3) % 4, lw = H * .045, rp = lw / 4.5, m = H * .05, lw0 = letterWidth(ch);   // (1 animal, 2 sun over cups, 3 warrior, 4 rider, spread evenly down the alphabet and shifted by the seed: no ships in drops)
+  const W = Math.round(H * [0, 1.4, 1.3, 1.55, 1.5][lay]), cap = Math.min(H * .8, (W * (lay >= 3 ? .45 : .52)) / lw0), x0 = m, y0 = m;
+  const L = letterStrokes(ch, x0, y0, cap, r), fx = x0 + L.W + m * 1.2, fw = W - fx - m * .3;
   const carveLetter = out => { for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .62, r)); if (s.cupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .62, r)); }
     if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], [lw * .8, lw * .8], rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], [lw * .8, lw * .8], rp, r)); } };
   return piece(W, H, lw, F => { const out = []; carveLetter(out);
-    if (lay === 0) { const h = H * .4, low = x => { let best = null; for (const st of L.strokes) for (let i = 0; i < st.p.length; i++) if (Math.abs(st.p[i][0] - x) < st.w[i] * .4) best = Math.max(best ?? -1e9, st.p[i][1] + st.w[i] * .3); return best; };
-      out.push(...dropShip(m + h * .25, H - m * 1.4, W - 2 * m - h * .55, h, lw, rp, r, low)); }   // (it passes under and behind the letter's foot; where they meet they share the groove, as figures do on the panels)
-    else if (lay === 1) { const kind = pick(seed, ch.charCodeAt(0) + 7, 3), s = Math.min(fw / 1.15, H * .78);
+    if (lay === 1) { const kind = (ix + seed) % 3, s = Math.min(fw / 1.15, H * .78);
       out.push(...(kind === 0 ? deer(fx + fw / 2, H - m - s * .4, s, 1, lw, rp, r) : kind === 1 ? horse(fx + fw * .55, H - m - s * .55, Math.min(s * 1.15, fw * 1.05), 1, lw * 1.1, rp, r) : bird(fx + fw * .45, H - m - s * .48, s, 1, lw * 1.1, rp, r)));
       out.push(...cup(fx + fw * .2, m + H * .12, lw * 1.1, r), ...cup(fx + fw * .42, m + H * .2, lw * .8, r, .8)); }
     else if (lay === 2) { const R = Math.min(fw * .36, H * .22), c = [fx + fw / 2, m + R * 1.8]; out.push(...(seed % 2 ? sun(c, R, lw * 1.1, rp, r) : wheel(c, R * 1.3, lw * 1.1, rp, r)));
       const n = 4; for (let k = 0; k < n; k++) out.push(...cup(fx + fw * (.15 + .7 * (k + .25 * gauss(r)) / (n - 1)), H - m * 2 + lw * .5 * gauss(r), lw * (.75 + .35 * r()), r, .7 + .4 * r())); }
+    else if (lay === 4) { const s = Math.min(fw * .95, H * .62); out.push(...rider(fx + fw * .5, H - m - s * .5, s, seed % 2 ? 1 : -1, lw * 1.1, rp, r), ...cup(fx + fw * .15, m + H * .1, lw * .9, r)); }
     else { const h = Math.min(H * .74, fw / tracedW('warrior', 1)); out.push(...warrior(fx + (fw - tracedW('warrior', h)) / 2, H - m * .5, h, seed % 2 ? 1 : -1, rp, r)); }
     return out; }, { seed, dur: 3400 });
 }

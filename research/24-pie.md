@@ -523,3 +523,12 @@ shorter.
   | dpr 2 | 368 ms | 461 ms | 385 ms |
 
   In view: 56 ms (dpr 1), 90–100 ms (dpr 2).
+
+## Stage 9: no ships in drops (the user: "Drop the ships on dropcaps")
+
+The drop-ship composition and `dropShip()` are deleted (the panels did not use it). A drop's partner is now one of four,
+spread evenly down the alphabet and shifted by the seed so neighbours differ: an animal (deer, horse or crane, by letter
+and seed), the sun over a row of cups, the Vitlycke warrior, or a rider. Ships stay in the fillers, breaks and panels.
+The 1× crispness of dcc56ef is unchanged.
+
+Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at once: 237 ms at dpr 1, 435 ms at dpr 2.
