@@ -123,7 +123,13 @@ export const pathOf = (pts, close = true, P = new Path2D()) => { P.moveTo(pts[0]
 export function knot(sheet, C, crossings, { layers, gap = 1, ground = null, colour = null, trap = .35, breath = 1 } = {}) {
   const W = layers[0].w, Lg = W / 2 + gap + .6, line = layers.length > 1 ? (W - layers[1].w) / 2 : 0;
   // each layer's width at each point: the band breathes (f), the pen line (outermost ring) swells and thins with the nib (g)
-  const widths = (c, idx, i) => idx.map(j => { const f = 1 + (c.f[j] - 1) * breath, w0 = W * f; return i === 0 ? w0 : i === 1 ? w0 - 2 * line * c.g[j] : w0 - 2 * line * c.g[j] - (layers[1].w - layers[i].w); });
+  // (the tint of a three-layer strand is laid by a brush that follows the pen line by eye: the reserve between them widens
+  // and narrows along the cord, now and then closing — measured on f. 139r's keys: .3 mm where present, absent ~1/4 of the
+  // way; c.r, per point, 0..1 of the reserve's own width taken back or given more)
+  const res3 = layers.length >= 3, rOf = c => c.r ??= (() => { const n = c.pts.length, R = new Float32Array(n), a = noise2(c.pts.length * 7 + 3), b = noise2(c.pts.length * 7 + 11);
+    for (let k = 0; k < n; k++) { const t = k / n * 40; R[k] = .75 * (a(t / 2.6, .5) - .5) * 2 + .25 * (b(t / .8, .5) - .5) * 2; } return R; })();
+  const widths = (c, idx, i) => idx.map(j => { const f = 1 + (c.f[j] - 1) * breath, w0 = W * f; if (i === 0) return w0; if (i === 1) return w0 - 2 * line * c.g[j];
+    const base = w0 - 2 * line * c.g[j] - (layers[1].w - layers[i].w), rv = (layers[1].w - layers[i].w) / 2; return res3 && i === layers.length - 1 ? base + 2 * rv * Math.max(-.6, Math.min(.9, rOf(c)[j] * 1.1)) : base; });
   // (batched: every stretch of one layer and one ink is a single fill, phase by phase: the cords, the gaps, the overs again —
   // a fine field holds thousands of crossings. A gap never reaches the next crossing's laid-again stretch, so the order holds.)
   const jobs = new Map(), add = (ph, i, ink, pts, ws, close) => { const k = `${ph}|${i}|${ink}`; (jobs.get(k) ?? jobs.set(k, { ph, i, ink, list: [] }).get(k)).list.push([pts, ws, close]); };

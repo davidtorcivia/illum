@@ -18,7 +18,11 @@ function pigs(pal, ink) {
 }
 export const ROLE = { k: 'ink', gr: 'ink', v: 'vellum', l: 'vellum', d: 'dots' };   // everything else is a pigment
 
-export function paintPrint(ctx, S, pal, { order = S.order, seed = 1 } = {}) {
+export function paintPrint(ctx, S, pal, opts = {}) { ctx.drawImage(paintSheet(S, pal, opts).canvas, 0, 0); }
+// the piece painted onto a canvas of the Sheet's own size; grow: also each cell's moment in the making (T, 0..1): the pen
+// first, along each line from where it set down (a walk through the line's own cells), then each pigment pocket by pocket in
+// the order laid, spreading from where the brush touched down, then the dots touch by touch
+export function paintSheet(S, pal, { order = S.order, seed = 1, grow = false, gold = 1 } = {}) {
   const { w, h, res } = S, [x0, y0, x1, y1] = S.box, G = new Grid([x0 * MM, y0 * MM, x1 * MM, y1 * MM], res / MM), n = w * h;
   if (G.w !== w || G.h !== h) { G.w = w; G.h = h; G.n = n; }
   const sub = pal.v ?? pal.l ?? [241, 232, 213], layers = [], alpha = new Float32Array(n);
@@ -44,7 +48,24 @@ export function paintPrint(ctx, S, pal, { order = S.order, seed = 1 } = {}) {
   const P = { Rp: new Float32Array(n * 3) }, s = lin(sub); for (let q = 0; q < n; q++) { P.Rp[q * 3] = s[0]; P.Rp[q * 3 + 1] = s[1]; P.Rp[q * 3 + 2] = s[2]; }
   const out = compose(G, P, layers), im = new ImageData(w, h), D = im.data;
   for (let q = 0; q < n; q++) { if (alpha[q] <= 0) continue; for (let k = 0; k < 3; k++) D[q * 4 + k] = Math.round(255 * Math.max(0, Math.min(1, out[q * 3 + k])) ** (1 / 2.2)); D[q * 4 + 3] = Math.round(alpha[q] * 255); }
-  const c = new OffscreenCanvas(w, h); c.getContext('2d').putImageData(im, 0, 0); ctx.drawImage(c, 0, 0);
+  const c = new OffscreenCanvas(w, h); c.getContext('2d').putImageData(im, 0, 0);
+  return { canvas: c, T: grow ? times(G, inks.map((ink, i) => ({ ink, M: masks[i], role: ROLE[ink] ?? 'pigment' }))) : null };
+}
+// the making's clock per cell: walks through each ink's coverage (breadth-first, 4-neighbour) from each part's first cell
+function times(G, L) {
+  const { w, h, n } = G, T = new Float32Array(n).fill(2), ph = { ink: [0, .34], vellum: [0, .34], pigment: [.3, .86], dots: [.82, 1] };
+  const pig = L.filter(l => l.role === 'pigment'), seen = new Int32Array(n), Q = new Int32Array(n);
+  L.forEach(l => { let [a, b] = ph[l.role]; if (l.role === 'pigment') { const i = pig.indexOf(l), k = (b - a) / Math.max(1, pig.length); a = a + i * k * .8; b = a + k * 1.6; }
+    const parts = []; seen.fill(0);
+    for (let q0 = 0; q0 < n; q0++) { if (l.M[q0] < .3 || seen[q0]) continue; let hd = 0, tl = 0, far = 0; Q[tl++] = q0; seen[q0] = 1; const D = new Map([[q0, 0]]), cells = [];
+      while (hd < tl) { const q = Q[hd++], d = D.get(q); cells.push(q); far = Math.max(far, d); const i = q % w, j = (q - i) / w;
+        for (const r of [i + 1 < w ? q + 1 : -1, i > 0 ? q - 1 : -1, j + 1 < h ? q + w : -1, j > 0 ? q - w : -1]) if (r >= 0 && !seen[r] && l.M[r] >= .3) { seen[r] = 1; D.set(r, d + 1); Q[tl++] = r; } }
+      parts.push({ cells, D, far }); }
+    const N = parts.length; parts.forEach((p, k) => { const t0 = a + (b - a) * k / Math.max(1, N), span = l.role === 'dots' ? 0 : (b - a) / Math.max(1, N) * (l.role === 'pigment' ? 2.5 : 1.6);
+      for (const q of p.cells) T[q] = Math.min(T[q], t0 + span * (p.far ? p.D.get(q) / p.far : 0)); }); });
+  // (a cell under-covered by every ink takes its neighbour's moment: no rim lingers)
+  for (let q = 0; q < n; q++) if (T[q] > 1.5) T[q] = (q > 0 && T[q - 1] <= 1.5) ? T[q - 1] : (q >= w && T[q - w] <= 1.5) ? T[q - w] : 1;
+  return T;
 }
 // dots from their coverage: each connected dot a dome by its depth, charged by its place in the brush's reload cycle
 function touches(G, M, seed) {
