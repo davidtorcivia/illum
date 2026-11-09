@@ -72,6 +72,33 @@ export function shade(p, { hair, peak, axis = [-1, 0], tol = 32, aspect = 20, at
     i = j + 1; }
   return w;
 }
+// The flexible pointed pen's weight (stage 3; measured on Bickham's oval, Universal Penman 0040, and the pen refs): the nib
+// opens as the hand pulls along the shade axis and closes off it. Pressure's target at each point: how nearly the stroke
+// heads along the axis, (cos d - cos f) / (1 - cos f) for d inside the falloff f (70 deg: the master's width is ~.8 of its
+// peak 30 deg off the axis, ~.55 at 45, ~.25 at 60, hairline past 70); pulled the other way it presses `reverse` as hard
+// (0 for the pen, which cannot shade an up-stroke; the engraver shades both sides of an oval, the far one ~.75 as hard).
+// The hand's pressure follows its target with a lag (a quarter of the local radius), so it builds and releases smoothly and
+// is fullest a little past the middle of the down-sweep. A tight turn cannot carry a full shade: the peak is held to ~.09
+// of the local radius (the master: 8 px on a 95 px loop). The hairline is never constant: it swells a little where the
+// hand slows (t: the hand's time at each point, ms) and thins where it is quick.
+//   press(p, t, { hair, peak, axis, reverse, falloff, lag }) -> half-widths
+export function press(p, t, { hair, peak, axis, reverse = 0, falloff = 62, lag = .25, tight = .09, slow = .3 }) {
+  const n = p.length, c0 = Math.cos(falloff * Math.PI / 180), w = new Float32Array(n), R = new Float32Array(n), v = new Float32Array(n);
+  const al = Math.hypot(axis[0], axis[1]), ax = [axis[0] / al, axis[1] / al];
+  for (let i = 0; i < n; i++) { const a = p[Math.max(0, i - 4)], b = p[i], c = p[Math.min(n - 1, i + 4)];
+    const h1 = Math.atan2(b[1] - a[1], b[0] - a[0]), h2 = Math.atan2(c[1] - b[1], c[0] - b[0]); let dh = h2 - h1; dh -= Math.round(dh / TAU) * TAU;
+    R[i] = Math.min(1e4, Math.hypot(c[0] - a[0], c[1] - a[1]) / 2 / (Math.abs(dh) + 1e-6));
+    const j0 = Math.max(0, i - 2), j1 = Math.min(n - 1, i + 2); v[i] = t ? Math.hypot(p[j1][0] - p[j0][0], p[j1][1] - p[j0][1]) / Math.max(1e-3, t[j1] - t[j0]) : 1; }
+  let vmax = 0; for (let i = 0; i < n; i++) vmax = Math.max(vmax, v[i]);
+  let P = 0;
+  for (let i = 0; i < n; i++) { const tg = tangent(p, i), a = tg[0] * ax[0] + tg[1] * ax[1];
+    const target = Math.max(Math.max(0, (a - c0) / (1 - c0)), reverse * Math.max(0, (-a - c0) / (1 - c0)));
+    const ds = i ? Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]) : 0, tau = Math.max(1.5, Math.min(14, lag * R[i]));
+    P += (target - P) * Math.min(1, ds / tau);
+    const pk = Math.max(hair * 1.5, Math.min(peak, tight * R[i] * 2)), hr = hair * (1 + slow * (1 - v[i] / (vmax || 1)) - slow * .35);
+    w[i] = hr + Math.max(0, pk - hr) * P * P * (3 - 2 * P); }
+  return w;
+}
 // a lens laid by hand on [u0, u1] of the stroke's length
 export function lens(p, w, u0, u1, pk, at = .4) {
   let s = 0; const S = [0]; for (let i = 1; i < p.length; i++) S.push(s += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]));

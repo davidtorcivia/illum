@@ -77,13 +77,18 @@ export function chain(a, b, n, size, { sense = -1, peak = .62, first = .55, last
 // inner side so the inner arc passes behind the letter, each overlapping its neighbours by ~40 % of its length. `size(a)`
 // scales the oval at angle a (the arm's reach: larger at the foot and outer right). Returns the lobes' points in order and
 // the index range of each lobe.
-export function rosettePlan(c, stations, { A, B, rho, size = () => 1, lean = 0, n = 90 }) {
+// nest(a): 0, or the scale of a second, smaller oval the hand turns inside the first before it moves on (it begins and ends
+// at the same inner point, so the turn runs on without a join): ovals within ovals, as Bickham's.
+export function rosettePlan(c, stations, { A, B, rho, size = () => 1, lean = 0, n = 90, nest = () => 0 }) {
   const pts = [], lobes = [];
   for (const a of stations) { const s = size(a), T = [-Math.sin(a), Math.cos(a)], N = [Math.cos(a), Math.sin(a)];
     // (the oval tilted a little off the way round, toward the writing slant: lean radians)
     const cl = Math.cos(lean), sl = Math.sin(lean), Tl = [T[0] * cl - T[1] * sl, T[0] * sl + T[1] * cl], Nl = [N[0] * cl - N[1] * sl, N[0] * sl + N[1] * cl];
     const C = [c[0] + N[0] * rho * s, c[1] + N[1] * rho * s], i0 = pts.length;
     for (let k = 0; k <= n; k++) { const f = -Math.PI / 2 + TAU * k / n; pts.push([C[0] + A * s * Math.cos(f) * Tl[0] + B * s * Math.sin(f) * Nl[0], C[1] + A * s * Math.cos(f) * Tl[1] + B * s * Math.sin(f) * Nl[1]]); }
+    const s2 = nest(a);
+    if (s2) { const I = [C[0] - B * s * Nl[0], C[1] - B * s * Nl[1]], C2 = [I[0] + (C[0] - I[0]) * s2, I[1] + (C[1] - I[1]) * s2];
+      for (let k = 1; k <= n; k++) { const f = -Math.PI / 2 + TAU * k / n; pts.push([C2[0] + A * s * s2 * Math.cos(f) * Tl[0] + B * s * s2 * Math.sin(f) * Nl[0], C2[1] + A * s * s2 * Math.cos(f) * Tl[1] + B * s * s2 * Math.sin(f) * Nl[1]]); } }
     lobes.push([i0, pts.length - 1, a]); }
   return { pts, lobes };
 }

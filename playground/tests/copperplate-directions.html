@@ -72,12 +72,13 @@ document.getElementById('seed').textContent = seed;
 // ?draw: each panel written as it comes into view (never under reduced motion)
 const DRAW = q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
 // the letters (fonts/copperplate/): Pinyon Script for the hand, Imperial Script for the pen, cut to A-Z
-await Promise.all([['CopperA', 'illum-copper-pinyon-caps.woff2'], ['CopperB', 'illum-copper-imperial-caps.woff2']].map(async ([fam, f]) => { const ff = new FontFace(fam, `url(../fonts/copperplate/${f})`); await ff.load(); document.fonts.add(ff); }));
+// (C's capital: Bickham's rosettes hold a heavy text letter; UnifrakturMaguntia, unmodified, from fonts/, its OFL beside it)
+await Promise.all([['CopperA', 'copperplate/illum-copper-pinyon-caps.woff2'], ['CopperB', 'copperplate/illum-copper-imperial-caps.woff2'], ['CopperC', 'UnifrakturMaguntia-Book.woff2']].map(async ([fam, f]) => { const ff = new FontFace(fam, `url(../fonts/${f})`); await ff.load(); document.fonts.add(ff); }));
 await document.fonts.load('20px "EB Garamond"');
 const letters = (q.get('letters') ?? 'BLRS').split(''), dpr = Math.min(2, devicePixelRatio || 1), PAD = 6, t0 = performance.now();
 const NOTES = {
-  pen: 'The writing master’s own pen: one movement of the hand for each piece (copperplate-hand.js: the hand steers with momentum, so each loop is entered and left by the way it was already going), written with a pointed quill in iron-gall ink through the ink engine — the shade where the pen is pulled down the slant, the ink pooling where the hand slows into a turn, the quill kept charged along a long hairline. The capital from Imperial Script.',
-  hand: 'Command of hand, after Bickham (the ABC headpiece, 0414: capitals in overlapping ovals; the dove, 0220: chains of loops riding a sweep; the WIT bands, 0124): the same movements cut as engraved, shaded strokes. Round the capital six ovals of different sizes, the largest at the foot and outer right where the arm swings freest, overlapping one another, written as one movement with its joins rounded, and a tail out under the letter closing in a curl; one gesture for each other piece, and quiet round it. The capital from Pinyon Script at the master’s weight. In the dark, an ivory ink.',
+  pen: 'The writing master’s own pen: one great oval on the slant round the capital, entered as a hairline from below left and run once round and a little more, a curl or two inside; the copybook’s oval for the paraph, a compound curve into a small oval for the filler and the break, a rule into an oval at the quotation’s corner. Written with a flexible pointed quill in iron-gall ink through the ink engine: the nib opens only where the hand pulls down the slant and builds and releases its pressure (fitted to Bickham’s own oval), the ink pooling where the hand slows. The capital from Imperial Script.',
+  hand: 'Command of hand, after Bickham (the ABC headpiece, 0414; the dove, 0220; the WIT bands, 0124): round a heavy text capital six ovals of different sizes, the larger turning a second oval inside themselves, the ring entered by a short sweep and left by a tail into a curl; dot-curls and thorns in the gaps. Loop chains riding a sweep for the paraph, filler and break; a knot at the quotation’s corner. Every stroke’s weight is the engraver’s pen: each oval swells on both sides of its turn (the far side lighter), never a constant line. Cut as engraved strokes. In the dark, an ivory ink.',
 };
 const REFS = {
   pen: [['forbes-lion-detail.jpg', 'H. E. Forbes, Ornamental Lion Composed of Scrolls, pen and ink, Met 363599 (CC0): the pen’s shade, its pooling and pale hairlines'], ['bickham-dove.jpg', 'Bickham, a dove in command of hand (Universal Penman, Getty via IA, not in copyright)']],
@@ -94,7 +95,7 @@ function printed(key, theme, make, zoom = 1, live = false) {
   const g = cv.getContext('2d'), box = [0, 0, W + PAD * 2, H + PAD * 2], res = Math.max(2, d * 1.25);
   const strokes = piece.strokes.map(s => ({ p: s.p.map(([x, y]) => [x + PAD, y + PAD]), w: s.w, t: s.t, balls: s.balls.map(([[x, y], r]) => [[x + PAD, y + PAD], r]) }));
   let Lm = null;
-  if (piece.letter) { const { ch, face, cap, cx, cy } = piece.letter, draw = glyph(ch, face, cap, cx + PAD, cy + PAD); Lm = thinShades(coverage([], box, res, draw), .3, res * .9); }
+  if (piece.letter) { const { ch, face, cap, cx, cy, thin = .3 } = piece.letter, draw = glyph(ch, face, cap, cx + PAD, cy + PAD), L0 = coverage([], box, res, draw); Lm = thin ? thinShades(L0, thin, res * .9) : L0; }
   if (live) {
     const el = document.createElement('div'); el.style.position = 'absolute'; cv.style.display = 'block'; el.append(cv); const writers = [];
     const lw = (L, o) => { const w = letterWriter(g, L, { k: rgb }, { dpr: d, host: el, ...o }); return { dur: 1300, at: f => w.at(f), done: () => w.done() }; };

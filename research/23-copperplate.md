@@ -264,3 +264,69 @@ The filler and break are restrained single gestures. Bickham's dove wing runs it
 runs it more lightly.
 
 B is the same composition in iron-gall ink. The pen's pale hairlines make its drop the lighter and more legible of the two.
+
+## Stage 3: the flexible pen's weight; B and C kept apart
+
+The user's verdict on stage 2: the iron-gall pen's loops vary in weight, and ours read as "random circle digital lines";
+the shades are missing; B and C must stay independent ("what happened to B's circle, which was distinct and interesting?").
+
+### Measured: the width round one of Bickham's ovals
+The stroke is the loop with a terminal curl on 0040. It was traced through its crossings by `walk.py` (a skeleton walk that
+takes the straightest way on at each junction, with widths at crossings dropped) and plotted by `plotw.py`. The evidence is
+research/copperplate/width-bickham-oval-vs-model.png: the master's widths in black, the model on the master's own path in red,
+the stroke's direction as a band of colour under the plot.
+- **Two swells, one on each side of the loop's turn.** In writing order, 7–8 px heading one way and 6 px heading the other,
+  on a 2 px hairline (the scan's floor). The far side is ~.75 as heavy.
+- **How the width falls off the axis:** about .8 of the peak 30° off it, .55 at 45°, .25 at 60°, and hairline past ~65°.
+- **Timing:** the swell sits nearly in phase with the direction, building and releasing over about a quarter of the loop's
+  radius.
+- **Scale:** the peak is ~.085 of the local radius (8 px on a ~95 px loop).
+- **The pen refs** (Forbes' lion, by direction): the pen's shade lies on the down-slant strokes (~60° in the image) and only
+  that way.
+
+### The model: `press()` in kit/styles/copperplate-print.js
+1. The target pressure at each point is how nearly the stroke heads along the shade axis, (cos d − cos 62°)/(1 − cos 62°).
+   Heading the other way, it presses `reverse` as hard: 0 for the pen, .7 for the engraver.
+2. The hand's pressure follows that target with a lag of a quarter of the local radius, so the swell builds and releases
+   smoothly and is fullest a little past the middle of the sweep.
+3. A tight turn holds the peak to .09 of its radius.
+4. The hairline swells a little where the hand slows and thins where it is quick, so no line is drawn at a constant width.
+
+Run on the master's traced path, the model lays both swells in place, at the right heights and widths (the plot). For the pen
+(B), the same pressure is the Pen's width multiplier, so the ink engine pools at the swell's end and in slow turns. For C,
+it is the engraved stroke's outline.
+
+### B · the writing master's pen (its own grammar again)
+- **The drop:** stage 1's composition, which the user liked: one great oval on the slant round Imperial's capital, entered as a
+  hairline from below left and run once round and a little more. The quill opens down its left side, where the hand pulls
+  down the slant, and nowhere else. Two dot-curls sit inside.
+- **The other pieces:** the copybook's oval (paraph), a compound curve into a small oval (filler, break), and a rule into an
+  oval at the quotation's corner.
+- **The quill's hairline** is held at 1.1 device px or more; under that, the paper's tooth breaks it into beads at dpr 1.
+
+### C · command of hand
+- **The rosette's ovals:** the generator turns a second, smaller oval inside the larger ones at the foot (`nest`), so ovals sit
+  within and through one another. Every oval swells on both sides of its turn, the far side lighter.
+- **The accents:** three dot-curls in the gaps, and two thorns (small shaded commas ending in a hooked point) beside the letter.
+- **The capital:** Bickham's rosettes hold a heavy text capital, so C now uses UnifrakturMaguntia (OFL, the unmodified file
+  already in fonts/) at its own weight. It anchors the ovals, and it keeps C clearly apart from B's script.
+- **The other pieces:** C keeps its loop chains (paraph, filler, break) and the knot at the quotation's corner, now weighted by
+  the engraver's pressure.
+
+### Speed
+Chrome, a panel's five pieces, load average 9–16, the first panel including the engine's warm-up:
+
+| direction | light, dpr 1 / 2 | dark, dpr 1 / 2 |
+|---|---|---|
+| B (pen) | 176 / 158 ms | 72 / 55 ms |
+| C (hand) | 100 / 152 ms | 60 / 91 ms |
+
+### Where it stands
+**C.** At 4×, beside Bickham's B, C now reads as his kind of work: shaded ovals within and through one another round a heavy
+text capital, dot-curls, and a tail. It falls short in two ways:
+- At page size the rosette is dense and dark, because the hairline is floored at 1.2 device px where his is finer.
+- The Fraktur capitals (L, S) are harder for a modern reader.
+
+**B.** It is distinct again: one shaded oval in iron-gall ink, clearly a pen.
+
+**Both.** The shade now comes from the pen's pressure along the stroke rather than from lenses laid by hand.
