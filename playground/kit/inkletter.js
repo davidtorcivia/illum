@@ -96,7 +96,7 @@ function inkLetterMedium(bake, L, rgb, { dpr = 2, wet = L.wet ?? .1, dry = L.dry
 // lifted back to the last fork it left unfinished. Each cell of the letter takes the time of the nearest point of the
 // skeleton, so the ink arrives along the strokes, square across them, as under a nib. T: 0..1 per cell; order: the ink
 // cells sorted by it.
-function letterOrder(L) {
+export function letterOrder(L) {
   if (L.order) return L.order;
   const { M, w, h, res } = L, k = Math.max(1, Math.round(res)), sw = Math.ceil(w / k) + 2, sh = Math.ceil(h / k) + 2, B = new Uint8Array(sw * sh);
   const R = L.red, inkAt = q => R ? Math.max(M[q], R[q]) : M[q];   // the whole letter, black and red: its strokes, not the halves of the split

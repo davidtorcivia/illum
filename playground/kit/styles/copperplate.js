@@ -16,7 +16,7 @@
 //   print(made, { dpr, kind, animate }) -> { pours, letters, seq, runs, y0 }   timeline(printed, kind, animate)
 import * as P from './copperplate-pieces.js';
 import { coverage, glyph, thinShades, thinShadesFine, poolMap } from './copperplate-print.js';
-import { letterWriter } from '../inkletter.js';
+import { letterOrder } from '../inkletter.js';
 import { stream } from '../marks.js';
 
 let KIND = 'pen';
@@ -160,7 +160,7 @@ function grower(b, m, big) {
   const { p, res, box, Lm } = m, { out, T } = clock(p, big), w = m.M.w, h = m.M.h, x0 = b.x + box[0], y0 = b.y + box[1];
   const acc = new OffscreenCanvas(w, h), ag = acc.getContext('2d'); ag.setTransform(res, 0, 0, res, -box[0] * res, -box[1] * res); ag.fillStyle = '#000';
   const done = out.map(() => 0); let lorder = null, lat = 0, limg = null;
-  if (Lm) { const L = { ...Lm }; letterWriter(null, L, { k: [0, 0, 0] }, { dpr: 1 }); const T2 = L.order.T, idx = []; for (let q = 0; q < Lm.M.length; q++) if (Lm.M[q] > .01) idx.push(q); idx.sort((a, c) => T2[a] - T2[c]); lorder = { idx, T: T2 }; limg = new ImageData(w, h); }
+  if (Lm) { const T2 = letterOrder({ ...Lm }).T, idx = []; for (let q = 0; q < Lm.M.length; q++) if (Lm.M[q] > .01) idx.push(q); idx.sort((a, c) => T2[a] - T2[c]); lorder = { idx, T: T2 }; limg = new ImageData(w, h); }
   const fn = (k, f) => { const now = Math.min(1, f) * T;
     out.forEach((e, i) => { if (now < e.t0) return;
       if (e.kind === 'stroke') { const S = e.S, tt = S.t ?? S.p.map((_, j) => j), te = now - e.t0; let j = done[i];
