@@ -58,6 +58,52 @@ export function zig(x0, y0, x1, y1, st, n, foot = true) {
   if (foot) o.push([x1, y1]); return o;
 }
 
+// ---- a page asked for by seed ----------------------------------------------------------------------------------------------------
+// A page given its own seed (kit/styles/deco.js page(): P; null for the page as approved, which never reaches the code below) is
+// the same comp's job from the same case in another arrangement: one outline for its frames (P.frame), one rule (P.rule), one
+// fillers' system (P.fill), one mark (P.mark), one crown for its end (P.crown). Each is the jobbing printer's stock in the
+// specimen books of the period (ATF 1934, Deberny & Peignot): the Oxford, Scotch, heavy-and-hair and double rules, the stepped,
+// canted and set-back corner, the setback, the lozenge, the square set in a square.
+// ring(): a closed outline round [x0, y0, x1, y1], clockwise from the top left, each corner its own: ['sq'], ['step', n, s] (stepped
+// in n times by s, a re-entrant corner as a comp builds one from mitred pieces) or ['cant', c] (cut across at 45 degrees)
+export function ring(x0, y0, x1, y1, C) {
+  const K = [[x0, y0, 0, -1, 1, 0], [x1, y0, 1, 0, 0, 1], [x1, y1, 0, 1, -1, 0], [x0, y1, -1, 0, 0, -1]], o = [];
+  K.forEach(([kx, ky, ax, ay, bx, by], i) => { const [t, n, s] = C[i], at = (p, q) => [kx - ax * p + bx * q, ky - ay * p + by * q];
+    if (t === 'step') for (let j = 0; j <= n; j++) { o.push(at(s * (n - j), s * j)); if (j < n) o.push(at(s * (n - j), s * (j + 1))); }
+    else if (t === 'cant') o.push(at(n, 0), at(0, n)); else o.push([kx, ky]); });
+  return o.filter((p, i) => { const q = o[(i + o.length - 1) % o.length]; return Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-6; });
+}
+// the portal's outline (the lavish drop's): its sides set back twice on the way up, its head stepped once
+const portalRing = (x0, y0, x1, y1, a, H) => { const ys1 = y0 + H * .46, ys2 = y0 + H * .24;
+  return [[x0, y1], [x0, ys1], [x0 + a, ys1], [x0 + a, ys2], [x0 + 2 * a, ys2], [x0 + 2 * a, y0 + a], [x0 + 3 * a, y0 + a], [x0 + 3 * a, y0],
+    [x1 - 3 * a, y0], [x1 - 3 * a, y0 + a], [x1 - 2 * a, y0 + a], [x1 - 2 * a, ys2], [x1 - a, ys2], [x1 - a, ys1], [x1, ys1], [x1, y1]]; };
+// where a closed outline's head (side -1) or foot (side 1) lies at x; outside it, nowhere (+-Infinity)
+function edgeY(pts, x, side) {
+  const ys = pts.map(p => p[1]), mid = (Math.min(...ys) + Math.max(...ys)) / 2; let y = side < 0 ? Infinity : -Infinity;
+  for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; if (p[0] === q[0] || x < Math.min(p[0], q[0]) || x > Math.max(p[0], q[0])) continue;
+    const v = p[1] + (q[1] - p[1]) * (x - p[0]) / (q[0] - p[0]); if (side < 0 ? v < mid && v < y : v > mid && v > y) y = v; }
+  return y;
+}
+// a page's rule for its frames, from the stock: the Oxford (ATF's 3.2 : 1.6 : 1), the Scotch (a hairline outside the Oxford),
+// heavy-and-hair (one heavy rule, a hairline set well in) and the double (two of a weight). { out, inn: how far its outer and inner
+// edges lie from its points, set(pts, rnd, o) -> { k: the black pieces, t: the thin (vermilion; gold at fine) } }
+export function rules(kind, thin) {
+  const th = thin * 3.2, gap = thin * 1.6, hair = Math.max(1.2, thin * .8);
+  if (kind === 'scotch') return { out: th / 2 + gap * .8 + hair, inn: th / 2 + gap + thin,
+    set: (p, r, o = {}) => ({ k: [...rule(offset(p, -(th / 2 + gap * .8 + hair / 2), o.closed), hair, r, o), ...rule(p, th, r, o)], t: rule(offset(p, th / 2 + gap + thin / 2, o.closed), thin, r, o) }) };
+  if (kind === 'heavy') { const hv = thin * 4.4; return { out: hv / 2, inn: hv / 2 + gap * 2.2 + thin,
+    set: (p, r, o = {}) => ({ k: rule(p, hv, r, o), t: rule(offset(p, hv / 2 + gap * 2.2 + thin / 2, o.closed), thin, r, o) }) }; }
+  if (kind === 'twin') { const w = Math.max(1.2, thin * 1.7); return { out: w / 2, inn: w * 1.5 + gap,
+    set: (p, r, o = {}) => ({ k: rule(p, w, r, o), t: rule(offset(p, w + gap, o.closed), w, r, o) }) }; }
+  return { out: th / 2, inn: th / 2 + gap + thin, set: (p, r, o = {}) => { const x = oxford(p, thin, r, o); return { k: x.thick, t: x.thin }; } };
+}
+// a page's frame round [0, 0, W, H] for its outline: corners stepped n times by st (the head only, or all four), canted, or the
+// portal's setbacks
+export const pageRing = (P, x0, y0, x1, y1, st, n, H, head = P.frame === 'head') => P.frame === 'portal' ? portalRing(x0, y0, x1, y1, st, H)
+  : P.frame === 'cant' ? ring(x0, y0, x1, y1, [['cant', st * (n + 1)], ['cant', st * (n + 1)], ['cant', st * .8], ['cant', st * .8]])
+  : head ? ring(x0, y0, x1, y1, [['step', n, st], ['step', n, st], ['sq'], ['sq']]) : ring(x0, y0, x1, y1, Array(4).fill(['step', n, st * .7]));
+const pathOf = pieces => { const P = new Path2D(); for (const q of pieces) poly(P, q); return P; };
+
 // ---- the cut: fan and sun ----------------------------------------------------------------------------------------------------
 // the lotus (the Chrysler lift doors, 1930): n petals between angles a0..a1 from r0 to r1, each flaring from the waist, its
 // sides bowed a little outward, its tip a scallop between two spurs; returns the petals in order
@@ -118,7 +164,8 @@ const weights = u => { const pt = u / 4.8; return { pt, hair: Math.max(1.2, pt *
 // grille of upright rule (from usual), the letter in black with its vermilion shadow, an inline cut at fine and lavish. At
 // lavish the frame is a portal: setbacks up both its sides as well as at its head, the grille rising behind the letter to the
 // portal's own profile
-export function dropInitial(ch, H, seed, rich = .5, W = H) {
+export function dropInitial(ch, H, seed, rich = .5, W = H, P = null) {
+  if (P) return dropPage(ch, H, seed, rich, W, P);
   const r = stream(seed, 'drop:' + ch), S = new Sheet(), thin = Math.max(1.2, H * (rich >= 1 ? .008 : .011)), th = thin * 3.2, gap = thin * 1.6, st = H * (rich >= 1 ? .05 : .072);
   const steps = rich >= 1 ? 2 : 2, inset = th / 2, portal = rich >= 1, fine = rich >= .75;
   // the outline, clockwise from the foot on the left: a portal's sides step in twice on the way up, then its head steps twice
@@ -151,6 +198,33 @@ export function dropInitial(ch, H, seed, rich = .5, W = H) {
   S.ink('r', g => { if (!fine) lay(g, ox.thin); else lay(g, inner2); if (rays.length) { lay(g, rays); channel(g); } shadowOf(L, sd[0], sd[1], gp)(g); }, { medium: 'press', despeck: 2.5, ang: .7 });
   S.ink('k', g => { lay(g, ox.thick); L(g); }, { medium: 'press', ang: .7, post: fine ? inlineInLetter(L, H) : null });   // (the black forme is whole shapes: nothing in it to leave a fleck)
   if (fine) S.ink('g', g => lay(g, ox.thin), { medium: 'press', ang: .7 });
+  return { S, W, H, box: [-2, -2, W + 2, H + 2] };
+}
+// the drop on a page with a seed: the page's outline and rule round it; behind the letter the grille in banks stepping down
+// toward it (the portal's, and lavish's, rising to the frame's own profile), every bar run to a hair inside the frame wherever
+// it stands (so a bar in a stepped or canted corner stops short of the step)
+function dropPage(ch, H, seed, rich, W, P) {
+  const r = stream(seed, 'drop:' + ch), S = new Sheet(), lav = rich >= 1, fine = rich >= .75, tall = lav || P.frame === 'portal';
+  const thin = Math.max(1.2, H * (lav ? .008 : .011)), gap = thin * 1.6, R = rules(P.rule, thin), n = P.steps + (lav ? 1 : 0), st = H * (lav ? .05 : .072);
+  const frame = pageRing(P, R.out, R.out, W - R.out, H - R.out, P.frame === 'head' ? st * [1.5, 1, .8, .7][n - 1] : st, n, H);
+  const F = R.set(frame, r, { closed: true }), inn = R.inn + (fine ? gap * 1.2 + thin : 0), inner2 = fine ? rule(offset(frame, R.inn + gap * 1.2 + thin * .4, true), Math.max(1.2, thin * .8), r, { closed: true }) : [];
+  const capH = tall ? H * .4 : H * .5, L = glyph(ch, capH, W * .47, tall ? H * .66 : H * .555), sd = [capH * .092, capH * .072], gp = Math.max(1, H * .01);
+  // the field inside the frame: its head and foot at x, kept a pad clear of the rule on every side
+  const pad = H * .045, d = inn + pad, lft = R.out + d, cl = x => Math.min(W - R.out - .01, Math.max(R.out + .01, x)), top = x => Math.max(edgeY(frame, cl(x - d), -1), edgeY(frame, cl(x), -1), edgeY(frame, cl(x + d), -1)) + d;
+  const foot = x => Math.min(edgeY(frame, cl(x - d), 1), edgeY(frame, cl(x), 1), edgeY(frame, cl(x + d), 1)) - inn - H * .018, c = [W / 2, foot(W / 2)], rw = Math.max(1.25, H * (tall ? .008 : .011)), rays = [];
+  if (rich >= .5 && BURST.kind === 'rays') { const N = lav ? 25 : 19, rs = H * .09;
+    for (let i = 0; i < N; i++) { const a = PI * 1.07 + PI * .86 * (i + .5) / N, dx = Math.cos(a), dy = Math.sin(a); let R1 = rs * 1.5;
+      while (R1 < H * 2) { const x = c[0] + dx * (R1 + 1), y = c[1] + dy * (R1 + 1); if (x < lft || x > W - lft || y < top(x)) break; R1++; }
+      const r1 = i % 2 ? R1 * .72 : R1; if (r1 > rs * 2) rays.push(...rule([[c[0] + dx * rs * 1.5, c[1] + dy * rs * 1.5], [c[0] + dx * r1, c[1] + dy * r1]], rw, r)); } }
+  else if (rich >= .5 && tall) { const pitch = H * .034;
+    for (let x = W / 2 - Math.floor((W / 2 - lft) / pitch) * pitch; x <= W - lft + 1e-6; x += pitch) { const yb = foot(x), yt = top(x) - pad * .4; if (yb - yt < H * .05) continue; rays.push(...rule([[x, yb], [x, yt]], rw, r)); } }
+  else if (rich >= .5) { const pitch = H * .05, inner = L.w / 2 + H * .07, cx0 = W * .47 + H * .02, outer = W / 2 - lft, N = Math.max(2, Math.floor((outer - inner) / pitch) + 1);
+    for (const side of [-1, 1]) for (let i = 0; i < N; i++) { const x = (side < 0 ? cx0 : W / 2) + side * (outer - i * pitch); if (Math.abs(x - cx0) < inner) continue;
+      const yb = foot(x), room = yb - top(x); if (!(room > H * .05)) continue; rays.push(...rule([[x, yb], [x, yb - room * (1 - .62 * i / Math.max(1, N - 1))]], rw, r)); } }
+  const sil = silhouette(L, W, H, H * .05, H > 130 ? 2 : 3), channel = g => { g.globalCompositeOperation = 'destination-out'; g.drawImage(sil, 0, 0, W, H); g.drawImage(sil, sd[0], sd[1], W, H); g.globalCompositeOperation = 'source-over'; };
+  S.ink('r', g => { lay(g, fine ? inner2 : F.t); if (rays.length) { lay(g, rays); channel(g); } shadowOf(L, sd[0], sd[1], gp)(g); }, { medium: 'press', despeck: 2.5, ang: .7 });
+  S.ink('k', g => { lay(g, F.k); L(g); }, { medium: 'press', ang: .7, post: fine ? inlineInLetter(L, H) : null });
+  if (fine) S.ink('g', g => lay(g, F.t), { medium: 'press', ang: .7 });
   return { S, W, H, box: [-2, -2, W + 2, H + 2] };
 }
 // the letter's silhouette (its counters filled) grown by w, on a canvas of the piece's size at 3 cells a px: the channel the
@@ -187,13 +261,14 @@ export function lineInitial(ch, H, seed) {
 }
 // the paraph: a set-back, three bars of rule each narrower, stacked as a tower steps in (the Chanin and Chrysler setbacks), on
 // a vermilion foot; with the lotus asked for (BURST.lotus), the small lotus; at the plainest a vermilion square
-export function paraph(s, seed, rich = .5) {
+export function paraph(s, seed, rich = .5, P = null) {
   const r = stream(seed, 'par'), S = new Sheet();
   if (rich < .25) { S.ink('r', g => g.fill(poly(new Path2D(), [[s * .3, s * .45], [s * .7, s * .45], [s * .7, s * .85], [s * .3, s * .85]])), { medium: 'press', ang: 0 }); return { S, W: s, H: s, box: [0, 0, s, s] }; }
   if (BURST.lotus) { const c = [s * .5, s * .9], n = rich >= .75 ? 7 : 5, P = lotus(c, s * .17, s * .8, PI * 1.12, PI * 1.88, n, r, .78);
     S.ink('r', g => { for (let i = 1; i < n; i += 2) g.fill(P[i]); }, { medium: 'press', ang: 1.57 });
     S.ink('k', g => { for (let i = 0; i < n; i += 2) g.fill(P[i]); g.fill(poly(new Path2D(), arc(c, s * .15, PI, 2 * PI, r, 0, 16))); }, { medium: 'press', ang: 1.57 });
     return { S, W: s, H: s, box: [0, 0, s, s] }; }
+  if (P) { const E = emblem(P.mark, 0, 0, s, r, rich); S.ink('r', g => g.fill(E.r), { medium: 'press', ang: 1.57 }); S.ink('k', g => g.fill(E.k), { medium: 'press', ang: 1.57 }); return { S, W: s, H: s, box: [0, 0, s, s] }; }
   const n = rich >= .75 ? 4 : 3, bh = s * .62 / (n + .6), w0 = s * .62, cx = s * .5, foot = s * .9, gap = Math.max(1, bh * .28), bars = [];
   for (let i = 0; i < n; i++) { const w = w0 * (1 - i / (n + .4)), y1 = foot - bh * .6 - gap - i * (bh + gap); bars.push(...rule([[cx - w / 2, y1 - bh / 2], [cx + w / 2, y1 - bh / 2]], bh - gap * .2, r)); }
   S.ink('r', g => lay(g, rule([[cx - w0 * .62, foot - bh * .3], [cx + w0 * .62, foot - bh * .3]], Math.max(1.2, bh * .45), r)), { medium: 'press', ang: 1.57 });
@@ -228,10 +303,59 @@ export function cadence(x0, x1, yb, u, rnd, { dir = 1, n = 3, close = 'auto', go
 const closes = (S, cs, also = null) => { S.ink('r', g => { also?.(g); for (const c of cs) if (!c.gold) g.fill(c.r); }, { medium: 'press', ang: 0 }); if (cs.some(c => c.gold)) S.ink('g', g => { for (const c of cs) if (c.gold) g.fill(c.r); }, { medium: 'press', ang: 0 }); };
 // a small stepped mark: bars of rule stacked, each narrower, as a tower steps in (the paraph's, a heading's at fine)
 export const setback = (cx, foot, w0, bh, n, rnd) => { const gap = Math.max(1, bh * .28), out = []; for (let i = 0; i < n; i++) { const w = w0 * (1 - i / (n + .4)), y = foot - bh / 2 - i * (bh + gap); out.push(...rule([[cx - w / 2, y], [cx + w / 2, y]], bh - gap * .2, rnd)); } return out; };
+// a page's mark (its paraphs, the middle of its part breaks and pull quotes) in an s box at (x, y), standing on y + s * .9:
+// setback (bars stepping in on a vermilion foot: the approved paraph), lozenge (a vermilion lozenge in one of black rule),
+// square (a vermilion square in one of black rule: the frames' corner unit) or crown (five uprights rising to the middle, the
+// end's crown in small, on a vermilion foot). { k, r }: the black and the vermilion, each a path
+export function emblem(kind, x, y, s, r, rich = .5) {
+  const k = new Path2D(), red = new Path2D(), cx = x + s * .5, foot = y + s * .9, w = Math.max(1.2, s * .075);
+  if (kind === 'lozenge' || kind === 'square') { const d = s * (kind === 'lozenge' ? .38 : .3), cy = foot - d - w / 2, e = d - w * (kind === 'lozenge' ? 2.3 : 1.7);
+    const shape = a => kind === 'lozenge' ? [[cx, cy - a], [cx + a, cy], [cx, cy + a], [cx - a, cy]] : [[cx - a, cy - a], [cx + a, cy - a], [cx + a, cy + a], [cx - a, cy + a]];
+    poly(k, shape(d + w / 2)); poly(k, shape(d - w / 2).reverse()); poly(red, shape(e)); }   // (the outline as a ring, its middle open)
+  else if (kind === 'crown') { const gp = s * .17;
+    for (let i = -2; i <= 2; i++) { const ht = s * (.66 - Math.abs(i) * .15); poly(k, rule([[cx + i * gp, foot - s * .1], [cx + i * gp, foot - s * .1 - ht]], w, r)[0]); }
+    poly(red, rule([[cx - s * .44, foot - s * .03], [cx + s * .44, foot - s * .03]], Math.max(1.2, s * .07), r)[0]); }
+  else { const n = rich >= .75 ? 4 : 3, bh = s * .62 / (n + .6), w0 = s * .62, gap = Math.max(1, bh * .28);
+    for (let i = 0; i < n; i++) { const wi = w0 * (1 - i / (n + .4)), y1 = foot - bh * .6 - gap - i * (bh + gap); poly(k, rule([[cx - wi / 2, y1 - bh / 2], [cx + wi / 2, y1 - bh / 2]], bh - gap * .2, r)[0]); }
+    poly(red, rule([[cx - w0 * .62, foot - bh * .3], [cx + w0 * .62, foot - bh * .3]], Math.max(1.2, bh * .45), r)[0]); }
+  return { k, r: red };
+}
+// a run of rule from x0 to x1 on the baseline yb in a page's fillers' system, its free end at x1 (dir 1) or x0 (dir -1), closed
+// there by the room's own close (grand: a line left wide open; small: one nearly full, and a break's wings):
+//   cadence  the graded stack (as approved): the stop and its lozenge, or the diminuendo and its dot
+//   taper    pieces of rule butted end to end, each lighter and longer, stepping down to the free end as a tower's flank:
+//            a vermilion lozenge, or a square
+//   oxford   the Oxford pair, its thin stepped back from the text's end: a vermilion square and an upright stop, or the square
+//   tower    a fine rule to a setback of three bars on a vermilion foot, or to a vermilion square
+// { k: black pieces, r: the close's path, h }
+export function run(x0, x1, yb, u, r, { dir = 1, sys = 'cadence', close = 'small', n = 2 } = {}) {
+  const { pt } = weights(u), room = x1 - x0, k = [], red = new Path2D(), at = d => dir > 0 ? x1 - d : x0 + d;
+  if (sys === 'cadence') { const c = cadence(x0, x1, yb, u, r, { dir, n, close: close === 'grand' ? 'stop' : close === 'small' && room <= u * 9 ? 'dash' : 'dim' }); return { k: c.k, r: c.r, h: c.h }; }
+  const bar = (d0, d1, y, w) => k.push(...rule([[at(d1), y], [at(d0), y]], w, r)), sq = (d, a, cy) => poly(red, [[at(d), cy - a / 2], [at(d + a), cy - a / 2], [at(d + a), cy + a / 2], [at(d), cy + a / 2]]);
+  let end = 0;
+  if (sys === 'taper') { const W = (close === 'grand' ? [1.8, 1.3, .9, .6] : [1.5, 1, .6]).map(f => Math.max(1.2, pt * f)), F = W.map((_, i) => 1 + i * .3), cy = close === 'grand' ? yb - u * .32 : yb - W[0] / 2;
+    if (close === 'grand') { const loz = u * .42; poly(red, [[at(loz), cy - loz], [at(0), cy], [at(loz), cy + loz], [at(loz * 2), cy]]); end = loz * 2 + u * .5; }
+    else { const a = u * .36; sq(0, a, cy); end = a + u * .45; }
+    // (heaviest at the text's end; a hair of a seam between pieces)
+    const B = room - end, sum = F.reduce((a, b) => a + b, 0); let d = room;
+    for (let i = 0; i < W.length; i++) { const li = B * F[i] / sum; bar(d - li + .25, d - .25, yb - W[i] / 2, W[i]); d -= li; }
+    return { k, r: red, h: W[0] }; }
+  if (sys === 'oxford') { const thin = Math.max(1.2, pt * .75), tk = thin * 2.4, gp = thin * 1.2, h = tk + gp + thin, a = h;
+    if (close === 'grand') { const sw = Math.max(1.3, pt * 1.1); k.push(...rule([[at(sw / 2), yb], [at(sw / 2), yb - u * .9]], sw, r)); sq(sw + u * .35, a, yb - h / 2); end = sw + u * .7 + a + u * .3; }
+    else { sq(0, a, yb - h / 2); end = a + u * .4; }
+    bar(end, room, yb - tk / 2, tk); bar(end, room - u * 1.2, yb - tk - gp - thin / 2, thin); return { k, r: red, h }; }
+  // tower
+  const hw = Math.max(1.2, pt * .8);
+  if (close === 'grand') { const w0 = u * 1.2, fh = Math.max(1.2, pt * .9), cx = at(w0 * .65); poly(red, rule([[cx - w0 * .62, yb - fh / 2], [cx + w0 * .62, yb - fh / 2]], fh, r)[0]);
+    k.push(...setback(cx, yb - fh - Math.max(1, u * .08), w0, Math.max(1.4, u * .24), 3, r)); end = w0 * 1.3 + u * .35; }
+  else { const a = u * .34; sq(0, a, yb - a / 2); end = a + u * .4; }
+  bar(end, room, yb - hw / 2, hw); return { k, r: red, h: close === 'grand' ? u * .9 : hw };
+}
 // a paragraph's free end: the cadence to the measure, on the baseline (its stack reaching the x-height), its close by the room;
 // a heading's: an Oxford rule after a vermilion square
-export function filler(L, u, seed, kind, rich = .5) {
+export function filler(L, u, seed, kind, rich = .5, P = null, grand = false) {
   const r = stream(seed, 'fill'), S = new Sheet(), { hair } = weights(u), H = u * 1.4;
+  if (P) return fillerPage(L, u, r, S, hair, H, kind, rich, P, grand);
   if (kind === 'rule') { const thin = hair, fine = rich >= .75, x0 = fine ? u * 1.5 : u * .9, ox = oxford([[x0, H * .42], [L, H * .42]], thin, r);
     // (at fine and lavish the heading's mark is a small stepped mark in gold, standing on the rule's line)
     if (fine) S.ink('g', g => lay(g, setback(u * .55, H * .42 + thin * 2.5, u * 1.1, Math.max(1.4, u * .2), 3, r)), { medium: 'press', ang: 0 });
@@ -242,13 +366,27 @@ export function filler(L, u, seed, kind, rich = .5) {
   S.ink('k', g => lay(g, c.k), { medium: 'press', ang: 0 });
   return { S, W: L, H, box: [0, 0, L, H] };
 }
+// a page's: the run in its fillers' system, closed as the room asks (grand: a line left wide open); a heading's, the page's rule
+// after its mark's vermilion (a lozenge or a square; at fine the gold setback, as approved)
+function fillerPage(L, u, r, S, hair, H, kind, rich, P, grand) {
+  if (kind === 'rule') { const fine = rich >= .75, y = H * .42, R = rules(P.rule, hair), F = R.set([[fine ? u * 1.5 : P.mark === 'lozenge' ? u * 1.15 : u * .9, y - R.inn / 2], [L, y - R.inn / 2]], r), a = hair * 2;
+    if (fine) S.ink('g', g => lay(g, setback(u * .55, y + R.inn / 2 + hair, u * 1.1, Math.max(1.4, u * .2), 3, r)), { medium: 'press', ang: 0 });
+    else S.ink('r', g => g.fill(poly(new Path2D(), P.mark === 'lozenge' ? [[a * 1.4, y - a * 1.4], [a * 2.8, y], [a * 1.4, y + a * 1.4], [0, y]] : [[0, y - a], [a * 2, y - a], [a * 2, y + a], [0, y + a]])), { medium: 'press', ang: 0 });
+    S.ink('k', g => { lay(g, F.k); lay(g, F.t); }, { medium: 'press', ang: 0 }); return { S, W: L, H, box: [0, 0, L, H] }; }
+  const c = run(0, L, H / 2 + u / 2, u, r, { sys: P.fill, close: grand ? 'grand' : 'small', n: rich >= .75 ? 3 : rich >= .5 ? 2 : 1 });
+  closes(S, [{ r: c.r, gold: rich >= .75 }]);
+  S.ink('k', g => lay(g, c.k), { medium: 'press', ang: 0 });
+  return { S, W: L, H, box: [0, 0, L, H] };
+}
 // three ranks of break. 1, a part: a vermilion lozenge between speed lines; 2, a chapter: a stepped plinth in Oxford rule
 // holding a sun and its rays, speed lines out to both sides; 3, the end: the lotus on its stepped plinth over a full Scotch
 // rule (thin, thick, thin) across the measure
-export function brk(W, H, form, seed, u, rich = .5) {
-  if (form === 'colophon') return colophon(W, H, seed, u, rich);
+export function brk(W, H, form, seed, u, rich = .5, Pg = null) {
+  if (form === 'colophon') return colophon(W, H, seed, u, rich, Pg);
   const rank = form === 'part' ? 1 : form === 'chapter' ? 2 : 3, gold = rich >= .75;
   const r = stream(seed, 'brk' + rank), S = new Sheet(), { pt, hair, fine } = weights(u), cx = W / 2;
+  if (Pg && rank === 1) { band(S, W, H / 2 + u * .55, u, r, Pg, rich >= .5 ? 2 : 1, rich); return { S, W, H, box: [0, 0, W, H] }; }
+  if (Pg && rank === 3) return endPage(W, H, u, r, S, pt, gold, rich, Pg);
   if (rank === 1) { const y = H / 2, d = u * .55, n = rich >= .5 ? 2 : 1, cs = [cadence(W * .02, cx - d * 2.2, y + u * .3, u, r, { dir: -1, n, close: 'dim' }), cadence(cx + d * 2.2, W * .98, y + u * .3, u, r, { n, close: 'dim' })];
     closes(S, cs, g => g.fill(poly(new Path2D(), [[cx, y - d], [cx + d, y], [cx, y + d], [cx - d, y]])));
     S.ink('k', g => { for (const c of cs) lay(g, c.k); }, { medium: 'press', ang: 0 });
@@ -281,11 +419,42 @@ export function brk(W, H, form, seed, u, rich = .5) {
   if (gold && !BURST.lotus) S.ink('g', g => lay(g, spire), { medium: 'press', ang: 1.57 });   // (the spire in gold at fine and lavish)
   return { S, W, H, box: [0, 0, W, H] };
 }
+// a page's part break and pull quote band: its mark between two runs in its fillers' system, their free ends outward, all on
+// the baseline yb (flip: the runs turned over about their middle, hanging from it, as a pull quote's foot)
+function band(S, W, yb, u, r, P, n, rich, flip = false) {
+  const s = u * 1.9, d = s * .42 + u * .55, cx = W / 2, E = emblem(P.mark, cx - s / 2, yb - s * .9, s, r, rich);
+  const ws = [run(W * .02, cx - d, yb, u, r, { dir: -1, sys: P.fill, n, close: 'wing' }), run(cx + d, W * .98, yb, u, r, { sys: P.fill, n, close: 'wing' })];
+  if (flip) for (const w of ws) for (const p of w.k) for (const q of p) q[1] = 2 * yb - w.h - q[1];
+  S.ink('r', g => { g.fill(E.r); for (const w of ws) g.fill(w.r); }, { medium: 'press', ang: 0 });
+  S.ink('k', g => { g.fill(E.k); for (const w of ws) lay(g, w.k); }, { medium: 'press', ang: 0 });
+}
+// a page's crown, standing on foot at cx, ht tall and up to wd wide: the sun (a vermilion disc on the plinth, black rays round it)
+// or the tower (bars stepping in, a spire on top: vermilion, gold at fine). The grille is the approved crown's own code.
+// { k: black pieces, kp: black path, rp: vermilion path, sp: the spire's pieces }
+function crownOf(kind, cx, foot, ht, wd, pt, r) {
+  if (kind === 'sun') { const R = Math.min(ht, wd / 2), s = sun([cx, foot], R * .26, R * .44, R * .98, 9, r); return { k: [], kp: s.rays, rp: s.disc, sp: [] }; }
+  const n = 5, bh = Math.max(1.4, ht * .075); return { k: setback(cx, foot, Math.min(wd * .62, ht * .7), bh, n, r), kp: null, rp: null, sp: rule([[cx, foot - n * bh * 1.28 - bh * .2], [cx, foot - ht]], Math.max(1.5, pt * 1.6), r) };
+}
+// a page's end: the plinth (as approved) with the page's crown on it and the page's rule from its foot out to the measure each side
+function endPage(W, H, u, r, S, pt, gold, rich, P) {
+  const cx = W / 2, y1 = H * .93, pw = H * 1.1, st = H * .085, x0 = cx - pw / 2, thin = Math.max(1.2, pt * .9), plinth = zig(x0, y1 - H * .2, x0 + pw, y1, st, 2), pt0 = y1 - H * .2 - thin * 3.5;
+  const R = rules(P.rule, thin), y = y1 - R.inn, sides = [[[W * .01, y], [x0 - u * .3, y]], [[x0 + pw + u * .3, y], [W * .99, y]]].map(p => R.set(p, r));
+  let C = null, grille = [], spire = [];
+  if (P.crown === 'grille') { const gp = H * .085, Rr = H * .6, gw = Math.max(1.2, pt * .9);
+    for (let k = -4; k <= 4; k++) { const x = cx + k * gp, dx = Math.abs(k * gp) / Rr, ht = k ? Rr * Math.sqrt(Math.max(0, 1 - dx * dx)) * .9 * (k % 2 ? .82 : 1) : H * .74;
+      (k ? grille : spire).push(...rule([[x, pt0], [x, pt0 - ht]], k ? gw : gw * 1.8, r)); } }
+  else { C = crownOf(P.crown, cx, pt0, H * .72, pw, pt, r); spire = C.sp; }
+  S.ink('r', g => { lay(g, grille); if (C?.rp) g.fill(C.rp); if (!gold) lay(g, P.crown === 'grille' ? [] : spire); for (const sd of sides) lay(g, sd.t); lay(g, rule(zig(x0 - thin * 3, y1 - H * .2 - thin * 3, x0 + pw + thin * 3, y1, st, 2, false), thin, r)); }, { medium: 'press', ang: 0 });
+  S.ink('k', g => { g.fill(poly(new Path2D(), plinth)); if (C) { lay(g, C.k); if (C.kp) g.fill(C.kp); } if (P.crown === 'grille' && !gold) lay(g, spire); for (const sd of sides) lay(g, sd.k); }, { medium: 'press', ang: 0 });
+  if (gold && spire.length) S.ink('g', g => lay(g, spire), { medium: 'press', ang: 1.57 });
+  return { S, W, H, box: [0, 0, W, H] };
+}
 // the colophon: the printer's mark that closes the book. A cartouche of Oxford rule stepped at its four corners; in it the crown
 // on its plinth (the spire alone at modest, the grille from usual; the spire and the cartouche's thin rule in gold at fine and
 // lavish, with a second, inner vermilion rule); at lavish its wings, a cadence out to each side from its foot, closing in gold
-export function colophon(W, H, seed, u, rich = .5) {
+export function colophon(W, H, seed, u, rich = .5, P = null) {
   const r = stream(seed, 'colophon'), S = new Sheet(), { pt } = weights(u), fine = rich >= .75, lav = rich >= 1;
+  if (P) return colophonPage(W, H, u, r, S, pt, fine, lav, rich, P);
   const cw = Math.min(W, H * .78), cx = W / 2, x0 = cx - cw / 2, x1 = cx + cw / 2, y0 = H * .04, y1 = H * .96, st = cw * .085, thin = Math.max(1.2, pt * .95), th = thin * 3.2;
   const ring = []; { const n = lav ? 2 : 1, s = st, X0 = x0 + th / 2, Y0 = y0 + th / 2, X1 = x1 - th / 2, Y1 = y1 - th / 2;
     ring.push([X0, Y0 + s * n]); for (let i = 0; i < n; i++) ring.push([X0 + s * i, Y0 + s * (n - i)], [X0 + s * (i + 1), Y0 + s * (n - i)]); ring.push([X0 + s * n, Y0], [X1 - s * n, Y0]);
@@ -303,9 +472,37 @@ export function colophon(W, H, seed, u, rich = .5) {
   if (fine) S.ink('g', g => { lay(g, ox.thin); lay(g, spire); for (const c of cs) g.fill(c.r); }, { medium: 'press', ang: 1.57 });
   return { S, W, H, box: [0, 0, W, H] };
 }
-// a quotation's margin: an Oxford rule stood upright, its head and foot turned in by a step
-export function marginRule(len, u, seed, rich = .5) {
-  const r = stream(seed, 'margin'), S = new Sheet(), { pt } = weights(u), thin = Math.max(1.3, pt * 1.15), th = thin * 3.2, st = u * 1.1, x = th / 2;
+ // a page's colophon: the cartouche in the page's outline and rule (a portal's page takes the stepped head: its setbacks would
+// crowd the crown), the page's crown in it on the plinth, run to a hair under the cartouche's head wherever it stands; at lavish
+// the wings in the page's fillers' system, closing in gold
+function colophonPage(W, H, u, r, S, pt, fine, lav, rich, P) {
+  const cw = Math.min(W, H * .78), cx = W / 2, x0 = cx - cw / 2, x1 = cx + cw / 2, y0 = H * .04, y1 = H * .96, st = cw * .085, thin = Math.max(1.2, pt * .95), R = rules(P.rule, thin), n = lav ? 2 : 1;
+  const Pc = P.frame === 'portal' ? { ...P, frame: 'head' } : P, pts = pageRing(Pc, x0 + R.out, y0 + R.out, x1 - R.out, y1 - R.out, Pc.frame === 'head' ? st : Pc.frame === 'four' ? st / .7 : st * .8, n, H);
+  const F = R.set(pts, r, { closed: true }), in2 = fine ? rule(offset(pts, R.inn + thin * 2.2, true), Math.max(1.2, thin * .8), r, { closed: true }) : [];
+  const inn = R.inn + (fine ? thin * 3.2 : 0), ib = R.out + inn + st * (lav ? 1 : .5), py = y1 - ib, pw = cw - ib * 2 - st, pl = zig(cx - pw / 2, py - H * .12, cx + pw / 2, py, H * .035, 2);
+  const dd = inn + st * .5, cl = x => Math.min(x1 - R.out - .01, Math.max(x0 + R.out + .01, x)), top = x => Math.max(edgeY(pts, cl(x - dd), -1), edgeY(pts, cl(x), -1), edgeY(pts, cl(x + dd), -1)) + dd, crownFoot = py - H * .12 - thin * 2;
+  let grille = [], spire = [], C = null;
+  if (P.crown === 'grille' || rich < .5) { spire = rule([[cx, crownFoot], [cx, top(cx) + st * .1]], Math.max(1.5, pt * 1.6), r);
+    if (rich >= .5) { const gp = cw * .075, Rr = (crownFoot - top(cx)) * 1.02;
+      for (let k = -4; k <= 4; k++) { if (!k) continue; const x = cx + k * gp, dx = Math.abs(k * gp) / (cw * .45); if (dx >= 1 || Math.abs(k * gp) > cw / 2 - R.out - inn - st * .4) continue; const ht = Math.min(Rr * Math.sqrt(1 - dx * dx) * .82 * (k % 2 ? .8 : 1), crownFoot - top(x)); if (ht > st) grille.push(...rule([[x, crownFoot], [x, crownFoot - ht]], Math.max(1.2, pt * .8), r)); } } }
+  else { C = crownOf(P.crown, cx, crownFoot, crownFoot - top(cx), pw * 1.25, pt, r); spire = C.sp; }
+  const ws = lav ? [run(x1 + u * .9, W, y1 - u * .2, u, r, { sys: P.fill, n: 3, close: 'wing' }), run(0, x0 - u * .9, y1 - u * .2, u, r, { dir: -1, sys: P.fill, n: 3, close: 'wing' })] : [];
+  S.ink('r', g => { lay(g, fine ? in2 : F.t); lay(g, grille); if (C?.rp) g.fill(C.rp); if (C && !fine) lay(g, spire); lay(g, rule([[cx - pw * .62, py + thin * 1.5], [cx + pw * .62, py + thin * 1.5]], Math.max(1.2, thin), r)); }, { medium: 'press', ang: 1.57 });
+  S.ink('k', g => { lay(g, F.k); g.fill(poly(new Path2D(), pl)); if (C) { lay(g, C.k); if (C.kp) g.fill(C.kp); } else if (!fine) lay(g, spire); for (const w of ws) lay(g, w.k); }, { medium: 'press', ang: 1.57 });
+  if (fine) S.ink('g', g => { lay(g, F.t); lay(g, spire); for (const w of ws) g.fill(w.r); }, { medium: 'press', ang: 1.57 });
+  return { S, W, H, box: [0, 0, W, H] };
+}
+// a quotation's margin: an Oxford rule stood upright, its head and foot turned in by a step (a page with a seed: in its rule,
+// turned in square, by a step, or across the corner, as its frames' corners are)
+export function marginRule(len, u, seed, rich = .5, P = null) {
+  const r = stream(seed, 'margin'), S = new Sheet(), { pt } = weights(u), thin = Math.max(1.3, pt * 1.15), th = thin * 3.2, st = u * 1.1;
+  if (P) { const R = rules(P.rule, thin), x = R.out, turn = P.frame === 'cant' ? 'cant' : P.frame === 'head' ? 'sq' : 'step';
+    const pts = turn === 'cant' ? [[x + st * 1.5, 0], [x + st * .7, 0], [x, st * .7], [x, len - st * .7], [x + st * .7, len], [x + st * 1.5, len]]
+      : turn === 'step' ? [[x + st * 1.6, 0], [x + st, 0], [x + st, st * .7], [x, st * .7], [x, len - st * .7], [x + st, len - st * .7], [x + st, len], [x + st * 1.6, len]] : [[x + st, 0], [x, 0], [x, len], [x + st, len]];
+    const F = R.set(pts.slice().reverse(), r), in2 = rich >= .75 ? rule(offset(pts.slice().reverse(), R.inn + thin * 2, false), Math.max(1.2, thin * .7), r) : [];
+    S.ink('r', g => { lay(g, F.t); lay(g, in2); }, { medium: 'press', ang: PI / 2 }); S.ink('k', g => lay(g, F.k), { medium: 'press', ang: PI / 2 });
+    return { S, W: st * 2.2, H: len, box: [-2, -2, st * 2.4, len + 2] }; }
+  const x = th / 2;
   const pts = rich >= .75 ? [[x + st * 1.6, 0], [x + st, 0], [x + st, st * .7], [x, st * .7], [x, len - st * .7], [x + st, len - st * .7], [x + st, len], [x + st * 1.6, len]] : [[x + st, 0], [x, 0], [x, len], [x + st, len]];
   const ox = oxford(pts.slice().reverse(), thin, r), in2 = rich >= .75 ? rule(offset(pts.slice().reverse(), th / 2 + thin * 1.6 + thin + thin * 2, false), Math.max(1.2, thin * .7), r) : [];
   S.ink('r', g => { lay(g, ox.thin); lay(g, in2); }, { medium: 'press', ang: PI / 2 });
@@ -313,8 +510,9 @@ export function marginRule(len, u, seed, rich = .5) {
   return { S, W: st * 2.2, H: len, box: [-2, -2, st * 2.4, len + 2] };
 }
 // a box of rule round [0, 0, W, H]: Oxford (figure) or a fine single rule (code), its corners stepped in (rich)
-export function boxFrame(W, H, u, seed, { oxfordRule = true, steps = 1, rich = .5 } = {}) {
+export function boxFrame(W, H, u, seed, { oxfordRule = true, steps = 1, rich = .5, P = null } = {}) {
   const r = stream(seed, 'box'), S = new Sheet(), { pt, hair } = weights(u), st = u * 1.2, n = rich >= 1 ? steps + 1 : steps;
+  if (P) return boxPage(W, H, u, r, S, pt, hair, st, n, oxfordRule, rich, P);
   const ring = [];   // clockwise from the top left, each corner stepped in n times
   if (!n) ring.push([0, 0], [W, 0], [W, H], [0, H]);
   else { const s = st; ring.push([0, s * n]); for (let i = 0; i < n; i++) ring.push([s * i, s * (n - i)], [s * (i + 1), s * (n - i)]); ring.push([s * n, 0], [W - s * n, 0]);
@@ -335,10 +533,28 @@ export function boxFrame(W, H, u, seed, { oxfordRule = true, steps = 1, rich = .
   else { if (in2.length || cq.length) S.ink('r', g => { lay(g, in2); corners(g, 'r'); }, { medium: 'press', ang: .7 }); S.ink('k', g => { lay(g, rule(pts, hair, r, { closed: true })); corners(g, 'k'); g.globalCompositeOperation = 'destination-out'; corners(g, 'r'); g.globalCompositeOperation = 'source-over'; }, { medium: 'press', ang: .7 }); }
   return { S, W, H, box: [-u, -u, W + u, H + u] };
 }
-// an aside's two corners: brackets of Oxford rule stepped once, at its head on the left and its foot on the right
-export function brackets(W, H, u, seed, rich = .5) {
+// a page's box: its outline (a figure or code box takes the stepped corners all round for a portal's page) and, for a figure,
+// its rule; the corner units at lavish in a stepped corner's notch only
+function boxPage(W, H, u, r, S, pt, hair, st, n, oxfordRule, rich, P) {
+  const thin = Math.max(1.3, pt * 1.1), R = oxfordRule ? rules(P.rule, thin) : { out: hair / 2, inn: hair / 2 }, head = P.frame === 'head';
+  const pts = !n ? [[0, 0], [W, 0], [W, H], [0, H]] : pageRing(P.frame === 'portal' ? { ...P, frame: 'four' } : P, 0, 0, W, H, P.frame === 'cant' ? st * .8 : P.frame === 'four' || P.frame === 'portal' ? st / .7 : st, n, H);
+  const in2 = rich >= .75 ? rule(offset(pts, R.inn + thin * 1.8 + hair * .4, true), Math.max(1.2, hair * .85), r, { closed: true }) : [];
+  const cq = n && rich >= 1 && P.frame !== 'cant' ? [[0, 0], [W, 0], [W, H], [0, H]].filter(([, y]) => !head || !y).map(([x, y]) => { const q = st * .4, cx = x ? x - q : q, cy = y ? y - q : q, a = st * .3, b = st * .12;
+    return { k: [[cx - a, cy - a], [cx + a, cy - a], [cx + a, cy + a], [cx - a, cy + a]], r: [[cx - b, cy - b], [cx + b, cy - b], [cx + b, cy + b], [cx - b, cy + b]] }; }) : [];
+  const corners = (g, key) => { for (const c of cq) g.fill(poly(new Path2D(), c[key])); }, F = oxfordRule ? R.set(pts, r, { closed: true }) : { k: rule(pts, hair, r, { closed: true }), t: [] };
+  S.ink('r', g => { lay(g, F.t); lay(g, in2); corners(g, 'r'); }, { medium: 'press', ang: .7 });
+  S.ink('k', g => { lay(g, F.k); corners(g, 'k'); g.globalCompositeOperation = 'destination-out'; corners(g, 'r'); g.globalCompositeOperation = 'source-over'; }, { medium: 'press', ang: .7 });
+  return { S, W, H, box: [-u, -u, W + u, H + u] };
+}
+// an aside's two corners: brackets of Oxford rule stepped once, at its head on the left and its foot on the right (a page with a
+// seed: in its rule, turned as its frames' corners are)
+export function brackets(W, H, u, seed, rich = .5, P = null) {
   const r = stream(seed, 'brk2'), S = new Sheet(), { pt } = weights(u), thin = Math.max(1.3, pt * 1.15), a = u * 4.6, s = u * 1.2;
-  const tl = [[a, 0], [s, 0], [s, s], [0, s], [0, a]], br = [[W - a, H], [W - s, H], [W - s, H - s], [W, H - s], [W, H - a]];
+  const turn = P && (P.frame === 'cant' ? 'cant' : P.frame === 'head' ? 'sq' : 'step');
+  const tl = turn === 'cant' ? [[a, 0], [s * 1.2, 0], [0, s * 1.2], [0, a]] : turn === 'sq' ? [[a, 0], [0, 0], [0, a]] : [[a, 0], [s, 0], [s, s], [0, s], [0, a]], br = tl.map(([x, y]) => [W - x, H - y]);
+  if (P) { const R = rules(P.rule, thin), F1 = R.set(tl, r), F2 = R.set(br, r), in2 = rich >= .75 ? [...rule(offset(tl, R.inn + thin * 2, false), Math.max(1.2, thin * .7), r), ...rule(offset(br, R.inn + thin * 2, false), Math.max(1.2, thin * .7), r)] : [];
+    S.ink('r', g => { lay(g, F1.t); lay(g, F2.t); lay(g, in2); }, { medium: 'press', ang: .7 }); S.ink('k', g => { lay(g, F1.k); lay(g, F2.k); }, { medium: 'press', ang: .7 });
+    return { S, W, H, box: [-u, -u, W + u, H + u] }; }
   const o1 = oxford(tl, thin, r), o2 = oxford(br, thin, r), d = thin * 3.2 / 2 + thin * 1.6 + thin + thin * 2;
   const in2 = rich >= .75 ? [...rule(offset(tl, d, false), Math.max(1.2, thin * .7), r), ...rule(offset(br, d, false), Math.max(1.2, thin * .7), r)] : [];
   S.ink('r', g => { lay(g, o1.thin); lay(g, o2.thin); lay(g, in2); }, { medium: 'press', ang: .7 });
@@ -346,8 +562,9 @@ export function brackets(W, H, u, seed, rich = .5) {
   return { S, W, H, box: [-u, -u, W + u, H + u] };
 }
 // a pull quote's head and foot: a vermilion lozenge between two cadences closing outward (the foot's stacks hang from its line)
-export function pullBand(W, H, u, seed, foot = false, rich = .5) {
+export function pullBand(W, H, u, seed, foot = false, rich = .5, P = null) {
   const r = stream(seed, 'pull' + foot), S = new Sheet(), cx = W / 2, y = H / 2, d = u * .5, n = rich >= .75 ? 3 : 2;
+  if (P) { band(S, W, foot ? y + u * .5 : y + u * .55, u, r, P, n, rich, foot); return { S, W, H, box: [0, 0, W, H] }; }
   const yb = foot ? y - u * .3 + u : y + u * .3, cs = [cadence(0, cx - d * 2.4, yb, u, r, { dir: -1, n, close: 'dim' }), cadence(cx + d * 2.4, W, yb, u, r, { n, close: 'dim' })];
   if (foot) for (const c of cs) for (const p of c.k) for (const q of p) q[1] = 2 * (yb - c.h / 2) - q[1];   // (turned over about its middle)
   S.ink('r', g => { g.fill(poly(new Path2D(), [[cx, yb - u * .35 - d], [cx + d, yb - u * .35], [cx, yb - u * .35 + d], [cx - d, yb - u * .35]])); for (const c of cs) g.fill(c.r); }, { medium: 'press', ang: 0 });
