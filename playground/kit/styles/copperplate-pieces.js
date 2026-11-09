@@ -98,7 +98,7 @@ const pen = {
     for (let t = t0; t <= t0 + TAU * 1.04; t += .02) { const u = (t - t0) / TAU, sc = 1 - g * .1 * u, eg = 1 + g * .05 * Math.sin(t + ph), tl = g * (tilt0 + deg(3) * u);
       const q = slantPt([c[0] + g * H * .03 * u, c[1] - g * H * .015 * u], H * oa * sc * eg, H * ob * sc, -t), ct = Math.cos(tl), st = Math.sin(tl);
       o.push([c[0] + (q[0] - c[0]) * ct - (q[1] - c[1]) * st, c[1] + (q[0] - c[0]) * st + (q[1] - c[1]) * ct]); }
-    const how = PEN_HOW(), letter = { ch, face: '"CopperB"', cap: H * .74, cx: W * .55, cy: H * .48, pen: B_OPTS.letter === 'pen', thin: B_OPTS.line === 'crisp' ? .4 : .3 };
+    const how = PEN_HOW(), letter = { ch, face: '"CopperB"', cap: H * .78, cx: W * .53, cy: H * .49, pen: B_OPTS.letter === 'pen', thin: B_OPTS.line === 'crisp' ? .4 : .3 };
     // the capital's free ends: the pen comes into the one farthest up and right out of a small curl (its touch-down), and
     // leaves by the one farthest down and left
     const ends = letterEnds(ch, letter.face, letter.cap, letter.cx, letter.cy, W, H), strokes = [];
@@ -207,7 +207,7 @@ function dropPiece(ch, H, seed, d, o = {}) {
 function paraphPiece(fs, seed, d, form = 0) {
   // (forms: 0 two loops riding a rising hairline; 1 the trefoil knot, three loops and three crossings, out to a dot; 2 one loop
   // turned on a hairline and a long curl closing on a dot)
-  if (form === 1) { const s = fs * 1.05, pk = fs * .12, c = [s * .5, s * .5], k = [];
+  if (form === 1) { const s = fs * 1.3, pk = fs * .085, c = [s * .5, s * .5], k = [];
     for (let t = .25; t <= TAU - .05; t += .01) k.push([c[0] + s * .15 * (Math.sin(t) + 2 * Math.sin(2 * t)), c[1] + s * .15 * (Math.cos(t) - 2 * Math.cos(2 * t)) + s * .05]);
     return { W: s, H: s, base: .85, strokes: [written(k, seed + 3, { hair: fineOf(pk, d), peak: pk, how: BURIN, start: 'point', end: 'ball', amp: .03 })], medium: 'engrave', flat: true }; }
   if (form === 2) { const W = fs * 1.4, H = fs * .95, pk = fs * .13, mv = move([0, H * .8], -.4, [{ go: [W * .35, H * .45], look: fs * .3 }, { loop: fs * .2, sense: -1, aspect: 1.6, lean: -.4, turn: TAU }, { go: [W * .8, H * .55], look: fs * .3 }, { curl: fs * .15, sense: -1, turns: 1.3 }], { lag: fs * .04 });
@@ -223,8 +223,8 @@ function paraphPiece(fs, seed, d, form = 0) {
 // strokes, the sweep first); 2 one loop and a long tightening curl out to a dot)
 function fillerPiece(gw, lh, seed, d, o = {}) {
   if (o.form === 1 && gw > lh * 4) { const H = lh * .8, pk = lh * .1, n = Math.max(2, Math.min(4, Math.floor(gw / (lh * 2.6)))), size = lh * .7, span = Math.min(gw * .6, n * size * .9), a = [gw - span - lh * .4, H * .55], b = [gw - lh * .4, H * .45];
-    const sweep = beauty([Math.max(1, gw - span - lh * 5), H * .66], [gw - lh * .1, H * .4], .04, 90), sw = resample(sweep, .5); let L = 0; const Sx = [0]; for (let i = 1; i < sw.length; i++) Sx.push(L += Math.hypot(sw[i][0] - sw[i - 1][0], sw[i][1] - sw[i - 1][1]));
-    const hair = fineOf(pk, d), w = Float32Array.from(Sx, u => hair + (pk * .32 - hair) * lensShape(u / L, .6)), S1 = stroke(sw, w, { start: 'point', end: 'point', hair }); S1.t = pace(sw);
+    const sweep = beauty([Math.max(1, gw - span - lh * (o.light ? 3 : 5)), H * .66], [gw - lh * .1, H * .4], .04, 90), sw = resample(sweep, .5); let L = 0; const Sx = [0]; for (let i = 1; i < sw.length; i++) Sx.push(L += Math.hypot(sw[i][0] - sw[i - 1][0], sw[i][1] - sw[i - 1][1]));
+    const hair = fineOf(pk, d), w = Float32Array.from(Sx, u => hair + (pk * (o.light ? .14 : .2) - hair) * lensShape(u / L, .6)), S1 = stroke(sw, w, { start: 'point', end: 'point', hair }); S1.t = pace(sw);
     const plan = [{ go: a, look: lh }, ...chain(a, b, n, size, { sense: -1, first: .7, last: .6 }), { go: [gw - lh * .1, H * .5], look: lh * .4 }, { curl: lh * .1, sense: -1, turns: 1.1 }];
     const mv = move([a[0] - lh * .8, H * .5], -.05, plan, { lag: lh * .1 });
     return { W: gw, H, strokes: [S1, written(mv, seed + 4, { hair, peak: pk, how: BURIN, start: 'point', end: 'ball', amp: .06 })], medium: 'engrave', flat: true }; }
@@ -241,7 +241,7 @@ function fillerPiece(gw, lh, seed, d, o = {}) {
 // (forms: 0 the band: an entry from a curl, a cluster of loops, the exit to a curl; 1 the wing: the cluster riding a shaded sweep
 // across the measure; 2 the twin: two short clusters facing about a dot-curl)
 function breakPiece(bw, hb, seed, d, o = {}) {
-  if (o.form === 1) { const f = fillerPiece(bw * .9, hb * 1.2, seed, d, { form: 1 }); return { ...f, W: bw, strokes: f.strokes.map(S => ({ ...S, p: S.p.map(([x, y]) => [x + bw * .05, y]), balls: (S.balls ?? []).map(([c, r]) => [[c[0] + bw * .05, c[1]], r]) })) }; }
+  if (o.form === 1) { const f = fillerPiece(bw * .9, hb * 1.2, seed, d, { form: 1, light: true }); return { ...f, W: bw, strokes: f.strokes.map(S => ({ ...S, p: S.p.map(([x, y]) => [x + bw * .05, y]), balls: (S.balls ?? []).map(([c, r]) => [[c[0] + bw * .05, c[1]], r]) })) }; }
   if (o.form === 2) { const half = fillerPiece(bw * .44, hb * 1.1, seed, d, { n: 2 }), mid = dotCurl([bw * .5, hb * .55], -PI * .5, hb * .14, 1, seed + 9, { hair: fineOf(hb * .085, d), how: LACE });
     const L = half.strokes.map(S => ({ ...S, p: S.p.map(([x, y]) => [bw * .5 - hb * .25 - x, y]), balls: (S.balls ?? []).map(([c, r]) => [[bw * .5 - hb * .25 - c[0], c[1]], r]) }));
     const R = half.strokes.map(S => ({ ...S, p: S.p.map(([x, y]) => [bw * .5 + hb * .25 + x, y]), balls: (S.balls ?? []).map(([c, r]) => [[bw * .5 + hb * .25 + c[0], c[1]], r]) }));
@@ -301,10 +301,11 @@ export function penRule(gw, lh, seed, d) {
 // the breaks by rank: a part's (one oval between compound curves), a chapter's (two ovals linked, the copybook's running
 // oval, written on without lifting), the book's end (the great oval at the measure's middle, entered from far left and left
 // to the far right, turned a second time inside itself)
-export function penBreak(bw, hb, rank, seed, d) {
+export function penBreak(bw, hb, rank, seed, d, rich = .5) {
   if (rank === 0) return pen.brk(bw, hb, seed, d);
-  const pk = hb * (rank === 2 ? .12 : .13), n = rank === 2 ? 1.75 : 2.08, a = hb * (rank === 2 ? .5 : .44), b = hb * (rank === 2 ? .3 : .26), x0 = bw * (rank === 2 ? .5 : .44), x1 = bw * (rank === 2 ? .5 : .56), p = [];
-  for (let t = 0; t <= n * TAU; t += .03) { const u = t / (n * TAU), sc = rank === 2 ? 1 - .32 * u : 1; p.push(slantPt([x0 + (x1 - x0) * u, hb * .5], a * sc, b * sc, -t - PI * .5)); }
+  // (the book's end at lavish: the oval turned on into a third ring)
+  const pk = hb * (rank === 2 ? .12 : .13), n = rank === 2 ? (rich >= 1 ? 2.6 : 1.75) : 2.08, a = hb * (rank === 2 ? .5 : .44), b = hb * (rank === 2 ? .3 : .26), x0 = bw * (rank === 2 ? .5 : .44), x1 = bw * (rank === 2 ? .5 : .56), p = [];
+  for (let t = 0; t <= n * TAU; t += .03) { const u = t / (n * TAU), sc = rank === 2 ? 1 - (n > 2 ? .45 : .32) * u : 1; p.push(slantPt([x0 + (x1 - x0) * u, hb * .5], a * sc, b * sc, -t - PI * .5)); }
   const lead = beauty([bw * .03, hb * .58], p[0], -.07, 50), tail = beauty(p.at(-1), [bw * .97, hb * .42], .07, 50);
   return { W: bw, H: hb, strokes: [written(join(lead, p, tail), seed, { hair: penHair(d, pk), peak: pk, how: PEN_HOW(), start: 'point', end: 'ball', amp: .2 })], medium: 'ink' };
 }

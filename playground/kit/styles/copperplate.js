@@ -80,13 +80,13 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
 }
 // three ranks: a part's (rank 1: the page's plain breaks), the chapter's (rank 3 here: data-rank 3), the book's end (rank 2)
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, index, room) {
-  const deep = room ? room[1] - room[0] : u * 10, r = rank === 2 ? 2 : rank >= 3 ? 1 : 0, rr = rich < .25 ? 0 : rich >= 1 && r < 2 ? r + 1 : r;
-  const W = rr === 2 ? Math.min(measure * .9, u * 70) : rr === 1 ? Math.min(measure * .78, u * 56) : Math.min(measure * .6, u * 40), hb = Math.min(deep * .9, rr === 2 ? u * (KIND === 'pen' ? 7 : 8) : u * (rr === 1 ? 5 : 4.4));
+  const deep = room ? room[1] - room[0] : u * 10, r = rank === 2 ? 2 : rank >= 3 ? 1 : 0, rr = rich < .25 ? 0 : rich >= (KIND === 'pen' ? .75 : 1) && r < 2 ? r + 1 : r;   // (B's breaks rise a rank from fine, C's at lavish)
+  const W = rr === 2 ? Math.min(measure * .9, u * 70) : rr === 1 ? Math.min(measure * .78, u * 56) : Math.min(measure * .6, u * 40), hb = Math.min(deep * .9, rr === 2 ? u * (KIND === 'pen' ? (rich >= 1 ? 9 : 7) : 8) : u * (rr === 1 ? 5 : 4.4));
   // (C: the band's form by the seed (the band, the wing, the twin), the chapter's the wing from fine up; the end's rosette larger
   // from fine up)
   const v = vary(), form = KIND === 'hand' && rr < 2 ? (v ? (Math.imul(seed ^ v * 40503 ^ rr, 2654435761) >>> 0) % 3 : rr === 1 && rich >= .75 ? 1 : 0) : 0;
   const hb2 = KIND === 'hand' && rr === 2 ? (rich >= .75 ? Math.min(deep * .95, u * (rich >= 1 ? 12 : 10)) : hb) : hb;
-  const f = d => KIND === 'pen' ? P.penBreak(W, hb, rr, seed, d) : P.handBreak(W, hb2, rr, seed, d, rich, form, v), [Wb, Hb] = sizeOf(['break', KIND, rr, W.toFixed(1), hb2.toFixed(1), seed, rich, form, v].join('|'), f);
+  const f = d => KIND === 'pen' ? P.penBreak(W, hb, rr, seed, d, rich) : P.handBreak(W, hb2, rr, seed, d, rich, form, v), [Wb, Hb] = sizeOf(['break', KIND, rr, W.toFixed(1), hb2.toFixed(1), seed, rich, form, v].join('|'), f);
   const out = [piece(cx - Wb / 2, y - Hb / 2, f, `break:${rr}:${W.toFixed(1)}:${hb2.toFixed(1)}:${rich}:${form}`, seed)];
   return { marks: [], letters: out };
 }
