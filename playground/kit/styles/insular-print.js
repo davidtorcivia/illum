@@ -31,7 +31,7 @@ export function paintSheet(S, pal, { order = S.order, seed = 1, grow = false, go
   const sub = pal.v ?? pal.l ?? [241, 232, 213], layers = [], alpha = new Float32Array(n);
   // each ink's coverage, less what the inks laid over it cover (the Sheet's inks are laid in order and hide what they cover;
   // its trap leaves a hair of the lower ink under every edge, which must stay hidden)
-  let t0 = performance.now(); const inks = order.filter(ink => S.c.get(ink) && pal[ink]), masks = inks.map(ink => { const d = S.c.get(ink).getImageData(0, 0, w, h).data, M = new Float32Array(n); for (let q = 0; q < n; q++) M[q] = d[q * 4 + 3] / 255; return M; });
+  let t0 = performance.now(); const inks = order.filter(ink => S.c.get(ink) && pal[ink]), masks = inks.map(ink => { const d = S.read?.get(ink) ?? S.c.get(ink).getImageData(0, 0, w, h).data, M = new Float32Array(n); for (let q = 0; q < n; q++) M[q] = d[q * 4 + 3] / 255; return M; });
   const above = new Float32Array(n);
   for (let i = inks.length - 1; i >= 0; i--) { const M = masks[i]; for (let q = 0; q < n; q++) { const v = M[q], a = above[q]; M[q] = v * (1 - a); above[q] = 1 - (1 - a) * (1 - v); } }
   for (let q = 0; q < n; q++) alpha[q] = above[q];

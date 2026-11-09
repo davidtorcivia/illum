@@ -101,17 +101,23 @@ export function makeLoad(seed, k, { dragP = .15 } = {}) {
 export function fillLoads(G, M, { seed = 1, swath = 1.3, thr = .5, axis = null, dragP = null, scale = 1, uv = null, seg = 0, pool = .3 } = {}) {
   const { w, h, n, pxmm } = G, lab = new Int32Array(n).fill(-1), tau = new Float32Array(n), mix = new Float32Array(n), stack = []; let L = 0;
   for (let q0 = 0; q0 < n; q0++) { if (M[q0] < thr || lab[q0] >= 0) continue; const px = []; stack.push(q0); lab[q0] = L;
+    // (the four neighbours in a fixed order, right, left, down, up: the pocket's pixels listed as they always were)
     while (stack.length) { const q = stack.pop(); px.push(q); const i = q % w, j = (q - i) / w;
-      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= w || jj >= h) continue; const r = jj * w + ii; if (lab[r] < 0 && M[r] >= thr) { lab[r] = L; stack.push(r); } } }
+      if (i + 1 < w && lab[q + 1] < 0 && M[q + 1] >= thr) { lab[q + 1] = L; stack.push(q + 1); }
+      if (i > 0 && lab[q - 1] < 0 && M[q - 1] >= thr) { lab[q - 1] = L; stack.push(q - 1); }
+      if (j + 1 < h && lab[q + w] < 0 && M[q + w] >= thr) { lab[q + w] = L; stack.push(q + w); }
+      if (j > 0 && lab[q - w] < 0 && M[q - w] >= thr) { lab[q - w] = L; stack.push(q - w); } }
     // the pocket's axis (moments), extents along and across it
     let mx = 0, my = 0; for (const q of px) { mx += q % w; my += Math.floor(q / w); } mx /= px.length; my /= px.length;
     let a = 0, b = 0, c = 0; for (const q of px) { const dx = q % w - mx, dy = Math.floor(q / w) - my; a += dx * dx; b += dx * dy; c += dy * dy; }
     const th = axis ?? .5 * Math.atan2(2 * b, a - c), ux = Math.cos(th), uy = Math.sin(th);
-    const UV = q => { if (uv) return uv(G.x(q % w), G.y(Math.floor(q / w))); const dx = (q % w - mx) / pxmm, dy = (Math.floor(q / w) - my) / pxmm; return [dx * ux + dy * uy, -dx * uy + dy * ux]; };
-    let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9; for (const q of px) { const [u, v] = UV(q); u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+    // (each pixel's place in the pocket's frame, u along and v across, worked out once)
+    const PU = new Float64Array(px.length), PV = new Float64Array(px.length);
+    px.forEach((q, k) => { if (uv) { const r = uv(G.x(q % w), G.y(Math.floor(q / w))); PU[k] = r[0]; PV[k] = r[1]; return; } const dx = (q % w - mx) / pxmm, dy = (Math.floor(q / w) - my) / pxmm; PU[k] = dx * ux + dy * uy; PV[k] = -dx * uy + dy * ux; });
+    let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9; for (let k = 0; k < px.length; k++) { const u = PU[k], v = PV[k]; u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
     const across = v1 - v0, ns = Math.max(1, Math.round(across / swath)), sw = across / ns, flip = hash2(L, seed, 5) < .5;
     const loads = Array.from({ length: ns }, (_, k) => ({ ...makeLoad(seed * 31 + L, k, { dragP: dragP ?? (ns > 1 ? .3 : .1) }), c: v0 + (k + .5) * sw, flip: (k % 2 === 0) === flip, path: n1(seed * 41 + L * 7 + k, 3.5), bow: [] }));
-    for (const q of px) { const [u, v] = UV(q); let sum = 0, wt = 0, mx = 0;
+    for (let k = 0; k < px.length; k++) { const q = px[k], u = PU[k], v = PV[k]; let sum = 0, wt = 0, mx = 0;
       for (const ld of loads) { const hv = Math.max(.01, sw * .5 * (ns > 1 ? 1.6 : 3)), dv = v - ld.c - (ns > 1 ? .15 * sw * ld.path(u) : 0); if (Math.abs(dv) > hv) continue;
         const edge = ns > 1 ? smooth(hv, hv * .55, Math.abs(dv)) : 1;
         if (!seg) { const sg = ld.flip ? (u1 - u) / ((u1 - u0) || 1) : (u - u0) / ((u1 - u0) || 1); sum += edge * loadTau(sg, u, dv, hv, ld); wt += edge; mx += edge * ld.mix; continue; }

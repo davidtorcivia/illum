@@ -10,7 +10,7 @@
 //   cords(K, { ox, oy, u, inset, round }) -> threads with smooth centrelines (page px) and crossing positions
 //   Sheet: paint/knock ops on per-ink coverage, then poured one ink at a time through the ink engine (kit/inkletter.js)
 import { inkLetter } from '../inkletter.js';
-import { noise2, stream } from '../marks.js';
+import { noise2, stream, hash2 } from '../marks.js';
 
 // ---- topology -------------------------------------------------------------------------------------------------------------
 // A × B cells; inc(a, b): the cell is part of the knot; wall(x, y): a break on the interior edge whose midpoint is (x, y)
@@ -181,33 +181,58 @@ export function dotsAlong(pts, pitch, r, close = true, { load = 0, bend = .25 } 
   return o;
 }
 
+// the box round polylines' points, out by pad
+const boxOf = (lines, pad) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const P of lines) for (const [x, y] of P) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } return [x0 - pad, y0 - pad, x1 + pad, y1 + pad]; };
+// value noise as marks.js's noise2 (the same numbers), its lattice corners held while the point stays in one cell
+const cell2 = seed => { let cx = NaN, cy = NaN, a = 0, b = 0, c = 0, d = 0;
+  return (x, y) => { const xi = Math.floor(x), yi = Math.floor(y);
+    if (xi !== cx || yi !== cy) { cx = xi; cy = yi; a = hash2(xi, yi, seed); b = hash2(xi + 1, yi, seed); c = hash2(xi, yi + 1, seed); d = hash2(xi + 1, yi + 1, seed); }
+    const xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }; };
 // ---- the printer ------------------------------------------------------------------------------------------------------------
 // Ops in painting order on one coverage grid per ink (res cells a px over box). A paint lays its ink and takes the same shape
 // (less a trap, so the slip never opens a seam) out of every other ink: the pigments are opaque. A knock (ink null) takes it
 // out of all; a knock with an ink lays that ink and takes it out of the others (the ground showing through a gap).
 export class Sheet {
   constructor(box, res = 2) { const [x0, y0, x1, y1] = box; this.box = box; this.res = res; this.w = Math.ceil((x1 - x0) * res); this.h = Math.ceil((y1 - y0) * res); this.c = new Map(); this.order = []; }
-  ctx(ink) {
+  ctx(ink) { this.read = null;
     if (!this.c.has(ink)) { const g = new OffscreenCanvas(this.w, this.h).getContext('2d', { willReadFrequently: true });
       g.setTransform(this.res, 0, 0, this.res, -this.box[0] * this.res, -this.box[1] * this.res); g.lineJoin = 'round'; g.fillStyle = g.strokeStyle = '#000'; this.c.set(ink, g); this.order.push(ink); }
     return this.c.get(ink);
   }
-  // draw(g) is called with each context and the width to use (w - 2 trap for the knock of the others)
-  op(ink, draw, { trap = .35, knock = false } = {}) {
-    for (const [k, g] of this.c) if (k !== ink) { g.globalCompositeOperation = 'destination-out'; draw(g, -trap); }
-    if (ink != null) { const g = this.ctx(ink); g.globalCompositeOperation = 'source-over'; draw(g, 0); }
+  // draw(g) is called with each context and the width to use (w - 2 trap for the knock of the others).
+  // box: where the op can mark ([x0, y0, x1, y1] on the page; unknown, anywhere). Each ink keeps the tiles it has marked, and
+  // an op knocks only the inks it can meet there: taking ink out of a cell that has none changes nothing, and is the most of
+  // a sheet's rasterising
+  op(ink, draw, { trap = .35, knock = false, box = null } = {}) {
+    const t = this.tiles(box); this.read = null;
+    for (const [k, g] of this.c) if (k !== ink && this.meets(k, t)) { g.globalCompositeOperation = 'destination-out'; draw(g, -trap); }
+    if (ink != null) { const g = this.ctx(ink); g.globalCompositeOperation = 'source-over'; draw(g, 0); this.mark(ink, t); }
   }
+  // (the tiles a box covers, in the sheet's cells: [a0, b0, a1, b1]; null, all)
+  tiles(box) { const TS = 32, tw = Math.ceil(this.w / TS), th = Math.ceil(this.h / TS); this.tw = tw; this.th = th;
+    if (!box) return [0, 0, tw - 1, th - 1]; const r = this.res, [x0, y0] = this.box;
+    return [Math.max(0, Math.floor(((box[0] - x0) * r - 2) / TS)), Math.max(0, Math.floor(((box[1] - y0) * r - 2) / TS)), Math.min(tw - 1, Math.floor(((box[2] - x0) * r + 2) / TS)), Math.min(th - 1, Math.floor(((box[3] - y0) * r + 2) / TS))]; }
+  mark(ink, [a0, b0, a1, b1]) { const m = (this.occ ??= new Map()).get(ink) ?? this.occ.set(ink, new Uint8Array(this.tw * this.th)).get(ink); for (let b = b0; b <= b1; b++) m.fill(1, b * this.tw + a0, b * this.tw + a1 + 1); }
+  meets(ink, [a0, b0, a1, b1]) { const m = this.occ?.get(ink); if (!m) return true; for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) if (m[b * this.tw + a]) return true; return false; }
   stroke(pts, w, ink, { close = true, cap = 'round', trap = .35, knock = false } = {}) {
-    const P = pathOf(pts, close); this.op(ink, (g, d) => { g.lineCap = cap; g.lineWidth = Math.max(.01, w + 2 * d); g.stroke(P); }, { trap, knock });
+    const P = pathOf(pts, close); this.op(ink, (g, d) => { g.lineCap = cap; g.lineWidth = Math.max(.01, w + 2 * d); g.stroke(P); }, { trap, knock, box: boxOf([pts], w / 2 + 1) });
   }
-  fill(P, ink, { rule = 'nonzero' } = {}) { this.op(ink, g => g.fill(P, rule)); }
+  fill(P, ink, { rule = 'nonzero', box = null } = {}) { this.op(ink, g => g.fill(P, rule), { box }); }
   // a coverage grid on the sheet's own grid (w × h, 0..1)
+  // (laid from a canvas only as large as the grid's marked cells: the rest would lay and take out nothing)
   image(ink, M) {
-    const c = new OffscreenCanvas(this.w, this.h), x = c.getContext('2d'), im = x.createImageData(this.w, this.h);
-    for (let q = 0; q < M.length && q < this.w * this.h; q++) im.data[q * 4 + 3] = Math.round(Math.min(1, M[q]) * 255);
-    x.putImageData(im, 0, 0); this.op(ink, g => { g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(c, 0, 0); g.restore(); });
+    const { w, h } = this, n = Math.min(M.length, w * h), A = new Uint8ClampedArray(n); let i0 = w, j0 = h, i1 = -1, j1 = -1;
+    for (let q = 0; q < n; q++) { const v = Math.round(Math.min(1, M[q]) * 255); if (v > 0) { A[q] = v; const j = (q / w) | 0, i = q - j * w; if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j; } }
+    if (i1 < 0) { this.ctx(ink); return; }   // (nothing to lay or take out; the ink is still the sheet's)
+    const bw = i1 - i0 + 1, bh = j1 - j0 + 1, c = new OffscreenCanvas(bw, bh), x = c.getContext('2d'), im = x.createImageData(bw, bh);
+    for (let j = 0; j < bh; j++) { const r0 = (j0 + j) * w + i0; for (let i = 0; i < bw; i++) im.data[(j * bw + i) * 4 + 3] = A[r0 + i]; }
+    const r = this.res, [x0, y0] = this.box;
+    x.putImageData(im, 0, 0); this.op(ink, g => { g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(c, i0, j0); g.restore(); }, { box: [x0 + i0 / r, y0 + j0 / r, x0 + (i1 + 1) / r, y0 + (j1 + 1) / r] });
   }
-  dots(D, ink) { const P = new Path2D(); for (const [x, y, r, a = 0, e = 1] of D) { P.moveTo(x + Math.cos(a) * r * e, y + Math.sin(a) * r * e); P.ellipse(x, y, r * e, r / e, a, 0, Math.PI * 2); } this.fill(P, ink); }
+  dots(D, ink) { const P = new Path2D(), B = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const [x, y, r, a = 0, e = 1] of D) { P.moveTo(x + Math.cos(a) * r * e, y + Math.sin(a) * r * e); P.ellipse(x, y, r * e, r / e, a, 0, Math.PI * 2); const R = r * Math.max(e, 1 / e) + 1; B[0] = Math.min(B[0], x - R); B[1] = Math.min(B[1], y - R); B[2] = Math.max(B[2], x + R); B[3] = Math.max(B[3], y + R); }
+    this.fill(P, ink, { box: B }); }
   // a band of varying width along a polyline, as quads that share their edges (one path, nonzero: no seams, crossings fill)
   strokeW(pts, ws, ink, { close = false, trap = .35 } = {}) { this.strokeMany([[pts, ws, close]], ink, { trap }); }
   // many such bands of one ink as one fill: lines [[pts, ws, close], ...]
@@ -222,23 +247,34 @@ export class Sheet {
           P.moveTo(r[r.length - 2], r[r.length - 1]); for (let i = r.length - 4; i >= 0; i -= 2) P.lineTo(r[i], r[i + 1]); P.closePath(); }
         else { P.moveTo(l[0], l[1]); for (let i = 2; i < l.length; i += 2) P.lineTo(l[i], l[i + 1]); for (let i = r.length - 2; i >= 0; i -= 2) P.lineTo(r[i], r[i + 1]); P.closePath(); } }
       return P; };
-    const own = path(0), less = trap ? path(-trap) : own; this.op(ink, (g, d) => g.fill(d < 0 ? less : own, 'nonzero'));
+    let wm = 0; for (const [, ws] of lines) for (const v of ws) if (v > wm) wm = v;
+    const own = path(0), less = trap ? path(-trap) : own; this.op(ink, (g, d) => g.fill(d < 0 ? less : own, 'nonzero'), { box: boxOf(lines.map(l => l[0]), wm / 2 + 1) });
   }
   // The hand's drift: every ink's coverage moved by one slow displacement (amp px over wavelength lam px: the arm), a finer
   // one (the fingers: amp2 over lam2) and a hair of misregistration of its own (mis px). Geometry, before any pour: the
   // drawing wavers as a drawn one does and the inks sit a hair off one another.
   drift({ amp, lam, amp2 = 0, lam2 = 1, mis = 0, seed = 1 } = {}) {
-    const { w, h, res } = this, [x0, y0] = this.box, sx = noise2(seed * 7 + 91), sy = noise2(seed * 7 + 173), fx = noise2(seed * 7 + 19), fy = noise2(seed * 7 + 41);
-    const DX = new Float32Array(w * h), DY = new Float32Array(w * h);
-    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const x = x0 + i / res, y = y0 + j / res, q = j * w + i;
-      DX[q] = (amp * (sx(x / lam, y / lam) - .5) * 2 + amp2 * (fx(x / lam2, y / lam2) - .5) * 2) * res;
-      DY[q] = (amp * (sy(x / lam, y / lam) - .5) * 2 + amp2 * (fy(x / lam2, y / lam2) - .5) * 2) * res; }
+    const { w, h, res } = this, [x0, y0] = this.box, sx = cell2(seed * 7 + 91), sy = cell2(seed * 7 + 173), fx = cell2(seed * 7 + 19), fy = cell2(seed * 7 + 41);
+    // each ink's coverage read once, and the tiles it can reach (a frame's or a band's empty middle is left as it is)
+    const TS = 16, tw = Math.ceil(w / TS), th = Math.ceil(h / TS), all = new Uint8Array(tw * th), inks = [];
+    this.read = null; const read = new Map();
     for (const [ink, g] of this.c) {
       const rs = noise2(ink.charCodeAt(0) * 7 + seed), ox = (rs(1.3, 2.1) - .5) * 2 * mis * res, oy = (rs(4.7, .4) - .5) * 2 * mis * res;
       const im = g.getImageData(0, 0, w, h), d = im.data, A = new Uint8ClampedArray(w * h); for (let q = 0; q < A.length; q++) A[q] = d[q * 4 + 3];
-      // (only the tiles the ink can reach are remapped: a frame's or a band's empty middle is left as it is)
-      const TS = 16, tw = Math.ceil(w / TS), th = Math.ceil(h / TS), occ = new Uint8Array(tw * th), reach = Math.ceil((amp + amp2) * res + Math.abs(ox) + Math.abs(oy)) + 2;
-      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (A[j * w + i]) { const a0 = Math.max(0, Math.floor((i - reach) / TS)), a1 = Math.min(tw - 1, Math.floor((i + reach) / TS)), b0 = Math.max(0, Math.floor((j - reach) / TS)), b1 = Math.min(th - 1, Math.floor((j + reach) / TS)); for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) occ[b * tw + a] = 1; }
+      const occ = new Uint8Array(tw * th), reach = Math.ceil((amp + amp2) * res + Math.abs(ox) + Math.abs(oy)) + 2;
+      // (a row's run of ink marks its tiles once: the reach about the run's two ends spans every tile between)
+      for (let j = 0; j < h; j++) { const b0 = Math.max(0, Math.floor((j - reach) / TS)), b1 = Math.min(th - 1, Math.floor((j + reach) / TS));
+        for (let i = 0, r = j * w; i < w; i++) if (A[r + i]) { const s = i; while (i + 1 < w && A[r + i + 1]) i++;
+          const a0 = Math.max(0, Math.floor((s - reach) / TS)), a1 = Math.min(tw - 1, Math.floor((i + reach) / TS)); for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) occ[b * tw + a] = 1; } }
+      for (let t = 0; t < occ.length; t++) all[t] |= occ[t];
+      inks.push([g, im, A, occ, ox, oy]); read.set(ink, d); }
+    // the displacement, where any ink can reach (the noise's lattice corners kept while a row runs through one cell)
+    const DX = new Float32Array(w * h), DY = new Float32Array(w * h);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { if (!all[((j / TS) | 0) * tw + ((i / TS) | 0)]) { i += TS - 1 - (i % TS); continue; }
+      const x = x0 + i / res, y = y0 + j / res, q = j * w + i;
+      DX[q] = (amp * (sx(x / lam, y / lam) - .5) * 2 + amp2 * (fx(x / lam2, y / lam2) - .5) * 2) * res;
+      DY[q] = (amp * (sy(x / lam, y / lam) - .5) * 2 + amp2 * (fy(x / lam2, y / lam2) - .5) * 2) * res; }
+    for (const [g, im, A, occ, ox, oy] of inks) { const d = im.data;
       for (let j = 0, q = 0; j < h; j++) for (let i = 0; i < w; i++, q++) {
         if (!occ[((j / TS) | 0) * tw + ((i / TS) | 0)]) { i = Math.min(w - 1, i + TS - 1 - (i % TS)); q = j * w + i; continue; }   // (held to the row: past its end, q ran into the next row)
         const u = i - DX[q] - ox, v = j - DY[q] - oy, i0 = Math.floor(u), j0 = Math.floor(v), fu = u - i0, fv = v - j0;
@@ -246,9 +282,12 @@ export class Sheet {
         const p = j0 * w + i0; d[q * 4 + 3] = (A[p] * (1 - fu) + A[p + 1] * fu) * (1 - fv) + (A[p + w] * (1 - fu) + A[p + w + 1] * fu) * fv; }
       g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'copy'; g.putImageData(im, 0, 0); g.restore(); g.globalCompositeOperation = 'source-over';
     }
-    // (the fields that go with the ink — the making's clock, the rubbing — moved with it, nearest cell)
+    this.occ = null;   // (the inks moved: any later op knocks every ink)
+    this.read = read;   // (each ink's coverage as drifted, for the printer: read back once, not again from the canvas)
+    // (the fields that go with the ink — the making's clock, the rubbing — moved with it, nearest cell; read only under ink)
     for (const [name, F] of Object.entries(this.buf ?? {})) { const O = new Float32Array(F.length).fill(name === 'clock' ? Infinity : 0);
-      for (let j = 0, q = 0; j < h; j++) for (let i = 0; i < w; i++, q++) { const u = Math.round(i - DX[q]), v = Math.round(j - DY[q]); if (u >= 0 && v >= 0 && u < w && v < h) O[q] = F[v * w + u]; }
+      for (let j = 0, q = 0; j < h; j++) for (let i = 0; i < w; i++, q++) { if (!all[((j / TS) | 0) * tw + ((i / TS) | 0)]) { i = Math.min(w - 1, i + TS - 1 - (i % TS)); q = j * w + i; continue; }
+        const u = Math.round(i - DX[q]), v = Math.round(j - DY[q]); if (u >= 0 && v >= 0 && u < w && v < h) O[q] = F[v * w + u]; }
       this.buf[name] = O; }
   }
   // A field the printer reads beside the inks, drawn along a line: 'clock' (when each cell was made: kept the earliest), 'rub'
