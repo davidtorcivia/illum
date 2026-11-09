@@ -26,7 +26,7 @@ float lay(vec4 s, vec4 pap) {
 
 // paper: R tooth height, G fibre
 const PAPER_FS = `#version 300 es
-precision highp float; in vec2 vUV; out vec4 o; uniform vec2 uRes, uOff; uniform float uSeed, uPx, uRough;
+precision highp float; precision highp sampler2D; in vec2 vUV; out vec4 o; uniform vec2 uRes, uOff; uniform float uSeed, uPx, uRough;
 ${NOISE}
 // a cell c CSS px across, never finer than 2.5 device px (a texture sampled below its own grid is only sparkle)
 float N(vec2 q, vec2 c, float s){ return vn(q / max(c / uPx, vec2(2.5)) + s); }
@@ -53,7 +53,7 @@ void main(){
   Q0 = iQ01.xy; Q1 = iQ01.zw; Q2 = iQ23.xy; Q3 = iQ23.zw; A = iAB.xy; B = iAB.zw; K = iInk.xyz;
 }`;
 const SWEEP_FS = `#version 300 es
-precision highp float; in vec2 vP; out vec4 o; flat in vec2 Q0, Q1, Q2, Q3, A, B; flat in vec3 K; uniform float uRim;
+precision highp float; precision highp sampler2D; in vec2 vP; out vec4 o; flat in vec2 Q0, Q1, Q2, Q3, A, B; flat in vec3 K; uniform float uRim;
 float edge(vec2 p, vec2 a, vec2 b){ vec2 e = b - a; return dot(p - a, normalize(vec2(e.y, -e.x))); }
 void main(){
   vec2 uQ[4] = vec2[4](Q0, Q1, Q2, Q3), uA = A, uB = B; float uInk0 = K.x, uInk1 = K.y, uDry = K.z;
@@ -74,7 +74,7 @@ void main(){
 // ends of strokes and fills the inside corners where they meet); as the water goes, it stops moving and settles into
 // the dry layer. Wet: R volume, G mobility. Dry: R volume.
 const FLOW_FS = `#version 300 es
-precision highp float; in vec2 vUV; layout(location = 0) out vec4 oWet; layout(location = 1) out vec4 oDry;
+precision highp float; precision highp sampler2D; in vec2 vUV; layout(location = 0) out vec4 oWet; layout(location = 1) out vec4 oDry;
 uniform sampler2D uWet, uDry, uStroke, uPaper; uniform vec2 uTexel; uniform float uDecay, uLevel, uCreep, uPour;
 ${LAY}
 vec2 at(vec2 uv) { vec4 w = texture(uWet, uv), s = texture(uStroke, uv); float f = lay(s, texture(uPaper, uv)) * uPour;
@@ -104,11 +104,11 @@ void main(){
 // pour: a deposit given as a picture rather than a sweep (a letter's coverage, say), drawn into the stroke layer as the
 // sweep would lay it. Its texel holds R coverage, G ink (0..2 stored as 0..1), B dryness.
 const POUR_FS = `#version 300 es
-precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uSrc; uniform vec4 uDst; uniform vec2 uRes;
+precision highp float; precision highp sampler2D; in vec2 vUV; out vec4 o; uniform sampler2D uSrc; uniform vec4 uDst; uniform vec2 uRes;
 void main(){ vec2 t = (vUV * uRes - uDst.xy) / uDst.zw; vec4 m = texture(uSrc, t); if (m.r <= 0.) discard; o = vec4(m.g * 2. * m.r, m.r, m.b * m.r, 0); }`;
 
 const RENDER_FS = `#version 300 es
-precision highp float; in vec2 vUV; out vec4 o; uniform sampler2D uDry, uWet, uPaper; uniform vec3 uPaperRGB, uK, uInk; uniform float uBase, uOver;
+precision highp float; precision highp sampler2D; in vec2 vUV; out vec4 o; uniform sampler2D uDry, uWet, uPaper; uniform vec3 uPaperRGB, uK, uInk; uniform float uBase, uOver;
 void main(){
   vec2 uv = vec2(vUV.x, 1. - vUV.y);                 // the simulation runs y down, the screen's framebuffer y up
   float V = texture(uDry, uv).r + texture(uWet, uv).r, f = texture(uPaper, uv).g;
