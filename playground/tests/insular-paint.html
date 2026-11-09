@@ -24,7 +24,7 @@ import * as KM from './km-paint.js';
 import * as AGE from './km-age.js';
 import * as SM from './km-smoke.js';
 import * as KM_B from './km-bench.js';
-const q = new URLSearchParams(location.search), Z = +(q.get('z') ?? 4), dpr = Math.min(2, devicePixelRatio || 1);
+const q = new URLSearchParams(location.search), Z = +(q.get('z') ?? 2), dpr = Math.min(2, devicePixelRatio || 1);
 const MM = KM_B.MM, PXMM = q.get('pxmm') ? +q.get('pxmm') : dpr * Z / MM, CSS = Z / MM;   // render px per mm; css px per mm
 const age = +(q.get('age') ?? .35), psf = +(q.get('psf') ?? 0), seed = +(q.get('seed') ?? 1), only = q.get('only');
 const timing = {};
