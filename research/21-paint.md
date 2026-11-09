@@ -96,3 +96,29 @@ control 26–45 ms. At 49 px/mm (0.5–1.4 Mpx): physical 0.8–1.4 s. **Not wit
 Bristle hairs, noise-in-mask, anisotropic brush-mark noise (it read as streaky noise), watercolour rims and blooms,
 Voronoi crack textures (Y-junctions), random fissures, grunge masks, Mixbox (CC BY-NC), single-constant KM (no hiding),
 fluid sims for paint, follicles as visible dots (kept faint, sub-visible at 1×), grime in follicle pits (it read as dots).
+
+## The hand in the geometry (second pass, after the user's verdict)
+
+User: "The dots look good, the knot still reads digital to me as does the gold and the grid." Decision: cheap paint at page
+size (`km-smoke.js`: the loads and pen composed by KM over a flat vellum, losses placed by hand, a warm falloff, one soft
+optic; ~25–65 ms per piece) with the touch-dots and the vellum hairline kept; the full physical path behind `?paint=physical`.
+The effort moved into the geometry, measured on f. 139r at the scan's sampling with `paintv2/measure.py` (pen lines as
+luma valleys, ink-mass width; reserve as the pale run beside a line; tracked row to row) and the same tool on our renders
+blurred to the camera (σ 1.1 px):
+
+| | master keys | master ring rules | ours keys before | ours keys after | ours band after |
+|---|---|---|---|---|---|
+| line ink-mass width (mm) | .16–.18 | .15 | unresolved | .11 | .11 |
+| width cv / wavelength | .25–.27 / .85–1.1 mm | .25 / .7 mm | — | .23 / .7 mm | .38 / 1.5 mm |
+| centre wander sd / wavelength | .026–.030 mm / ~.9–1 mm | .029 / 1.2 mm | — | .022 / .9 mm | .037 (bow) |
+| reserve where present (mm) | .26–.31, sd .07–.09 | .50, sd .20 | unresolved | .27, sd .08 | .28, sd .06 |
+| reserve absent | 18–27 % | 65 % | — | 23 % | 84 % |
+| line angle error sd | 4.0° (h) / 6.9° (v) | — | 0.5° | 4.1° | — |
+
+(Unblurred, the before keys measure line .20 mm with cv .13, reserve .09 mm, angle sd 1.0°: even, thin and square.)
+Causes: weight from pressure and nib angle along the stroke (1-D), pooling at turns, set-downs and lifts; construction points
+off by the hand's aim (±.14 mm), the ruling bowing as a whole (.25 mm over 9 mm), each step its own size (±6 %); the reserve
+the brush's distance from the line, absent where the brush ran up to it; the band's rules each bowing (.17 mm over 5.5 mm),
+its fill in ~8 mm loads whose stops are bowed chords with a pool; the knot's cords each a little wider or narrower (±9 %),
+strand tops rubbed thin (broken, more on over-crossings and the outer loops), a dark red-brown ground (the master's median,
+80 38 21) over a fine red knotwork that shows where the ground's load ran thin.

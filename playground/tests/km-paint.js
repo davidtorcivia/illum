@@ -32,9 +32,14 @@ export const PIG = {
 };
 
 export const lin = c => c.map(v => (v / 255) ** 2.2);
+// an absorbing layer that shows colour c (as seen) over our vellum at tau = 1
+export const absorbing = c => ({ OD: lin(c).map((v, k) => -Math.log(inside(v) / inside(lin(VELLUM)[k])) / 2) });
+// the parchment as one flat colour (the page-size path: no skin fields)
+export const flatParchment = G => { const Rp = new Float32Array(G.n * 3), b = lin(VELLUM); for (let q = 0; q < G.n; q++) { Rp[q * 3] = b[0]; Rp[q * 3 + 1] = b[1]; Rp[q * 3 + 2] = b[2]; } return { Rp, zp: new Float32Array(G.n), dz: new Float32Array(G.n), flat: true }; };
 const srgb = v => Math.round(255 * Math.max(0, Math.min(1, v)) ** (1 / 2.2));
 const K1 = .04, K2 = .5;
 const inside = R => R / ((1 - K1) * (1 - K2) + K2 * R), surface = R => (1 - K1) * (1 - K2) * R / (1 - K2 * R);
+PIG.groundRB = absorbing([80, 38, 21]);   // the knot band's ground on f. 139r: dark red-brown (median of its pixels)
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 export const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const n1 = (seed, scale) => { const f = noise1(seed); return x => (f(x / scale) - .5) * 2; };   // -1..1, one scale
@@ -153,20 +158,20 @@ export function penStroke(K, ds, s0, s1, { floor = .16, R0 = 2.2, dwell = 1.25 }
 // Lines of ink along each side of every strand: strokes between the crossings where the strand goes under (the pen stops at
 // the other strand's line, pooling a little there), the line's weight from the nib (c.g) and the pooling, its centre a hair
 // off the strand's edge, the ink running down between dips. Returns tau (ink, 1 = a solid stroke's density).
-export function knotLines(G, F, cords, W, { lw = .085, seed = 1, od = .8 } = {}) {
+export function knotLines(G, F, cords, W, { lw = .085, seed = 1, od = .8, wander = .22 } = {}) {
   const ds = .02, lines = cords.map((c, t) => [-1, 1].map(side => {
     const N = Math.ceil(c.L / ds), dens = new Float32Array(N + 1), K = curvature(c.pts, true, ds, N + 1), Kf = s => K[Math.min(N, Math.max(0, Math.round(((s % c.L) + c.L) % c.L / ds)))];
     const us = c.under.slice().sort((a, b) => a - b), cuts = us.length ? us : [0], e = W * .5;
     cuts.forEach((u, k) => { const a = u + e * .85, b = (k + 1 < cuts.length ? cuts[k + 1] : cuts[0] + c.L) - e * .85; if (b <= a) return;
       const p = penStroke(Kf, ds, a, b), dip = 1 - .22 * (((k + t * 3 + (side > 0 ? 2 : 0)) % 5) / 4);
       for (let i = 0; i < p.length; i++) { const sIdx = Math.round((((a + i * ds) % c.L) + c.L) % c.L / ds); dens[Math.min(N, sIdx)] = p[i] * dip; } });
-    return { dens, drift: n1(seed * 97 + t * 7 + (side > 0 ? 3 : 0), 2.5) };
+    return { dens, drift: n1(seed * 97 + t * 7 + (side > 0 ? 3 : 0), 2.5), weight: n1(seed * 89 + t * 5 + (side > 0 ? 7 : 0), .42) };
   }));
   const tau = new Float32Array(G.n), e = Math.max(.6 / G.pxmm, .012);
   for (let q = 0; q < G.n; q++) { const t = F.id[q]; if (t < 0) continue; const c = cords[t], side = F.d[q] >= 0 ? 1 : 0, L = lines[t][side], s = F.s[q];
     const k = Math.min(c.pts.length - 1, Math.floor(s / c.L * c.pts.length)), dn = L.dens[Math.min(L.dens.length - 1, Math.round(s / ds))];
     if (!dn) continue;
-    const w = lw * (c.g ? c.g[k] : 1) * (.7 + .3 * Math.min(2, dn)), ctr = F.hw[q] - w / 2 + .012 * L.drift(s), a = Math.abs(F.d[q]);
+    const w = lw * (c.g ? c.g[k] : 1) * (.7 + .3 * Math.min(2, dn)) * (1 + wander * L.weight(s)), ctr = F.hw[q] - w / 2 + .012 * L.drift(s), a = Math.abs(F.d[q]);
     const cov = clamp01((w / 2 - Math.abs(a - ctr)) / e + .5); if (cov > 0) tau[q] = cov * od * Math.min(1.5, .8 + .2 * dn); }
   return tau;
 }
@@ -177,12 +182,28 @@ export function ruled(G, pts, { lw = .07, od = .9, seed = 1, tau = new Float32Ar
 }
 // one pen stroke along a polyline (a curve or a rule): ink pooled where it set down, turned and lifted; the hand wavering
 // slowly off the drawn path (wob mm over ~6 mm)
-export function penLine(G, pts, { lw = .07, od = .9, seed = 1, tau = new Float32Array(G.n), floor = .16, wob = .015 } = {}) {
-  const e = Math.max(.6 / G.pxmm, .012), { D, S, L } = nearestLine(G, pts, false, lw * 2.5), ds = .02, N = Math.ceil(L / ds);
-  const K = pts.length > 2 ? curvature(pts, false, ds, N + 1) : null, p = penStroke(K ? s => K[Math.min(N, Math.max(0, Math.round(s / ds)))] : null, ds, 0, L, { floor }), wv = n1(seed, 6);
-  for (let q = 0; q < G.n; q++) { if (D[q] === Infinity) continue; const dn = p[Math.min(p.length - 1, Math.round(S[q] / ds))], w = lw * (.75 + .25 * dn), c = wob * wv(S[q]);
+// The hand, measured on f. 139r's keys and rules (paintv2/measure.py): the line's weight varies by cv ≈ .27 over ~.9 mm
+// (pressure and the nib's angle as the hand moves; pooling at turns and set-downs on top), its centre wanders ~.026 mm sd
+// over ~.9 mm (wob); slower bows belong to the construction, not the pen.
+export function penLine(G, pts, { lw = .07, od = .9, seed = 1, tau = new Float32Array(G.n), floor = .16, wob = .03, wander = .25 } = {}) {
+  const e = Math.max(.6 / G.pxmm, .012), { D, S, L } = nearestLine(G, pts, false, lw * 3), ds = .02, N = Math.ceil(L / ds);
+  const K = pts.length > 2 ? curvature(pts, false, ds, N + 1) : null, p = penStroke(K ? s => K[Math.min(N, Math.max(0, Math.round(s / ds)))] : null, ds, 0, L, { floor }), wv = n1(seed, .45), ww = n1(seed + 77, .42);
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const i0 = Math.max(0, Math.floor((x0 - lw * 3 - G.x0) * G.pxmm)), i1 = Math.min(G.w - 1, Math.ceil((x1 + lw * 3 - G.x0) * G.pxmm)), j0 = Math.max(0, Math.floor((y0 - lw * 3 - G.y0) * G.pxmm)), j1 = Math.min(G.h - 1, Math.ceil((y1 + lw * 3 - G.y0) * G.pxmm));
+  for (let j = j0; j <= j1; j++) for (let q = j * G.w + i0, qe = j * G.w + i1; q <= qe; q++) { if (D[q] === Infinity) continue; const dn = p[Math.min(p.length - 1, Math.round(S[q] / ds))], w = lw * (.75 + .25 * dn) * (1 + wander * ww(S[q])), c = wob * wv(S[q]);
     const cov = clamp01((w / 2 - Math.abs(D[q] - c)) / e + .5); if (cov > 0) tau[q] = Math.max(tau[q], cov * od * Math.min(1.4, .85 + .15 * dn)); }
   return tau;
+}
+// distance (mm) from each inside pixel to the region's edge (M < .5 outside): a two-pass chamfer transform
+export function insideDist(G, M) {
+  const { w, h, n } = G, D = new Float32Array(n), a = 1, b = Math.SQRT2, BIG = 1e6;
+  for (let q = 0; q < n; q++) D[q] = M[q] >= .5 ? BIG : 0;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const q = j * w + i; if (!D[q]) continue; let v = D[q];
+    if (i > 0) v = Math.min(v, D[q - 1] + a); else v = Math.min(v, a); if (j > 0) { v = Math.min(v, D[q - w] + a); if (i > 0) v = Math.min(v, D[q - w - 1] + b); if (i < w - 1) v = Math.min(v, D[q - w + 1] + b); } else v = Math.min(v, a); D[q] = v; }
+  for (let j = h - 1; j >= 0; j--) for (let i = w - 1; i >= 0; i--) { const q = j * w + i; if (!D[q]) continue; let v = D[q];
+    if (i < w - 1) v = Math.min(v, D[q + 1] + a); if (j < h - 1) { v = Math.min(v, D[q + w] + a); if (i < w - 1) v = Math.min(v, D[q + w + 1] + b); if (i > 0) v = Math.min(v, D[q + w - 1] + b); } D[q] = v; }
+  for (let q = 0; q < n; q++) D[q] = D[q] ? (D[q] - .5) / G.pxmm : 0;
+  return D;
 }
 // a region's coverage (0..1, anti-aliased) from a Path2D in mm
 export function mask(G, path, rule = 'nonzero') {
@@ -222,27 +243,35 @@ export function makeLoad(seed, k, { dragP = .15 } = {}) {
 }
 // the tint of a knot: inside each strand, short of its pen line; one stroke per stretch between under-crossings (the ends hidden
 // under the crossing strands), two overlapping loads on a long stretch; the brush's edge wandering along each side
-export function knotTint(G, F, cords, W, { frac = .5, seed = 1, soft = .05 } = {}) {
+// reserve: { m, line } — the measured hand: the band of vellum between the pen line (line mm wide) and the tint is
+//   r(s) = max(0, m (.6 + 1.4 u(s))) along each side (f. 139r keys: .3 mm where present, absent ~27 % of the way);
+// scuff: { amp, centre, R } — the strand's raised middle rubbed thin, broken along its length, more where the strand rides
+//   over a crossing (raised) and on the outer loops (handled, rubbed against the facing page): the cause is rubbing.
+export function knotTint(G, F, cords, W, { frac = .5, seed = 1, soft = .05, reserve = null, scuff = null } = {}) {
   const tau = new Float32Array(G.n), plans = cords.map((c, t) => {
     const us = c.under.slice().sort((a, b) => a - b), cuts = us.length ? us : [0], loads = [];
     cuts.forEach((u, k) => { const a = u, b = k + 1 < cuts.length ? cuts[k + 1] : cuts[0] + c.L, len = b - a, m = len > 5.5 ? 2 : 1;
       for (let j = 0; j < m; j++) { const ov = m > 1 ? .14 * len : 0, l0 = a + j * len / m - (j ? ov : 0), l1 = a + (j + 1) * len / m + (j < m - 1 ? ov : 0);
         loads.push({ a: l0, b: l1, ...makeLoad(seed + t * 101, k * 3 + j) }); } });
     const e1 = [n1(seed * 7 + t, 1.2), n1(seed * 7 + t + 50, 1.2)], e2 = [n1(seed * 11 + t, .4), n1(seed * 11 + t + 50, .4)];
-    return { loads, edge: [s => .8 * e1[0](s) + .3 * e2[0](s), s => .8 * e1[1](s) + .3 * e2[1](s)] };
+    return { loads, edge: [s => .8 * e1[0](s) + .3 * e2[0](s), s => .8 * e1[1](s) + .3 * e2[1](s)], res: [n1(seed * 13 + t, .6), n1(seed * 13 + t + 50, .6)], gone: [n1(seed * 23 + t, 1.8), n1(seed * 23 + t + 50, 1.8)], sc: n1(seed * 17 + t, 1.1), sc2: n1(seed * 19 + t, 3) };
   });
   for (let q = 0; q < G.n; q++) { const t = F.id[q]; if (t < 0) continue; const c = cords[t], P = plans[t], s = F.s[q], v = F.d[q], side = v >= 0 ? 1 : 0;
-    const hwt = F.hw[q] * (frac + (1 - frac) * .38 * P.edge[side](s)), a = Math.abs(v); if (a > hwt + soft) continue;
+    const hwt = reserve ? Math.max(0, F.hw[q] - reserve.line - reserve.m * (1 + .45 * P.res[side](s)) * smooth(-.75, -.45, P.gone[side](s))) : F.hw[q] * (frac + (1 - frac) * .38 * P.edge[side](s)), a = Math.abs(v); if (a > hwt + soft) continue;
     const cov = smooth(-soft, soft * .5, hwt - a); let sum = 0;
     for (const L of P.loads) { let x = s; if (x < L.a) x += c.L; if (x > L.b) continue; const sg = (x - L.a) / (L.b - L.a);
       const ends = smooth(0, .12, x - L.a) * smooth(0, .12, L.b - x); sum += ends * loadTau(sg, x, v, hwt, L); }
+    if (scuff) { const x = G.x(q % G.w) - scuff.centre[0], y = G.y(Math.floor(q / G.w)) - scuff.centre[1], out = smooth(.35, 1, Math.hypot(x / scuff.R[0], y / scuff.R[1]));
+      const along = smooth(.05, .45, .55 * P.sc(s) + .45 * P.sc2(s)), raised = F.z[q] === 2 ? 1 : .45;
+      sum *= 1 - scuff.amp * along * raised * (.35 + .65 * out) * Math.exp(-((a / (.3 * F.hw[q])) ** 2)); }
     tau[q] = cov * sum; }
   return tau;
 }
 // Fill a region (mask 0..1) by loads: each connected pocket a touch of the brush (charged where it was set down, running
 // thinner as it was drawn across); a wide pocket in overlapping swaths along its long axis (seams where they overlap).
 // uv(x, y) -> [u, v] mm: the stroke's own frame (along a curved band), in place of the pocket's straight axis
-export function fillLoads(G, M, { seed = 1, swath = 1.3, thr = .5, axis = null, dragP = null, scale = 1, uv = null } = {}) {
+// seg: split each swath into loads ~seg mm long (15 % overlap); where a load stopped, it pooled (pool: extra thickness over .5 mm)
+export function fillLoads(G, M, { seed = 1, swath = 1.3, thr = .5, axis = null, dragP = null, scale = 1, uv = null, seg = 0, pool = .3 } = {}) {
   const { w, h, n, pxmm } = G, lab = new Int32Array(n).fill(-1), tau = new Float32Array(n), stack = []; let L = 0;
   for (let q0 = 0; q0 < n; q0++) { if (M[q0] < thr || lab[q0] >= 0) continue; const px = []; stack.push(q0); lab[q0] = L;
     while (stack.length) { const q = stack.pop(); px.push(q); const i = q % w, j = (q - i) / w;
@@ -254,11 +283,17 @@ export function fillLoads(G, M, { seed = 1, swath = 1.3, thr = .5, axis = null, 
     const UV = q => { if (uv) return uv(G.x(q % w), G.y(Math.floor(q / w))); const dx = (q % w - mx) / pxmm, dy = (Math.floor(q / w) - my) / pxmm; return [dx * ux + dy * uy, -dx * uy + dy * ux]; };
     let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9; for (const q of px) { const [u, v] = UV(q); u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
     const across = v1 - v0, ns = Math.max(1, Math.round(across / swath)), sw = across / ns, flip = hash2(L, seed, 5) < .5;
-    const loads = Array.from({ length: ns }, (_, k) => ({ ...makeLoad(seed * 31 + L, k, { dragP: dragP ?? (ns > 1 ? .3 : .1) }), c: v0 + (k + .5) * sw, flip: (k % 2 === 0) === flip, path: n1(seed * 41 + L * 7 + k, 3.5) }));
+    const loads = Array.from({ length: ns }, (_, k) => ({ ...makeLoad(seed * 31 + L, k, { dragP: dragP ?? (ns > 1 ? .3 : .1) }), c: v0 + (k + .5) * sw, flip: (k % 2 === 0) === flip, path: n1(seed * 41 + L * 7 + k, 3.5), bow: [] }));
     for (const q of px) { const [u, v] = UV(q); let sum = 0, wt = 0;
       for (const ld of loads) { const hv = Math.max(.01, sw * .5 * (ns > 1 ? 1.6 : 3)), dv = v - ld.c - (ns > 1 ? .15 * sw * ld.path(u) : 0); if (Math.abs(dv) > hv) continue;
-        const sg = ld.flip ? (u1 - u) / ((u1 - u0) || 1) : (u - u0) / ((u1 - u0) || 1), edge = ns > 1 ? smooth(hv, hv * .55, Math.abs(dv)) : 1;
-        sum += edge * loadTau(sg, u, dv, hv, ld); wt += edge; }
+        const edge = ns > 1 ? smooth(hv, hv * .55, Math.abs(dv)) : 1;
+        if (!seg) { const sg = ld.flip ? (u1 - u) / ((u1 - u0) || 1) : (u - u0) / ((u1 - u0) || 1); sum += edge * loadTau(sg, u, dv, hv, ld); wt += edge; continue; }
+        const nseg = Math.max(1, Math.round((u1 - u0) / seg)), Ls = (u1 - u0) / nseg, ov = .15 * Ls;
+        const bowU = j => (ld.flip ? -1 : 1) * (.45 * (dv / hv) ** 2 + .3 * (ld.bow[j] ??= n1(seed * 3 + L * 7 + j, .5))(dv));   // the stop: bowed back toward where the brush came from
+        for (let j = 0; j < nseg; j++) { const a = u0 + j * Ls - (j ? ov : 0) + (j ? bowU(j - 1) : 0), b = u0 + (j + 1) * Ls + (j < nseg - 1 ? ov + bowU(j) : 0); if (u < a || u > b) continue;
+          const sl = { ...ld, t0: ld.t0 * (.9 + .2 * hash2(L * 31 + j, seed, 21 + ld.c * 7 | 0)) }, sg = ld.flip ? (b - u) / (b - a) : (u - a) / (b - a), stop = ld.flip ? u - a : b - u;
+          const ends = smooth(0, .25, u - a) * smooth(0, .25, b - u), wgt = edge * (j && u < a + 2 * ov ? smooth(a, a + 2 * ov, u) : 1);
+          sum += wgt * loadTau(sg, u, dv, hv, sl) * (1 + pool * smooth(.6, .1, stop)) * Math.max(.4, ends); wt += wgt; } }
       // where two loads overlap the later lies over the earlier: a seam a little heavier, not a doubled coat
       tau[q] = wt > 0 ? scale * sum / wt * Math.min(1, wt) * (1 + .2 * Math.min(1, Math.max(0, wt - 1))) * M[q] : 0; }
     L++; }

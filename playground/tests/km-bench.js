@@ -1,133 +1,144 @@
 // The paint bench's subjects (tests/insular-paint.html): geometry in mm, and each one's paint layers through km-paint.js.
-// Measured hand from f. 139r's blue knots (W the strand's width): pen line ~.06 W; a band of vellum; tint ~.5–.6 W; breadth
-// ±20 % along a cord; the centre wandering ~.1 W per cell; the line heavier in turns.
+// hand: the scribe's hand in the GEOMETRY, measured on f. 139r at the scan's sampling (scratchpad paintv2/measure.py):
+//   pen line ink-mass width .15–.18 mm, cv .25–.27 over ~.9 mm; centre wander .026 mm sd over ~.9 mm; ruled lines off
+//   their axis by 4–7° sd; the reserved vellum beside a line .30 mm (keys) / .50 mm (rules) where present, cv ~.3, absent
+//   27 % (keys) / 65 % (rules) of the way. hand = 0 gives the earlier, exact geometry (the "before").
+// cheap: the page-size path — flat vellum, no levelling, no weathering (losses placed by hand where a stroke ended or an
+//   edge was handled); the same loads, pen and KM compose.
 import { plait, cords, measure } from '../kit/styles/insular-knot.js';
-import { noise2 } from '../kit/marks.js';
+import { noise1, noise2, hash2 } from '../kit/marks.js';
 import * as KM from './km-paint.js';
-import * as SM from './km-smoke.js';
 
 export const MM = .15;   // mm per css px at the page's size
 export const rect = ([x0, y0, x1, y1]) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+const n1 = (seed, scale) => { const f = noise1(seed); return x => (f(x / scale) - .5) * 2; };
+const parch = (G, cheap, seed) => cheap ? KM.flatParchment(G) : KM.parchment(G, { seed });
+const lev = (tau, P, cheap) => cheap ? tau : KM.level(tau, P);
+const poly = pts => { const P = new Path2D(); P.moveTo(...pts[0]); for (const q of pts.slice(1)) P.lineTo(...q); P.closePath(); return P; };
+// the reserve's cut: a region's paint stops short of its edge by line/2 + r(x, y), r = max(lo, m (a + b u)) (u -1..1, slow)
+// The reserve beside a line: m where present (cv sd), and stretches where the brush ran up onto the line (absent, a share
+// `gone` of the way, on a longer scale); lo < 0 lets the brush overrun the rule a little there.
+function reserveCut(G, M, { m, cv = .27, gone = .27, lo = 0, line = .08, seed = 1, scale = .8, gscale = 3.5 }) {
+  const D = KM.insideDist(G, M), u = noise2(seed * 53 + 7), g = noise2(seed * 53 + 11), e = 1 / G.pxmm, gt = 2 * gone - 1;
+  for (let j = 0; j < G.h; j++) for (let i = 0; i < G.w; i++) { const q = j * G.w + i; if (M[q] <= 0) continue; const x = G.x(i), y = G.y(j);
+    const gate = KM.smooth(gt - .6, gt + .6, (g(x / gscale, y / gscale) - .5) * 2 * 1.6), r = lo + (m * (1 + cv * 1.7 * (u(x / scale, y / scale) - .5) * 2) - lo) * gate, cut = line / 2 + r;
+    M[q] *= Math.max(0, Math.min(1, (D[q] - cut) / e + .5)); }
+  return M;
+}
 
-export function knotGeometry(seed = 1) {
+// ---- the knot ---------------------------------------------------------------------------------------------------------------------
+export function knotGeometry(seed = 1, hand = 1) {
   const A = 6, B = 3, u = 9, ox = 10, oy = 10, PW = ox * 2 + 2 * A * u, PH = oy * 2 + 2 * B * u;
   const K = plait(A, B, () => true, (x, y) => y === 3 && (x === 3 || x === 9));
   const C = measure(cords(K, { ox, oy, u, inset: .32, round: 1.05 }), u), W = u * 1.02;
   const nx = noise2(11 * seed), ny = noise2(29 * seed), wx = noise2(41 * seed), wy = noise2(57 * seed), lam = u * 3.2, amp = u * .06, aw = W * .1;
-  const out = C.map((c, t) => { const fb = noise2(100 + t + seed * 7), gb = noise2(200 + t + seed * 7);
+  const out = C.map((c, t) => { const fb = noise2(100 + t + seed * 7), gb = noise2(200 + t + seed * 7), cw = hand ? 1 + .09 * (hash2(t, seed, 5) - .5) * 2 : 1;   // each cord its own pass of the pen: a little wider or narrower
     const pts = c.pts.map(([x, y]) => [(x + amp * (nx(x / lam, y / lam) - .5) * 2 + aw * (wx(x / u, y / u) - .5) * 2) * MM, (y + amp * (ny(x / lam, y / lam) - .5) * 2 + aw * (wy(x / u, y / u) - .5) * 2) * MM]);
     const n = pts.length, f = new Float32Array(n), g = new Float32Array(n);
     for (let k = 0; k < n; k++) { const s = k / n * c.L, a = pts[(k - 3 + n) % n], b = pts[k], d = pts[(k + 3) % n], h1 = Math.atan2(b[1] - a[1], b[0] - a[0]), h2 = Math.atan2(d[1] - b[1], d[0] - b[0]);
       let dh = h2 - h1; dh -= Math.round(dh / (2 * Math.PI)) * 2 * Math.PI; const turn = Math.min(1, Math.abs(dh) / (Math.hypot(d[0] - a[0], d[1] - a[1]) || 1) * u * MM * .9);
-      f[k] = 1 + .2 * (fb(s / (u * 1.3), t * 3.1) - .5) * 2; g[k] = .7 + .9 * turn + .35 * (gb(s / (u * .8), t) - .5); }
+      f[k] = cw * (1 + .2 * (fb(s / (u * 1.3), t * 3.1) - .5) * 2); g[k] = .7 + .9 * turn + .35 * (gb(s / (u * .8), t) - .5); }
     return { pts, f, g, ev: c.ev, sFrac: c.s.map(v => v / c.L) }; });
-  return { cords: out, W: W * MM, box: [0, 0, PW * MM, PH * MM], frame: [3.4 * MM, 3.4 * MM, (PW - 3.4) * MM, (PH - 3.4) * MM] };
+  // the fine red pen-knotwork the ground was laid round (a plait at a third of the scale)
+  const fine = hand ? cords(plait(13, 7), { ox: 4.5, oy: 5.5, u: 4.5, inset: .3, round: 1.05 }).map(c => c.pts.map(([x, y]) => [x * MM, y * MM])) : [];
+  return { cords: out, W: W * MM, box: [0, 0, PW * MM, PH * MM], frame: [3.4 * MM, 3.4 * MM, (PW - 3.4) * MM, (PH - 3.4) * MM], fine, hand };
 }
-
-// the knot's layers, bottom first: the pen (drawn first), the dark ground, the blue-grey tint
-export function knotLayers(G, geo, { seed = 1, tint = .66 } = {}) {
-  const P = KM.parchment(G, { seed: 3 }), F = KM.knotFields(G, geo.cords, geo.W);
-  const ink = KM.knotLines(G, F, geo.cords, geo.W, { seed }); KM.ruled(G, rect(geo.frame), { tau: ink, seed });
+// layers, bottom first: the pen (drawn first), the ground, the red knotwork where the ground left it, the blue-grey tint
+export function knotLayers(G, geo, { seed = 1, cheap = false, tint = .66 } = {}) {
+  const hand = geo.hand, P = parch(G, cheap, 3), F = KM.knotFields(G, geo.cords, geo.W);
+  const ink = KM.knotLines(G, F, geo.cords, geo.W, { seed, wander: hand ? .22 : 0, lw: hand ? .11 : .085 }); KM.ruled(G, rect(geo.frame), { tau: ink, seed, wob: hand ? .012 : 0, wander: hand ? .25 : 0 });
   const [fx0, fy0, fx1, fy1] = geo.frame, M = new Float32Array(G.n);
   for (let j = 0; j < G.h; j++) for (let i = 0; i < G.w; i++) { const q = j * G.w + i, x = G.x(i), y = G.y(j); if (x < fx0 + .03 || x > fx1 - .03 || y < fy0 + .03 || y > fy1 - .03) continue;
     M[q] = F.id[q] < 0 ? 1 : Math.max(0, Math.min(1, (Math.abs(F.d[q]) - F.hw[q]) * G.pxmm + .5)); }
-  const ground = KM.level(KM.fillLoads(G, M, { seed: seed + 4, swath: 1.4, axis: 0, dragP: 0, scale: 2.2 }).tau, P);
-  const tn = KM.level(KM.knotTint(G, F, geo.cords, geo.W, { seed: seed + 9, frac: tint }), P);
-  return { P, F, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: KM.PIG.dark, tau: ground, kind: 'dark' }, { pig: KM.PIG.knot, tau: tn, kind: 'knot' }] };
+  const ground = lev(KM.fillLoads(G, M, { seed: seed + 4, swath: 1.4, axis: 0, dragP: 0, scale: hand ? 1 : 2.2 }).tau, P, cheap);
+  const cx = (geo.box[0] + geo.box[2]) / 2, cy = (geo.box[1] + geo.box[3]) / 2;
+  const tn = lev(KM.knotTint(G, F, geo.cords, geo.W, { seed: seed + 9, frac: tint, ...(hand ? { reserve: { m: .17, line: .11 }, scuff: { amp: .55, centre: [cx, cy], R: [cx * .85, cy * .8] } } : {}) }), P, cheap);
+  const layers = [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: hand ? KM.PIG.groundRB : KM.PIG.dark, tau: ground, kind: 'dark' }];
+  if (hand && geo.fine.length) {   // the red lines: visible where the ground's load ran thin over them, covered where it was heavy
+    const red = new Float32Array(G.n); geo.fine.forEach((pts, k) => KM.penLine(G, [...pts, pts[0]], { lw: .1, od: 1, seed: seed * 7 + k, tau: red, floor: .4 }));
+    for (let q = 0; q < G.n; q++) red[q] *= M[q] * KM.smooth(.95, .72, ground[q]) * 1.2;
+    layers.push({ pig: KM.PIG.redlead, tau: red, kind: 'redline' }); }
+  layers.push({ pig: KM.PIG.knot, tau: tn, kind: 'knot' });
+  // hand-placed losses for the page-size path: at a stroke's end beside a crossing, on the outer loops
+  const losses = [];
+  geo.cords.forEach((c, t) => c.under && c.under.slice(1, 3).forEach((uu, k) => { if ((t + k) % 2) return; const p = c.pts[Math.floor(((uu + geo.W * .8) % c.L) / c.L * c.pts.length)]; losses.push([p[0], p[1], .07]); }));
+  return { P, layers, losses };
 }
 
-// the control on the same knot: flat palette colours over the same fields, a strand's slow swell, the tint off register,
-// losses where a stroke ended at a strand's edge
-export function knotSmoke(G, geo, { seed = 1, tint = .66 } = {}) {
-  const F = KM.knotFields(G, geo.cords, geo.W), { n } = G, line = new Float32Array(n), band = new Float32Array(n), tn = new Float32Array(n), gr = new Float32Array(n);
-  const sw = geo.cords.map((_, t) => SM.swell1(seed * 5 + t)), ed = geo.cords.map((_, t) => [SM.swell1(seed * 9 + t, 1.2), SM.swell1(seed * 9 + t + 40, 1.2)]), lw = .085, e = 1 / G.pxmm;
-  const [fx0, fy0, fx1, fy1] = geo.frame, sx = new Float32Array(n);
-  for (let j = 0; j < G.h; j++) for (let i = 0; i < G.w; i++) { const q = j * G.w + i, x = G.x(i), y = G.y(j), inF = x > fx0 && x < fx1 && y > fy0 && y < fy1;
-    const inB = x > fx0 - lw && x < fx1 + lw && y > fy0 - lw && y < fy1 + lw, fr = Math.min(Math.abs(x - fx0), Math.abs(x - fx1), Math.abs(y - fy0), Math.abs(y - fy1)); line[q] = inB ? Math.max(0, Math.min(1, (lw * .45 - fr) / e + .5)) : 0;
-    if (F.id[q] < 0) { if (inF) gr[q] = 1; continue; }
-    const a = Math.abs(F.d[q]), hw = F.hw[q], t = F.id[q], cov = Math.max(0, Math.min(1, (hw - a) / e + .5)); gr[q] = inF ? 1 - cov : 0;
-    band[q] = cov; line[q] = Math.max(line[q], cov * Math.max(0, Math.min(1, (lw - (hw - a)) / e + .5)));
-    const ht = hw * (tint + (1 - tint) * .3 * ed[t][F.d[q] >= 0 ? 1 : 0](F.s[q])); tn[q] = Math.max(0, Math.min(1, (ht - a) / e + .5)); sx[q] = sw[t](F.s[q]); }
-  const losses = []; geo.cords.forEach((c, t) => c.under.slice(0, 2).forEach((u, k) => { const p = c.pts[Math.floor(((u + geo.W * .75) % c.L) / c.L * c.pts.length)]; if ((t + k) % 2 === 0) losses.push([p[0], p[1] - geo.W * .2, .09]); }));
-  const swell = (x, y) => sx[Math.min(n - 1, Math.floor((y - G.y0) * G.pxmm) * G.w + Math.floor((x - G.x0) * G.pxmm))];
-  return SM.flat(G, [{ cov: gr, col: SM.FLAT.dark, hole: false }, { cov: band, col: SM.FLAT.reserve, hole: false }, { cov: tn, col: SM.FLAT.knot, swell, shift: [.03, .02] }, { cov: line, col: SM.FLAT.ink, hole: false }], { losses, seed });
-}
-
-// ---- dots: two columns of a dot field between ruled lines (f. 139r: dot .7 mm, nearest pitch 1.3 mm, a lozenge lattice),
-// placed row by row by a hand that drifts along each row; red lead, thick (the BL saw crackle on them) -----------------------
+// ---- dots: unchanged (the user: "the dots look good") ------------------------------------------------------------------------
 export function dotsGeometry(seed = 1) {
   const box = [0, 0, 30, 20], cols = [[2.2, 13.6], [16.4, 27.8]], D = [], rules = [], drift = noise2(seed * 3 + 1);
   cols.forEach(([x0, x1], c) => { rules.push([[x0 - .55, 1], [x0 - .5 + .15 * c, 19]], [[x1 + .55, 1], [x1 + .6 - .1 * c, 19]]);
     const py = 1.08 * Math.sqrt(3) / 2, px = 1.08; let row = 0;
     for (let y = 1.6; y < 18.6; y += py, row++) { const off = row % 2 ? px / 2 : 0;
       for (let x = x0 + .45 + off; x < x1 - .4; x += px) { const dx = .12 * (drift(x / 4, y / 4) - .5) * 2, dy = .1 * (drift(x / 4 + 9, y / 4) - .5) * 2; D.push([x + dx, y + dy, .3, 0]); } } });
-  return { box, D, rules };
+  return { box, D, rules, hand: 1 };
 }
-export function dotsLayers(G, geo, { seed = 1 } = {}) {
-  const P = KM.parchment(G, { seed: 4 }), ink = new Float32Array(G.n); geo.rules.forEach((r, k) => KM.penLine(G, r, { lw: .09, od: .75, seed: seed + k, tau: ink, floor: .3 }));
-  const red = KM.level(KM.dots(G, geo.D, { t0: 1.5, seed }), P);
-  return { P, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: KM.PIG.redlead, tau: red, kind: 'redlead' }] };
-}
-export function dotsSmoke(G, geo, { seed = 1 } = {}) {
-  const dots = new Float32Array(G.n), line = new Float32Array(G.n), e = 1 / G.pxmm;
-  for (const [cx, cy, r] of geo.D) for (let j = Math.max(0, Math.floor((cy - r - .1 - G.y0) * G.pxmm)); j < Math.min(G.h, (cy + r + .1 - G.y0) * G.pxmm); j++) for (let i = Math.max(0, Math.floor((cx - r - .1 - G.x0) * G.pxmm)); i < Math.min(G.w, (cx + r + .1 - G.x0) * G.pxmm); i++) {
-    const d = Math.hypot(G.x(i) - cx, G.y(j) - cy); dots[j * G.w + i] = Math.max(dots[j * G.w + i], Math.max(0, Math.min(1, (r - d) / e + .5))); }
-  geo.rules.forEach(r => { const t = KM.penLine(G, r, { lw: .09, od: 1, wob: 0, floor: 1 }); for (let q = 0; q < G.n; q++) line[q] = Math.max(line[q], Math.min(1, t[q])); });
-  const sw = noise2(seed * 7), D = geo.D, losses = [[D[40][0] + .1, D[40][1], .12], [D.at(-30)[0] - .1, D.at(-30)[1] + .05, .1]];
-  return SM.flat(G, [{ cov: line, col: SM.FLAT.ink, hole: false }, { cov: dots, col: [176, 108, 74], swell: (x, y) => (sw(x / 6, y / 6) - .5) * 2, shift: [.02, -.02] }], { losses, seed });
+export function dotsLayers(G, geo, { seed = 1, cheap = false } = {}) {
+  const P = parch(G, cheap, 4), ink = new Float32Array(G.n); geo.rules.forEach((r, k) => KM.penLine(G, r, { lw: .09, od: .75, seed: seed + k, tau: ink, floor: .3 }));
+  const red = lev(KM.dots(G, geo.D, { t0: 1.5, seed }), P, cheap);
+  return { P, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: KM.PIG.redlead, tau: red, kind: 'redlead' }], losses: [] };
 }
 
-// ---- an orpiment band: a ring like the O's, between a heavy ink ring (painted in ink) and a pen rule ---------------------------
-export function bandGeometry() {
-  const cx = 15, cy = 34, R0 = 22, box = [0, 0, 30, 20];   // a stretch of a large ring: the band from R0 to R0 + 2.6 mm, the ink ring outside it
-  return { box, cx, cy, r: [R0, R0 + 3.6, R0 + 4.5] };
+// ---- the orpiment ("gold") band: a ring like the O's, between a heavy ink ring and a pen rule ------------------------------
+// hand: each rule laid as its own pen path, bowing slowly off the true circle (so the band's width varies), the brush's edge
+// over-running a rule here, falling short there (reserve .5 mm where present, absent ~60 %); the fill a few long loads with
+// tone changes between them and darker pooling where a load stopped or overlapped.
+export function bandGeometry(seed = 1, hand = 1) {
+  const cx = 15, cy = 34, R0 = 22, box = [0, 0, 30, 20], r = [R0, R0 + 3.6, R0 + 4.5];
+  const bows = r.map((_, i) => hand ? n1(seed * 23 + i * 7, 5.5) : () => 0);
+  const arc = (i, dr = 0) => { const o = []; for (let a = Math.PI * 1.08; a <= Math.PI * 1.92; a += .004) { const rr = r[i] + dr + .17 * bows[i](a * R0); o.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]); } return o; };
+  return { box, cx, cy, R0, r, arc, hand };
 }
-const ringPath = (cx, cy, a, b) => { const P = new Path2D(); P.arc(cx, cy, b, 0, Math.PI * 2); P.arc(cx, cy, a, 0, Math.PI * 2, true); return P; };
-const arcPts = (cx, cy, r, a0 = Math.PI * 1.1, a1 = Math.PI * 1.9) => { const o = []; for (let a = a0; a <= a1; a += .004) o.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); return o; };
-export function bandLayers(G, geo, { seed = 1 } = {}) {
-  const P = KM.parchment(G, { seed: 5 }), [r0, r1, r2] = geo.r, { cx, cy } = geo;
-  const ink = KM.mask(G, ringPath(cx, cy, r1 + .02, r2)); for (let q = 0; q < G.n; q++) ink[q] *= 1.1;
-  KM.penLine(G, arcPts(cx, cy, r0 - .05), { lw: .09, od: .8, seed: seed + 3, tau: ink }); KM.penLine(G, arcPts(cx, cy, r1 + .02), { lw: .1, od: .9, seed: seed + 5, tau: ink }); KM.penLine(G, arcPts(cx, cy, r2), { lw: .1, od: .9, seed: seed + 7, tau: ink });
-  const M = KM.mask(G, ringPath(cx, cy, r0 + .08, r1 - .02)), uv = (x, y) => { const a = Math.atan2(y - cy, x - cx), r = Math.hypot(x - cx, y - cy); return [a * r0, r - (r0 + r1) / 2]; };
-  const orp = KM.level(KM.fillLoads(G, M, { seed: seed + 11, swath: 1.3, uv, scale: 1.25 }).tau, P);
-  return { P, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: KM.PIG.orpiment, tau: orp, kind: 'orpiment' }] };
-}
-export function bandSmoke(G, geo, { seed = 1 } = {}) {
-  const [r0, r1, r2] = geo.r, { cx, cy } = geo, ring = KM.mask(G, ringPath(cx, cy, r1, r2)), rule = KM.mask(G, ringPath(cx, cy, r0 - .1, r0)), orp = KM.mask(G, ringPath(cx, cy, r0 + .08, r1 - .02));
-  const sw = noise2(seed * 3); const a = Math.PI * 1.35;
-  return SM.flat(G, [{ cov: ring, col: SM.FLAT.dark, hole: false }, { cov: rule, col: SM.FLAT.ink, hole: false }, { cov: orp, col: SM.FLAT.orpiment, swell: (x, y) => (sw(x / 7, y / 7) - .5) * 2, shift: [.02, .03] }],
-    { losses: [[cx + (r1 - .3) * Math.cos(a), cy + (r1 - .3) * Math.sin(a), .22], [cx + (r0 + .4) * Math.cos(a + .3), cy + (r0 + .4) * Math.sin(a + .3), .15]], seed });
+const ringPoly = (A, B) => poly([...A, ...B.slice().reverse()]);
+export function bandLayers(G, geo, { seed = 1, cheap = false } = {}) {
+  const P = parch(G, cheap, 5), { cx, cy, R0, hand } = geo, wob = hand ? .012 : 0, wander = hand ? .25 : 0;
+  const ink = KM.mask(G, ringPoly(geo.arc(1, .02), geo.arc(2))); for (let q = 0; q < G.n; q++) ink[q] *= 1.1;
+  [0, 1, 2].forEach(i => KM.penLine(G, geo.arc(i, i === 0 ? -.05 : 0), { lw: hand ? .17 : i ? .1 : .09, od: hand ? .7 : i ? .9 : .8, seed: seed + 3 + 2 * i, tau: ink, wob, wander }));
+  let M = KM.mask(G, ringPoly(geo.arc(0), geo.arc(1)));
+  M = hand ? reserveCut(G, M, { m: .3, gone: .5, lo: -.03, line: .17, seed: seed + 2 }) : (() => { const N = KM.mask(G, ringPoly(geo.arc(0, .08), geo.arc(1, -.02))); return N; })();
+  const uv = (x, y) => { const a = Math.atan2(y - cy, x - cx), rr = Math.hypot(x - cx, y - cy); return [a * R0, rr - (geo.r[0] + geo.r[1]) / 2]; };
+  const orp = lev(KM.fillLoads(G, M, { seed: seed + 11, swath: hand ? 1.8 : 1.3, uv, scale: 1.25, seg: hand ? 8 : 0, pool: .35 }).tau, P, cheap);
+  const a = Math.PI * 1.33, losses = [[cx + (geo.r[1] - .35) * Math.cos(a), cy + (geo.r[1] - .35) * Math.sin(a), .16], [cx + (geo.r[0] + .3) * Math.cos(a + .35), cy + (geo.r[0] + .3) * Math.sin(a + .35), .1]];
+  return { P, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: KM.PIG.orpiment, tau: orp, kind: 'orpiment' }], losses };
 }
 
-// ---- red-lead keys: stepped bands (the O's key pattern, f. 139r), red lead and indigo-with-chalk in turn between pen lines,
-// each band laid short of its lines (a hair of vellum), one or two loads to a band ------------------------------------------
-export function keysGeometry() {
-  const box = [0, 0, 24, 18], fr = [2, 2, 22, 16], sx = 1.9, sy = 1.5, p = 2.6, stairs = [];
-  for (let k = -8; k <= 8; k++) { const o = []; let x = fr[0] + k * p - 2, y = fr[3] + 1.5; o.push([x, y]); while (y > fr[1] - 2) { y -= sy; o.push([x, y]); x += sx; o.push([x, y]); } stairs.push(o); }
-  return { box, fr, stairs };
+// ---- the step grid (keys): drawn, not constructed --------------------------------------------------------------------------
+// hand: every construction point off by the hand's aim (.09 mm: ~4–5° on a 1.7 mm step, as measured), the ruling drifting as
+// a whole (rows bow .25 mm over ~9 mm), each step's size its own (±6 %); every line a pen path over those points with its
+// corners turned, not polygon edges; the frame four strokes pooling where the pen lifted; the paint short of each line by
+// the measured reserve.
+export function keysGeometry(seed = 1, hand = 1) {
+  const box = [0, 0, 24, 18], fr0 = [2, 2, 22, 16], sx = 1.9, sy = 1.5, p = 2.6, H = hand ? 1 : 0;
+  const bx = noise2(seed * 61 + 1), by = noise2(seed * 61 + 2), bow = ([x, y]) => [x + H * .25 * (bx(x / 9, y / 9) - .5) * 2, y + H * .25 * (by(x / 9, y / 9) - .5) * 2];
+  const aim = (k, m, i) => H * .08 * (hash2(k * 131 + m, seed, i) - .5) * 2 * 1.7;   // ±.1 mm uniform ≈ .06 sd: ~3–4° on a step
+  const stairs = [];
+  for (let k = -8; k <= 8; k++) { const o = []; let x = fr0[0] + k * p - 2, y = fr0[3] + 1.5, m = 0; o.push([x, y]);
+    while (y > fr0[1] - 2) { y -= sy * (1 + H * .06 * (hash2(k, m, seed + 3) - .5) * 2); o.push([x, y]); x += sx * (1 + H * .06 * (hash2(k, m, seed + 4) - .5) * 2); o.push([x, y]); m++; }
+    stairs.push(o.map((q, i) => bow([q[0] + aim(k, i, 1), q[1] + aim(k, i, 2)]))); }
+  const corners = rect(fr0).map((q, i) => bow([q[0] + aim(99, i, 1) * 1.5, q[1] + aim(99, i, 2) * 1.5]));
+  return { box, fr: fr0, frame: corners, stairs, hand };
 }
-const poly = pts => { const P = new Path2D(); P.moveTo(...pts[0]); for (const q of pts.slice(1)) P.lineTo(...q); P.closePath(); return P; };
+// a pen's corner: the hand turns it in a short curve (Chaikin, one pass, a quarter cut)
+const turn = pts => { const o = [pts[0]]; for (let i = 1; i < pts.length - 1; i++) { const a = pts[i - 1], b = pts[i], c = pts[i + 1], k = .18; o.push([b[0] + (a[0] - b[0]) * k, b[1] + (a[1] - b[1]) * k], [b[0] + (c[0] - b[0]) * k, b[1] + (c[1] - b[1]) * k]); } o.push(pts.at(-1)); return o; };
 function keysMasks(G, geo) {
-  const [x0, y0, x1, y1] = geo.fr, frame = KM.mask(G, poly(rect(geo.fr))), B = new Float32Array(G.n), R = new Float32Array(G.n);
-  for (let k = 0; k + 1 < geo.stairs.length; k++) { const M = KM.mask(G, poly([...geo.stairs[k], ...geo.stairs[k + 1].slice().reverse()])), T = k % 2 ? B : R;
-    for (let q = 0; q < G.n; q++) T[q] = Math.max(T[q], M[q] * frame[q]); }
+  const frame = KM.mask(G, poly(geo.frame)), PB = new Path2D(), PR = new Path2D();
+  for (let k = 0; k + 1 < geo.stairs.length; k++) (k % 2 ? PB : PR).addPath(poly([...geo.stairs[k], ...geo.stairs[k + 1].slice().reverse()]));
+  const B = KM.mask(G, PB), R = KM.mask(G, PR); for (let q = 0; q < G.n; q++) { B[q] *= frame[q]; R[q] *= frame[q]; }
   return { frame, B, R };
 }
-// erode a region by d mm (blurred with sigma .8 d, the eroded edge lies where the blur reads .89)
-const shrink = (G, M, d) => { const b = KM.blur(M, G.w, G.h, d * G.pxmm * .8); for (let q = 0; q < G.n; q++) M[q] = Math.max(0, Math.min(1, (b[q] - .89) * d * G.pxmm * 2.5 + .5)) * M[q]; return M; };
-function keysInk(G, geo, seed, frameM, opt = {}) {
-  const ink = KM.ruled(G, rect(geo.fr), { lw: .1, od: .85, seed, ...opt }), t = new Float32Array(G.n);
-  geo.stairs.forEach((st, k) => KM.penLine(G, st, { lw: .085, od: .85, seed: seed + 3 + k, tau: t, floor: .22, ...opt }));
+function keysInk(G, geo, seed, frameM) {
+  const H = geo.hand, o = { wob: H ? .02 : 0, wander: H ? .32 : 0 }, ink = new Float32Array(G.n), t = new Float32Array(G.n), f = geo.frame;
+  for (let k = 0; k < 4; k++) { const a = f[k], b = f[(k + 1) % 4], mid = [(a[0] + b[0]) / 2 + (H ? .12 * (hash2(k, seed, 9) - .5) : 0), (a[1] + b[1]) / 2 + (H ? .12 * (hash2(k, seed, 10) - .5) : 0)];
+    KM.penLine(G, H ? [a, mid, b] : [a, b], { lw: H ? .19 : .1, od: H ? .65 : .85, seed: seed + 50 + k, tau: ink, floor: .25, ...o }); }
+  geo.stairs.forEach((st, k) => KM.penLine(G, st, { lw: H ? .17 : .085, od: H ? .6 : .85, seed: seed + 3 + k, tau: t, floor: .22, ...o }));
   for (let q = 0; q < G.n; q++) ink[q] = Math.max(ink[q], t[q] * frameM[q]); return ink;
 }
-export function keysLayers(G, geo, { seed = 1 } = {}) {
-  const P = KM.parchment(G, { seed: 6 }), { frame, B, R } = keysMasks(G, geo), ink = keysInk(G, geo, seed, frame);
-  const blue = KM.level(KM.fillLoads(G, shrink(G, B, .14), { seed: seed + 3, swath: 1.6 }).tau, P), red = KM.level(KM.fillLoads(G, shrink(G, R, .14), { seed: seed + 5, swath: 1.6, scale: 1.1 }).tau, P);
-  return { P, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: KM.PIG.blue, tau: blue, kind: 'blue' }, { pig: KM.PIG.redlead, tau: red, kind: 'redlead' }] };
-}
-export function keysSmoke(G, geo, { seed = 1 } = {}) {
-  const { frame, B, R } = keysMasks(G, geo), line = keysInk(G, geo, seed, frame, { wob: 0, floor: 1, od: 1 }); for (let q = 0; q < G.n; q++) line[q] = Math.min(1, line[q]);
-  const sw = noise2(seed * 11), st = geo.stairs[9];
-  return SM.flat(G, [{ cov: shrink(G, B, .14), col: SM.FLAT.blue, swell: (x, y) => (sw(x / 7, y / 7) - .5) * 2 }, { cov: shrink(G, R, .14), col: SM.FLAT.redlead, swell: (x, y) => (sw(x / 7 + 5, y / 7) - .5) * 2, shift: [.03, .02] }, { cov: line, col: SM.FLAT.ink, hole: false }],
-    { losses: [[st[4][0] + .3, st[4][1] + .25, .14], [geo.fr[2] - .4, geo.fr[3] - .4, .12]], seed });
+const shrink = (G, M, d) => { const b = KM.blur(M, G.w, G.h, d * G.pxmm * .8); for (let q = 0; q < G.n; q++) M[q] = Math.max(0, Math.min(1, (b[q] - .89) * d * G.pxmm * 2.5 + .5)) * M[q]; return M; };
+export function keysLayers(G, geo, { seed = 1, cheap = false } = {}) {
+  const P = parch(G, cheap, 6), { frame, B, R } = keysMasks(G, geo), ink = keysInk(G, geo, seed, frame);
+  const cut = (M, s) => geo.hand ? reserveCut(G, M, { m: .25, gone: .08, line: .17, seed: s }) : shrink(G, M, .14);
+  const blue = lev(KM.fillLoads(G, cut(B, seed + 1), { seed: seed + 3, swath: 1.6, dragP: 0 }).tau, P, cheap), red = lev(KM.fillLoads(G, cut(R, seed + 2), { seed: seed + 5, swath: 1.6, scale: 1.1, dragP: 0 }).tau, P, cheap);
+  const st = geo.stairs[9], losses = [[st[6][0] + .25, st[6][1] + .3, .12], [geo.frame[2][0] - .45, geo.frame[2][1] - .4, .1]];
+  return { P, layers: [{ pig: KM.PIG.ink, tau: ink, kind: 'ink' }, { pig: KM.PIG.blue, tau: blue, kind: 'blue' }, { pig: KM.PIG.redlead, tau: red, kind: 'redlead' }], losses };
 }

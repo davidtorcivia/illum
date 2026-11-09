@@ -7,8 +7,10 @@
   The paint bench (research/21-paint.md): each subject three ways at the same physical scale — the master (Lindisfarne
   f. 139r, BL photograph, 12.25 px/mm; crops in insular-refs/, not committed), the physical paint (tests/km-paint.js: brush
   loads, levelling, two-constant Kubelka–Munk over a parchment, a pen laid over time, weathering by cause, tests/km-age.js)
-  and the smoke-and-mirrors control (flat palette colours, one soft optic, cheap tricks; no simulation).
-  Figures, in order, per subject: master, physical, control. Subjects: knot, dots, orpiment band, red-lead keys.
+  and the page-size paint (km-smoke.js: the same loads and pen over a flat vellum, losses placed by hand, one soft optic).
+  Figures, in order, per subject: master, [before: exact geometry, physical paint, with ?before=1], then the hand with the
+  paint asked for. Subjects: knot, dots, orpiment band, red-lead keys.
+  ?paint=  cheap (default: the page-size paint, km-smoke.js) | physical   ?hand=0  the exact geometry   ?before=1  add the before
   ?z=      zoom (1: the page's size, .15 mm per css px)      ?pxmm=  render at exactly this many px per mm (matched sampling)
   ?age=    0..1 (default .35)                                ?psf=   a camera's softness over ours, mm (0)
   ?only=   one subject (knot|dots|band|keys)                 ?seed=  the hand and the brush
@@ -38,22 +40,26 @@ const show = (G, img, cap) => { const c = document.createElement('canvas'); c.wi
 const master = (src, cap) => { const im = new Image(); im.src = './insular-refs/' + src; im.onload = () => { im.style.width = (im.naturalWidth / 12.25 * CSS) + 'px'; }; im.onerror = () => im.remove(); fig(im, cap); };
 const subject = (name, fn) => { if (only && only !== name) return; row = document.createElement('div'); row.className = 'row'; document.body.append(row); fn(); };
 
-// each subject: the master, the physical paint, the control, at one physical scale
-function bench(name, src, cap, geoF, layersF, smokeF, wopt = {}) {
-  subject(name, () => {
-    const geo = geoF(seed); master(src, cap);
-    { const t0 = performance.now(), G = new KM.Grid(geo.box, PXMM), { layers, P } = layersF(G, geo, { seed }), t1 = performance.now();
-      const A = AGE.weather(G, P, layers, { age, seed, ...wopt }), t2 = performance.now(), out = KM.compose(G, P, A.layers), t3 = performance.now();
-      timing[name] = { physical: Math.round(t3 - t0), layers: Math.round(t1 - t0), weather: Math.round(t2 - t1), compose: Math.round(t3 - t2), px: G.n };
-      show(G, KM.toImage(G, out), `physical, age ${age} (${Math.round(t3 - t0)} ms: loads ${Math.round(t1 - t0)}, age ${Math.round(t2 - t1)}, KM ${Math.round(t3 - t2)}; ${G.w}×${G.h})`); }
-    { const t0 = performance.now(), G = new KM.Grid(geo.box, PXMM), img = smokeF(G, geo, { seed }), t1 = performance.now();
-      timing[name + 'Smoke'] = Math.round(t1 - t0); show(G, img, `control: smoke and mirrors (${Math.round(t1 - t0)} ms)`); }
-  });
+// each subject: the master, [the before: exact geometry, physical paint], then the paint asked for (cheap by default)
+const paint = q.get('paint') ?? 'cheap', before = q.get('before') === '1', hand = +(q.get('hand') ?? 1);
+function render(name, geo, layersF, mode, cap) {
+  const t0 = performance.now(), G = new KM.Grid(geo.box, PXMM);
+  if (mode === 'physical') { const { layers, P } = layersF(G, geo, { seed }), t1 = performance.now(), A = AGE.weather(G, P, layers, { age, seed }), t2 = performance.now(), out = KM.compose(G, P, A.layers), t3 = performance.now();
+    timing[name + '.' + cap] = { ms: Math.round(t3 - t0), layers: Math.round(t1 - t0), weather: Math.round(t2 - t1), compose: Math.round(t3 - t2), px: G.n };
+    show(G, KM.toImage(G, out), `${cap}: physical paint, age ${age} (${Math.round(t3 - t0)} ms: loads ${Math.round(t1 - t0)}, age ${Math.round(t2 - t1)}, KM ${Math.round(t3 - t2)}; ${G.w}×${G.h})`); return; }
+  const { layers, losses } = layersF(G, geo, { seed, cheap: true }), t1 = performance.now(), img = SM.cheap(G, layers, { losses: age > 0 ? losses : [], seed }), t2 = performance.now();
+  timing[name + '.' + cap] = { ms: Math.round(t2 - t0), layers: Math.round(t1 - t0), post: Math.round(t2 - t1), px: G.n };
+  show(G, img, `${cap}: page-size paint (${Math.round(t2 - t0)} ms; ${G.w}×${G.h})`);
 }
-bench('knot', 'm-knot.png', 'master: f. 139r, a blue knot in the bowl (white-balanced to our vellum)', KM_B.knotGeometry, KM_B.knotLayers, KM_B.knotSmoke);
-bench('dots', 'm-dots.png', 'master: f. 139r, red-lead dot fields', KM_B.dotsGeometry, KM_B.dotsLayers, KM_B.dotsSmoke);
-bench('band', 'm-O.png', 'master: f. 139r, the O: orpiment ring, red-lead and blue keys', KM_B.bandGeometry, KM_B.bandLayers, KM_B.bandSmoke);
-bench('keys', 'm-O.png', 'master: (same crop) the keys', KM_B.keysGeometry, KM_B.keysLayers, KM_B.keysSmoke);
+function bench(name, src, cap, geoF, layersF) {
+  subject(name, () => { master(src, cap);
+    if (before) render(name, geoF(seed, 0), layersF, 'physical', 'before');
+    render(name, geoF(seed, hand), layersF, paint, hand ? 'the hand' : 'no hand'); });
+}
+bench('knot', 'm-knot.png', 'master: f. 139r, a blue knot in the bowl (white-balanced to our vellum)', KM_B.knotGeometry, KM_B.knotLayers);
+bench('dots', 'm-dots.png', 'master: f. 139r, red-lead dot fields', KM_B.dotsGeometry, KM_B.dotsLayers);
+bench('band', 'm-O.png', 'master: f. 139r, the O: orpiment ring, red-lead and blue keys', KM_B.bandGeometry, KM_B.bandLayers);
+bench('keys', 'm-O.png', 'master: (same crop) the keys', KM_B.keysGeometry, KM_B.keysLayers);
 document.body.dataset.timing = JSON.stringify(timing);
 </script>
 </body>
