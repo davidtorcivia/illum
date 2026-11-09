@@ -83,7 +83,15 @@ export function lay(F, S, from, upto, { load = 1, decay = 18, inPeck = 1, seed =
     const lane = Math.floor((e + 1) * 3.5), lf = .94 + .12 * hash(sid, lane, seed);
     const pk = G[i] / (.35 * g), cav = clamp01((-H[i] - .3 * pd) / (.5 * pd)) + clamp01((-G[i] - .03 * g) / (.06 * g)) * .5;   // a peak's height; a hollow's depth (a pit's floor, a striation)
     const catchK = sm(-.08, .08, pk - (.4 - .6 * ld * lf)), pecked = K[i];   // a full brush skips only the lowest grains (~15 %, measured); a dry one only the high points take it
-    const film = cov * (.78 + .22 * ld) * lf * (.6 + .4 * catchK) * sm(.15, .6, pecked) * inPeck, pool = cov * (cav * (.03 + .1 * ld) * pecked + .32 * ld * (1 - Math.abs(2 * pecked - 1)) ** 2 * sm(.1, .3, pecked));   // (and against the groove's wall, where the brush pushed it)
+    // the edge is a zone, not a line (stage 7): toward the groove's shoulder (D falling) the film thins and, where the brush
+    // was no longer fresh, takes only the high grains, grain by grain, over ~1-2 grains (measured: rock to full red over
+    // .07-.2 of a stroke's width, Vitlycke and Tanumshede); where the brush was fresh it pooled against the wall: a crisp,
+    // darker rim. The interior's thickness follows the groove's depth.
+    const Dp = F.D ? F.D[i] : pecked, core = sm(.45, .85, Dp), crisp = sm(.8, .95, ld), mw = (1 - core) * (1 - crisp);
+    // (where the edge falls, grain by grain: a grain at the margin takes paint if it stands high enough for how shallow the
+    // groove is there, so the boundary steps from grain to grain instead of running as a line; a fresh brush ignores it)
+    const presence = crisp * sm(.2, .3, Dp) + (1 - crisp) * sm(-.04, .04, pk * .8 + 2.4 * (Dp - .3));
+    const film = cov * (.78 + .22 * ld) * lf * (.45 + .55 * core) * (.6 + .4 * catchK) * presence * inPeck, pool = cov * (cav * (.03 + .1 * ld) * pecked + .38 * ld * crisp * (1 - Math.abs(2 * Dp - 1)) ** 2 * sm(.12, .3, Dp));
     T[i] = Math.min(2.4, Math.max(T[i], film + pool));
     const X = i % cw, Y = (i / cw) | 0; if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; }
   S.next = n; return x1 >= 0 ? [x0, y0, x1, y1] : null;
@@ -96,7 +104,7 @@ export function shadeRock(F, look, img, bb = null) {
   const { cw, ch, G, H, T, K, S, C, dpr } = F, o = img.data, px = 1 / dpr, [x0, y0, x1, y1] = bb ?? [0, 0, cw - 1, ch - 1];
   for (let Y = Math.max(1, y0); Y <= Math.min(ch - 2, y1); Y++) for (let X = Math.max(1, x0); X <= Math.min(cw - 2, x1); X++) {
     const i = Y * cw + X, slab = S ? S[i] : 0, pk = K[i], t = T[i], q = i * 4;
-    const ab = Math.max(slab, sm(.05, .4, pk));                        // the rock shows where it is a panel or was pecked
+    const ab = Math.max(slab, sm(.65, .92, pk) * (F.D ? sm(.6, .9, F.D[i]) : 1));                       // the rock shows where it is a panel, or inside the pecked figure where the paint skipped (never as a halo round it)
     if (ab <= 0 && t <= 0) { o[q + 3] = 0; continue; }
     const hk = .12 + .88 * (1 - sm(.15, .7, t)), h = (j) => G[j] + F.Wb[j] + H[j] * hk;   // (under a coat of paint the pits' relief softens)
     const gx = (h(i + 1) - h(i - 1)) / (2 * px), gy = (h(i + cw) - h(i - cw)) / (2 * px), l = Math.hypot(gx, gy, 1);
@@ -112,10 +120,10 @@ export function shadeRock(F, look, img, bb = null) {
     if (t > 0) { const [d, f, p] = look.paint, m1 = sm(.12, .7, t), m2 = sm(1.1, 2.2, t); a = 1 - Math.exp(-3.6 * t);
       // the film has body: its own edge lit on the sunward side and shadowed on the other, a little sheen on its top
       const tx = (T[i + 1] - T[i - 1]) / (2 * px), ty = (T[i + cw] - T[i - cw]) / (2 * px), fe = Math.max(-1, Math.min(1, -(tx * LV[0] + ty * LV[1]) * .35 * F.g));
-      const pr = d[0] + (f[0] - d[0]) * m1, pg = d[1] + (f[1] - d[1]) * m1, pb = d[2] + (f[2] - d[2]) * m1, sh = (.7 + .3 * lit) * (1 + .16 * fe);
+      const pr = d[0] + (f[0] - d[0]) * m1, pg = d[1] + (f[1] - d[1]) * m1, pb = d[2] + (f[2] - d[2]) * m1, sh = (.7 + .3 * lit) * (1 + .06 * fe);
       // its gloss: the film's own surface (its thickness over the softened rock) catching the light where it faces it
       const fnx = -(gx * .5 + tx * .25 * F.g), fny = -(gy * .5 + ty * .25 * F.g), fl = Math.hypot(fnx, fny, 1), hx = LV[0], hy = LV[1], hz = LV[2] + 1, hl = Math.hypot(hx, hy, hz);
-      gloss = .16 * sm(.35, .9, t) * Math.max(0, (fnx * hx + fny * hy + hz) / (fl * hl)) ** 60;
+      gloss = .08 * sm(.8, 1.3, t) * Math.max(0, (fnx * hx + fny * hy + hz) / (fl * hl)) ** 60;
       cr = (pr + (p[0] - pr) * m2) * sh + gloss; cg = (pg + (p[1] - pg) * m2) * sh + gloss * .9; cb = (pb + (p[2] - pb) * m2) * sh + gloss * .85; }
     const oa = a + ab * (1 - a);
     o[q] = clamp01(cr * a + r * ab * (1 - a)) * 255; o[q + 1] = clamp01(cg * a + g * ab * (1 - a)) * 255; o[q + 2] = clamp01(cb * a + b * ab * (1 - a)) * 255; o[q + 3] = oa * 255;
@@ -157,11 +165,14 @@ function prepare(F, piece, look, live = false) {
   return { pits, strokes };
 }
 // the paint closes over the pits' scallops a little: the pecked floor it fills is the pits' union softened by half a pit
-function settle(F) { const { cw, ch, K } = F, R = Math.max(1, Math.round(1.0 * (F.prs ?? F.rp) * F.dpr)); let A = K;   // (stage 6: a whole pit, at the pits' own size: only a faint ripple is left)
-  for (let pass = 0; pass < 2; pass++) { const T = new Float32Array(cw * ch), B = new Float32Array(cw * ch);
+function boxBlur(A, cw, ch, R) { for (let pass = 0; pass < 2; pass++) { const T = new Float32Array(cw * ch), B = new Float32Array(cw * ch);
     for (let y = 0; y < ch; y++) { let s = 0; for (let x = -R; x <= R; x++) s += A[y * cw + Math.min(cw - 1, Math.max(0, x))]; for (let x = 0; x < cw; x++) { T[y * cw + x] = s / (2 * R + 1); s += A[y * cw + Math.min(cw - 1, x + R + 1)] - A[y * cw + Math.max(0, x - R)]; } }
     for (let x = 0; x < cw; x++) { let s = 0; for (let y = -R; y <= R; y++) s += T[Math.min(ch - 1, Math.max(0, y)) * cw + x]; for (let y = 0; y < ch; y++) { B[y * cw + x] = s / (2 * R + 1); s += T[Math.min(ch - 1, y + R + 1) * cw + x] - T[Math.max(0, y - R) * cw + x]; } }
-    A = B; }
+    A = B; } return A; }
+// the paint closes over the pits' scallops (a whole pit: only a faint ripple is left); and D, the groove's depth, falls
+// from its centre to its shoulders over ~2.5 grains: the zone where the film thins and breaks on the grain
+function settle(F) { const { cw, ch, K } = F, A = boxBlur(K, cw, ch, Math.max(1, Math.round(1.0 * (F.prs ?? F.rp) * F.dpr)));
+  F.D = boxBlur(K, cw, ch, Math.max(1, Math.round(Math.min(2 * F.g, 1.6 * (F.prs ?? F.rp)) * F.dpr)));   // (never wider than the figure's own pits: a traced ship's comb and ovals keep their gaps)
   for (let i = 0; i < K.length; i++) K[i] = sm(.36, .56, A[i]); }
 const peckedFrom = (F, bb) => { const [x0, y0, x1, y1] = bb; for (let Y = y0; Y <= y1; Y++) for (let X = x0; X <= x1; X++) { const i = Y * F.cw + X; F.K[i] = sm(.02 * F.g, .25 * F.g, -F.H[i]); } };
 export const PROF = {};

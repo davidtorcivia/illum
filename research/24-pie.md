@@ -454,3 +454,40 @@ shorter.
 - Thin traced parts can break where no pit fits inside them (part of the warrior's spear).
 - The traced horse is slender, as the master's is: beside the bold letters it is lighter than the other figures.
 - Beauty 2+.
+
+## Stage 7: the edge as a zone, not a line (the user: "too vectorized … hard edges even when blobby feel off")
+
+- **Measured edge zone.** From rock to full red the paint takes .07–.2 of a stroke's width (Vitlycke, Tanumshede;
+  scratchpad pie/py/paint.py), about one to two grains. The share of crisp to feathered edge was **by eye** (roughly half
+  and half), not measured.
+- **The model (kit/styles/pie-paint.js).** An invisible granite stays the cause. D is the groove's depth: the pecked
+  area blurred over ~2 grains, never wider than the figure's own pits.
+  - The film's thickness follows D: deep at the centre, thinner over the shoulders. Its colour follows its thickness:
+    thin is lighter and warmer (#cf7652), the body #a5361e, pooled #561810.
+  - At the margin, where the brush was no longer fresh, a grain takes paint only if it stands high enough for how
+    shallow the groove is there. The boundary steps from grain to grain over one to two grains instead of running as a
+    line.
+  - Where the brush was fresh (the first ~4 widths of each load; about half of each figure's edge) the paint pooled
+    against the wall: a crisp, darker rim.
+  - The brush is now wider than its groove, so the groove, not the brush's footprint, makes the edge.
+  - The pecked floor shows only inside the figure, never as a halo.
+  - The gloss is quieter.
+- **The drops.**
+  - The letter keeps its full drop size (.8 of the drop's height). The ship passes under and behind its foot, in a drop
+    1.7× its height wide.
+  - The warrior has a 1.75× drop.
+  - The horse is larger and fuller (its traced widths ×2.3).
+- **Thin traced parts.** A pit may straddle a thin traced part's edge by half its radius, and the poly brush passes are
+  denser, so the warrior's spear holds.
+- **The sun-wheel** is less regular: a fifth-order lobe on the rim, its width breathing ±28 %, and spokes that bow.
+- **Speed.**
+  - Mock, in view: 60–92 ms (dpr 1–2).
+  - Every piece at once: 259 ms (dpr 1) / 461 ms (dpr 2). The second blur and the wider brushes cost at dpr 2; the
+    cache is kept.
+- **Where it stands (honest).**
+  - At 4× a letter's edge now steps grain by grain in its thin stretches and is crisp where it pooled. No edge reads as
+    a single anti-aliased line, and the warrior's edges read as painted.
+  - At 1× the letters' edges are speckled: organic, but at the edge of reading as grain on a bare page.
+  - The traced ship at drop size is still a thin band with prows. Its comb and ovals only read from about 4× up.
+  - At 8× the ship's comb is partly merged again where paint fills between close strokes.
+  - Beauty 2+.

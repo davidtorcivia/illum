@@ -25,7 +25,7 @@ export const arc = (c, R, a0, a1, n = 40) => pts(t => { const a = a0 + (a1 - a0)
 // a pecked ring: never a circle. Its radius swells and dips (two and three lobes, ~6 % and ~3.5 %: by eye from the panels'
 // wheels and cup rings), its centre is off a little, and the groove's two ends overlap where the carver closed it
 export const loop = (c, R, r, n = 44) => { const p1 = r() * 6.28, p2 = r() * 6.28, a0 = r() * 6.28, cx = c[0] + R * .04 * gauss(r), cy = c[1] + R * .04 * gauss(r), e = 1 + .05 * gauss(r);
-  return pts(t => { const a = a0 + t * 6.28 * 1.05, rr = R * (1 + .06 * Math.sin(2 * a + p1) + .035 * Math.sin(3 * a + p2)); return [cx + rr * Math.cos(a) * e, cy + rr * Math.sin(a) / e]; }, n); };
+  const p3 = r() * 6.28; return pts(t => { const a = a0 + t * 6.28 * 1.05, rr = R * (1 + .06 * Math.sin(2 * a + p1) + .035 * Math.sin(3 * a + p2) + .018 * Math.sin(5 * a + p3)); return [cx + rr * Math.cos(a) * e, cy + rr * Math.sin(a) / e]; }, n); };
 
 // ---- the carver ----------------------------------------------------------------------------------------------------------------
 // a pecked line along p, width w (number or per point): pits across it at every step
@@ -43,13 +43,13 @@ function handed(p, w, r) { const W0 = (Array.isArray(w) ? w.reduce((a, v) => a +
 export function stroke(p, w, rp, r, { brush = true, load = 1, hand: hd = 1 } = {}) {
   if (hd && p.length > 1) [p, w] = handed(p, w, r);
   const out = [{ k: 'cap', p, w: Array.isArray(w) ? w : p.map(() => w) }]; if (!brush) return out;
-  const W = Math.max(...(Array.isArray(w) ? w : [w])), bw = Math.min(W * 1.08, rp * 7);
+  const W = Math.max(...(Array.isArray(w) ? w : [w])), bw = Math.min(W * 1.4, rp * 9);   // (wider than the groove: the groove, not the brush's footprint, makes the paint's edge)
   if (W <= bw * 1.25) { // the brush is dipped again every ~9 widths along a long groove, so a loop or a keel never runs dry halfway
     const L = [0]; for (let i = 1; i < p.length; i++) L.push(L[i - 1] + Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]));
-    const step = W * 9, n = Math.max(1, Math.round(L.at(-1) / step)), wv = Array.isArray(w) ? w.map(v => v * 1.08) : null;
+    const step = W * 9, n = Math.max(1, Math.round(L.at(-1) / step)), wv = Array.isArray(w) ? w.map(v => v * 1.4 + rp * 2) : null;
     for (let k = 0; k < n; k++) { const a = L.at(-1) * k / n - W * .4, b = L.at(-1) * (k + 1) / n; const idx = p.map((_, i) => i).filter(i => L[i] >= a && L[i] <= b + 1e-6);
-      if (idx.length < 2) { if (n === 1) out.push({ k: 'brush', p, w: wv ?? w * 1.08, load }); continue; }
-      out.push({ k: 'brush', p: idx.map(i => p[i]), w: wv ? idx.map(i => wv[i]) : w * 1.08, load }); } }
+      if (idx.length < 2) { if (n === 1) out.push({ k: 'brush', p, w: wv ?? w * 1.4 + rp * 2, load }); continue; }
+      out.push({ k: 'brush', p: idx.map(i => p[i]), w: wv ? idx.map(i => wv[i]) : w * 1.4 + rp * 2, load }); } }
   else { const n = Math.ceil(W / (bw * .85)); for (let j = 0; j < n; j++) { const o = (j / (n - 1) - .5);
     const q = p.map((pt, i) => { const a = p[Math.max(0, i - 1)], b = p[Math.min(p.length - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, wi = Array.isArray(w) ? w[i] : w;
       return [pt[0] - dy / l * o * (wi - bw * .7), pt[1] + dx / l * o * (wi - bw * .7)]; });
@@ -108,7 +108,7 @@ function carveCluster(shapes, box, W, H, rp, a, salt) {
   // (a pit lands only where the whole blow stays inside the figure: its centre and four points at .55 of its radius, so the
   // pecked area keeps the figure's own outline, its gaps and openings, instead of swelling by a pit all round)
   const within = (G, t, x, y, q) => at(G, x, y, t) && at(G, x + .55 * q, y, t) && at(G, x - .55 * q, y, t) && at(G, x, y + .55 * q, t) && at(G, x, y - .55 * q, t);
-  for (const [q, test, k0] of [[rp, (x, y) => within(A, .42, x, y, rp) && !at(Pm, x, y, .5), 0], ...(Pm ? [[rpf, (x, y) => within(Pm, .5, x, y, rpf), 50]] : [])]) {
+  for (const [q, test, k0] of [[rp, (x, y) => within(A, .42, x, y, rp) && !at(Pm, x, y, .5), 0], ...(Pm ? [[rpf, (x, y) => within(Pm, .5, x, y, rpf * .45), 50]] : [])]) {
     const su = 1.05 * q, sv = .95 * q, cs = [[bx0, by0], [bx1, by0], [bx0, by1], [bx1, by1]].map(([x, y]) => [x * ca + y * sa, -x * sa + y * ca]);
     const u0 = Math.floor(Math.min(...cs.map(p => p[0])) / su) - 1, u1 = Math.ceil(Math.max(...cs.map(p => p[0])) / su) + 1, v0 = Math.floor(Math.min(...cs.map(p => p[1])) / sv) - 1, v1 = Math.ceil(Math.max(...cs.map(p => p[1])) / sv) + 1;
     for (let iv = v0; iv <= v1; iv++) for (let iu = u0; iu <= u1; iu++) { const u = iu * su, v = iv * sv, x = ca * u - sa * v + .25 * q * hg(iu, iv, salt + k0), y = sa * u + ca * v + .25 * q * hg(iu, iv, salt + k0 + 7);
@@ -117,7 +117,7 @@ function carveCluster(shapes, box, W, H, rp, a, salt) {
   // a traced figure's paint: passes along its axis, a stroke wherever a pass crosses it
   const br = [];
   for (const m of polys) for (const vert of m.axis === 2 ? [false, true] : [m.axis === 1]) { const bw = m.bw ?? rp * 6, [x0, y0, x1, y1] = m.box;
-    for (let v = (vert ? x0 : y0) + bw * .4; v < (vert ? x1 : y1); v += bw * .8) { let seg = null;
+    for (let v = (vert ? x0 : y0) + bw * .3; v < (vert ? x1 : y1); v += bw * .5) { let seg = null;
       for (let u = (vert ? y0 : x0) - 1; u <= (vert ? y1 : x1) + 1; u += .7) { const x = vert ? v : u, y = vert ? u : v, ok = inside(x, y);
         if (ok) { if (!seg) seg = [[x, y], [x, y]]; else seg[1] = [x, y]; } else if (seg) { if (Math.hypot(seg[1][0] - seg[0][0], seg[1][1] - seg[0][1]) > bw * .3) br.push({ k: 'brush', p: seg, w: bw, load: 1 }); seg = null; } } } }
   return [...pits, ...br];
@@ -140,8 +140,8 @@ export const cup = (x, y, R, r, deep = 1) => { const e = .18 * R * gauss(r), a =
 // the sun-wheel: a ring and a cross (four spokes)
 // the sun-wheel: a broad rim (never round, its width breathing), two spokes crossing neither at a right angle nor at the
 // centre, each overrunning or falling short of the rim a little
-export function wheel(c, R, lw, rp, r) { const rim = loop(c, R, r), mx = c[0] + R * .07 * gauss(r), my = c[1] + R * .07 * gauss(r), out = stroke(rim, rim.map((_, i) => lw * 1.35 * (1 + .18 * Math.sin(i * .4 + r()))), rp, r);
-  for (const a of [.0, Math.PI / 2]) { const t = a + .07 * gauss(r), k1 = R * (1 + .05 * gauss(r)), k2 = R * (1 + .05 * gauss(r)); out.push(...stroke([[mx - Math.cos(t) * k1, my - Math.sin(t) * k1], [mx + Math.cos(t) * k2, my + Math.sin(t) * k2]], [lw * 1.05, lw * .85, lw * 1.1], rp, r)); }
+export function wheel(c, R, lw, rp, r) { const rim = loop(c, R, r), mx = c[0] + R * .07 * gauss(r), my = c[1] + R * .07 * gauss(r), ph0 = r() * 6.28, out = stroke(rim, rim.map((_, i) => lw * 1.35 * (1 + .28 * Math.sin(i * .31 + ph0) + .1 * Math.sin(i * .9 + ph0 * 2))), rp, r);
+  for (const a of [.0, Math.PI / 2]) { const t = a + .07 * gauss(r), k1 = R * (1 + .05 * gauss(r)), k2 = R * (1 + .05 * gauss(r)); const bo = R * .06 * gauss(r); out.push(...stroke([[mx - Math.cos(t) * k1, my - Math.sin(t) * k1], [mx - Math.sin(t) * bo, my + Math.cos(t) * bo], [mx + Math.cos(t) * k2, my + Math.sin(t) * k2]], [lw * 1.15, lw * .85, lw * 1.2], rp, r)); }
   return out; }
 // a ship (Tanumshede 7): the keel, heavy in the middle, running on past the bow into an up-curled prow; the gunwale over
 // it, joined to the keel at the stern; struts between them; the crew a comb of short strokes on the gunwale
@@ -157,7 +157,7 @@ export function ship(x, y, L, h, lw, rp, r, { high = 1, double = false, sun = fa
 // and long legs), its widths a little fuller for the paint; s: its body length, (x, y) its body's middle; facing dir
 export function horse(x, y, s, dir, lw, rp, r) { const h = s / 1.25, X = u => x - dir * (u - .59) * h, Y = v => y + (v - .45) * h, out = [];   // (the Tanum horse faces left as traced; dir 1 turns it right)
   HORSE.strokes.forEach(([p, w], k) => { const lj = k > 2 ? 1 + .06 * gauss(r) : 1;   // (each leg its own length)
-    out.push(...stroke(p.map(([u, v]) => [X(u), Y(p[0][1] + (v - p[0][1]) * lj)]), w.map(v => v * h * 1.9), rp, r)); });   // (fuller than the unpainted grooves, as the painted figures are)
+    out.push(...stroke(p.map(([u, v]) => [X(u), Y(p[0][1] + (v - p[0][1]) * lj)]), w.map(v => v * h * 2.3), rp, r)); });   // (fuller than the unpainted grooves, as the painted figures are)
   return out; }
 // a footsole: the outline of a foot with a bar across the instep (Vitlycke)
 export function foot(x, y, s, a, lw, rp, r) { const c = Math.cos(a), sn = Math.sin(a), T = ([u, v]) => [x + c * u - sn * v, y + sn * u + c * v];
@@ -241,18 +241,18 @@ const pick = (seed, k, n) => { const r = rng(seed * 7919 + k * 104729); r(); ret
 // The boxes do not overlap; the fit check stays as a guard (a figure is moved, not scaled, if it would touch the letter).
 function initial_(ch, H, seed, fs = 20) {
   const r = rng(seed * 13 + ch.charCodeAt(0)), lay = pick(seed, ch.charCodeAt(0), 4), lw = H * .045, rp = lw / 4.5, m = H * .05, lw0 = letterWidth(ch);
-  const W = Math.round(H * [1.45, 1.4, 1.3, 1.5][lay]), cap = lay === 0 ? Math.min(H * .52, (W * .7) / lw0) : Math.min(H * .8, (W * .52) / lw0), x0 = lay === 0 ? (W - lw0 * cap) / 2 - W * .12 : m, y0 = m;
+  const W = Math.round(H * [1.7, 1.4, 1.3, 1.75][lay]), cap = lay === 0 ? Math.min(H * .8, (W * .6) / lw0) : Math.min(H * .8, (W * (lay === 3 ? .42 : .52)) / lw0), x0 = lay === 0 ? m * 2 : m, y0 = m;
   const L = letterStrokes(ch, x0, y0, cap, r), fx = lay === 0 ? 0 : x0 + L.W + m * 1.2, fw = W - fx - m * .3;
   const carveLetter = out => { for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .62, r)); if (s.cupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .62, r)); }
     if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], [lw * .8, lw * .8], rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], [lw * .8, lw * .8], rp, r)); } };
   return piece(W, H, lw, F => { const out = []; carveLetter(out);
-    if (lay === 0) { const h = (H - (y0 + cap) - m * 1.2) / 2.1; out.push(...ship(m + h * .3, H - m - h * .2, W - 2 * m - h * .8, h, lw, rp, r)); }
+    if (lay === 0) { const h = H * .24; out.push(...ship(m + h * .3, H - m - h * .2, W - 2 * m - h * .8, h, lw, rp, r)); }   // (it passes under and behind the letter's foot; where they meet they share the groove, as figures do on the panels)
     else if (lay === 1) { const kind = pick(seed, ch.charCodeAt(0) + 7, 3), s = Math.min(fw / 1.15, H * .78);
-      out.push(...(kind === 0 ? deer(fx + fw / 2, H - m - s * .4, s, 1, lw, rp, r) : kind === 1 ? horse(fx + fw * .5, H - m - s * .5, s * 1.05, 1, lw * 1.1, rp, r) : bird(fx + fw * .45, H - m - s * .48, s, 1, lw * 1.1, rp, r)));
+      out.push(...(kind === 0 ? deer(fx + fw / 2, H - m - s * .4, s, 1, lw, rp, r) : kind === 1 ? horse(fx + fw * .55, H - m - s * .55, Math.min(s * 1.15, fw * 1.05), 1, lw * 1.1, rp, r) : bird(fx + fw * .45, H - m - s * .48, s, 1, lw * 1.1, rp, r)));
       out.push(...cup(fx + fw * .2, m + H * .12, lw * 1.1, r), ...cup(fx + fw * .42, m + H * .2, lw * .8, r, .8)); }
     else if (lay === 2) { const R = Math.min(fw * .36, H * .22), c = [fx + fw / 2, m + R * 1.8]; out.push(...(seed % 2 ? sun(c, R, lw * 1.1, rp, r) : wheel(c, R * 1.3, lw * 1.1, rp, r)));
       const n = 4; for (let k = 0; k < n; k++) out.push(...cup(fx + fw * (.15 + .7 * (k + .25 * gauss(r)) / (n - 1)), H - m * 2 + lw * .5 * gauss(r), lw * (.75 + .35 * r()), r, .7 + .4 * r())); }
-    else { const h = Math.min(H * .92, fw / tracedW('warrior', 1) * 1.05); out.push(...warrior(fx + (fw - tracedW('warrior', h)) / 2, H - m * .5, h, seed % 2 ? 1 : -1, rp, r)); }
+    else { const h = Math.min(H * .96, fw / tracedW('warrior', 1) * 1.1); out.push(...warrior(fx + (fw - tracedW('warrior', h)) / 2, H - m * .5, h, seed % 2 ? 1 : -1, rp, r)); }
     return out; }, { seed, dur: 3400 });
 }
 export const DROP_GROUND = { v: 'none' };
