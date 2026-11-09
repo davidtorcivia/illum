@@ -13,7 +13,7 @@ in vec2 aPos; out vec2 vUV; uniform vec4 uRect; uniform vec2 uRes;
 void main(){ vec2 p = uRect.xy + aPos * uRect.zw; vUV = p / uRes; gl_Position = vec4(vUV * 2. - 1., 0, 1); }`;
 const NOISE = `
 float hash(vec2 p){ uvec2 v = uvec2(ivec2(floor(p)) + 32768); v = v * 1664525u + 1013904223u; v.x += v.y * 1664525u; v.y += v.x * 1664525u;
-  v ^= v >> 16u; v.x += v.y * 1664525u; v.y += v.x * 1664525u; v ^= v >> 16u; return float(v.x) / 4294967295.; }
+  v ^= v >> 16u; v.x += v.y * 1664525u; v.y += v.x * 1664525u; v ^= v >> 16u; return float(v.x >> 8u) / 16777215.; }   // (24 bits: exact in a float, and no GPU can read a uint above 2^31 as negative — Adreno did, and the paper came out low and flat)
 float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
   return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }`;
 // how a stroke's ink takes on the paper: a dry pen catches only the tooth's peaks; the fibre roughens every edge a little
