@@ -27,7 +27,7 @@
 // Marks are the registry's: strokes { pts, col, w, start, end, load, dry, broad, swell, nib, ink? } and points
 // { dot, p, r, col, ink? }; col 'a' | 'b' (red and blue in turn), 'k' the notes' black.
 import { tendril, resample, stream, noise1, noise2, PIGMENTS } from '../marks.js';
-import { edt, drawn } from '../penwork.js';
+import { edt } from '../penwork.js';
 import { poisson } from '../spray.js';
 import { STYLES, wander, hair } from '../wayfinding.js';
 
@@ -332,6 +332,8 @@ const halve = L => { if (L.res <= 2.5) return L; const w = L.w >> 1, h = L.h >> 
   return { ...L, M, w, h, res: L.res / 2 }; };
 const FCACHE = new Map();
 export function filigrana(L0, seed, keep = [], level = 2, o = {}) {
+  // (only the words near the letter: nothing it lays reaches 40 px past its grid)
+  { const X0 = L0.x0 - 40, Y0 = L0.y0 - 40, X1 = L0.x0 + L0.w / L0.res + 40, Y1 = L0.y0 + L0.h / L0.res + 40; keep = keep.filter(k => k[2] > X0 && k[0] < X1 && k[3] > Y0 && k[1] < Y1); }
   // (cached per letter, seed, size and the words' places round it: a resize that leaves the drop as it was re-lays nothing)
   const key = [L0.w, L0.h, L0.x0.toFixed(1), L0.y0.toFixed(1), seed, level, !!o.open, keep.map(k => k.map(v => v.toFixed(0)).join(',')).join(';')].join('|');
   if (FCACHE.has(key)) return FCACHE.get(key);
@@ -383,7 +385,7 @@ function filigrana1(L, seed, keep = [], level = 2, o = {}) {
   // 1. CONTAINED: the double line round every bay (the level sets of the bay's depth), the frame's inner side with it
   const edges = [], v1 = sp * .15, v2 = sp * .62;   // (two lines a hair apart hug the letter a reserve off its paint, and run on as the frame's inner lines)
   const iso = v => { const segs = [], F = (i, j) => (i < 0 || j < 0 || i >= w || j >= h || !bay[j * w + i]) ? -1 : Db[j * w + i];
-    for (let j = -1; j < h; j++) for (let i = -1; i < w; i++) { const a = F(i, j), b = F(i + 1, j), c = F(i + 1, j + 1), d = F(i, j + 1); if (a < v && b < v && c < v && d < v) continue; if (a >= v && b >= v && c >= v && d >= v) continue;
+    for (let j = fj0 - 1; j <= fj1; j++) for (let i = fi0 - 1; i <= fi1; i++) { const a = F(i, j), b = F(i + 1, j), c = F(i + 1, j + 1), d = F(i, j + 1); if (a < v && b < v && c < v && d < v) continue; if (a >= v && b >= v && c >= v && d >= v) continue;   // (the bays lie in the frame's box)
       const cs = [[i, j, a], [i + 1, j, b], [i + 1, j + 1, c], [i, j + 1, d]], pts = [];
       for (let e = 0; e < 4; e++) { const [ix, iy, va] = cs[e], [jx, jy, vb] = cs[(e + 1) % 4]; if ((va >= v) !== (vb >= v)) { const t = (v - va) / (vb - va); pts.push([ix + (jx - ix) * t, iy + (jy - iy) * t]); } }
       if (pts.length === 2) segs.push(pts); else if (pts.length === 4) segs.push([pts[0], pts[1]], [pts[2], pts[3]]); }
@@ -780,17 +782,36 @@ function identify(G) {
   const key = [G.F, G.w, G.h, (G.box[2] - G.box[0]).toFixed(1), (G.box[3] - G.box[1]).toFixed(1), sum.toFixed(2)].join('|');
   if (!IDS.has(key)) { if (IDS.size > 200) IDS.clear(); IDS.set(key, identify1(G)); } return IDS.get(key);
 }
+// (the candidates: the page's own initials' letters whose box fits, else any capital's; one alone is the letter)
+const pageLetters = () => { try { return [...new Set([...document.querySelectorAll('.ini')].map(e => letterOf(e.textContent)))].filter(ch => /^[A-Z]$/.test(ch)).join(''); } catch { return ''; } };
 function identify1(G) {
   const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = `600 ${G.F}px "EB Garamond"`;
   const gw = G.box[2] - G.box[0], gh = G.box[3] - G.box[1]; let best = null;
-  for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') { const m = c.measureText(ch), e = Math.abs(m.actualBoundingBoxLeft + m.actualBoundingBoxRight - gw) + Math.abs(m.actualBoundingBoxAscent + m.actualBoundingBoxDescent - gh);
-    if (e > 1.5) continue;
+  const fit = set => [...set].map(ch => [ch, c.measureText(ch)]).filter(([, m]) => Math.abs(m.actualBoundingBoxLeft + m.actualBoundingBoxRight - gw) + Math.abs(m.actualBoundingBoxAscent + m.actualBoundingBoxDescent - gh) <= 1.5);
+  let cand = fit(pageLetters()); if (!cand.length) cand = fit('ABCDEFGHIJKLMNOPQRSTUVWXYZ'); if (cand.length === 1) return cand[0][0];
+  for (const [ch, m] of cand) {
     // the cells: Garamond's letter drawn on G's grid, the share of cells that agree
     const k = new OffscreenCanvas(G.w, G.h).getContext('2d', { willReadFrequently: true }); k.setTransform(G.res, 0, 0, G.res, -G.x0 * G.res, -G.y0 * G.res); k.font = c.font;
     k.fillText(ch, G.box[0] + m.actualBoundingBoxLeft, G.box[1] + m.actualBoundingBoxAscent); const d = k.getImageData(0, 0, G.w, G.h).data; let agree = 0;
     for (let i = 0; i < G.w * G.h; i += 3) agree += (d[i * 4 + 3] > 127) === (G.M[i] > .5);
     if (!best || agree > best.a) best = { a: agree, ch }; }
   return best?.ch ?? '';
+}
+// kit/penwork.js drawn(), the same coverage cell for cell, its distances found only where the edge can move: a cell further
+// than the waver's reach (amp + .18 px, and a cell's width) from the letter's edge is wholly ink or wholly paper whatever the
+// noise says, so only the band round the edge is measured (each cell's nearest cell of the other kind, within the band's
+// reach) and has its noise read; the rest is 1 or 0 at once
+function drawnNear({ M, w, h, x0, y0, res }, seed = 1, amp = .8) {
+  const ink = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) ink[i] = M[i] > .5;
+  const T = amp + .18 + 1 / res, R = Math.ceil(T * res) + 1, near = new Uint8Array(w * h), out = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; out[k] = ink[k];
+    if ((i < w - 1 && ink[k + 1] !== ink[k]) || (j < h - 1 && ink[k + w] !== ink[k])) for (let b = Math.max(0, j - R); b <= Math.min(h - 1, j + R + 1); b++) near.fill(1, b * w + Math.max(0, i - R), b * w + Math.min(w - 1, i + R + 1) + 1); }
+  const slow = noise2(seed ^ 0x5d), fine = noise2(seed ^ 0x19), R2 = (R + 1) * (R + 1);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; if (!near[k]) continue; const me = ink[k]; let d2 = R2;
+    for (let b = Math.max(0, j - R); b <= Math.min(h - 1, j + R); b++) for (let a = Math.max(0, i - R); a <= Math.min(w - 1, i + R); a++) if (ink[b * w + a] !== me) { const q = (a - i) * (a - i) + (b - j) * (b - j); if (q < d2) d2 = q; }
+    if (d2 >= R2) continue; const sd = (me ? -1 : 1) * Math.sqrt(d2) / res, px = x0 + i / res, py = y0 + j / res;
+    const bb = amp * (2 * slow(px / 25, py / 25) - 1) + .18 * (2 * fine(px / 5, py / 5) - 1); out[k] = Math.max(0, Math.min(1, .5 + (bb - sd) * res * .5)); }
+  return { M: out, w, h, x0, y0, res };
 }
 const letterOf = s => String(s ?? '').trim().normalize('NFD')[0]?.toUpperCase() ?? '';
 // the Lombard as a coverage mask at res cells per px, from the measure kit/illum.js made of the drop (G: Garamond's ink
@@ -825,7 +846,7 @@ export function initial({ G: G0, keep, lh, big, level: li, seed, room: margin, b
   const staff = { y1: Math.min(bottom, ly1 + Math.round((big ? GEOM.staff[li] : GEOM.small.staff[li]) * lh)) };
   const right = big && li >= 2 ? lh * .42 + GEOM.wider[li] : gap;
   const tp = big && li >= 2 ? [lx1 + gap * .4, ly0 - GEOM.rise[li] * Hl * .6, lx1 + right - gap * .6, ly1] : null;
-  const L = drawn(G, seed, big ? .5 : .3);   // (the traced edge already wavers: a lighter hand than 03's on a type glyph)
+  const L = drawnNear(G, seed, big ? .5 : .3);   // (the traced edge already wavers: a lighter hand than 03's on a type glyph)
   const q = new URLSearchParams(globalThis.location?.search ?? ''), fq = filig ?? (q.has('filigree') ? q.get('filigree') !== '0' : null);
   // the filigree, in a drop initial (the line initial is too small to be worked): its reserve cut from the paint, its
   // channel laid in the other colour (minium in azurite) after the paint and before the penwork; the penwork keeps to the

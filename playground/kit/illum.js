@@ -249,8 +249,12 @@ function walk(root, sheet, c) {
     it.own = [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top]; });
   // the words, to keep clear of
   const TEXT = [], words = []; root.querySelectorAll(sel.text).forEach(el => { const L = boxes(el, o, sel); TEXT.push(...L); words.push(...L); });
-  const touches = (x, y, R) => words.some(b => x + R > b.l - 1.5 && x - R < b.r + 1.5 && y + R > b.t + .5 && y - R < b.b - .5);
-  const hits = s => s.dot ? touches(s.p[0], s.p[1], s.r) : resampleLine(s.pts, .5).some(([x, y]) => touches(x, y, s.w / 2));
+  const touches = (x, y, R, near = words) => near.some(b => x + R > b.l - 1.5 && x - R < b.r + 1.5 && y + R > b.t + .5 && y - R < b.b - .5);
+  // (a stroke is asked only of the words its box could touch: its points lie in its points' box)
+  const hits = s => { if (s.dot) return touches(s.p[0], s.p[1], s.r); const R = s.w / 2; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [x, y] of s.pts) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const near = words.filter(b => x1 + R > b.l - 1.5 && x0 - R < b.r + 1.5 && y1 + R > b.t + .5 && y0 - R < b.b - .5);
+    return near.length > 0 && resampleLine(s.pts, .5).some(([x, y]) => touches(x, y, R, near)); };
   // frames (07): each grown from its box; the ornament scale enlarges the hand (u) and thickens its line. A frame stands
   // in the room its box leaves, which is laid out for the hand at size: smaller, it keeps that room and only thins;
   // larger, it grows only as far as it stays off the words
