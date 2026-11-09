@@ -307,3 +307,9 @@ export function navMark(s, seed) {
   S.ink('k', g => lay(g, rule([[0, s / 2], [s * .42, s / 2]], 1.2, r)), { medium: 'press', ang: 0 });
   return { S, W: s, H: s, box: [0, 0, s, s] };
 }
+// the contents' marks as one column: navMark at each offset
+export function navMarks(s, offs, seed) {
+  const S = new Sheet(), parts = offs.map((o, i) => { const m = navMark(s, seed + i); return { o, m }; }), H = Math.max(...offs) + s;
+  for (const col of ['r', 'k']) S.ink(col, g => { for (const { o, m } of parts) { g.save(); g.translate(0, o); for (const L of m.S.layers) if (L.col === col) L.draw(g, 0); g.restore(); } }, { medium: 'press', ang: Math.PI / 2 });
+  return { S, W: s, H, box: [0, 0, s, H] };
+}

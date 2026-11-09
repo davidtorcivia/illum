@@ -103,7 +103,9 @@ const frames = {
   // code: a fine single rule round it, every corner stepped
   code: ({ box, u, seed = 1, rich = .5 }) => { if (rich < .5) return none; const X0 = box[0] + u * 1.2, Y0 = box[1] + u * 1.2, W = box[2] - box[0] - u * 2.4, H = box[3] - box[1] - u * 2.4;
     return { marks: [], letters: sides(X0, Y0, W, H, () => D.boxFrame(W, H, u, seed, { oxfordRule: false, steps: 1, rich: +rich }), seed, `code:${rich}`, u * (rich >= 1 ? 3 : 2)) }; },
-  nav: ({ box, entries, u, seed = 1 }) => ({ marks: [], letters: entries.filter(Boolean).map((e, i) => { const s = u * 1.6; return piece(Math.max(4, box[0] - s * 1.6), e.base - u * .5 - s / 2, s, s, () => D.navMark(s, seed + i), seed + i, 'nav'); }) }),
+  // (the contents' marks are one piece, a column of them, printed at once: the same marks, a quarter of the pours)
+  nav: ({ box, entries, u, seed = 1 }) => { const E = entries.filter(Boolean); if (!E.length) return none; const s = u * 1.6, x = Math.max(4, box[0] - s * 1.6), ys = E.map(e => e.base - u * .5 - s / 2), y0 = Math.min(...ys), H = Math.max(...ys) - y0 + s;
+    return { marks: [], letters: [piece(x, y0, s, H, () => D.navMarks(s, ys.map(y => y - y0), seed), seed, 'nav:' + ys.map(y => (y - y0).toFixed(1)).join(','))] }; },
 };
 
 // ---- printing ----------------------------------------------------------------------------------------------------------------------
