@@ -892,3 +892,70 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
 - **Speed (mock).**
   - In view: 71–82 ms at dpr 1 (supersampled), 67–83 ms at dpr 2.
   - Every piece: 412–428 ms at dpr 1, 383–432 ms at dpr 2, 297–314 ms at 390.
+
+## Stage 13: Rock carving ships (rubricate style `rock`)
+
+- **The modules.** kit/styles/rock.js (the style), rock-pieces (figures, letters' compositions, pieces), rock-print (the one
+  print path: a piece sized from its paint, supersampled at 1x), rock-paint, rock-relief, rock-letters, rock-traced and
+  rock-worker. The parked A and C studies are in kit/pie/, out of the shipped styles. Renames were pixel-identical to
+  6e19b16, and so was moving the specimens onto rock-print. Other styles are identical before and after: tools/diff.mjs
+  on copperplate, insular and 07-frames, at 1440 and 390. 06-wayfinding differs only in its timing line.
+- **No figure on a word.** The drop's compositions are measured before carving (each piece's items, once, give its
+  extent). The host's word rects (initial's `keep`, padded by half an x-height) decide which one stands. A composition
+  that would touch a word, or the page's edge, is passed over for the next; none, and the letter stands alone.
+  - Breaks keep to the room the page gives them. The filler and run-out keep to their line, and frames to their boxes'
+    margins.
+  - The check (tests/rock.check.mjs) covers:
+    - tests/rock.html at every budget, several seeds, 1440 and 390, light and dark;
+    - the site's see.html (SITE=…);
+    - the wekwos.com mock drawn by the snippet below (tests/rock-wekwos.html), with its headings' yellow bands;
+    - the specimen sheets' labels and captions.
+  - It tests every painted pixel against every text line. 84 + 40 pages pass.
+- **Five levels.**
+  - **Plain:** the letter alone, run-outs, cups and the sign for breaks, no paragraph fillers or frames.
+  - **Modest:** a figure only in the letter's own space; three-cup fillers; the quote's tree and the pull quote's
+    cranes.
+  - **Usual:** the seed's composition, cup rows, the aside's cups, the figure's and code's rules.
+  - **Fine:** a second figure in the letter where the first stands over it, a part's break rising to the sign, the pull
+    quote's wheel.
+  - **Lavish:** a third figure where it stands clear, fillers joined by a ground channel, a chapter's panel, a larger
+    end panel, the figure's end cups, the aside's cup clusters.
+  - Cranes: at usual a crane is taken only where the seed's composition is one, never as a fallback.
+  - The cup-and-ring in counters and notches is three cups now: it read as an eye. The line-end ship, a smear at 1x, is
+    a cup row.
+- **Speed (tests/rock.html, the host's own timing; pieces built by workers while the host waits).**
+
+  | | 1440, dpr 1 | 1440, dpr 2 | 390, dpr 1 | 390, dpr 2 |
+  |---|---|---|---|---|
+  | in view | 99–143 ms | 111–125 ms | 76–108 ms | 76–99 ms |
+  | every piece | 273–408 ms | 187–326 ms | 142–230 ms | 133–229 ms |
+
+  - The main thread's own build is ~0 ms. Without workers (?worker=0) it is 455 ms at 1440, dpr 1.
+  - Before, the mock (one thread): in view 71–82 / 67–83 ms, every piece 412–428 / 383–432 ms. That was a different page
+    with fewer pieces.
+  - Supersampling at dpr 2 too, in the workers, put in view at 212–253 ms at 1440, over the 200 ms budget. It is left
+    off: a 2x screen's edge step is half a CSS pixel.
+- **On wekwos.com.** Copy this site's `kit/` folder beside the page (Rock carving loads no face). Mark each drop
+  `<span class="ini drop">I</span>n the end…` (the first letter in its own span), paragraphs to be marked
+  `<p class="par">`, breaks `<hr>` (`<hr data-rank="2">` for the end). Then:
+
+  ```html
+  <script type="module">
+    import { rubricate } from './kit/illum.js';
+    const art = document.querySelector('main');   // the article: a positioned box (position: relative)
+    rubricate(art, {
+      host: art,           // the ornament's canvas is laid in this box
+      style: 'rock',
+      rich: 0.5,           // 0 plain, .25 modest, .5 usual, .75 fine, 1 lavish
+      draw: 'still',       // or 'read': each mark pecked, then painted, as it comes into view
+      select: { filler: '.sec > p.book' },   // which paragraphs may end in a row of cups
+    });
+  </script>
+  ```
+
+  - `.ini { color: transparent }` and `.ini.drop { float: left; line-height: 1 }` in the page's CSS, as the specimens
+    have.
+  - A seed (`seed: n`) fixes the page's choices.
+  - Checked on tests/rock-wekwos.html, the mock with its own text and tokens.
+  - The library measures its drops with EB Garamond's metrics. With Newsreader the drop's cap sits within a pixel or two
+    of the first line's.
