@@ -269,3 +269,38 @@ Each subset has a README beside it naming its source and the licence file (the o
 fetches 7972 bytes of capitals. To drop a face from a build: delete its row in `FACE_FILES` and its .woff2 and -README.txt (and
 its -OFL.txt if no other file needs it). The full original TTFs in fonts/deco serve only the stage-1 direction page and can go
 from any build that does not ship it.
+
+## Lushness: the five levels, a third ink, the colophon
+
+The user's picks (items 1, 3 and 5 of the lead's list). "Usual" (rich .5) is unchanged but for its end break, which is now the
+colophon (below).
+
+- **The levels, as a printer goes from a plain job to a deluxe edition.**
+  - *plain (0):* rules only. The drop initial in its stepped Oxford frame without the grille; a vermilion square for the paraph;
+    no fillers, no heading run-outs; the figure in a plain Oxford box; the end break a part's.
+  - *modest (.25):* heading run-outs; the cadence on lines left very open (30 x-heights); the pull quote's head and foot; the
+    quotation's rule; the colophon, the crown's spire alone in its cartouche.
+  - *usual (.5):* as before: the grille behind the drop, stepped corners, code and aside frames, the colophon's grille.
+  - *fine (.75):* a second, inner vermilion rule on every frame (the drop's, the figure's, the code's, the quotation's rule, the
+    aside's brackets, the colophon's); the drop's thin rule, the closes' lozenges and dots, the spires and a stepped mark at each
+    section heading in gold; the inline cut in the capital; a part's break in a chapter's form (the stepped portal and its sun).
+  - *lavish (1):* the drop initial a portal two lines deeper (six) and narrower (.82 of its height), setbacks up both its sides
+    and at its head, the grille rising behind the letter to the portal's own profile; the contents a stepped index, each mark a
+    step in from the one above with a dotted leader out to its entry (the first mark gold); a corner piece in each step's notch of
+    the figure and code frames (a black square with a vermilion one set in it); the cadence on lines left 4.5 x-heights open; the
+    colophon's wings.
+  The drop's depth is fixed before the style is asked for it, so the style keeps the page's budget as a module setting
+  (`deco.rich`, set by the page alongside rubricate's own).
+- **The third ink.** A metallic forme, at fine and lavish only, printed through the same press with its own register
+  (-.24, .3 px): a warm gold on the light page (178 136 66), aluminium on the dark (182 188 194; the key there stays its pale ink).
+  Its coat is .8 of full with a slow, faint mottle (±12 % over ~12 px: Schmied's gold measured 11–13 %), no gradient, no sheen,
+  no fine grain. In ?draw it prints after the black. Used only where the lead named: the drop's thin rule, the crowns' spires, the
+  closes' lozenges and dots, the headings' stepped marks, the index's first mark.
+- **The colophon.** The book's end (the page's rank-2 break, its deepest) is a printer's mark from modest up: a cartouche of
+  Oxford rule stepped at its four corners, the crown on its plinth inside (the spire alone at modest; the grille from usual; gold
+  spire and thin rule with an inner vermilion rule at fine; two steps a corner and cadence wings closing in gold at lavish). It is
+  the style's own break form; the page is unchanged.
+- **Speed.** Each forme is cut to where its ink is before it is poured (a filler's close is a dot at the end of a long box), pours
+  under ~24 px across are laid flat (the engine shows nothing at that size), the press edge and the coat are one pass over the
+  ink's own box, the impression's shoulder is computed over the inks' box only, the shadow is stamped from one raster of its
+  letter, and the lavish colophon's wings are pieces of their own.

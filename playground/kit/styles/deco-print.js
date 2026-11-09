@@ -30,22 +30,28 @@ export function mask(L, box, res, sl = [0, 0], trap = 0) {
   g.setTransform(res, 0, 0, res, (sl[0] - x0) * res, (sl[1] - y0) * res); g.fillStyle = g.strokeStyle = '#000'; g.lineJoin = 'miter';
   L.draw(g, trap);
   const d = g.getImageData(0, 0, w, h).data, M = new Float32Array(w * h);
-  for (let q = 0; q < w * h; q++) M[q] = d[q * 4 + 3] / 255;
+  // (and the ink's rows and columns, bb [i0, j0, i1, j1], so later passes skip the empty canvas)
+  let i0 = w, j0 = h, i1 = -1, j1 = -1;
+  for (let j = 0, q = 0; j < h; j++) for (let i = 0; i < w; i++, q++) { const a = d[q * 4 + 3]; if (!a) continue; M[q] = a / 255; if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; j1 = j; }
   if (L.despeck) despeck(M, w, h, L.despeck * res * res);
   if (L.post) L.post(M, w, h, res);   // (a cut made in the printed face: an inline)
   // the trap: the coat grown by trap px (a slipped stencil still overlaps its neighbour rather than leaving paper)
   if (trap > 0) { const r = Math.max(1, Math.round(trap * res)), B = blur(M, w, h, r);
     for (let q = 0; q < w * h; q++) if (B[q] > 0) M[q] = Math.max(M[q], clamp(B[q] * 2.2)); }
-  return { M, w, h, x0, y0, res };
+  return { M, w, h, x0, y0, res, bb: L.post || trap > 0 ? [0, 0, w - 1, h - 1] : [i0, j0, i1, j1] };
 }
 
 // a fleck of a shape cut off from the rest (a ruling's end clipped to a sliver) is not printed: every mark is meant
 function despeck(M, w, h, minArea) {
-  const lab = new Int32Array(w * h), st = []; let n = 0;
-  for (let q0 = 0; q0 < w * h; q0++) { if (M[q0] <= .05 || lab[q0]) continue; n++; const cells = []; st.push(q0); lab[q0] = n;
-    while (st.length) { const q = st.pop(); cells.push(q); const i = q % w;
-      for (const o of [i > 0 ? q - 1 : -1, i < w - 1 ? q + 1 : -1, q - w, q + w]) if (o >= 0 && o < w * h && !lab[o] && M[o] > .05) { lab[o] = n; st.push(o); } }
-    if (cells.length < minArea) for (const q of cells) M[q] = 0; }
+  // (a flood over each piece of ink, on typed stacks; a piece's cells are kept only while it might still be a fleck)
+  const n = w * h, seen = new Uint8Array(n), st = new Int32Array(n), small = new Int32Array(Math.max(1, Math.ceil(minArea)));
+  for (let q0 = 0; q0 < n; q0++) { if (seen[q0] || M[q0] <= .05) continue; let top = 0, cnt = 0; st[top++] = q0; seen[q0] = 1;
+    while (top) { const q = st[--top]; if (cnt < small.length) small[cnt] = q; cnt++; const i = q % w;
+      if (i > 0 && !seen[q - 1] && M[q - 1] > .05) { seen[q - 1] = 1; st[top++] = q - 1; }
+      if (i < w - 1 && !seen[q + 1] && M[q + 1] > .05) { seen[q + 1] = 1; st[top++] = q + 1; }
+      if (q >= w && !seen[q - w] && M[q - w] > .05) { seen[q - w] = 1; st[top++] = q - w; }
+      if (q < n - w && !seen[q + w] && M[q + w] > .05) { seen[q + w] = 1; st[top++] = q + w; } }
+    if (cnt < minArea) for (let k = 0; k < cnt; k++) M[small[k]] = 0; }
 }
 
 // ---- the media: each turns a coverage into what the engine pours (density in the coverage) -------------------------------

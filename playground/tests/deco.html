@@ -132,7 +132,7 @@ STYLES.deco = deco;   // (in the registry, as nouveau.html and insular.html did;
 
 const q = new URLSearchParams(location.search), sd = location.hash.match(/seed=(\d+)/)?.[1];
 document.documentElement.dataset.theme = q.get('theme') === 'dark' || (!q.get('theme') && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-deco.bite = q.get('bite') ?? 'on'; deco.face = q.get('face') ?? 'limelight'; deco.lineFace = q.get('lface') ?? 'kalnia'; deco.burst = q.get('burst') ?? 'grille'; deco.lotus = q.get('lotus') ?? 'off';   // (each face fetched only when chosen)
+deco.bite = q.get('bite') ?? 'on'; deco.rich = q.get('rich') ?? .5; deco.face = q.get('face') ?? 'limelight'; deco.lineFace = q.get('lface') ?? 'kalnia'; deco.burst = q.get('burst') ?? 'grille'; deco.lotus = q.get('lotus') ?? 'off';   // (each face fetched only when chosen)
 document.getElementById('redraw').href = '?' + new URLSearchParams([...q.entries(), ['draw', '']]).toString().replace(/=$/, '') + location.hash;
 if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.dataset.lines = Math.max(2, Math.min(9, +q.get('lines') || 4)));
 await deco.initial.load(); await document.fonts.load('20px "EB Garamond"');
