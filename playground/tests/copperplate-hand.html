@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copperplate hand</title>
+<!--
+  The movement generator's bench (kit/styles/copperplate-hand.js): each piece's path drawn plain (no ink engine) at 3x,
+  coloured by plan step, its widths as drawn, for the geometry alone; three seeds each. ?s=3 the scale.
+-->
+<style> body { margin: 0; background: #eee; font: 12px sans-serif; } .row { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; align-items: flex-start; } canvas { background: #f6f1e6; } </style>
+</head>
+<body><div class="row" id="out"></div>
+<script type="module">
+import { DIRS } from './copperplate-directions.js';
+const q = new URLSearchParams(location.search), K = +(q.get('s') ?? 3), D = DIRS.hand, out = document.getElementById('out');
+await document.fonts.load('20px serif');
+const pieces = seed => [['drop', D.initial('B', 112, seed, 2)], ['paraph', D.paraph(20, seed, 2)], ['filler', D.filler(300, 32, seed, 2)], ['break', D.brk(380, 54, seed, 2)], ['quote', D.corner(24, seed, 2)]];
+for (const seed of [7, 8, 9]) for (const [name, P] of pieces(seed)) {
+  const cv = document.createElement('canvas'), pad = 10; cv.width = (P.W + 2 * pad) * K; cv.height = (P.H + 2 * pad) * K; out.append(cv);
+  const g = cv.getContext('2d'); g.scale(K, K); g.translate(pad, pad); g.strokeStyle = '#c33'; g.lineWidth = .3; g.strokeRect(0, 0, P.W, P.H);
+  for (const S of P.strokes) { g.fillStyle = '#211'; for (let i = 0; i < S.p.length; i++) { g.beginPath(); g.arc(S.p[i][0], S.p[i][1], Math.max(.25, S.w[i]), 0, 7); g.fill(); }
+    for (const [c, r] of S.balls) { g.beginPath(); g.arc(c[0], c[1], r, 0, 7); g.fill(); } }
+  g.fillStyle = '#c33'; g.font = '4px sans-serif'; g.fillText(name + ' ' + seed, 1, 5);
+}
+document.body.dataset.timing = 'done';
+</script>
+</body>
+</html>

@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Copperplate directions</title>
 <!--
-  Copperplate, direction studies (research/23-copperplate.md): A the plate, B the writing master's pen, C command of hand.
+  Copperplate, direction studies, stage 2 (research/23-copperplate.md): B the writing master's pen, C command of hand (A, the
+  plate, dropped at the user's verdict). Both draw the same movements (kit/styles/copperplate-hand.js).
   Each: a drop initial, a paraph, a line-filler, a break and a quotation's head at page size in light and dark, then
   enlarged, and the master beside ours. Drawn live as vector (tests/copperplate-directions.js) and printed through the ink
-  engine (kit/styles/copperplate-print.js).   ?only=plate|pen|hand  ?letters=BLRS  #seed=n
+  engine (kit/styles/copperplate-print.js).   ?only=pen|hand  ?letters=BLRS  ?draw (written as each panel comes into
+  view)  #seed=n
 -->
 <style>
   @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
@@ -51,8 +53,8 @@
 </style>
 </head>
 <body>
-<header><h1>Copperplate · three directions</h1><p>Each: a drop initial, a paraph, a line-filler, a break and a quotation’s head at page size, light and dark; then enlarged; then the master beside ours. Seed <span id="seed"></span>. <span id="timing"></span></p>
-<nav><a href="?only=plate">A · the plate</a><a href="?only=pen">B · the pen</a><a href="?only=hand">C · command of hand</a><a href="?">all</a></nav></header>
+<header><h1>Copperplate · two directions</h1><p>Each: a drop initial, a paraph, a line-filler, a break and a quotation’s head at page size, light and dark; then enlarged; then the master beside ours. Seed <span id="seed"></span>. <span id="timing"></span></p>
+<nav><a href="?only=pen">B · the pen</a><a href="?only=hand">C · command of hand</a><a href="?">both</a><a href="?draw">both, written</a></nav></header>
 <template id="txt">
   <p><span class="ini">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
   <p class="par fill"><span class="pf"></span>Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art for which rules can be given.</p>
@@ -63,36 +65,53 @@
 <main id="out"></main>
 <script type="module">
 import { DIRS, PAL } from './copperplate-directions.js';
-import { coverage, glyph, thinShades, engrave, quill } from '../kit/styles/copperplate-print.js';
-import { inkLetter } from '../kit/inkletter.js';
+import { coverage, glyph, thinShades, engrave, quill, engraveWriter, quillWriter } from '../kit/styles/copperplate-print.js';
+import { inkLetter, letterWriter } from '../kit/inkletter.js';
 const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
 document.getElementById('seed').textContent = seed;
-// the letters (fonts/copperplate/): Pinyon Script for the plate and the hand, Imperial Script for the pen, cut to A-Z
+// ?draw: each panel written as it comes into view (never under reduced motion)
+const DRAW = q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+// the letters (fonts/copperplate/): Pinyon Script for the hand, Imperial Script for the pen, cut to A-Z
 await Promise.all([['CopperA', 'illum-copper-pinyon-caps.woff2'], ['CopperB', 'illum-copper-imperial-caps.woff2']].map(async ([fam, f]) => { const ff = new FontFace(fam, `url(../fonts/copperplate/${f})`); await ff.load(); document.fonts.add(ff); }));
 await document.fonts.load('20px "EB Garamond"');
 const letters = (q.get('letters') ?? 'BLRS').split(''), dpr = Math.min(2, devicePixelRatio || 1), PAD = 6, t0 = performance.now();
 const NOTES = {
-  plate: 'The engraved plate, after Bickham and Champion (The Universal Penman, 1733–41): the capital from Pinyon Script, its shades cut back to the master’s weight (6–7 % of the cap height), and a few long sweeps cut with the burin: each carries one lens where it runs near the level (15–22 times as long as it is wide, its peak .4 of the way along, full-bodied), hairlines even along their length that end in a point or a ball. Intaglio: the ink lies in the cut, crisp, no creep. In the dark, the plate itself: its cuts bright copper.',
-  pen: 'The writing master’s own pen: the same hand written with a pointed quill in iron-gall ink (the approved pen of the ink engine, kit/medium.js): the shade where the pen is pulled down the slant (54–57°), the swell given as pressure, the ink pooling where the hand slows into a turn, blunt ends where the nib closes. The copybook’s ovals, the running oval, the compound curve. The capital from Imperial Script. In the dark, white ink on a dark card.',
-  hand: 'Command of hand, after Bickham’s ABC headpiece (the capitals in rosettes, Universal Penman p. 209) and the WIT bands (p. 46): the capital in a ring of loops written as one continuous stroke, each loop shaded on its level run; a knot of three loops for the paraph, running loops for the filler, a band of loops swelling to the middle for the break, loops along the quotation’s head and down its margin. Engraved, as A. In the dark, an ivory ink.',
+  pen: 'The writing master’s own pen: one movement of the hand for each piece (copperplate-hand.js: the hand steers with momentum, so each loop is entered and left by the way it was already going), written with a pointed quill in iron-gall ink through the ink engine — the shade where the pen is pulled down the slant, the ink pooling where the hand slows into a turn, the quill kept charged along a long hairline. The capital from Imperial Script.',
+  hand: 'Command of hand, after Bickham (the ABC headpiece, 0414: capitals in overlapping ovals; the dove, 0220: chains of loops riding a sweep; the WIT bands, 0124): the same movements cut as engraved, shaded strokes. Round the capital six ovals of different sizes, the largest at the foot and outer right where the arm swings freest, overlapping one another, written as one movement with its joins rounded, and a tail out under the letter closing in a curl; one gesture for each other piece, and quiet round it. The capital from Pinyon Script at the master’s weight. In the dark, an ivory ink.',
 };
 const REFS = {
-  plate: [['bickham-0040-command.jpg', 'Bickham sculp., after Chambers: the command of hand (Universal Penman, Getty Research Institute via IA, not in copyright)'], ['champion-caps.jpg', 'Joseph Champion’s round-hand capitals, engraved (the same book)'], ['velde-spieghel-31.jpg', 'Jan van de Velde, Spieghel der Schrijfkonste (1605), Met 358328 (CC0): the Dutch comparison']],
-  pen: [['forbes-lion-detail.jpg', 'H. E. Forbes, Ornamental Lion Composed of Scrolls, pen and ink, Met 363599 (CC0): the pen’s shade, its pooling and pale hairlines'], ['champion-caps.jpg', 'Champion’s capitals (engraved after the pen)']],
-  hand: [['bickham-abc-rosettes.jpg', 'Bickham, the ABC headpiece: capitals in rosettes of loops (Universal Penman p. 209, Getty via IA)'], ['bickham-0124-wit.jpg', 'John Bickham sculp., WIT (p. 46): bands of loops']],
+  pen: [['forbes-lion-detail.jpg', 'H. E. Forbes, Ornamental Lion Composed of Scrolls, pen and ink, Met 363599 (CC0): the pen’s shade, its pooling and pale hairlines'], ['bickham-dove.jpg', 'Bickham, a dove in command of hand (Universal Penman, Getty via IA, not in copyright)']],
+  hand: [['bickham-abc-rosettes.jpg', 'Bickham, the ABC headpiece: capitals in overlapping ovals (Universal Penman p. 209)'], ['bickham-dove.jpg', 'a dove in command of hand: chains of loops riding shaded sweeps'], ['bickham-band.jpg', 'John Bickham sculp., the foot of WIT (p. 46): a band of sweeps and long ovals']],
 };
-const SIDE = { plate: 'champion-B.jpg', pen: 'forbes-lion-detail.jpg', hand: 'bickham-rosette-B.jpg' };
-// a piece printed onto its own canvas, PAD px of margin round it, at zoom; the piece made for that zoom (its hairline floor)
-function printed(key, theme, make, zoom = 1) {
+// the master beside ours: [what, the master's crop, the piece]
+const SIDES = [['drop', 'bickham-rosette-B.jpg'], ['filler', 'bickham-dove-wing.jpg'], ['break', 'bickham-band.jpg']];
+// a piece printed onto its own canvas, PAD px of margin round it, at zoom; the piece made for that zoom (its hairline floor).
+// live (?draw): the canvas comes back empty in a wrapper, with the piece's writers in the order the hand made it (the
+// capital first, written along its skeleton; then the flourish, cut or written along its path at the hand's pace)
+function printed(key, theme, make, zoom = 1, live = false) {
   const d = dpr * zoom, piece = make(d), { W, H } = piece, cv = document.createElement('canvas'), rgb = PAL[key][theme];
   cv.width = Math.ceil((W + PAD * 2) * d); cv.height = Math.ceil((H + PAD * 2) * d); cv.style.width = (W + PAD * 2) * zoom + 'px'; cv.style.height = (H + PAD * 2) * zoom + 'px';
   const g = cv.getContext('2d'), box = [0, 0, W + PAD * 2, H + PAD * 2], res = Math.max(2, d * 1.25);
-  const strokes = piece.strokes.map(s => ({ p: s.p.map(([x, y]) => [x + PAD, y + PAD]), w: s.w, balls: s.balls.map(([[x, y], r]) => [[x + PAD, y + PAD], r]) }));
+  const strokes = piece.strokes.map(s => ({ p: s.p.map(([x, y]) => [x + PAD, y + PAD]), w: s.w, t: s.t, balls: s.balls.map(([[x, y], r]) => [[x + PAD, y + PAD], r]) }));
   let Lm = null;
   if (piece.letter) { const { ch, face, cap, cx, cy } = piece.letter, draw = glyph(ch, face, cap, cx + PAD, cy + PAD); Lm = thinShades(coverage([], box, res, draw), .3, res * .9); }
+  if (live) {
+    const el = document.createElement('div'); el.style.position = 'absolute'; cv.style.display = 'block'; el.append(cv); const writers = [];
+    const lw = (L, o) => { const w = letterWriter(g, L, { k: rgb }, { dpr: d, host: el, ...o }); return { dur: 1300, at: f => w.at(f), done: () => w.done() }; };
+    if (piece.medium === 'engrave') { if (Lm) writers.push(lw({ ...Lm }, { wet: .03, dry: .04 })); writers.push(engraveWriter(g, coverage(strokes, box, res), strokes, rgb, { dpr: d })); }
+    else { if (Lm) writers.push(lw({ ...Lm }, { wet: .1, dry: .2 })); writers.push(quillWriter(g, strokes, rgb, { dpr: d, box, seed, host: el })); }
+    return { el, writers };
+  }
   if (piece.medium === 'engrave') { const M = coverage(strokes, box, res); if (Lm) for (let i = 0; i < M.M.length; i++) M.M[i] = Math.max(M.M[i], Lm.M[i]); engrave(g, M, rgb, { dpr: d }); }
   else { if (Lm) inkLetter(g, { ...Lm, wet: .1, dry: .2 }, rgb, { dpr: d }); quill(g, strokes, rgb, { dpr: d, box, seed }); }
   return cv;
+}
+// the score: a panel's writers one after another at the hand's pace, begun when the panel comes into view
+function score(panel, writers) {
+  let k = 0, st = 0, on = false;
+  const frame = now => { const w = writers[k]; if (!w) return; if (!st) st = now; const f = (now - st) / Math.max(1, w.dur);
+    if (f >= 1) { w.done(); k++; st = 0; } else w.at(f); if (writers[k]) requestAnimationFrame(frame); };
+  new IntersectionObserver((es, ob) => { if (!on && es.some(e => e.isIntersecting)) { on = true; ob.disconnect(); requestAnimationFrame(frame); } }, { threshold: .15 }).observe(panel);
 }
 const ONLY = q.get('only'), PERF = [];
 for (const key of Object.keys(DIRS).filter(k => !ONLY || ONLY === k)) {
@@ -108,32 +127,35 @@ for (const key of Object.keys(DIRS).filter(k => !ONLY || ONLY === k)) {
     sec.querySelector('.pair').append(panel);
     const cs = getComputedStyle(text), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = innerWidth < 600 ? 3 : 4;
     const capTop = (lh - fs) / 2 + fs * .2, H = (n - 1) * lh + fs * .72; iniH = H;
-    const place = (cv, x, y) => { Object.assign(cv.style, { position: 'absolute', left: x - PAD + 'px', top: y - PAD + 'px', pointerEvents: 'none' }); text.append(cv); };
+    const panelWriters = [];
+    const place = (o, x, y) => { const el = o.el ?? o; if (o.writers) panelWriters.push(...o.writers); Object.assign(el.style, { position: 'absolute', left: x - PAD + 'px', top: y - PAD + 'px', pointerEvents: 'none' }); text.append(el); };
     const tp = performance.now(), ini0 = D.initial('B', H, seed, dpr), ispan = text.querySelector('.ini');
     Object.assign(ispan.style, { width: ini0.W + fs * .3 + 'px', height: n * lh + 'px', lineHeight: '1px', fontSize: '1px' });
     const par0 = D.paraph(fs, seed, dpr), pf = text.querySelector('.pf'); pf.style.width = par0.W + fs * .3 + 'px'; pf.style.height = '1px';
     const tr = text.getBoundingClientRect(), ir = ispan.getBoundingClientRect();
-    place(printed(key, theme, d => D.initial('B', H, seed, d)), ir.left - tr.left, ir.top - tr.top + capTop);
+    place(printed(key, theme, d => D.initial('B', H, seed, d), 1, DRAW), ir.left - tr.left, ir.top - tr.top + capTop);
     const pr = pf.getBoundingClientRect(), base = pr.bottom - tr.top;
-    place(printed(key, theme, d => D.paraph(fs, seed, d)), pr.left - tr.left, base - par0.H * (par0.base ?? .9));
+    place(printed(key, theme, d => D.paraph(fs, seed, d), 1, DRAW), pr.left - tr.left, base - par0.H * (par0.base ?? .9));
     const p = text.querySelector('p.fill'), rg = document.createRange(); rg.selectNodeContents(p); const last = [...rg.getClientRects()].at(-1);
     const x0 = last.right - tr.left + fs * .3, gw = tr.width - x0;
-    if (gw > fs * 2) { const fl = D.filler(gw, lh, seed, dpr); place(printed(key, theme, d => D.filler(gw, lh, seed, d)), x0, last.top - tr.top + (last.height - fl.H) / 2 + fs * .12); }
+    if (gw > fs * 2) { const fl = D.filler(gw, lh, seed, dpr); place(printed(key, theme, d => D.filler(gw, lh, seed, d), 1, DRAW), x0, last.top - tr.top + (last.height - fl.H) / 2 + fs * .12); }
     const hr = text.querySelector('hr').getBoundingClientRect(), bw = Math.min(tr.width * .7, 380);
-    place(printed(key, theme, d => D.brk(bw, hr.height, seed, d)), (tr.width - bw) / 2, hr.top - tr.top);
+    place(printed(key, theme, d => D.brk(bw, hr.height, seed, d), 1, DRAW), (tr.width - bw) / 2, hr.top - tr.top);
     const bq = text.querySelector('blockquote').getBoundingClientRect(), csz = fs * 1.2;
-    place(printed(key, theme, d => D.corner(csz, seed, d)), bq.left - tr.left, bq.top - tr.top);
+    place(printed(key, theme, d => D.corner(csz, seed, d), 1, DRAW), bq.left - tr.left, bq.top - tr.top);
     PERF.push(`${key} ${theme}: ${Math.round(performance.now() - tp)} ms`);
+    if (DRAW) score(panel, panelWriters);
     fig(printed(key, theme, d => D.initial(theme === 'light' ? 'B' : letters[2] ?? 'R', H, seed, d), 4), `initial, 4× (${theme})`, theme);
     fig(printed(key, theme, d => D.paraph(fs, seed, d), 4), `paraph, 4×`, theme);
     fig(printed(key, theme, d => D.filler(150, lh, seed, d), 4), `filler, 4×`, theme);
     fig(printed(key, theme, d => D.brk(bw, hr.height, seed, d), 2), `break, 2×`, theme);
     fig(printed(key, theme, d => D.corner(csz, seed, d), 3), `quotation’s head, 3×`, theme);
   }
-  // the master beside ours, at the same height: page size, then 4x
-  { const side = document.createElement('div'); side.className = 'side';
-    for (const zz of [1, 4]) { const im = document.createElement('img'); im.src = `copperplate-refs/${SIDE[key]}`; im.style.height = (iniH + PAD * 2) * zz + 'px'; im.style.width = 'auto'; side.append(im, printed(key, 'light', d => D.initial('B', iniH, seed, d), zz)); }
-    fig(side, 'master (left) beside ours, at the same height: page size, then 4×', 'light'); }
+  // the master beside ours, at the same height: page size, then 4x (the master's 4x is its scan enlarged, so soft)
+  for (const [what, src] of SIDES) { const side = document.createElement('div'); side.className = 'side';
+    const mk = d => what === 'drop' ? D.initial('B', iniH, seed, d) : what === 'filler' ? D.filler(300, 32, seed, d) : D.brk(380, 54, seed, d);
+    for (const zz of [1, 4]) { const cv = printed(key, 'light', mk, zz), im = document.createElement('img'); im.src = `copperplate-refs/${src}`; im.style.height = cv.style.height; im.style.width = 'auto'; side.append(im, cv); }
+    fig(side, `${what}: the master (left) beside ours, at the same height: page size, then 4×`, 'light'); }
   for (const theme of ['light', 'dark']) {
     const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
     for (const ch of letters) row.append(printed(key, theme, d => D.initial(ch, iniH, seed + ch.charCodeAt(0), d)));

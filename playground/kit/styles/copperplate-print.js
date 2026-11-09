@@ -156,24 +156,73 @@ function pace(p, vmax) {
     t.push(t[i - 1] + Math.hypot(b[0] - p[i - 1][0], b[1] - p[i - 1][1]) / Math.max(.02, v)); }
   return t;
 }
-export function quill(bake, strokes, rgb, { dpr = 2, box, seed = 1, wet = .3, speed = .8 } = {}) {
-  if (!supported()) return false;
-  const ox = Math.floor(box[0]), oy = Math.floor(box[1]), cw = Math.ceil((box[2] - ox) * dpr), ch = Math.ceil((box[3] - oy) * dpr), { cv, Md } = mediumFor(cw, ch, dpr);
-  Md.clear(); Md.wetness(wet); Md.settings.ink = rgb; Md.makePaper([ox * dpr, oy * dpr], [0, 0, cw, ch]);
-  const pen = new Pen(Md, { exact: true, flex: 0, use: 3, angle: .62 }), wob = noise1(seed ^ 0x3c);
-  for (const S of strokes) {
-    const hair = Math.max(.28, Math.min(...S.w)), T = pace(S.p, speed), ph = (seed % 31) * 1.7;
-    pen.dip(); pen.width = .12; pen.hairline = hair * 2;
-    for (let i = 0; i < S.p.length; i++) pen.hand(S.p[i][0] - ox, S.p[i][1] - oy, .5, T[i], S.w[i] / hair * (1 + .08 * (wob(i * .01 + ph) - .5)));
-    for (let t = 0, end = T.at(-1) + 60; t <= end; t += 8) { pen.update(t); Md.step(8); }
-    pen.lift(); Md.step(16);
-    for (const [c, r] of S.balls ?? []) {   // a dot: the pen set down and lifted, the ink a little pool
-      const R = Math.ceil((r + 1) * dpr), nn = 2 * R + 1, D = new Uint8Array(nn * nn * 4);
-      for (let j = 0; j < nn; j++) for (let i = 0; i < nn; i++) { const d = Math.hypot(i - R, j - R) / dpr, cc = Math.max(0, Math.min(1, r - d + .5)); if (!cc) continue; const q = (j * nn + i) * 4; D[q] = cc * 255; D[q + 1] = 170; }
-      Md.pour(D, nn, nn, [(c[0] - ox) * dpr - R, (c[1] - oy) * dpr - R, nn, nn]); }
-  }
-  for (let k = 0; k < 18; k++) Md.step(16);
-  Md.finish(); Md.render([0, 0, cw, ch]);
-  bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.drawImage(cv, 0, 0, cw, ch, Math.round(ox * dpr), Math.round(oy * dpr), cw, ch); bake.restore();
-  return true;
+// quillWriter: the strokes written one after another at the hand's pace (each stroke's t, ms; a lift of 120 ms between),
+// the medium's window shown live over the page at `pos` in `host` while it writes, then pressed into bake. .at(f) f 0..1,
+// .done(), .dur (ms). quill(): the same, written at once.
+export function quillWriter(bake, strokes, rgb, { dpr = 2, box, seed = 1, wet = .3, speed = .8, host = null, pos = [0, 0] } = {}) {
+  if (!supported()) return { dur: 0, at() {}, done() {} };
+  const plan = []; let T0 = 0;
+  for (const S of strokes) { const T = S.t ?? pace(S.p, speed); plan.push({ S, T, start: T0 }); T0 += T.at(-1) + 60 + 120; }
+  const ox = Math.floor(box[0]), oy = Math.floor(box[1]), cw = Math.ceil((box[2] - ox) * dpr), ch = Math.ceil((box[3] - oy) * dpr), wob = noise1(seed ^ 0x3c);
+  let cv = null, Md = null, pen = null, now = 0, k = -1, fin = false;
+  const open = () => { ({ cv, Md } = mediumFor(cw, ch, dpr)); Md.clear(); Md.wetness(wet); Md.settings.ink = rgb; Md.makePaper([ox * dpr, oy * dpr], [0, 0, cw, ch]);
+    pen = new Pen(Md, { exact: true, flex: 0, use: 1.2, angle: .62 });
+    if (host) { Object.assign(cv.style, { position: 'absolute', left: pos[0] + ox + 'px', top: pos[1] + oy + 'px', width: cv.width / dpr + 'px', height: cv.height / dpr + 'px', pointerEvents: 'none' }); cv.setAttribute('aria-hidden', 'true'); host.append(cv); } };
+  // a dot: the pen set down and lifted, the ink a little pool
+  const balls = S => { for (const [c, r] of S.balls ?? []) { const R = Math.ceil((r + 1) * dpr), nn = 2 * R + 1, D = new Uint8Array(nn * nn * 4);
+    for (let j = 0; j < nn; j++) for (let i = 0; i < nn; i++) { const d = Math.hypot(i - R, j - R) / dpr, cc = Math.max(0, Math.min(1, r - d + .5)); if (!cc) continue; const q = (j * nn + i) * 4; D[q] = cc * 255; D[q + 1] = 170; }
+    Md.pour(D, nn, nn, [(c[0] - ox) * dpr - R, (c[1] - oy) * dpr - R, nn, nn]); } };
+  const begin = j => { const { S, T, start } = plan[j], hair = Math.max(.28, Math.min(...S.w)), ph = (seed % 31) * 1.7 + j;
+    pen.reset(); pen.dip(); pen.width = .12; pen.hairline = hair * 2;
+    for (let i = 0; i < S.p.length; i++) pen.hand(S.p[i][0] - ox, S.p[i][1] - oy, .5, start + T[i], S.w[i] / hair * (1 + .08 * (wob(i * .01 + ph) - .5))); pen.tt = start; };
+  const advance = until => { if (!Md) open();
+    for (; now < until; now += 8) {
+      const j = plan.findIndex((P, q) => now >= P.start && (q === plan.length - 1 || now < plan[q + 1].start));
+      if (j !== k) { if (k >= 0) { pen.lift(); balls(plan[k].S); } k = j; if (k >= 0) begin(k); }
+      // (a quill's slit holds ink and feeds it down as the hand goes: along a long hairline the pen stays charged and the
+      // line stays whole rather than running dry into the paper's tooth)
+      if (k >= 0 && now <= plan[k].start + plan[k].T.at(-1) + 60) { pen.update(now); if (pen.charge < .7) pen.charge += (.7 - pen.charge) * .02; }
+      Md.step(8); } };
+  const self = { dur: T0,
+    at(f) { if (fin) return; advance(Math.min(1, f) * T0); Md.render(); },
+    done() { if (fin) return; advance(T0); if (k >= 0) { pen.lift(); balls(plan[k].S); k = plan.length; }
+      for (let q = 0; q < 18; q++) Md.step(16); Md.finish(); Md.render([0, 0, cw, ch]);
+      bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.drawImage(cv, 0, 0, cw, ch, Math.round(ox * dpr), Math.round(oy * dpr), cw, ch); bake.restore();
+      if (cv.parentNode) cv.remove(); fin = true; } };
+  return self;
+}
+export function quill(bake, strokes, rgb, o = {}) { if (!supported()) return false; quillWriter(bake, strokes, rgb, { ...o, host: null }).done(); return true; }
+
+// engraveWriter: the engraved strokes cut as you watch, along each stroke in the order and at the pace the hand made it
+// (each stroke's t, ms; a lift of 120 ms between): the finished print is made at once, and each device pixel takes the
+// time of the nearest point of the stroke that laid it; .at(f) lays the pixels whose time has come (each once, onto bake,
+// over what is there), so the cut runs along the line with a crisp front and nothing fades. L: the strokes' coverage.
+export function engraveWriter(bake, L, strokes, rgb, { dpr = 2 } = {}) {
+  const W = bake.canvas.width, H = bake.canvas.height, off = new OffscreenCanvas(W, H), og = off.getContext('2d', { willReadFrequently: true });
+  engrave(og, L, rgb, { dpr }); const fin = og.getImageData(0, 0, W, H);
+  // the time of each coverage cell: the earliest point of any stroke whose disc (its width and a px of creep) covers it
+  const { w, h, res } = L, Tc = new Float32Array(w * h).fill(Infinity); let T0 = 0;
+  for (const S of strokes) { const T = S.t ?? pace(S.p);
+    for (let i = 0; i < S.p.length; i++) { const [x, y] = S.p[i], rr = (S.w[i] + 1.4) * res, cx = (x - L.x0) * res, cy = (y - L.y0) * res, t = T0 + T[i];
+      for (let j = Math.max(0, Math.floor(cy - rr)); j <= Math.min(h - 1, Math.ceil(cy + rr)); j++) for (let q = Math.max(0, Math.floor(cx - rr)); q <= Math.min(w - 1, Math.ceil(cx + rr)); q++) {
+        const o = j * w + q; if (t < Tc[o] && (q - cx) ** 2 + (j - cy) ** 2 <= rr * rr) Tc[o] = t; } }
+    for (const [c, r] of S.balls ?? []) { const rr = (r + 1.4) * res, cx = (c[0] - L.x0) * res, cy = (c[1] - L.y0) * res, t = T0 + T.at(-1) + 40;
+      for (let j = Math.max(0, Math.floor(cy - rr)); j <= Math.min(h - 1, Math.ceil(cy + rr)); j++) for (let q = Math.max(0, Math.floor(cx - rr)); q <= Math.min(w - 1, Math.ceil(cx + rr)); q++) { const o = j * w + q; if (t < Tc[o]) Tc[o] = t; } }
+    T0 += T.at(-1) + 60 + 120; }
+  const ids = [], tt = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const q = y * W + x; if (!fin.data[q * 4 + 3]) continue;
+    const cx = Math.min(w - 1, Math.max(0, Math.floor((x / dpr - L.x0) * res))), cy = Math.min(h - 1, Math.max(0, Math.floor((y / dpr - L.y0) * res))), t = Tc[cy * w + cx];
+    ids.push(q); tt.push(Number.isFinite(t) ? t : T0); }
+  const order = Int32Array.from(ids.map((_, k) => k).sort((a, b) => tt[a] - tt[b]).map(k => ids[k])), times = Float32Array.from(tt).sort();
+  const buf = new ImageData(W, H), scratch = new OffscreenCanvas(W, H), sg = scratch.getContext('2d'); let at = 0, done = false;
+  const lay = upto => { if (upto <= at) return; let x0 = W, y0 = H, x1 = 0, y1 = 0;
+    for (let k = at; k < upto; k++) { const q = order[k], p = q * 4; buf.data[p] = fin.data[p]; buf.data[p + 1] = fin.data[p + 1]; buf.data[p + 2] = fin.data[p + 2]; buf.data[p + 3] = fin.data[p + 3];
+      const x = q % W, y = q / W | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    sg.clearRect(0, 0, W, H); sg.putImageData(buf, 0, 0, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+    bake.save(); bake.setTransform(1, 0, 0, 1, 0, 0); bake.drawImage(scratch, 0, 0); bake.restore();
+    for (let k = at; k < upto; k++) { const p = order[k] * 4; buf.data[p] = buf.data[p + 1] = buf.data[p + 2] = buf.data[p + 3] = 0; }
+    at = upto; };
+  return { dur: T0,
+    at(f) { if (done) return; const now = Math.min(1, f) * T0; let lo = at, hi = times.length; while (lo < hi) { const m = (lo + hi) >> 1; if (times[m] <= now) lo = m + 1; else hi = m; } lay(lo); },
+    done() { if (done) return; lay(order.length); done = true; } };
 }

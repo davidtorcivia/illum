@@ -175,3 +175,85 @@ The pilot's model (a swell by the dot of the direction with the slant, every str
 same loop nine times); lenses that start at a stroke's end (a blunt club); a hairline under the engine's floor (it breaks into
 beads); plate tone or a plate mark painted onto the host's page; grain or noise in the ink (the master's black is flat); birds
 and command-of-hand figures that we have no measured model for (pastiche risk); Bickham Script and Edwardian Script (commercial).
+
+## Stage 2: B and C (the user's verdict: "I like A the least. B is good and C could be good if we make the loops dynamic")
+
+A (the plate) is dropped; tests/copperplate-directions.html now shows B and C, both drawn from one flourish generator,
+kit/styles/copperplate-hand.js. B writes it with the ink engine's pen; C cuts it as engraved, shaded strokes.
+
+**A correction to stage 1.** Plate 0040 is printed turned 90° on the page. So its shaded "near-level" sweeps are the plate's
+down-strokes, at 75–105° in the plate's own frame. Bickham's shade sits on the down-sweep, as the pen's does. The bands on 0124
+also carry lenses on their long level sweeps.
+
+### The flourish grammar, measured on the refs (scratchpad copperplate/py/holes.py; LOG.md)
+- **Chains of loops riding a sweep** (the dove's wings, 0220, ~8 px/mm). The loop eyes along the upper wing measure 48, 63, 46,
+  67, 66 px, then 36 px at the end: a spindle whose largest loops fall past the middle, with the last about .55 of the largest.
+  Loop pitch is 50–61 px, so each loop is 1.0–1.2 pitches long and overlaps its neighbours. The loops are 2.3–2.5 times as long
+  as they are wide and lie within ~10° of the sweep. The left wing's loops measure 44, 44, 41 and 39 px.
+- **Rosettes** (the ABC headpiece, 0414; read by eye on a 25 px grid, not by script). B's rosette is about six overlapping ovals.
+  Each is .4–.7 of the rosette across and overlaps its neighbours by 20–40 %. The largest sit at the foot, so the silhouette is
+  scalloped and never a circle. Inner arcs pass behind the letter. There are small curls with dots and thorn accents between
+  them, all hairline; the shade belongs to the letter.
+- **Composition.** Asymmetric but balanced: a sweeping entry, a cluster, and a long exit tail ending in a curl, a hairline point
+  or a ball (0040, the WIT bands of 0124, the dove's tail).
+- **Movement.** Each loop is entered and left the way the hand was already going. Its size changes with where it sits (the
+  arm's free swing at the foot and outer right), not with jitter.
+
+### The generator (kit/styles/copperplate-hand.js)
+A flourish is a plan of intentions executed by a pen with momentum. The heading turns at a curvature that follows the
+intention through a lag, so direction and bend carry from one step into the next.
+- **Steps:** `go` (steer for a point with a look-ahead), `loop` (an oval turn), `curl` (the measured terminal curl, ×.38 a turn),
+  `run`, `path` (a planned path laid as it is) and `follow` (a planned path followed with momentum).
+- **Chains:** `chain(a, b, n, size)` lays a chain of loops on a sweep with the measured spindle and overlap.
+- **Rosettes:** `rosettePlan(c, stations, {A, B, rho, size})` plans the rosette's ovals. Its joins are rounded by `smooth()`, as a
+  hand rounds them.
+- **What failed:** a ring of copies (stage 1) and pure pursuit round the stations (it scribbled). A planned rosette followed with
+  a short look-ahead oscillated, because the look-ahead was shorter than the lag.
+
+### The pieces (both directions)
+- **Drop:** Pinyon's capital (C) or Imperial's (B), with six overlapping ovals round it. Their sizes come from the arm's reach,
+  between .89 and 1.3 of the smallest, and the stations fall where the hand puts them (±7°). The ovals are written as one movement,
+  entered by a short sweep and left by a tail under the letter closing in a curl and a ball. Only the tail's swell is shaded, as
+  Bickham's flourish is hairline round a shaded letter.
+- **Paraph:** two loops riding a rising hairline, then a curl and a ball.
+- **Filler:** one gesture: a fine run that swells as it reaches one to three loops (by the room, spindle-sized), then a curl and a
+  ball. The rest of the line is left quiet.
+- **Break:** an entry from a curl, a cluster of four loops a little right of the middle, and an exit sweep down and up into a curl.
+  The sweeps carry the lenses.
+- **Quotation:** in along the head from its far end, a single knot at the corner, then down the margin into a curl and a ball.
+
+### B · the pen, refined
+The quill keeps its charge along a long hairline: the slit feeds ink down as the hand goes (`use` 1.2, the charge drawn back
+toward .7). The long rules no longer run dry and grainy. The break and quotation now use the same movements as C.
+
+### ?draw (built)
+Each panel is written as it comes into view (IntersectionObserver), and never under reduced motion. The order:
+1. The capital is written along its skeleton by `letterWriter`, in the hand's order.
+2. Then the flourish:
+   - C: `engraveWriter` makes the finished print at once and gives every device pixel the time of the nearest point of the stroke
+     that cut it, then lays the pixels as their time comes. The cut runs along the line with a crisp front, each pixel laid once,
+     nothing fading.
+   - B: `quillWriter` runs the ink engine's pen in real time, with the medium's window shown live over the page.
+3. Then the paraph, filler, break and quotation, each at the hand's pace: quick on long runs, slower into turns (the two-thirds
+   power law), easing at the ends.
+
+A panel takes about 10 s to write (frames in the scratchpad: shots/dh-*.png, dp-*.png).
+
+### Speed
+Chrome, a panel's five pieces, load average 9–10 on the shared machine, the first panel including the engine's warm-up:
+
+| direction | light, dpr 1 / 2 | dark, dpr 1 / 2 |
+|---|---|---|
+| pen | 113 / 120 ms | 54 / 56 ms |
+| hand | 132 / 159 ms | 70 / 74 ms |
+
+### Where it stands (my read, beside the master at 1× and 4×)
+C's drop now reads in Bickham's idiom: varied, overlapping, scalloped ovals round a legible capital. What it still lacks
+against his:
+- the small inner curls with dots and the thorn accents among the ovals;
+- his finer hairline at page size (ours is floored at 1.2 device px).
+
+The filler and break are restrained single gestures. Bickham's dove wing runs its chain along a strong shaded sweep, and ours
+runs it more lightly.
+
+B is the same composition in iron-gall ink. The pen's pale hairlines make its drop the lighter and more legible of the two.

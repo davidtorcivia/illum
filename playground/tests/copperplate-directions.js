@@ -1,181 +1,117 @@
-// Copperplate, direction studies (research/23-copperplate.md): three directions, drawn live as vector (pen paths with
-// designed half-widths) and printed through the ink engine by kit/styles/copperplate-print.js. Every piece:
-// { W, H, strokes, letter?, medium: 'engrave' | 'quill', base? } in its own px (0,0)-(W,H); d = device px a css px (the
-// hairline is never drawn under the engine's floor, 1.2 device px, and opens toward the master's tenth of a shade above it).
-//   A · the plate   Bickham and Champion engraved (Universal Penman, 1733-41): the capital, and a few long sweeps with
-//                   one lens each on the near-horizontal run; hairlines that end in a point or a ball; intaglio black
-//                   (dark: the copper plate itself, its cut lines bright)
-//   B · the pen     the writing master's own hand: the same grammar written with a pointed quill in iron-gall ink, its
-//                   shade the pen's (on the down-strokes of the slant), pooling where the hand slows (dark: white ink)
-//   C · command of hand   the capital in a rosette of loops written as one continuous stroke (Bickham's ABC headpiece,
-//                   0414; the WIT bands, 0124), engraved
-import { SLANT, beauty, oval, curl, join, burin, shade, lens, stroke, cubic } from '../kit/styles/copperplate-print.js';
+// Copperplate, direction studies, stage 2 (research/23-copperplate.md). The user's pick: B (the writing master's pen) and
+// C (command of hand); A (the plate) is dropped. Both share one flourish generator, a movement with momentum
+// (kit/styles/copperplate-hand.js): B writes it with the ink engine's pen in iron-gall ink, C cuts it as engraved, shaded
+// strokes. Every piece: { W, H, strokes, letter?, medium, base? } in its own px; d = device px a css px (the engraved
+// hairline never drawn under the engine's floor, 1.2 device px).
+//   each stroke: { p, w, balls, t } — t: the hand's time at each point (ms), for ?draw
+import { SLANT, burin, shade, lens, stroke } from '../kit/styles/copperplate-print.js';
+import { move, chain, fit, rosettePlan, smooth } from '../kit/styles/copperplate-hand.js';
 import { stream } from '../kit/marks.js';
 
 const PI = Math.PI, TAU = 2 * PI;
-const hairOf = (peak, d) => Math.max(peak / 10, 1.2 / d) / 2;   // a half-width
-const DOWN = [-Math.cos(SLANT), Math.sin(SLANT)];                 // the pen's shade: pulled down the slant
-// a stroke: the path cut by the burin's hand, its widths by the shade rule (or lenses given by hand), its ends
-function S(path, seed, { hair, peak, axis = [1, 0], tol = 32, start = 'point', end = 'point', lenses = null, amp = .16, ball = 1.9, aspect = 20, margin = .1 }) {
-  const p = burin(path, seed, amp), w = lenses ? new Float32Array(p.length).fill(hair) : shade(p, { hair, peak: peak / 2, axis, tol, aspect, margin });
-  if (lenses) for (const [u0, u1, pk, at] of lenses) lens(p, w, u0, u1, pk / 2, at ?? .4);
-  return stroke(p, w, { start, end, hair, ball });
+const DOWN = [-Math.cos(SLANT), Math.sin(SLANT)];   // the shade: where the hand pulls down the slant
+const hairOf = (peak, d) => Math.max(peak / 10, 1.2 / d) / 2;
+const deg = a => a * PI / 180;
+
+// The hand's pace along a path (px/ms): quick on the long runs, slower into a turn (as the cube root of its radius, the
+// two-thirds power law of drawing movements), easing in at the start and out at the end. Returns cumulative ms.
+export function pace(p, vmax = .9) {
+  const n = p.length, t = [0];
+  for (let i = 1; i < n; i++) { const a = p[Math.max(0, i - 4)], b = p[i], c = p[Math.min(n - 1, i + 4)];
+    const h1 = Math.atan2(b[1] - a[1], b[0] - a[0]), h2 = Math.atan2(c[1] - b[1], c[0] - b[0]); let dh = h2 - h1; dh -= Math.round(dh / TAU) * TAU;
+    const R = Math.hypot(c[0] - a[0], c[1] - a[1]) / 2 / (Math.abs(dh) + 1e-4), f = i / (n - 1);
+    const v = vmax * Math.min(1, Math.cbrt(R / 80)) * (.3 + .7 * Math.sin(Math.min(1, f * 8, (1 - f) * 6) * PI / 2));
+    t.push(t[i - 1] + Math.hypot(b[0] - p[i - 1][0], b[1] - p[i - 1][1]) / Math.max(.03, v)); }
+  return t;
 }
-const rev = p => p.slice().reverse();
-const slantPt = (c, a, b, t) => { const sd = [Math.cos(SLANT), -Math.sin(SLANT)], sn = [Math.sin(SLANT), Math.cos(SLANT)]; return [c[0] + sd[0] * a * Math.cos(t) + sn[0] * b * Math.sin(t), c[1] + sd[1] * a * Math.cos(t) + sn[1] * b * Math.sin(t)]; };
-
-// ---- A · the plate ---------------------------------------------------------------------------------------------------------
-const A = {
-  name: 'A · The plate', face: '"CopperA"', medium: 'engrave',
-  initial(ch, H, seed, d = 2) {
-    const r = stream(seed, 'A-ini:' + ch), W = Math.round(H * 1.06), pk = H * .046, hair = hairOf(H * .062, d), out = [];
-    const letter = { ch, face: this.face, cap: H * .7, cx: W * .56, cy: H * .45 };
-    // the underscore: a line of beauty from under the letter's foot out to the right, its lens on the long run, curling up
-    const a = [W * .04, H * (.83 + .02 * r())], b = [W * .9, H * .9], u = beauty(a, b, .085 + .02 * r(), 90);
-    out.push(S(join(u, curl(b, -.35, H * .075, -1)), seed + 1, { hair, peak: pk, axis: [1, 0], start: 'ball', margin: .16 }));
-    // the head: a hairline from the top right over the letter's head, a lighter lens leftward, into a curl and a ball
-    const h0 = [W * .97, H * .2], h1 = [W * .2, H * .1], top = cubic(h0, [W * .8, H * -.02], [W * .45, H * .0], h1, 80);
-    out.push(S(join(top, curl(h1, PI * .82, H * .065, -1, 1.25)), seed + 2, { hair, peak: pk * .62, axis: [-1, 0], start: 'point', end: 'ball', margin: .22 }));
-    return { W, H, strokes: out, letter, medium: this.medium };
-  },
-  // Bickham's line opener: a tilde laid in front of the line, a ball where the burin went in, one lens on the fall
-  paraph(fs, seed, d = 2) {
-    const W = fs * 1.45, H = fs * .9, pk = fs * .12, hair = hairOf(pk, d);
-    const p = join(cubic([W * .03, H * .7], [W * .3, H * -.35], [W * .6, H * 1.25], [W * .9, H * .25], 60), curl([W * .9, H * .25], -PI * .45, fs * .08, -1, 1.1));
-    return { W, H, base: .95, strokes: [S(p, seed + 3, { hair, peak: pk, lenses: [[.34, .7, pk, .45]], start: 'ball', amp: .04 })], medium: this.medium };
-  },
-  // the line's end: a fine rule out to the measure, ending in the shaded tilde (Bickham's "Language~")
-  filler(gw, lh, seed, d = 2) {
-    const H = lh * .5, T = Math.min(gw, lh * 1.9), pk = lh * .1, hair = hairOf(pk, d), y = H * .6, x1 = gw - T;
-    const til = cubic([x1, y], [x1 + T * .38, y - H * .9], [x1 + T * .6, y + H * .85], [gw - 1, y - H * .25], 50);
-    const path = x1 > lh * .4 ? join(beauty([1, y], [x1, y], .004, Math.max(8, Math.round(x1 / 3))), til) : til;
-    let L = 0; for (let i = 1; i < path.length; i++) L += Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]);
-    const u0 = 1 - T / L;
-    return { W: gw, H, strokes: [S(path, seed + 4, { hair, peak: pk, lenses: [[u0 + (1 - u0) * .32, u0 + (1 - u0) * .8, pk, .45]], start: 'point', end: 'point', amp: .1 })], medium: this.medium };
-  },
-  // two lines of beauty crossing, each shaded away from the crossing (a shade is crossed only by a hairline), the four
-  // ends curled, two into balls
-  brk(bw, hb, seed, d = 2) {
-    const pk = hb * .075, hair = hairOf(pk, d), out = [];
-    for (const s of [1, -1]) {
-      const a = [bw * .16, hb * (.5 + .2 * s)], b = [bw * .84, hb * (.5 - .2 * s)], l = beauty(a, b, .15 * s, 100);
-      const path = join(rev(curl(a, s > 0 ? PI * .55 : -PI * .55, hb * .17, s > 0 ? -1 : 1, 1.35)), l, curl(b, s > 0 ? -PI * .45 : PI * .45, hb * .17, s > 0 ? -1 : 1, 1.35));
-      out.push(S(path, seed + 5 + s, { hair, peak: pk, lenses: [s > 0 ? [.18, .46, pk, .45] : [.54, .82, pk, .55]], start: s > 0 ? 'ball' : 'point', end: s > 0 ? 'point' : 'ball' }));
-    }
-    return { W: bw, H: hb, strokes: out, medium: this.medium };
-  },
-  // a quotation's head: a hairline along the head, turning down into the margin in a quarter oval whose turn is shaded,
-  // ending in a curl (Bickham frames with flourished rules and ovals, not mitred corners)
-  corner(cs, seed, d = 2) {
-    const W = cs * 5.5, H = cs * 1.9, pk = cs * .1, hair = hairOf(pk, d);
-    const run = beauty([W - 1, H * .06], [cs * .85, H * .1], -.01, 80), turn = cubic([cs * .85, H * .1], [cs * .2, H * .12], [cs * .1, H * .35], [cs * .22, H * .7], 50);
-    const p = join(run, turn, curl([cs * .22, H * .7], PI * .42, cs * .17, -1, 1.2));
-    let L = 0; for (let i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); const u = (W - cs * 2.4) / L;
-    return { W, H, strokes: [S(p, seed + 7, { hair, peak: pk, lenses: [[u, u + cs * 2.6 / L, pk, .55]], start: 'point', end: 'ball' })], medium: this.medium };
-  },
-};
-
-// ---- B · the pen ------------------------------------------------------------------------------------------------------------
-const B = {
-  name: 'B · The writing master’s pen', face: '"CopperB"', medium: 'quill',
-  initial(ch, H, seed, d = 2) {
-    const W = Math.round(H * 1.06), pk = H * .075, hair = Math.max(.3, pk / 9 / 2), out = [];
-    const letter = { ch, face: this.face, cap: H * .7, cx: W * .55, cy: H * .47 };
-    // one slant oval round the letter, entered from below left as a hairline and run 1.1 times round, shaded where the pen
-    // pulls down the slant; then out to the right
-    const c = [W * .52, H * .5], o = [];
-    for (let t = PI * .85; t <= PI * .85 + TAU * 1.08; t += .02) o.push(slantPt(c, H * .58, H * .34, -t));
-    const entry = cubic([W * .02, H * .98], [W * .08, H * .9], o[0], o[0], 20);
-    out.push(S(join(entry, o), seed + 1, { hair, peak: pk, axis: DOWN, tol: 38, start: 'point', end: 'point', amp: .25 }));
-    return { W, H, strokes: out, letter, medium: this.medium };
-  },
-  // the copybook's oval: entered from below, once round on the slant, shaded down its left side, out to a dot
-  paraph(fs, seed, d = 2) {
-    const W = fs * 1.1, H = fs * .95, pk = fs * .16, hair = Math.max(.3, pk / 9 / 2), c = [W * .5, H * .5], o = [];
-    for (let t = PI * .2; t <= PI * .2 + TAU * 1.02; t += .05) o.push(slantPt(c, H * .5, H * .26, -t));
-    return { W, H, base: .9, strokes: [S(join(cubic([W * .02, H * .95], [W * .2, H * .9], o[0], o[0], 12), o), seed + 3, { hair, peak: pk, axis: DOWN, tol: 38, end: 'ball', amp: .1 })], medium: this.medium };
-  },
-  // a compound curve out to the measure, closing in a small oval on the slant
-  filler(gw, lh, seed, d = 2) {
-    const H = lh * .62, pk = lh * .12, hair = Math.max(.3, pk / 9 / 2), R = Math.min(H * .5, gw * .2), c = [gw - R * .9, H * .5], o = [];
-    for (let t = PI * 1.25; t <= PI * 1.25 + TAU * .95; t += .05) o.push(slantPt(c, R, R * .5, -t));
-    const lead = gw > R * 4 ? beauty([1, H * .45], o[0], .03, 60) : [o[0]];
-    return { W: gw, H, strokes: [S(join(lead, o), seed + 4, { hair, peak: pk, axis: DOWN, tol: 38, amp: .15 })], medium: this.medium };
-  },
-  // the running oval: three ovals written on without lifting, as the copybooks drill it
-  brk(bw, hb, seed, d = 2) {
-    const pk = hb * .1, hair = Math.max(.3, pk / 9 / 2), n = 1.08, a = hb * .46, b = hb * .27, x0 = bw * .5, x1 = bw * .5, p = [];
-    for (let t = 0; t <= n * TAU; t += .03) { const c = [x0 + (x1 - x0) * t / (n * TAU), hb * .5]; p.push(slantPt(c, a, b, -t - PI * .5)); }
-    const lead = beauty([bw * .04, hb * .55], p[0], -.06, 40), tail = beauty(p.at(-1), [bw * .96, hb * .45], .06, 40);
-    return { W: bw, H: hb, strokes: [S(join(lead, p, tail), seed + 5, { hair, peak: pk, axis: DOWN, tol: 38, end: 'ball', amp: .2 })], medium: this.medium };
-  },
-  corner(cs, seed, d = 2) {
-    const W = cs * 5.5, H = cs * 2.1, pk = cs * .14, hair = Math.max(.3, pk / 9 / 2), c = [cs * .75, H * .45], o = [];
-    for (let t = -PI * .1; t <= -PI * .1 + TAU * 1.05; t += .03) o.push(slantPt(c, cs * .78, cs * .4, t));
-    const run = beauty([W - 1, H * .08], o[0], .015, 80);
-    return { W, H, strokes: [S(join(run, o), seed + 7, { hair, peak: pk, axis: DOWN, tol: 38, end: 'ball', amp: .2 })], medium: this.medium };
-  },
-};
-
-// ---- C · command of hand -------------------------------------------------------------------------------------------------------
-// a ring of n loops round an ellipse (radii ax, ay), one continuous stroke: the centre runs round the ellipse while the
-// pen circles k times as fast (an epitrochoid; loops where rho*k exceeds the ring's speed)
-// (the hand: each loop its own size, +-9 %, larger toward the head and foot as Bickham's are, the ring breathing)
-function rosette(c, ax, ay, n, rho, ph = 0, turns = 1, step = .004, r = null) {
-  const out = [], k = n + 1, var_ = Array.from({ length: n + 3 }, () => r ? 1 + (r() - .5) * .18 : 1), breathe = r ? r() * TAU : 0;
-  for (let t = 0; t <= TAU * turns; t += step) { const f = t / TAU * (n + 1), i = Math.floor(f), u = f - i, v = var_[i % var_.length] * (1 - u) + var_[(i + 1) % var_.length] * u;
-    const rr = rho * v * (1 + .12 * Math.abs(Math.sin(t + ph))), R = 1 + .02 * Math.sin(2 * t + breathe);
-    out.push([c[0] + ax * R * Math.cos(t + ph) - rr * Math.cos(k * t + ph), c[1] + ay * R * Math.sin(t + ph) - rr * Math.sin(k * t + ph)]); }
-  return out;
+// one flourish: the movement, cut or written; its shade on the down-sweeps, lenses laid by hand on named parts
+function flourish(mv, seed, { hair, peak, start = 'point', end = 'ball', tol = 36, aspect = 14, amp = .12, extra = [], shadeOn = null }) {
+  const p = burin(mv.p, seed, amp, 70, .5), n = p.length, m = mv.p.length, part = Array.from({ length: n }, (_, i) => mv.part[Math.min(m - 1, Math.round(i * (m - 1) / Math.max(1, n - 1)))]);
+  const w = shade(p, { hair, peak: peak / 2, axis: DOWN, tol, aspect, margin: .04 });
+  if (shadeOn) for (let i = 0; i < n; i++) if (!shadeOn(part[i])) w[i] = hair;   // (only the loops' down-sweeps press, not the travel between)
+  for (const [idx, u0, u1, pk, at] of extra) { const ix = part.map((q, i) => q === idx ? i : -1).filter(i => i >= 0); if (!ix.length) continue;
+    const a = ix[0], b = ix.at(-1), L = b - a; for (let i = a; i <= b; i++) { const u = ((i - a) / L - u0) / (u1 - u0); if (u > 0 && u < 1) w[i] = Math.max(w[i], hair + (pk / 2 - hair) * Math.sin(PI * (u < at ? .5 * u / at : .5 + .5 * (u - at) / (1 - at))) ** .7); } }
+  const S = stroke(p, w, { start, end, hair, ball: 1.9 }); S.t = pace(p); return S;
 }
-const C = {
-  name: 'C · Command of hand', face: '"CopperA"', medium: 'engrave',
-  initial(ch, H, seed, d = 2) {
-    const W = Math.round(H * 1.06), pk = H * .05, hair = hairOf(pk, d), c = [W * .5, H * .5];
-    const letter = { ch, face: this.face, cap: H * .5, cx: c[0] + H * .01, cy: c[1] };
-    const ring = rosette(c, W * .36, H * .36, 9, H * .1, -PI * .5, 1.0, .004, stream(seed, 'C-ring:' + ch));
-    // (the press here is the garland's: each loop swells on its outer arc, the hand easing in and out as the arc turns)
-    const st = S(ring, seed + 1, { hair, peak: pk, lenses: [], start: 'point', end: 'point', amp: .12 }), rmax = Math.max(...st.p.map(([x, y]) => Math.hypot((x - c[0]) / (W * .36), (y - c[1]) / (H * .36))));
-    st.p.forEach(([x, y], i) => { const r = Math.hypot((x - c[0]) / (W * .36), (y - c[1]) / (H * .36)) / rmax, f = Math.max(0, Math.min(1, (r - .86) / .14));
-      if (f > 0) st.w[i] = Math.max(st.w[i], hair + (pk * .3 - hair) * f * f * (3 - 2 * f)); });
-    return { W, H, strokes: [st], letter, medium: this.medium };
-  },
-  // a knot of three loops, one stroke, closing on itself
-  paraph(fs, seed, d = 2) {
-    const s = fs * 1.05, pk = fs * .13, hair = hairOf(pk, d), c = [s * .5, s * .5];
-    // (the trefoil: three loops and three crossings, x = sin t + 2 sin 2t, y = cos t - 2 cos 2t; begun and left a little open)
-    const k = []; for (let t = .25; t <= TAU - .05; t += .01) k.push([c[0] + s * .15 * (Math.sin(t) + 2 * Math.sin(2 * t)), c[1] + s * .15 * (Math.cos(t) - 2 * Math.cos(2 * t)) + s * .05]);
-    return { W: s, H: s, base: .85, strokes: [S(k, seed + 3, { hair, peak: pk, axis: [1, 0], tol: 30, aspect: 7, margin: .04, end: 'ball', amp: .04 })], medium: this.medium };
-  },
-  // running loops along the baseline, each a little smaller, closing in a curl and a ball
-  filler(gw, lh, seed, d = 2) {
-    const H = lh * .62, pk = lh * .1, hair = hairOf(pk, d), n = Math.max(1, Math.min(9, Math.floor(gw / (lh * 1.25)))), p = [];
-    const span = gw - lh * .7;
-    for (let t = 0; t <= n * TAU; t += .03) { const u = t / (n * TAU), rho = H * .44 * (1 - .4 * u); p.push([lh * .1 + span * u - rho * Math.sin(t) * 1.5, H * .75 - rho * (1 - Math.cos(t)) * .85]); }
-    const end = p.at(-1);
-    return { W: gw, H, strokes: [S(join(p, curl(end, 0, lh * .14, -1, 1.2)), seed + 4, { hair, peak: pk, axis: [-1, 0], tol: 30, aspect: 8, margin: .03, end: 'ball', amp: .08 })], medium: this.medium };
-  },
-  // a band of loops in a lens-shaped envelope, one stroke from a curl at one end to a curl at the other (0124's bands)
-  brk(bw, hb, seed, d = 2) {
-    const pk = hb * .07, hair = hairOf(pk, d), n = 7, p = [], L = bw * .76, x0 = bw * .12;
-    for (let t = 0; t <= n * TAU; t += .02) { const u = t / (n * TAU), env = Math.sin(PI * u) ** .8, rho = hb * .3 * (.25 + .75 * env);
-      p.push([x0 + L * u - rho * Math.sin(t) * 1.25, hb * .5 + rho * Math.cos(t) * (.6 + .4 * env) - rho * .0]); }
-    const a = p[0], b = p.at(-1);
-    return { W: bw, H: hb, strokes: [S(join(rev(curl(a, PI, hb * .09, 1, 1.2)), p, curl(b, 0, hb * .09, -1, 1.2)), seed + 5, { hair, peak: pk, axis: [-1, 0], tol: 30, aspect: 9, margin: .04, start: 'ball', end: 'ball', amp: .1 })], medium: this.medium };
-  },
-  // a curl down into the margin at the corner, then loops along the head, smaller away from the corner
-  corner(cs, seed, d = 2) {
-    const W = cs * 5.5, H = cs * 1.9, pk = cs * .09, hair = hairOf(pk, d), p = [], x0 = cs * .7, y0 = cs * .55, span = W - x0 - cs * .4, n = 5;
-    for (let t = 0; t <= n * TAU; t += .025) { const u = t / (n * TAU), rho = cs * .36 * (1 - .55 * u); p.push([x0 + span * u - rho * Math.sin(t) * 1.6, y0 - rho * (1 - Math.cos(t)) * .8]); }
-    const down = join(rev(curl([cs * .32, H * .78], PI * .6, cs * .16, -1, 1.2)), cubic([cs * .32, H * .78], [cs * .22, H * .45], [cs * .35, y0], [x0, y0], 30), p);
-    return { W, H, strokes: [S(down, seed + 7, { hair, peak: pk, axis: [-1, 0], tol: 30, aspect: 8, margin: .03, start: 'ball', end: 'point', amp: .08 })], medium: this.medium };
-  },
-};
 
-export const DIRS = { plate: A, pen: B, hand: C };
+// ---- the pieces (the same movements for both directions) ------------------------------------------------------------------
+// The drop: the capital, and round it one movement: a long entry from below left, six or seven overlapping ovals walked
+// round the letter clockwise (the hand turning each outward and on), the largest at the foot and the outer right where the
+// arm swings freest, then the exit tail out to the right, closing in a curl and a ball (Bickham's ABC headpiece, 0414).
+function dropPiece(ch, H, seed, d, face, medium) {
+  const r = stream(seed, 'drop:' + ch), W = Math.round(H * 1.12), c = [W * .52, H * .5];
+  // five overlapping ovals round the letter, after Bickham's B (0414; his has six, five keep the letter legible at a
+  // drop's size): each about .55 of the rosette long and .3 wide, its middle .32 out, lying along the way round and tipped toward the slant; the largest at the foot and outer right where
+  // the arm swings freest, the smallest at the head; the stations where the hand puts them (+-7 deg). One movement: a sweep
+  // in from below left, the ovals one after another (the pen following the plan with its momentum, rounding every join),
+  // and a tail out under the letter to the right, closing in a curl and a ball.
+  const stations = [168, 228, 288, 348, 48, 108].map(a => deg(a + (r() - .5) * 14));
+  const size = a => (1 + .2 * Math.max(0, Math.sin(a)) + .1 * Math.max(0, Math.cos(a)) - .1 * Math.max(0, -Math.sin(a))) * (.95 + .1 * r());
+  const ro = rosettePlan(c, stations, { A: H * .2, B: H * .155, rho: H * .3, size, lean: -.2 });
+  const entry = [[c[0] - H * .5, c[1] + H * .12], [c[0] - H * .38, c[1] + H * .05]], tail = [[c[0] + H * .1, c[1] + H * .56], [c[0] + H * .42, c[1] + H * .54], [c[0] + H * .58, c[1] + H * .38]];
+  // (one follow a lobe, so the shade can be given to the lower ovals' down-sweeps only, where the arm pulls toward the writer)
+  // (the ovals' joins rounded as the hand rounds them; a lobe at a time, so each keeps its own part for the shade)
+  const lobes = ro.lobes.map(([i0, i1], k) => ({ path: smooth(ro.pts.slice(i0, i1 + 1).concat(k < ro.lobes.length - 1 ? [ro.pts[ro.lobes[k + 1][0]]] : []), H * .03) })), first = 2;
+  const plan = [{ go: ro.pts[0], look: H * .25 }, ...lobes, { go: tail[0], look: H * .2 }, { go: tail[1], look: H * .2 }, { go: tail[2], look: H * .15 }, { curl: H * .075, sense: -1, turns: 1.25 }];
+  let mv = move(entry[0], -PI * .1, [{ go: entry[1], look: H * .2 }, ...plan], { lag: H * .03 });
+  const lower = new Set(ro.lobes.map(([, , a], k) => Math.sin(a) > .5 ? first + k : -1)), t0 = first + lobes.length;
+  mv = fit(mv, [1, 1, W - 1, H - 1], { at: c, pad: H * .01 });
+  const pk = H * .045;
+  return { W, H, strokes: [flourish(mv, seed + 1, { hair: medium === 'quill' ? .3 : hairOf(pk, d), peak: pk, start: 'point', end: 'ball', shadeOn: q => lower.has(q), extra: [[t0 + 1, .1, .9, pk * .7, .45]] })],
+    letter: { ch, face, cap: H * .56, cx: c[0] + H * .02, cy: c[1] }, medium };
+}
+// The paraph: the filler's motif in small, rising: a hairline in from below left, two loops riding it (the second the
+// larger), a curl and a ball
+function paraphPiece(fs, seed, d, medium) {
+  const W = fs * 1.35, H = fs * .95, pk = fs * .13, a = [W * .22, H * .62], b = [W * .78, H * .42];
+  const plan = [{ go: a, look: fs * .3 }, ...chain(a, b, 2, fs * .5, { sense: -1, first: .75, peak: .9, last: 1, oval: .35 }), { go: [W * .95, H * .55], look: fs * .25 }, { curl: fs * .09, sense: -1, turns: 1.1 }];
+  const mv = move([0, H * .85], -PI * .2, plan, { lag: fs * .05 });
+  return { W, H, base: .92, strokes: [flourish(fit(mv, [1, 1, W - 1, H - 1], { grow: true }), seed + 3, { hair: medium === 'quill' ? .3 : hairOf(pk, d), peak: pk, start: 'point', end: 'ball', amp: .04, shadeOn: q => plan[q]?.loop })], medium };
+}
+// The filler: one gesture. A fine sweep out along the line, and near its end a short chain of loops (one to three, by the
+// room), the spindle's largest second, closing in a curl and a ball. The rest of the room is left quiet.
+function fillerPiece(gw, lh, seed, d, medium) {
+  const H = lh * .8, pk = lh * .1, n = Math.max(1, Math.min(3, Math.floor(gw / (lh * 3)))), size = lh * .7, span = Math.min(gw * .55, n * size * .95);
+  const a = [gw - span - lh * .5, H * .62], b = [gw - lh * .5, H * .5];
+  const plan = [{ go: a, look: lh * 2 }, ...chain(a, b, n, size, { sense: -1, first: .7, last: .62, oval: .4 }), { go: [gw - lh * .12, H * .62], look: lh * .5 }, { curl: lh * .14, sense: -1, turns: 1.2 }];
+  const mv = move([lh * .1, H * .66], -.02, plan, { lag: lh * .12 });
+  const loops = new Set(plan.map((m, i) => m.loop ? i : -1).filter(i => i >= 0));
+  return { W: gw, H, strokes: [flourish(fit(mv, [1, 1, gw - 1, H - 1]), seed + 4, { hair: medium === 'quill' ? .3 : hairOf(pk, d), peak: pk, start: 'point', end: 'ball', amp: .08, shadeOn: q => loops.has(q), extra: [[0, .55, 1, pk * .8, .7]] })], medium };
+}
+// The break: one gesture across the measure: an entry sweep from a curl at the left, a cluster of loops a little right of
+// the middle (the largest second), the exit sweep out to a curl at the right; the two sweeps shaded on their long runs
+function breakPiece(bw, hb, seed, d, medium) {
+  const pk = hb * .085, n = 4, size = hb * .62, a = [bw * .4, hb * .55], b = [bw * .66, hb * .45];
+  const plan = [{ go: [bw * .2, hb * .62], look: hb }, { go: a, look: hb * .8 }, ...chain(a, b, n, size, { sense: -1, first: .62, last: .55, peak: .4, oval: .38 }), { go: [bw * .8, hb * .6], look: hb }, { go: [bw * .93, hb * .45], look: hb * .5 }, { curl: hb * .12, sense: -1, turns: 1.25 }];
+  // (the movement starts in the left curl's eye and runs out of it into the entry sweep: the curl written backwards)
+  const lead = move([bw * .1, hb * .62], PI * 1.05, [{ curl: hb * .12, sense: 1, turns: 1.2 }], { lag: hb * .05 });
+  const joined = { p: lead.p.slice().reverse(), part: lead.part.map(() => -1) };
+  const rest = move(joined.p.at(-1), 0, plan, { lag: hb * .15 }); joined.p = joined.p.concat(rest.p.slice(1)); joined.part = joined.part.concat(rest.part.slice(1));
+  return { W: bw, H: hb, strokes: [flourish(joined, seed + 5, { hair: medium === 'quill' ? .3 : hairOf(pk, d), peak: pk, start: 'ball', end: 'ball', shadeOn: q => plan[q]?.loop, extra: [[1, .15, .9, pk * .75, .55], [plan.length - 3, .1, .9, pk * .7, .5]] })], medium };
+}
+// The quotation's head: one gesture from the far end of the head, in along it, a single knot at the corner, then down
+// the margin into a curl and a ball
+function cornerPiece(cs, seed, d, medium) {
+  const W = cs * 6, H = cs * 2.4, pk = cs * .12;
+  const plan = [{ go: [cs * 1.9, H * .13], look: cs * 2 }, { loop: cs * .42, sense: -1, oval: .3, lean: PI * .2, turn: TAU * .95 }, { go: [cs * .3, H * .62], look: cs * .9 }, { go: [cs * .55, H * .9], look: cs * .5 }, { curl: cs * .2, sense: -1, turns: 1.2 }];
+  const mv = move([W - 2, H * .1], PI + .02, plan, { lag: cs * .2 });
+  return { W, H, strokes: [flourish(fit(mv, [1, 1, W - 1, H - 1]), seed + 7, { hair: medium === 'quill' ? .3 : hairOf(pk, d), peak: pk, start: 'point', end: 'ball', amp: .08, shadeOn: q => q === 1 || q === 2, extra: [[0, .5, .95, pk * .6, .6]] })], medium };
+}
+
+const make = (name, face, medium) => ({
+  name, face, medium,
+  initial(ch, H, seed, d = 2) { return dropPiece(ch, H, seed, d, this.face, this.medium); },
+  paraph(fs, seed, d = 2) { return paraphPiece(fs, seed, d, this.medium); },
+  filler(gw, lh, seed, d = 2) { return fillerPiece(gw, lh, seed, d, this.medium); },
+  brk(bw, hb, seed, d = 2) { return breakPiece(bw, hb, seed, d, this.medium); },
+  corner(cs, seed, d = 2) { return cornerPiece(cs, seed, d, this.medium); },
+});
+export const DIRS = {
+  pen: make('B · The writing master’s pen', '"CopperB"', 'quill'),
+  hand: make('C · Command of hand', '"CopperA"', 'engrave'),
+};
 // inks: light, and a designed dark (not an inversion)
 export const PAL = {
-  plate: { light: [30, 25, 24], dark: [206, 142, 100] },    // intaglio black; dark: the plate's copper, its cuts bright
   pen: { light: [64, 41, 28], dark: [228, 216, 194] },      // iron gall; dark: white ink on a dark card
   hand: { light: [30, 25, 24], dark: [222, 210, 186] },     // intaglio black; dark: an ivory ink
 };
