@@ -60,25 +60,35 @@ initial.margin = .34; initial.lines = 4; initial.phone = 3;
 initial.load = () => loadFace(KIND);
 
 // ---- paraph, fillers, breaks --------------------------------------------------------------------------------------------------------
-function paraph(x, base, u, seed, rich = .5) {
-  const fs = u * 1.6, f = d => KIND === 'pen' ? P.PIECES.pen.paraph(fs, seed, d) : P.PIECES.hand.paraph(fs, seed, d), [W, H] = sizeOf(['paraph', KIND, fs.toFixed(2), seed].join('|'), f);
-  return { marks: [], letters: [piece(x + u * .82 - W / 2, base - H * (KIND === 'pen' ? .9 : .92), f, 'paraph:' + fs.toFixed(2), seed)] };
+// (the forms down the page: B's by the paragraph (its number k and its seed) (oval, looped stem, swash); C's only on a page given its own
+// seed (the two loops, the trefoil, the loop and curl), and at lavish; the unseeded C page keeps its approved paraph)
+function paraph(x, base, u, seed, rich = .5, chapter = 1, k = 0) {
+  const v = vary(), h = (Math.imul(seed ^ v * 40503, 2654435761) >>> 0) % 3, form = KIND === 'pen' ? h : v || rich >= 1 ? h : 0;
+  const fs = u * 1.6, f = d => KIND === 'pen' ? P.PIECES.pen.paraph(fs, seed, d, form) : P.PIECES.hand.paraph(fs, seed, d, form), [W, H] = sizeOf(['paraph', KIND, fs.toFixed(2), seed, form].join('|'), f);
+  return { marks: [], letters: [piece(x + u * .82 - W / 2, base - H * (KIND === 'pen' ? .9 : form === 1 ? .85 : .92), f, `paraph:${fs.toFixed(2)}:${form}`, seed)] };
 }
 function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
   if (kind === 'none' || rich < .25) return none;
   const u = yBase - yTop, lh = lhOf(u), room = x1 - x0 - u * .4;
   // (restraint: a heading runs out when there is room; a paragraph's free end is closed only when it is left well open)
   if (room < u * (kind === 'rule' ? 6 : rich >= 1 ? 8 : rich >= .75 ? 12 : rich >= .5 ? 18 : 26)) return none;
-  const gw = Math.min(room, kind === 'rule' ? u * 22 : u * 40), f = d => kind === 'rule' ? (KIND === 'pen' ? P.penRule(gw, lh, seed, d) : P.handRule(gw, lh, seed, d)) : P.PIECES[KIND].filler(gw, lh, seed, d);
-  const [, H] = sizeOf(['filler', KIND, kind, gw.toFixed(1), u.toFixed(2), seed].join('|'), f);
-  return { marks: [], letters: [piece(x0 + u * .4, yBase - u * .5 - H * .5, f, `filler:${kind}:${gw.toFixed(1)}:${u.toFixed(2)}`, seed)] };
+  // (the form by the line's own seed: B's always varies; C's on a seeded page, or from fine up where the room is long (the wing on some lines; lavish all three forms))
+  const v = vary(), h = (Math.imul(seed ^ v * 40503, 2654435761) >>> 0) % 3, form = KIND === 'pen' ? h : v ? h : rich >= .75 && room > u * 28 && h !== 1 ? (rich >= 1 ? h : 1) : 0;
+  const gw = Math.min(room, kind === 'rule' ? u * 22 : u * 40), f = d => kind === 'rule' ? (KIND === 'pen' ? P.penRule(gw, lh, seed, d) : P.handRule(gw, lh, seed, d)) : KIND === 'pen' ? P.PIECES.pen.filler(gw, lh, seed, d, form) : P.PIECES.hand.filler(gw, lh, seed, d, { form });
+  const [, H] = sizeOf(['filler', KIND, kind, gw.toFixed(1), u.toFixed(2), seed, form].join('|'), f);
+  return { marks: [], letters: [piece(x0 + u * .4, yBase - u * .5 - H * .5, f, `filler:${kind}:${gw.toFixed(1)}:${u.toFixed(2)}:${form}`, seed)] };
 }
 // three ranks: a part's (rank 1: the page's plain breaks), the chapter's (rank 3 here: data-rank 3), the book's end (rank 2)
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, index, room) {
   const deep = room ? room[1] - room[0] : u * 10, r = rank === 2 ? 2 : rank >= 3 ? 1 : 0, rr = rich < .25 ? 0 : rich >= 1 && r < 2 ? r + 1 : r;
   const W = rr === 2 ? Math.min(measure * .9, u * 70) : rr === 1 ? Math.min(measure * .78, u * 56) : Math.min(measure * .6, u * 40), hb = Math.min(deep * .9, rr === 2 ? u * (KIND === 'pen' ? 7 : 8) : u * (rr === 1 ? 5 : 4.4));
-  const f = d => KIND === 'pen' ? P.penBreak(W, hb, rr, seed, d) : P.handBreak(rr === 2 ? hb * 1.2 : W, hb, rr, seed, d, rich), [Wb, Hb] = sizeOf(['break', KIND, rr, W.toFixed(1), hb.toFixed(1), seed, rich].join('|'), f);
-  return { marks: [], letters: [piece(cx - Wb / 2, y - Hb / 2, f, `break:${rr}:${W.toFixed(1)}:${hb.toFixed(1)}:${rich}`, seed)] };
+  // (C: the band's form by the seed (the band, the wing, the twin), the chapter's the wing from fine up; the end's rosette larger
+  // from fine up)
+  const v = vary(), form = KIND === 'hand' && rr < 2 ? (v ? (Math.imul(seed ^ v * 40503 ^ rr, 2654435761) >>> 0) % 3 : rr === 1 && rich >= .75 ? 1 : 0) : 0;
+  const hb2 = KIND === 'hand' && rr === 2 ? (rich >= .75 ? Math.min(deep * .95, u * (rich >= 1 ? 12 : 10)) : hb) : hb;
+  const f = d => KIND === 'pen' ? P.penBreak(W, hb, rr, seed, d) : P.handBreak(W, hb2, rr, seed, d, rich, form, v), [Wb, Hb] = sizeOf(['break', KIND, rr, W.toFixed(1), hb2.toFixed(1), seed, rich, form, v].join('|'), f);
+  const out = [piece(cx - Wb / 2, y - Hb / 2, f, `break:${rr}:${W.toFixed(1)}:${hb2.toFixed(1)}:${rich}:${form}`, seed)];
+  return { marks: [], letters: out };
 }
 
 // ---- frames ----------------------------------------------------------------------------------------------------------------------
@@ -98,7 +108,9 @@ const frames = {
   // a figure: the quotation's corner at its head left, the same turned round at its foot right
   figure: ({ box, cap, u, seed = 1 }) => { const cs = u * 2.45, X0 = box[0] - u * 1.6, Y0 = box[1] - u * 1.6, X1 = box[2] + u * 1.6, Y1 = (cap ?? box[3]) + u * 1.6;
     const a = corner(cs, seed, false), b = corner(cs, seed + 1, true), [W, H] = sizeOf(['quote', KIND, cs.toFixed(2), seed].join('|'), a), [W2, H2] = sizeOf(['quoteT', KIND, cs.toFixed(2), seed + 1].join('|'), b);
-    return { marks: [], letters: [piece(X0 - cs * .9, Y0 - cs * .4, a, 'figA:' + cs.toFixed(2), seed), piece(X1 - W2 + cs * .9, Y1 - H2 + cs * .4, b, 'figB:' + cs.toFixed(2), seed + 1)] }; },
+    // (held inside the page on a phone, where the box runs to the gutter)
+    const R = (globalThis.document?.documentElement.clientWidth ?? Infinity) - u * .5;
+    return { marks: [], letters: [piece(Math.max(u * .5, X0 - cs * .9), Y0 - cs * .4, a, 'figA:' + cs.toFixed(2), seed), piece(Math.min(R - W2, X1 - W2 + cs * .9), Y1 - H2 + cs * .4, b, 'figB:' + cs.toFixed(2), seed + 1)] }; },
   // code: a lighter bracket (B), a short chain (C), down its left
   code: ({ box, u, seed = 1, rich = .5 }) => { if (rich < .5) return none; const [X0, Y0, , Y1] = box, H = Y1 - Y0 - u * 2, f = d => KIND === 'pen' ? P.penBracket(H, u * .8, seed, d, true) : P.handChain(H, u * .8, seed, d, 2);
     const [W] = sizeOf(['code', KIND, H.toFixed(1), u.toFixed(2), seed].join('|'), f); return { marks: [], letters: [piece(X0 + u * .6 - W * .3, Y0 + u, f, `code:${H.toFixed(1)}`, seed)] }; },

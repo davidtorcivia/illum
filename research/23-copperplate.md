@@ -454,3 +454,68 @@ Chrome, a panel's five pieces, load average 5–9:
 | C (hand) | 141 / 184 ms | 91 / 115 ms |
 
 The fine cut costs C about 20–60 ms, which puts C's light page at dpr 2 near the 200 ms line.
+
+## Stage 7: on the page
+
+Copperplate joined rubricate as a written style (`kit/styles/copperplate.js`, kinds `pen` (B) and `hand` (C)), registered in `WRITTEN` and `all.js`. The pieces moved to `kit/styles/copperplate-pieces.js`. Every rank of the page is covered: drop and line initials, paraphs, fillers and heading run-outs, three breaks, quote, aside, pull quote, figure, code and contents. There are five rich levels and seeded pages, and `?draw` writes along each path in the hand's order. Each stroke is laid as one ribbon outline rather than a run of discs, which takes about a tenth of the work. Test page: `tests/copperplate.html` (`?kind`, `?theme`, `?rich`, `?lines`, `?draw`, `#seed=`).
+
+## Stage 8: B's line, B's forms; C's seeds and levels
+
+User: "the lines on B are too thin and are aliasing. C looks good and is ready for the seed/speed/richness pass".
+
+**B's hairline.** The crisp hairline is now a tenth of the piece's shade (a twelfth for the drop, whose shade is large), with a floor of 1.1 device px: `penHair(d, pk, ratio)`.
+- Under about 1 device px, the coverage of a shallow line falls between rows and reads as steps and beads.
+- At 1.1 px the thread is continuous at dpr 1, 2 and 2.75, and the line's edge, points and colour are unchanged.
+
+**B's forms vary down the page.** Each form is chosen by a hash of the piece's own seed, which carries its index.
+- Paraph:
+  - the copybook oval;
+  - the oval turned on into itself (a ring and a half, closing to a dot);
+  - a knot of two loops rising across the slant.
+- Line end:
+  - the compound curve closing in an oval;
+  - the curve rising into a curl and a dot;
+  - the curve with one oval turned in its run.
+- The drop's capital is larger in its oval (cap .74 H, from .66), so it fills the four lines it stands in.
+- The aside is no longer a bracket. A hairline falls down the margin from a dot and turns once through an oval on the slant at its middle. The oval carries the only shade, and the fall stays a hairline: as one shaded gesture, the long downstroke took the shade and read as a parenthesis.
+
+**C, seeded pages.** These choose only on a page given its own seed. The unseeded page at every level up to usual is pixel-identical to stage 7, light and dark, at dpr 1 and 2.
+- The rosette: five to seven ovals; where the ring begins; the nesting (at the foot, none, all round); the side the hand comes in from (mirrored entry and exit).
+- The end rosette chooses the same way.
+- Paraph:
+  - two loops on a rising hairline;
+  - the trefoil knot to a dot;
+  - one loop and a long curl.
+- Filler:
+  - the fine run with loops at its end;
+  - the dove's wing (the loops riding a lightly shaded sweep of their own);
+  - one loop and a tightening curl.
+- Break:
+  - the band;
+  - the wing across the measure;
+  - the twin (two clusters facing about a dot-curl).
+
+**C, richness.**
+- Plain: five ovals, no nesting, no accents, no fillers or frames.
+- Modest: six ovals, no nesting.
+- Usual: the approved stage 7 page.
+- Fine: nested round the lower half, the end rosette larger (10u), some fillers are wings.
+- Lavish: seven ovals, a third thorn, the end rosette 12u, paraphs and fillers in all three forms.
+
+I tried wings of loops either side of the lavish end and dropped them: the turned wing put its heavy sweep against the rosette.
+
+**Figure corners** are held inside the viewport, which matters on a phone where the figure's box runs to the gutter.
+
+**Speed** (in view / whole page, ms, 1440 wide, measured on a shared machine; worst of light and dark):
+
+| | dpr 1 | dpr 2 |
+|---|---|---|
+| B usual | 82 / 127 | 101 / 151 |
+| B lavish | 78 / 123 | 85 / 154 |
+| C usual | 105 / 176 | 140 / 240 |
+| C lavish | 111 / 182 | 143 / 224 |
+| C lavish, seeds 1/3/5 | | 117–152 / 187–232 |
+
+**Checks.**
+- `?draw` finished pages equal the still pages, differing only at the fixed theme toggle, for: B; C seeds 1 and 3; C lavish; C fine with seed 5.
+- At 390 wide nothing crosses the page edge.
