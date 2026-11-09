@@ -29,6 +29,8 @@ const isDark = () => { try { const t = document.documentElement.dataset.theme; r
 // ---- placing pieces ---------------------------------------------------------------------------------------------------------------
 // a piece: build(res, theme) -> { S (its Sheet), ox, oy (where the Sheet's origin lies from the piece's x, y) }; rot: a
 // band stood upright (a margin), the Sheet built lying down and turned
+// (a piece drawn for a page given its own seed is told so in its key: its choices are that seed's)
+const V = vary => vary ? ':v' + vary : '';
 const piece = (x, y, w, h, build, seed, rot = 0, what = 'piece') => ({ shape: 'ins', x, y, w, h, build, seed, rot, what, bkey: [what, w.toFixed(1), h.toFixed(1), seed, rot].join('|') });
 
 // ---- the initials ---------------------------------------------------------------------------------------------------------------
@@ -56,8 +58,8 @@ function smallInitial(c, H, seed, res, theme) {
 }
 function initial({ ch = 'E', G, big = true, seed = 1, rich = .5 }) {
   const c = letterOf(ch), [x0, y0, , y1] = G.box, H = y1 - y0, W = widthOf(c) * H, rk = rich >= 1 ? 1 : rich >= .75 ? .75 : .5;
-  const build = (res, theme) => { if (!big) return smallInitial(c, H, seed, res, theme); const r = DIR().initial(c, H, seed, { theme, res, rich: rk }); return { S: r.S, ox: r.P, oy: r.P }; };
-  return { marks: [], letters: [piece(x0, y0, W, H, build, seed, 0, (big ? 'drop:' : 'line:') + c + ':' + rk)], width: W };
+  const vary = insular.seeded | 0, build = (res, theme) => { if (!big) return smallInitial(c, H, seed, res, theme); const r = DIR().initial(c, H, seed, { theme, res, rich: rk, vary }); return { S: r.S, ox: r.P, oy: r.P }; };
+  return { marks: [], letters: [piece(x0, y0, W, H, build, seed, 0, (big ? 'drop:' : 'line:') + c + ':' + rk + V(vary))], width: W };
 }
 initial.width = ch => widthOf(ch) + .04;
 initial.line = ch => widthOf(ch) + .04;
@@ -72,8 +74,8 @@ initial.load = () => faceP ??= (document.fonts.check(`40px ${FACE}`) && [...docu
 // ---- the paraph, fillers, breaks ---------------------------------------------------------------------------------------------------
 // the paraph: in the gap the indent keeps (u: the x-height): Lindisfarne's small knot and three dots, Durrow's two coils
 function paraph(x, base, u, seed) {
-  const size = u * (KIND === 'durrow' ? 1.25 : 1.55), build = (res, theme) => { const r = DIR().paraph(size, seed, { theme, res }); return { S: r.S, ox: size * .3, oy: size * .3 }; };
-  return { marks: [], letters: [piece(x, base - u * .5 - size / 2, size * 1.9, size, build, seed, 0, 'paraph')] };
+  const size = u * (KIND === 'durrow' ? 1.25 : 1.55), vary = insular.seeded | 0, build = (res, theme) => { const r = DIR().paraph(size, seed, { theme, res, vary }); return { S: r.S, ox: size * .3, oy: size * .3 }; };
+  return { marks: [], letters: [piece(x, base - u * .5 - size / 2, size * 1.9, size, build, seed, 0, 'paraph' + V(vary))] };
 }
 // a paragraph's free end: Lindisfarne's row of dots closed by the positura, Durrow's red wave scroll; a heading's run-out,
 // a short one
@@ -92,8 +94,8 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8) {
   const rk = rank === 1 && rich >= .75 ? 2 : rank, wide = rich >= 1 ? 1.12 : 1;
   const W = rk > 2 ? measure * .92 : rk > 1 ? Math.min(measure * .72 * wide, u * 62 * wide) : u * 14 * (rich < .25 ? .8 : 1), ht = u * (rk > 2 ? 3 : rk > 1 ? 3.2 : 2.6);
-  const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durBand : D.lindBand)(W, ht, seed + rk, { theme, res, rank: rk }); return { S: r.S, ox: (r.W - W) / 2, oy: (r.H - ht) / 2 }; };
-  return { marks: [], letters: [piece(cx - W / 2, y - ht / 2, W, ht, build, seed, 0, 'break' + rk)] };
+  const vary = insular.seeded | 0, build = (res, theme) => { const r = (KIND === 'durrow' ? D.durBand : D.lindBand)(W, ht, seed + rk, { theme, res, rank: rk, vary }); return { S: r.S, ox: (r.W - W) / 2, oy: (r.H - ht) / 2 }; };
+  return { marks: [], letters: [piece(cx - W / 2, y - ht / 2, W, ht, build, seed, 0, 'break' + rk + V(vary))] };
 }
 
 // ---- frames ----------------------------------------------------------------------------------------------------------------------
@@ -101,13 +103,13 @@ const linesBox = (box, lines) => !lines?.length ? box : [Math.min(...lines.map(L
 // a quotation's or an aside's margin: a knot panel on its rules (Lindisfarne) or a ribbon knot on double rules (Durrow),
 // stood upright beside the lines
 const margin = (xl, top, bot, u, seed) => { const ht = Math.min(u * 2.6, Math.max(u * 1.6, xl - u * .9 - 4)), len = bot - top + u * 2.4; if (len < u * 6) return [];
-  const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durBand : D.lindBand)(len, ht, seed, { theme, res }); return { S: r.S, ox: (r.W - len) / 2, oy: (r.H - ht) / 2 }; };
-  return [piece(Math.max(4, xl - u * .9 - ht), top - u * 1.2, ht, len, build, seed, 1, 'margin')]; };
+  const vary = insular.seeded | 0, build = (res, theme) => { const r = (KIND === 'durrow' ? D.durBand : D.lindBand)(len, ht, seed, { theme, res, vary }); return { S: r.S, ox: (r.W - len) / 2, oy: (r.H - ht) / 2 }; };
+  return [piece(Math.max(4, xl - u * .9 - ht), top - u * 1.2, ht, len, build, seed, 1, 'margin' + V(vary))]; };
 // a frame: built as its four sides' strips (the corners with the top and bottom), so its empty middle is never rastered
-const frameAround = ([X0, Y0, X1, Y1], seed, level = 1) => { const bw = X1 - X0, bh = Y1 - Y0, st = D.frameStrip(bw, bh);
+const frameAround = ([X0, Y0, X1, Y1], seed, level = 1) => { const bw = X1 - X0, bh = Y1 - Y0, st = D.frameStrip(bw, bh), vary = insular.seeded | 0;
   return ['t', 'b', 'l', 'r'].map(part => { const [sx0, sy0, sx1, sy1] = st[part];
-    const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durFrame : D.lindFrame)(bw, bh, seed, { theme, res, level, part }); return { S: r.S, ox: 0, oy: 0, trim: st.trim[part] }; };   // (the strip's sheet starts where the piece does)
-    return piece(X0 - st.pad + sx0, Y0 - st.pad + sy0, sx1 - sx0, sy1 - sy0, build, seed, 0, 'frame' + level + part + ':' + bw.toFixed(1) + 'x' + bh.toFixed(1)); }); };
+    const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durFrame : D.lindFrame)(bw, bh, seed, { theme, res, level, part, vary }); return { S: r.S, ox: 0, oy: 0, trim: st.trim[part] }; };   // (the strip's sheet starts where the piece does)
+    return piece(X0 - st.pad + sx0, Y0 - st.pad + sy0, sx1 - sx0, sy1 - sy0, build, seed, 0, 'frame' + level + part + ':' + bw.toFixed(1) + 'x' + bh.toFixed(1) + V(vary)); }); };
 const levelOf = rich => rich < .25 ? 0 : rich < .75 ? 1 : rich < 1 ? 2 : 3;
 const frames = {
   quote: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : margin(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
@@ -115,8 +117,8 @@ const frames = {
   aside: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : [...margin(L[0], L[1], L[3] + u * .3, u, seed + 4), ...(rich >= 1 && box ? frameAround([box[0] + u, box[1] + u, box[2] - u * .4, box[3] - u], seed + 9, 1) : [])] }; },
   pull: ({ cx, yTop, yBot, measure, u, seed = 1, rich = .5 }) => { if (rich < .25) return { marks: [], letters: [] };
     // (modest and usual: a knot panel on its rules; fine, longer; lavish, a band of knotwork)
-    const rk = rich >= 1 ? 3 : 2, W = Math.min(measure * (rich >= 1 ? .6 : .42), u * (rich >= .75 ? 36 : 30)), ht = u * 2.4, f = KIND === 'durrow' ? D.durBand : D.lindBand;
-    const one = (yc, s) => piece(cx - W / 2, yc - ht / 2, W, ht, (res, theme) => { const r = f(W, ht, s, { theme, res, rank: rk }); return { S: r.S, ox: (r.W - W) / 2, oy: (r.H - ht) / 2 }; }, s, 0, 'pull' + rk);
+    const rk = rich >= 1 ? 3 : 2, W = Math.min(measure * (rich >= 1 ? .6 : .42), u * (rich >= .75 ? 36 : 30)), ht = u * 2.4, f = KIND === 'durrow' ? D.durBand : D.lindBand, vary = insular.seeded | 0;
+    const one = (yc, s) => piece(cx - W / 2, yc - ht / 2, W, ht, (res, theme) => { const r = f(W, ht, s, { theme, res, rank: rk, vary }); return { S: r.S, ox: (r.W - W) / 2, oy: (r.H - ht) / 2 }; }, s, 0, 'pull' + rk + V(vary));
     return { marks: [], letters: [one(yTop - ht * .2, seed + 2), one(yBot + ht * .35, seed + 7)] }; },
   // (plain: the rules and corners alone; usual: dots and the long sides' panels; fine: the short sides' knots too; lavish:
   // a second row of dots, and the figure's margin band beside it)
