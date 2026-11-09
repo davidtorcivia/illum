@@ -900,7 +900,9 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
   rock-worker. The parked A and C studies are in kit/pie/, out of the shipped styles. Renames were pixel-identical to
   6e19b16, and so was moving the specimens onto rock-print. Other styles are identical before and after: tools/diff.mjs
   on copperplate, insular and 07-frames, at 1440 and 390. 06-wayfinding differs only in its timing line.
-- **No figure on a word.** The drop's compositions are measured before carving (each piece's items, once, give its
+- **No figure on a word.** The drop and the line's initial are sized by the letter's own ink: its top on the cap height,
+  its foot (its round ends' reach) on the baseline, so nothing of it hangs into the line below or rises into the one
+  above. The drop's compositions are measured before carving (each piece's items, once, give its
   extent). The host's word rects (initial's `keep`, padded by half an x-height) decide which one stands. A composition
   that would touch a word, or the page's edge, is passed over for the next; none, and the letter stands alone.
   - Breaks keep to the room the page gives them. The filler and run-out keep to their line, and frames to their boxes'
@@ -910,7 +912,8 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
     - the site's see.html (SITE=…);
     - the wekwos.com mock drawn by the snippet below (tests/rock-wekwos.html), with its headings' yellow bands;
     - the specimen sheets' labels and captions.
-  - It tests every painted pixel against every text line. 84 + 40 pages pass.
+  - It tests every painted pixel against every text line's full line box. 124 pages pass, as does the built site's see
+    page.
 - **Five levels.**
   - **Plain:** the letter alone, run-outs, cups and the sign for breaks, no paragraph fillers or frames.
   - **Modest:** a figure only in the letter's own space; three-cup fillers; the quote's tree and the pull quote's
@@ -927,8 +930,8 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
 
   | | 1440, dpr 1 | 1440, dpr 2 | 390, dpr 1 | 390, dpr 2 |
   |---|---|---|---|---|
-  | in view | 99–143 ms | 111–125 ms | 76–108 ms | 76–99 ms |
-  | every piece | 273–408 ms | 187–326 ms | 142–230 ms | 133–229 ms |
+  | in view, plain to lavish | 98–127 ms | 86–131 ms | 75–98 ms | 74–103 ms |
+  | every piece, plain to lavish | 160–350 ms | 142–349 ms | 121–253 ms | 122–258 ms |
 
   - The main thread's own build is ~0 ms. Without workers (?worker=0) it is 455 ms at 1440, dpr 1.
   - Before, the mock (one thread): in view 71–82 / 67–83 ms, every piece 412–428 / 383–432 ms. That was a different page
@@ -957,5 +960,8 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
     have.
   - A seed (`seed: n`) fixes the page's choices.
   - Checked on tests/rock-wekwos.html, the mock with its own text and tokens.
+- **Drawn.** A piece is pecked and painted on its own canvas at the device's resolution. Finished, it is replaced by the
+  still page's (supersampled at 1x): the same paint in the same place, only the edge antialiased. On rock.html the
+  finished view matches the still one but for a piece still being drawn at the window's foot.
   - The library measures its drops with EB Garamond's metrics. With Newsreader the drop's cap sits within a pixel or two
     of the first line's.

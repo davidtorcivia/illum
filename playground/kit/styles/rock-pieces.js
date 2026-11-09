@@ -363,7 +363,9 @@ const dropGeom = (ch, H, seed) => { const r = rng(seed * 13 + ch.charCodeAt(0)),
 // each composition the letter has, with its extent in the piece's px (the page keeps the ones clear of its words), whether it
 // stands over the letter (top) and whether it is a crane (the page keeps those few)
 export function dropPlan(ch, H, seed) { const G = dropGeom(ch, H, seed);
-  return { W: G.W, H, m: G.m, cap: G.cap, def: G.ways.length ? (seed + G.ix) % G.ways.length : -1,
+  // (lext: the letter's own ink, its strokes' reach, so the page can set its top on the cap line and its foot on the baseline)
+  const lext = extentOf(inkOf(G.L), G.rp);
+  return { W: G.W, H, m: G.m, cap: G.cap, lext, def: G.ways.length ? (seed + G.ix) % G.ways.length : -1,
     comps: G.ways.map((f, k) => { const items = f(G.ctx()), e = extentOf(items, G.rp); return { k, ext: e, top: e[1] < G.y0 - G.cap * .03, crane: /\bcrane\(/.test(f.toString()), none: !items.length }; }) }; }
 // figs: 1, the seed's composition; 0, the letter alone; or a list of compositions by number (each laid with its own stream,
 // the same one the seed's would have)
@@ -374,6 +376,9 @@ function initial_(ch, H, seed, fs = 20, figs = 1) {
     if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], [lw * .8, lw * .8], rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], [lw * .8, lw * .8], rp, r)); }
     out.push(...fig); return out; }, { seed, dur: 3400 });
 }
+// the line's initial's own ink at fs (its letter's strokes and cup ends, a pit's reach round them), as dropPlan's lext
+const inkOf = L => L.strokes.flatMap(st => [{ k: 'cap', p: st.p, w: st.w }, ...(st.cupA ? [{ k: 'cap', p: [st.p[0]], w: [st.w[0] * 1.2] }] : []), ...(st.cupB ? [{ k: 'cap', p: [st.p.at(-1)], w: [st.w.at(-1) * 1.2] }] : [])]);
+export function lineExt(ch, fs, seed) { const r = rng(seed * 3 + ch.charCodeAt(0)), H = Math.round(fs * 1.9), lw = fs * .3; return extentOf(inkOf(letterStrokes(ch, lw * .4, H * .07, H * .86, r)), lw / 4.5); }
 function lineInitial_(ch, fs, seed) { const r = rng(seed * 3 + ch.charCodeAt(0)), H = Math.round(fs * 1.9), cap = H * .86, lw = fs * .3, rp = lw / 4.5, L = letterStrokes(ch, lw * .4, H * .07, cap, r), W = Math.ceil(L.W + lw);
   return piece(W, H, lw, () => { const out = []; for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .6, r)); if (s.cupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .6, r)); }
     if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], lw * .5, rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], lw * .5, rp, r)); } return out; }, { seed, dur: 1600 }); }

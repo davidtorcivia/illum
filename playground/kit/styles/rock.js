@@ -14,8 +14,7 @@
 //   breakMark(cx, y, measure, rank, seed, rich, u, index, room)   frames.{ quote, aside, pull, figure, code, nav }
 //   palette.{ light, dark }   print(made, { dpr, kind, animate, wait }) -> { pours, letters, seq, runs, y0, ready }   timeline(printed, kind, animate)
 import { pieceOf, render, writer } from './rock-print.js';
-import { letterWidth } from './rock-letters.js';
-import { dropPlan, BRK3 } from './rock-pieces.js';
+import { dropPlan, lineExt, BRK3 } from './rock-pieces.js';
 
 export const palette = { light: { k: [165, 54, 30] }, dark: { k: [196, 67, 42] } };
 const isDark = () => { try { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; } };
@@ -41,9 +40,12 @@ const letterOf = ch => { const c = String(ch).normalize('NFD')[0].toUpperCase();
 // (the cranes, liked and so many: at usual one is taken only where the seed's composition is one, not as a fallback)
 function initial({ ch = 'B', G, big = true, seed = 1, rich = .5, keep = [], u = 8 }) {
   const c = letterOf(ch), [x0, y0, , y1] = G.box, capH = y1 - y0, s = sd(seed);
-  if (!big) { const fs = capH / (1.9 * .86), job = ['line', c, +fs.toFixed(2), s], lw = fs * .3;
-    return { marks: [], letters: [piece(x0 - lw * .4, y0 - fs * 1.9 * .07, job, 'line:' + c)], width: (letterWidth(c) + .1) * capH }; }
-  const H = +(capH / .8).toFixed(2), m = H * .05, ox = x0 - m, oy = y0 - m, lv = lvOf(rich), P = dropPlan(c, H, s);
+  // (the line's: its ink's top on the cap height, its foot on the baseline, as the drop's: it rises into no line above)
+  if (!big) { const e0 = lineExt(c, 20, s), fs = +(20 * capH / (e0[3] - e0[1])).toFixed(2), e = lineExt(c, fs, s), job = ['line', c, fs, s];
+    return { marks: [], letters: [piece(x0 - e[0], y0 - e[1], job, 'line:' + c)], width: (inkW(c) + .06) * capH }; }
+  // (sized by the letter's own ink: its top on the first line's cap height, its foot (the round ends' reach too) on the last
+  // baseline, so nothing of it hangs into the line below)
+  const e0 = dropPlan(c, 100, s).lext, H = +(100 * capH / (e0[3] - e0[1])).toFixed(2), lv = lvOf(rich), P = dropPlan(c, H, s), ox = x0 - P.lext[0], oy = y0 - P.lext[1];
   const W = globalThis.document?.documentElement.clientWidth ?? Infinity, fits = q => { const e = q.ext, b = [ox + e[0], oy + e[1], ox + e[2], oy + e[3]]; return !q.none && b[0] >= 2 && b[2] <= W - 2 && clear(b, keep, u * .5); };
   const order = P.comps.length ? [...P.comps.slice(P.def), ...P.comps.slice(0, P.def)] : [], meets = (a, b) => a.ext[0] < b.ext[2] && b.ext[0] < a.ext[2] && a.ext[1] < b.ext[3] && b.ext[1] < a.ext[3];
   let ks = [];
@@ -53,10 +55,11 @@ function initial({ ch = 'B', G, big = true, seed = 1, rich = .5, keep = [], u = 
     // (lavish: a third where one more stands clear of both, a second crane or a second figure in the letter)
     if (lv >= 4) { const third = order.find(q => !ks.includes(q) && ks.every(p => !meets(q, p)) && fits(q)); if (third) ks.push(third); } }
   const job = ['drop', c, H, s, 20, ks.map(q => q.k)];
-  return { marks: [], letters: [piece(ox, oy, job, 'drop:' + c)], width: (letterWidth(c) + .1) * capH };
+  return { marks: [], letters: [piece(ox, oy, job, 'drop:' + c)], width: (inkW(c) + .06) * capH };
 }
-initial.width = ch => letterWidth(letterOf(ch)) + .1;
-initial.line = ch => letterWidth(letterOf(ch)) + .1;
+const inkW = ch => { const e = dropPlan(letterOf(ch), 100, 1).lext; return (e[2] - e[0]) / (e[3] - e[1]); };
+initial.width = ch => inkW(ch) + .06;
+initial.line = ch => inkW(ch) + .06;
 initial.lines = 4; initial.phone = 3; initial.margin = .38;
 initial.load = () => (pool(), Promise.resolve());   // (no face: the letters are carved strokes; the workers started)
 
@@ -146,9 +149,12 @@ function print(made, { dpr = 1, animate = false, kind, wait = false } = {}) {
     let pour = CACHE.get(key);
     if (!pour) {
       pour = { res: d, col: 'k' };
-      if (animate) { const cv = new OffscreenCanvas(1, 1), r = writer(pieceOf(b.job), theme, d, cv), x0 = X - r.ox, y0 = Y - r.oy; let last = -1;
-        Object.assign(pour, { x0, y0, w: r.cw, h: r.ch, paint: g => { r.w.done(); g.drawImage(cv, x0, y0, r.cw / d, r.ch / d); },
-          grow: { mode: 'reveal', fn: (g, f) => { if (f > last) { last = f; f >= 1 ? r.w.done() : r.w.at(f); } g.drawImage(cv, x0, y0, r.cw / d, r.ch / d); } } }); }
+      // (drawn: pecked and painted on its own canvas at the device's resolution; finished, the piece as a still page has it,
+      // supersampled at 1x: the same paint in the same place, only its edge antialiased, so nothing moves)
+      if (animate) { const cv = new OffscreenCanvas(1, 1), r = writer(pieceOf(b.job), theme, d, cv), x0 = X - r.ox, y0 = Y - r.oy; let last = -1, still = null;
+        const fin = g => { still ??= makeHere(b, d, theme); g.drawImage(still.canvas, X - still.ox, Y - still.oy, still.w / d, still.h / d); };
+        Object.assign(pour, { x0, y0, w: r.cw, h: r.ch, paint: fin,
+          grow: { mode: 'reveal', fn: (g, f) => { if (f >= 1) return fin(g); if (f > last) { last = f; r.w.at(f); } g.drawImage(cv, x0, y0, r.cw / d, r.ch / d); } } }); }
       else {
         const pk = [theme, d, b.bkey].join('|'); let m = MADE.get(pk);
         if (!m || (m.ready && !m.canvas && !wait)) {
