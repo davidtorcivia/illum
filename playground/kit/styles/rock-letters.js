@@ -1,5 +1,5 @@
 // PIE · B, the rock: a carved alphabet, A-Z, in the Tanum hand (research/24-pie.md, stage 3). Not a font: each capital is
-// a few strokes, each a skeleton with a width profile, pecked and painted along its length (kit/styles/pie-rock.js), so
+// a few strokes, each a skeleton with a width profile, pecked and painted along its length (kit/styles/rock-pieces.js), so
 // ?draw carves and paints it stroke by stroke.
 // The family's logic, after the panels' own figures:
 //   strokes swell to a heavy body and thin toward their joins and turns, 3-4x within a letter (the figures run 3-7x; a

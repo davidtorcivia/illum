@@ -1,7 +1,7 @@
 // PIE · B, the rock (research/24-pie.md, stage 2): figures pecked into granite with a hammer-stone and painted red with a
 // brush, after the Bronze Age carvings of Tanum (Vitlycke, Fossum, Aspeberget, Tanumshede). Each piece returns its pits
 // ({k:'pit'}, the carver's blows, in his passes) and its brush strokes ({k:'brush'}, along the figure's form, in the
-// painter's order); kit/styles/pie-paint.js lays them on a granite field. The red is the modern custom of painting the
+// painter's order); kit/styles/rock-paint.js lays them on a granite field. The red is the modern custom of painting the
 // furrows (Tanum, since the 1930s; the carvings themselves are grey): the page says so.
 // Measured (scratchpad pie/py/peck.py, grain.py, paint.py), in units of a figure's stroke width W:
 //   a figure's stroke swells 3-7x along it (thin limb to heavy keel); ends blunt and round
@@ -15,8 +15,8 @@
 // footsoles (Vitlycke's "divine footsteps"), the cup mark. Liberties, named as such: the Twins as two horses facing, the
 // world-tree, dawn (a sun-wheel rising from a ship), the sky-father (an adorant, arms raised under a wheel), the
 // serpent-slayer (an axe-bearer facing a serpent); and the capital itself, carved and painted.
-import { rng, gauss } from './pie-relief.js';
-import { letterStrokes, letterWidth } from './pie-letters.js';
+import { rng, gauss } from './rock-relief.js';
+import { letterStrokes, letterWidth } from './rock-letters.js';
 
 const TAU = Math.PI * 2;
 const pts = (f, n = 24) => Array.from({ length: n + 1 }, (_, i) => f(i / n));
@@ -128,7 +128,7 @@ function carveCluster(shapes, box, W, H, rp, a, salt) {
 }
 // a traced figure placed: its rings scaled to height h (and stretched to width wd, if given), its foot-left at (x, y),
 // facing dir; the seed's hand warps it a little (a slant, a stretch, a slow bend) without losing its mass
-import { TRACED, HORSE } from './pie-traced.js';
+import { TRACED, HORSE } from './rock-traced.js';
 // (a traced ring smoothed twice, corner-cutting: the photograph's pixel steps and highlights go, the outline's own shape stays)
 const chaikin = (ring, n = 2) => { let p = ring; for (let k = 0; k < n; k++) { const q = []; for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; q.push([a[0] * .75 + b[0] * .25, a[1] * .75 + b[1] * .25], [a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75]); } p = q; } return p; };
 export function traced(name, x, y, h, dir, r, { wd = null, axis = 0, bw = null, rp: rq = null } = {}) { const T = TRACED[name], sx = (wd ? wd / (T.w * h) : 1) * (1 + .06 * gauss(r)), sh = .05 * gauss(r), bend = .025 * gauss(r), ph = r() * 6.28, W = T.w * h * sx;
@@ -157,7 +157,7 @@ export function ship(x, y, L, h, lw, rp, r, { high = 1, double = false, sun = fa
   return out; }
 // a horse, as Tanum's carvers drew one: a long body thick at chest and rump, a neck rising at ~50 degrees to a small
 // head, four legs (front and back pairs apart), a hanging tail. s: body length; facing dir
-// the horse, from the Tanum horse (kit/styles/pie-traced.js HORSE: its long rising neck, small forward head, long thin back
+// the horse, from the Tanum horse (kit/styles/rock-traced.js HORSE: its long rising neck, small forward head, long thin back
 // and long legs), its widths a little fuller for the paint; s: its body length, (x, y) its body's middle; facing dir
 export function horse(x, y, s, dir, lw, rp, r) { const h = s / 1.25, X = u => x - dir * (u - .59) * h, Y = v => y + (v - .45) * h, out = [];   // (the Tanum horse faces left as traced; dir 1 turns it right)
   HORSE.strokes.forEach(([p, w], k) => { const lj = k > 2 ? 1 + .06 * gauss(r) : 1;   // (each leg its own length)

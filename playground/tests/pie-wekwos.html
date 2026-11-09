@@ -108,7 +108,7 @@ const tView = performance.now() - t1, later = jobs.filter(j => !first.includes(j
 const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { io.unobserve(e.target); for (const j of later.filter(j => j.host === e.target && !j.done)) { j.done = true; render(j); } } }, { rootMargin: margin + 'px' });
 for (const h of new Set(later.map(j => j.host))) io.observe(h);
 if (q.has('all')) { const t2 = performance.now(); later.forEach(j => { j.done = true; render(j); }); document.body.dataset.all = Math.round(performance.now() - t2 + tView) + ' ms'; }
-const { PROF } = await import('../kit/styles/pie-paint.js'); document.body.dataset.timing = `${key}: in view ${Math.round(tView)} ms (${first.length} pieces; layout ${Math.round(tLayout)} ms)` + (q.has('all') ? `; every piece ${document.body.dataset.all}` : '') + (key === 'rock' ? ' ' + Object.entries(PROF).map(([k, v]) => k + ' ' + Math.round(v)).join(', ') : '');
+const { PROF } = await import('../kit/styles/rock-paint.js'); document.body.dataset.timing = `${key}: in view ${Math.round(tView)} ms (${first.length} pieces; layout ${Math.round(tLayout)} ms)` + (q.has('all') ? `; every piece ${document.body.dataset.all}` : '') + (key === 'rock' ? ' ' + Object.entries(PROF).map(([k, v]) => k + ' ' + Math.round(v)).join(', ') : '');
 if (DRAW) { let k = 0, st = 0; const run = now => { const w = ws[k]; if (!w) return; if (!st) st = now; const f = (now - st) / w.dur; if (f >= 1) { w.done(); k++; st = 0; } else w.at(f); requestAnimationFrame(run); }; requestAnimationFrame(run); }
 </script>
 </body>

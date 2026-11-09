@@ -4,14 +4,14 @@
 //                 figure (~.12 of a stroke's width, measured), each grain a facet with its own tilt; the harder quartz
 //                 weathered proud, the mica sunk, the grain boundaries opened a little; across it, the ice's
 //                 striations, shallow and parallel (by eye)
-//   the pecking   the hammer-stone's pits (kit/styles/pie-relief.js `pit` marks), which crush the crystals' faces to
+//   the pecking   the hammer-stone's pits (kit/styles/rock-relief.js `pit` marks), which crush the crystals' faces to
 //                 a paler, rougher floor
 //   the paint     a brush along the figure's strokes, its load running down along each stroke (reloaded at the next),
 //                 its bristles carrying a little more or less in lanes; where it is wet it fills the hollows and pools
 //                 in the pits and striations, where it runs dry it catches only the grains' high points
-// field(w, h, dpr) from pie-relief.js carries H (the pits); this adds G (the granite), T (the paint's thickness), K
+// field(w, h, dpr) from rock-relief.js carries H (the pits); this adds G (the granite), T (the paint's thickness), K
 // (pecked), S (the panel: where polished rock shows at all).
-import { apply } from './pie-relief.js';
+import { apply } from './rock-relief.js';
 
 const TAU = Math.PI * 2, clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v, sm = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const hash = (i, j, k = 0) => { let h = (i * 374761393 + j * 668265263 + k * 2147483647) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };

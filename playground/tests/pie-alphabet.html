@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PIE alphabet</title>
 <!--
-  PIE · B, the rock, stage 3 (research/24-pie.md): the carved alphabet A-Z (kit/styles/pie-letters.js) as drops with their
+  PIE · B, the rock, stage 3 (research/24-pie.md): the carved alphabet A-Z (kit/styles/rock-letters.js) as drops with their
   figures and as line initials; every design element on the specimen page; the figure vocabulary as a sheet; light on
   wekwos.com's paper and dark on its ink sections; enlarged beside the panels. ?draw (pecked, then painted, as each part
   comes into view)  #seed=n
@@ -39,7 +39,7 @@
 <main id="out"></main>
 <script type="module">
 import { print } from './pie-directions.js';
-import * as rock from '../kit/styles/pie-rock.js';
+import * as rock from '../kit/styles/rock-pieces.js';
 await Promise.all(['900 20px Archivo', '500 20px Newsreader', 'italic 20px "Instrument Serif"', '500 11px "JetBrains Mono"'].map(f => document.fonts.load(f)));
 const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), dpr = Math.min(2, devicePixelRatio || 1);
 const DRAW = q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches, LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';

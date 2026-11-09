@@ -1,6 +1,6 @@
 // PIE · B, the rock: figures traced from the panels (scratchpad pie/py/trace.py): each painted figure's area as outline rings
 // (outer and holes), normalised to its height (y 0..1, x 0..w), simplified to ~.004 of its height. Ours are generated
-// from these: the master's own proportions and masses, warped by the seed (kit/styles/pie-rock.js `traced`).
+// from these: the master's own proportions and masses, warped by the seed (kit/styles/rock-pieces.js `traced`).
 // The sun-wheel and the rest have no clean open photograph; they are drawn in these figures' manner. A ring on the
 // Vitlycke panel (KMB 16000300015074, CC BY 2.5) departs from its circle by .055 of its radius (sd over 24 sectors): the
 // wheels' rims are drawn to that.

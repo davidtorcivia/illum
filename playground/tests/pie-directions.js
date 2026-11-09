@@ -1,10 +1,10 @@
 // PIE direction studies (research/24-pie.md): the palettes, set for wekwos.com's grounds (its paper #efe7d6 and its ink
 // sections #0e0d0b), and the printer that turns a piece (a list of marks) into a canvas.
-import { field, render, writer } from '../kit/styles/pie-relief.js';
-import { renderRock, rockWriter } from '../kit/styles/pie-paint.js';
-import * as potter from '../kit/styles/pie-potter.js';
-import * as rock from '../kit/styles/pie-rock.js';
-import * as smith from '../kit/styles/pie-smith.js';
+import { field, render, writer } from '../kit/styles/rock-relief.js';
+import { renderRock, rockWriter } from '../kit/styles/rock-paint.js';
+import * as potter from '../kit/pie/pie-potter.js';
+import * as rock from '../kit/styles/rock-pieces.js';
+import * as smith from '../kit/pie/pie-smith.js';
 
 const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
 export const GROUND = { light: '#efe7d6', dark: '#0e0d0b' }, TEXT = { light: '#0e0d0b', dark: '#f6f1e4' };

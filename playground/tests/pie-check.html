@@ -14,7 +14,7 @@
 <pre id="out"></pre>
 <script type="module">
 import { print } from './pie-directions.js';
-import * as R from '../kit/styles/pie-rock.js';
+import * as R from '../kit/styles/rock-pieces.js';
 const dpr = Math.min(2, devicePixelRatio || 1), fails = [], seen = [];
 const scan = (name, piece) => { const cv = print('rock', 'light', piece, { dpr }), g = cv.getContext('2d'), w = cv.width, h = cv.height, d = g.getImageData(0, 0, w, h).data;
   // (the shader leaves the outermost pixel row and column unpainted, so the ring one pixel in is the border that tells)

@@ -6,8 +6,8 @@
 //   the motif (8 sectors), so the rings were laid with a guide, but not a lathe.
 // The cuirass: bosses in rows ~2 diameters apart, lines and rings traced in fine punched dots (pointillé).
 // Gold only small: the disc's gold is a foil; here it is on the bosses' crowns alone.
-import { rng, gauss, letterMask, blurMask, at, fitGlyph } from './pie-relief.js';
-import { glyph } from './copperplate-print.js';
+import { rng, gauss, letterMask, blurMask, at, fitGlyph } from '../styles/rock-relief.js';
+import { glyph } from '../styles/copperplate-print.js';
 
 export const FACE = '"Illum PIE Cinzel"';
 const TAU = Math.PI * 2;

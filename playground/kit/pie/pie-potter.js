@@ -6,8 +6,8 @@
 //   impressions are grouped into bands of 2-4 cords with smooth clay between. Bead depth varies with the potter's
 //   pressure (a slow swell along the cord, by eye ~.25) and a little bead to bead (~.1).
 // The comb: a row of 4-7 square-ended teeth pressed at once, hatching triangles and zigzags (Yamnaya, Bell Beaker).
-import { rng, gauss, letterMask, blurMask, at, fitGlyph } from './pie-relief.js';
-import { glyph } from './copperplate-print.js';
+import { rng, gauss, letterMask, blurMask, at, fitGlyph } from '../styles/rock-relief.js';
+import { glyph } from '../styles/copperplate-print.js';
 
 export const FACE = '"Illum PIE Archivo"';
 const P = fs => Math.max(3.6, fs * .26);          // the bead pitch at a body size (≥ 3.4 CSS px: a bead must keep 2 device px)
