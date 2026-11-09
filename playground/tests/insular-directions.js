@@ -458,6 +458,7 @@ export function lindParaph(size, seed = 1, { res = 2, theme = 'light' } = {}) {
   knot(S, C, K.crossings, { layers: [{ w: u * .95, ink: theme === 'dark' ? 'l' : 'k' }, { w: u * .95 - u * .34, ink: 'r' }], gap: u * .14, ground: null });
   const dr = Math.max(.8, size * .07), x = ox + 4 * u + size * .32, cy = pad + size / 2;
   S.dots([[x, cy - dr * 1.9, dr * 1.05, -.5, 1.1], [x, cy + dr * 1.9, dr * .95, -.5, 1.1], [x + dr * 3.1, cy, dr, -.5, 1.1]], 'd');
+  hand(S, size, seed);
   return { S, W: Wd + 2 * pad, H: size + 2 * pad };
 }
 // ---- C · Durrow ---------------------------------------------------------------------------------------------------------
@@ -565,6 +566,7 @@ function ruledBreak(len, ht, res, look, { seed = 1 } = {}) {
   const pw = look.centre(S, cx, cy, th, seed), dr = Math.max(.8, th * .07);
   for (const sg of [-1, 1]) { const x0 = cx + sg * (pw / 2 + th * .18), x1 = sg < 0 ? pad + dr * 4 : pad + len - dr * 4; rule(S, [x0, cy], [x1, cy], look.rules);
     triad(S, sg < 0 ? x1 - dr * 4.2 : x1 + dr * 1.1, cy, dr); }
+  hand(S, th * 2, seed);
   return { S, W: len + 2 * pad, H: th + 2 * pad };
 }
 // The frame: fine rules round the text, a knot or a coil at each corner, a panel at the middle of each long side, a row of dots
@@ -577,6 +579,7 @@ function ruledFrame(w, h, res, look, { seed = 1 } = {}) {
   S.dots(dotsAlong(P, dr * 2 * 1.9, dr, true, { load: 13 }), 'd');
   for (const [x, y] of [[x0, y0], [x1, y0], [x0, y1], [x1, y1]]) look.corner(S, x, y, c, seed);
   if (w > c * 9) for (const y of [y0, y1]) look.centre(S, pad + w / 2, y, c, seed);
+  hand(S, Math.min(w, h), seed);
   return { S, W: w + 2 * pad, H: h + 2 * pad, pad };
 }
 
@@ -593,6 +596,7 @@ export const lindFrame = (w, h, seed = 1, { theme = 'light', res = 2 } = {}) => 
 export function lindFiller(len, ht, seed = 1, { res = 2 } = {}) {
   const pad = ht * .4, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), cy = pad + ht / 2, dr = Math.max(.8, ht * .085), x1 = pad + len - dr * 5;
   S.dots(dotsAlong([[pad, cy], [x1 - dr * 2.5, cy]], dr * 2 * 1.9, dr, false, { load: 12 }), 'd'); triad(S, x1, cy, dr * 1.1);
+  hand(S, ht * 2, seed);
   return { S, W: len + 2 * pad, H: ht + 2 * pad, pad };
 }
 
@@ -613,6 +617,7 @@ export function durFiller(len, ht, seed = 1, { res = 2 } = {}) {
   const p0 = run[0], h0 = Math.atan2(run[3][1] - p0[1], run[3][0] - p0[0]), a0 = h0 + Math.PI / 2, c = [p0[0] - Math.cos(a0) * R, p0[1] - Math.sin(a0) * R];
   const sp = spiralLine(c, R, a0, 1.6, 1).reverse();
   nibLine(S, sp.concat(run.slice(1)), w, 'd');
+  hand(S, ht * 2, seed);
   return { S, W: len + 2 * pad, H: ht + 2 * pad, pad };
 }
 // the paraph: two coils side by side, as fol. 86r's stem ends, ringed in red dots
@@ -623,8 +628,13 @@ export function durParaph(size, seed = 1, { res = 2, theme = 'light' } = {}) {
   for (let t = 0; t <= 1; t += .005) { const a = Math.PI / 2 + t * Math.PI; P.push([pad + R + Math.cos(a) * o, pad + R + Math.sin(a) * o]); }
   for (let t = 0; t <= 1; t += .005) { const a = -Math.PI / 2 + t * Math.PI; P.push([pad + 3 * R + Math.cos(a) * o, pad + R + Math.sin(a) * o]); }
   S.dots(dotsAlong(P, dr * 2 * 1.9, dr, true, { load: 11 }), 'd');
+  hand(S, size, seed);
   return { S, W, H };
 }
+
+// the hand's drift on a small piece (as on the initials, research/21-paint.md): the arm's slow wander, the fingers' finer
+// one, the inks a hair off one another — the piece drawn, not constructed
+function hand(S, X, seed) { S.drift({ amp: X * .008, lam: X * .5, amp2: X * .0016, lam2: X * .12, mis: X * .0025, seed: seed + 17 }); }
 
 // ---- the directions -------------------------------------------------------------------------------------------------------
 // pigment coats (Sheet.print): orpiment dense with a coarse crystal tooth, verdigris thinner and granulating, red lead dense

@@ -6,8 +6,9 @@
 <title>Insular directions</title>
 <!--
   Insular, direction studies (research/20-insular.md): each direction with a drop initial, a paraph, a line-filler, a break
-  and a frame at page size in light and dark, then enlarged. Drawn live as vector, poured through the ink engine
-  (tests/insular-directions.js on kit/styles/insular-knot.js).   ?only=lind|kells|durrow  ?letters=EIQB  #seed=n
+  and a frame at page size in light and dark, then enlarged. Drawn live as vector (tests/insular-directions.js on
+  kit/styles/insular-knot.js), painted by tests/km-print.js (brush loads by Kubelka–Munk, research/21-paint.md);
+  ?paint=engine for the old ink engine.   ?only=lind|kells|durrow  ?letters=EIQB  #seed=n
 -->
 <style>
   @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
@@ -55,7 +56,8 @@
 <main id="out"></main>
 <script type="module">
 import * as D from './insular-directions.js';
-const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+import { paintPrint } from './km-print.js';
+const q = new URLSearchParams(location.search), engine = q.get('paint') === 'engine', seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
 document.getElementById('seed').textContent = seed;
 const letters = (q.get('letters') ?? 'EIQB').split('');
 await document.fonts.load('40px InsularUncial'); await document.fonts.load('20px "EB Garamond"');
@@ -64,7 +66,8 @@ const dpr = Math.min(2, devicePixelRatio || 1), t0 = performance.now(), timing =
 function printed(dir, theme, piece, zoom = 1) {
   const { S, W, H } = piece, d = dpr * zoom, cv = document.createElement('canvas');
   cv.width = Math.ceil(W * d); cv.height = Math.ceil(H * d); cv.style.width = W * zoom + 'px'; cv.style.height = H * zoom + 'px';
-  S.print(cv.getContext('2d'), D.PAL[dir.pal][theme], { dpr: d, order: dir.order, seed, tex: dir.tex, alias: dir.alias });
+  if (engine) S.print(cv.getContext('2d'), D.PAL[dir.pal][theme], { dpr: d, order: dir.order, seed, tex: dir.tex, alias: dir.alias });
+  else paintPrint(cv.getContext('2d'), S, D.PAL[dir.pal][theme], { order: dir.order, seed });
   return cv;
 }
 const DIRS = D.DIRS;
