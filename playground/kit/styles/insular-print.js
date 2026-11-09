@@ -74,10 +74,16 @@ function times(G, L) {
         if (j + 1 < h && !seen[q + w] && M[q + w] >= .08) { seen[q + w] = 1; Dd[q + w] = d + 1; Q[tl++] = q + w; }
         if (j > 0 && !seen[q - w] && M[q - w] >= .08) { seen[q - w] = 1; Dd[q - w] = d + 1; Q[tl++] = q - w; } }
       parts.push({ cells: Q.slice(0, tl), far }); }
-    const N = parts.length; parts.forEach((p, k) => { const t0 = a + (b - a) * k / Math.max(1, N), span = (b - a) / Math.max(1, N) * sp;
+    // (in the dots' ink, a part far longer than a touch is a line the pen wrote in red — Durrow's wave scroll: it is
+    // written along its length from where it began, over the piece's whole time, not laid at once as a dot is)
+    const long = p => sp === 0 && p.far * px > 3, lines = parts.filter(long), touches = parts.filter(p => !long(p));
+    for (const p of lines) for (const q of p.cells) T[q] = Math.min(T[q], .04 + .9 * Dd[q] / p.far);
+    const N = touches.length; touches.forEach((p, k) => { const t0 = a + (b - a) * k / Math.max(1, N), span = (b - a) / Math.max(1, N) * sp;
       for (const q of p.cells) T[q] = Math.min(T[q], t0 + (p.far ? span * Dd[q] / p.far : 0)); }); }
   // (a cell under-covered by every ink takes its neighbours' moment, a few passes: no rim lingers to the end)
-  for (let it = 0; it < 4; it++) for (let q = 0; q < n; q++) if (T[q] > 1.5) { const i = q % w; let m = 2; if (i > 0) m = Math.min(m, T[q - 1]); if (i + 1 < w) m = Math.min(m, T[q + 1]); if (q >= w) m = Math.min(m, T[q - w]); if (q + w < n) m = Math.min(m, T[q + w]); if (m <= 1.5) T[q] = m; }
+  // (each pass reads the last one's moments, not its own: in place, an edge's earliest moment ran along a whole row of rim
+  // in one pass, and a line's faint outline showed the moment it began)
+  for (let it = 0; it < 4; it++) { const P = T.slice(); for (let q = 0; q < n; q++) if (P[q] > 1.5) { const i = q % w; let m = 2; if (i > 0) m = Math.min(m, P[q - 1]); if (i + 1 < w) m = Math.min(m, P[q + 1]); if (q >= w) m = Math.min(m, P[q - w]); if (q + w < n) m = Math.min(m, P[q + w]); if (m <= 1.5) T[q] = m; } }
   for (let q = 0; q < n; q++) if (T[q] > 1) T[q] = 1;
   return T;
 }
