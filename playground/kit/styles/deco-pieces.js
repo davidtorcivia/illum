@@ -155,7 +155,7 @@ function inlineInLetter(L, H) {
 }
 // the capital in the line: the letter with its vermilion shadow, a line's height
 export function lineInitial(ch, H, seed) {
-  const r = ratio(ch), W = H * r + H * .1, S = new Sheet(), L = glyph(ch, H, H * r / 2, H / 2), sd = [H * .075, H * .06], gp = Math.max(1, H * .016);
+  const r = ratio(ch), W = H * r + H * .1, S = new Sheet(), L = glyph(ch, H, H * r / 2, H / 2), sd = [H * .09, H * .07], gp = Math.max(1, H * .02);
   S.ink('r', g => shadowOf(L, sd[0], sd[1], gp)(g), { medium: 'press', despeck: 2, ang: .7 });
   S.ink('k', g => L(g), { medium: 'press', ang: .7 });
   return { S, W, H, box: [-2, -2, W + 2, H + H * .1 + 2] };

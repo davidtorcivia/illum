@@ -39,7 +39,9 @@ const letterOf = ch => { const c = String(ch).normalize('NFD')[0].toUpperCase();
 function initial({ ch = 'B', G, big = true, seed = 1, rich = .5 }) {
   const c = letterOf(ch), [x0, y0, x1, y1] = G.box, H = y1 - y0;
   if (big) return { marks: [], letters: [piece(x0, y0, H, H, () => D.dropInitial(c, H, seed, +rich), seed, `drop:${c}:${rich}`)], width: H };
-  const r = D.lineInitial(c, H, seed); return { marks: [], letters: [piece(x0, y0, r.W, H, () => D.lineInitial(c, H, seed), seed, 'line:' + c)], width: r.W };
+  // in the line: the capital fills the room the span keeps for it (its font's cap, wider than the text's), its foot on the baseline
+  const Hl = Math.min((x1 - x0) / (D.ratio(c) + .1), H * 1.8), r = D.lineInitial(c, Hl, seed);
+  return { marks: [], letters: [piece(x0, y1 - Hl, r.W, Hl, () => D.lineInitial(c, Hl, seed), seed, 'line:' + c + ':' + Hl.toFixed(1))], width: r.W };
 }
 initial.width = () => 1.02;
 initial.line = ch => D.ratio(letterOf(ch)) + .08;

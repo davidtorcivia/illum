@@ -180,11 +180,15 @@ Limelight (OFL) with a solid vermilion shadow swept down-right (an extrusion, no
 and, from rich .75, an inline cut down its heaviest strokes (where it lies deepest in the ink).
 
 **Printed.** Each piece's formes become coverage at the device's resolution and are poured by the ink engine (inkLetter: the
-ink squeezed to the rim, the edge pushed by the paper's grain), at 84 % of a full coat so each piece's inking shows. On the light
+ink squeezed to the rim, the edge pushed by the paper's grain), at 84 % of a full coat. The per-piece inking
+(94–100 %) sits near the engine's full coat and shows only faintly: the drop initial's black rule measures 33.2, 34.4 and 34.8 L
+on three sides at 4× (1–2 L apart), about the master's own evenness for a heavy rule (slow sd .018); the master hairline's larger
+unevenness is not reproduced. On the light
 page a third pour, the bite: the impression's shoulder, a shade a fraction of a px wide on the side away from the light (off with
 ?bite=off; none in the dark). ?draw prints each piece with sweepIn's press: the bite comes up first (a blind impression), then
 the vermilion forme, then the black, each rolling along the piece's length. A frame round a box is printed as its four sides
-(its middle has no ink and is never made).
+(its middle has no ink and is never made; checked at 4× on the figure frame: no band where two sides meet). The capital in
+the line fills the room its span keeps (its own 1.8 em), its foot on the baseline, with the same shadow.
 
 **Every case.** Drop initial (4 lines, 3 on a phone) and line initial; paraph (the lotus; a vermilion square at rich 0);
 fillers (speed lines after a vermilion square; a heading's Oxford rule); breaks at three ranks (a lozenge between speed lines;
@@ -196,5 +200,23 @@ paraph), .25 (Oxford frame, one rule fillers, the quotation's rule, the figure's
 two-rule fillers, code and aside frames), .75 (the inline, three rules, more petals, a stepped quotation rule), 1 (three steps,
 25 rays, four rules, a part's break in a chapter's form, an extra step in every box).
 
-**Speed** (tests/deco.html, Chrome, the whole page's ornament, three runs): light dpr 1 80–121 ms, dpr 2 180–190 ms; dark dpr 1
-67–69 ms, dpr 2 131–150 ms. Inside the 200 ms budget, the light page at dpr 2 only just.
+**Speed** (tests/deco.html, Chrome, the whole page's ornament, three runs): light dpr 1 74–83 ms, dpr 2 163–166 ms; dark dpr 1
+66–71 ms, dpr 2 133–155 ms. Inside the 200 ms budget; the light page at dpr 2 has the least headroom.
+
+**Scores** (research/05-the-bar.md; my read at 1440 and 390, 1× and 4×, light and dark):
+
+| # | criterion | score | why |
+|---|---|---|---|
+| 1 | Beauty (×3) | 2 | composed and period at page size; the drop initial and the end break are the best of it; the speed-line fillers on every paragraph are the plainest thing on the page |
+| 2 | Craft at every scale | 2 | 4× holds (mitres, register, the press edge, the inline); the line initial at 4× is soft (res capped at 3) |
+| 3 | Holds at every viewport | 3 | 390 lays out cleanly; 3-line drop on the phone |
+| 4 | Integration with the text | 2 | every mark is a compositor's answer to its place; the quotation rule and the aside brackets are light |
+| 5 | Behaviour | 2 | ?draw prints (blind impression, vermilion, black), never fades; read mode paced by size |
+| 6 | The system is the work | 2 | one material (rule, cut, capital) across every case and five rich levels |
+| 7 | Living imperfection | 2 | the hand is the press's and the comp's (register, mitre seams, tilt, edge); moved from 1 in stage 1, but per-piece inking barely shows |
+| 8 | Restraint and the void | 2 | two colours, much paper; fillers could be rarer |
+| 9 | History without pastiche | 2 | moved from 1: built from the material, not the poster; the Limelight capital still leans toward the 1930s cliché |
+| 10 | Longevity | 2 | |
+| 11 | Point of view | 2 | Deco as the jobbing printer's craft, not as the poster |
+| 12 | Provenance | 2 | measured on ATF 1934; sources and faces credited |
+| | total /42 | 31 | good work, not yet museum: Beauty is the gap |
