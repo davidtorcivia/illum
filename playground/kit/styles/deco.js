@@ -24,7 +24,23 @@ export const palette = {
 };
 const isDark = () => { try { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; } catch { return false; } };
 let BITE = true;
-const FACE_OF = { limelight: 'DecoLimelight', kalnia: 'DecoKalnia', federo: 'DecoFedero', italiana: 'DecoItaliana' };
+// The capitals' faces: one option, one family, one file (fonts/deco/: each an OFL face cut to A-Z with pyftsubset into woff2;
+// a face with a Reserved Font Name renamed, its licence and a README beside it). A face is loaded only when a page selects it.
+// To drop one from a build, remove its row here and its file (and its README); a setting naming it falls back to the default.
+export const FACE_FILES = {
+  limelight: { family: 'IllumDecoBroadway', file: 'illum-deco-broadway-caps.woff2' },   // Limelight (Sorkin Type; RFN), Broadway-like
+  kalnia: { family: 'IllumDecoFatface', file: 'illum-deco-fatface-caps.woff2' },         // Kalnia Bold (Frida Medrano), Ultra Bodoni-like
+  federo: { family: 'IllumDecoFeder', file: 'illum-deco-feder-caps.woff2' },             // Federo (Cyreal; RFN), Peignot-like
+  italiana: { family: 'IllumDecoHairline', file: 'illum-deco-hairline-caps.woff2' },     // Italiana (Santiago Orozco; RFN), hairline
+};
+const DEFAULT = { drop: 'limelight', line: 'kalnia' };
+const SEL = { drop: DEFAULT.drop, line: DEFAULT.line }, fontDir = new URL('../../fonts/deco/', import.meta.url), LOADING = new Map();
+const pick = (v, d) => FACE_FILES[v] ? v : FACE_FILES[d] ? d : Object.keys(FACE_FILES)[0];
+const setFace = (which, v) => { SEL[which] = pick(v, DEFAULT[which]); D.FACES[which] = FACE_FILES[SEL[which]].family; };
+setFace('drop', DEFAULT.drop); setFace('line', DEFAULT.line);
+const loadFace = key => { const { family, file } = FACE_FILES[key];
+  if (!LOADING.has(key)) LOADING.set(key, new FontFace(family, `url(${new URL(file, fontDir)})`).load().then(f => { document.fonts.add(f); }).catch(e => console.warn('deco:', e)));
+  return LOADING.get(key); };
 
 
 // ---- placing pieces -------------------------------------------------------------------------------------------------------------
@@ -49,7 +65,7 @@ function initial({ ch = 'B', G, big = true, seed = 1, rich = .5 }) {
 initial.width = () => 1.02;
 initial.line = ch => D.ratio(letterOf(ch), D.FACES.line) + .08;
 initial.lines = 4; initial.phone = 3; initial.margin = .32;
-initial.load = () => Promise.all([D.FACES.drop, D.FACES.line].map(f => document.fonts.load(`40px ${f}`))).then(() => {});
+initial.load = () => Promise.all([...new Set([SEL.drop, SEL.line])].map(loadFace)).then(() => {});   // (only the faces in use)
 
 // ---- the paraph, fillers, breaks ---------------------------------------------------------------------------------------------------
 function paraph(x, base, u, seed, rich = .5) {
@@ -142,9 +158,11 @@ export const deco = { label: 'Deco', minGap: 2, theme: { rubric: 'rgb(192 54 32)
   hurry: [4, 1, 1.5, 1.6], steady: ['drop'],
   paraph, filler, breakMark, initial, frames, palette, print, timeline,
   set bite(v) { BITE = v !== 'off' && v !== false; }, get bite() { return BITE; },
-  // the capitals' faces (?face= the drop's, ?lface= the line's: limelight, kalnia, federo, italiana); the drop's field (?burst=
+  // the capitals' faces (face: the drop's, lineFace: the line's; any key of FACE_FILES: limelight, kalnia, federo, italiana;
+  // defaults Limelight and Kalnia); the drop's field (?burst=
   // grille, the default, or rays) and the paraph's and end mark's crown (?lotus=on: the Chrysler lotus)
-  set face(v) { D.FACES.drop = FACE_OF[v] ?? 'DecoLimelight'; }, set lface(v) { D.FACES.line = FACE_OF[v] ?? D.FACES.drop; },
+  set face(v) { setFace('drop', v); }, get face() { return SEL.drop; },
+  set lineFace(v) { setFace('line', v); }, get lineFace() { return SEL.line; }, set lface(v) { setFace('line', v); },
   set burst(v) { D.BURST.kind = v === 'rays' ? 'rays' : 'grille'; }, set lotus(v) { D.BURST.lotus = v === 'on'; },
-  get variant() { return [BITE ? 'bite' : 'flat', D.FACES.drop, D.FACES.line, D.BURST.kind, D.BURST.lotus].join(','); } };
+  get variant() { return [BITE ? 'bite' : 'flat', SEL.drop, SEL.line, D.BURST.kind, D.BURST.lotus].join(','); } };
 export default deco;

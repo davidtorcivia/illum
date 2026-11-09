@@ -12,8 +12,7 @@ import { stream } from '../marks.js';
 
 // the capitals' faces (set by the style: the drop's and the line's), each an OFL face shipped in fonts/deco
 export const BURST = { kind: 'grille', lotus: false };   // (the drop's field and the end mark's crown: the style sets them)
-export const FACES = { drop: 'DecoLimelight', line: 'DecoLimelight' };
-export let FACE = 'DecoLimelight';
+export const FACES = { drop: 'IllumDecoBroadway', line: 'IllumDecoFatface' };
 const PI = Math.PI, clamp = v => v < 0 ? 0 : v > 1 ? 1 : v;
 export const gauss = rnd => { let s = 0; for (let i = 0; i < 4; i++) s += rnd(); return (s - 2) * 1.732; };
 

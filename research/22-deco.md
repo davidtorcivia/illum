@@ -249,3 +249,23 @@ the grille behind the drop is quiet, perhaps too quiet at page size), craft 3 (4
 3 (the cadence sits on the baseline to the x-height, its close by the room), behaviour 2, system 2, imperfection 2, restraint 3,
 history without pastiche 2 (Limelight is still the loudest 1930s note; Kalnia is the calmer alternative), longevity 2, point of
 view 2, provenance 2: 35/42, still "good work, not yet museum" by the arithmetic, Beauty the gap.
+
+## The capitals' faces: options, and how to trim them
+
+The user's pick: Limelight for the drop, Kalnia for the line (the defaults). All four stay as module settings, `deco.face` (the
+drop's) and `deco.lineFace` (the line's), each any key of `FACE_FILES` in kit/styles/deco.js: `limelight`, `kalnia`, `federo`,
+`italiana` (the specimen reads them as ?face= and ?lface=; both are in `variant`, so the caches keep them apart; an unknown name
+falls back to the default). Each face is its own file in fonts/deco, cut to the capitals A–Z with pyftsubset (fontTools) into
+woff2, and fetched only when a page selects it (`initial.load` loads the drop's and the line's, once each):
+
+| option | file | bytes | from | licence |
+|---|---|---|---|---|
+| limelight | illum-deco-broadway-caps.woff2 | 5072 | Limelight (Nicole Fally, Sorkin Type) | OFL, RFN "Limelight": the subset is renamed Illum Deco Broadway Caps |
+| kalnia | illum-deco-fatface-caps.woff2 | 2900 | Kalnia Bold (Frida Medrano), instanced at wght 700 | OFL, no RFN; renamed Illum Deco Fatface Caps for consistency |
+| federo | illum-deco-feder-caps.woff2 | 5896 | Federo (Cyreal) | OFL, RFN "Federo": renamed Illum Deco Feder Caps |
+| italiana | illum-deco-hairline-caps.woff2 | 2188 | Italiana (Santiago Orozco) | OFL, RFN "Italiana": renamed Illum Deco Hairline Caps |
+
+Each subset has a README beside it naming its source and the licence file (the original's OFL, kept beside it). The default page
+fetches 7972 bytes of capitals. To drop a face from a build: delete its row in `FACE_FILES` and its .woff2 and -README.txt (and
+its -OFL.txt if no other file needs it). The full original TTFs in fonts/deco serve only the stage-1 direction page and can go
+from any build that does not ship it.

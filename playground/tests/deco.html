@@ -13,10 +13,6 @@
 <style>
   @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
   @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
-  @font-face { font-family: DecoLimelight; src: url(../fonts/deco/Limelight-Regular.ttf) format("truetype"); font-display: block; }
-  @font-face { font-family: DecoKalnia; src: url(../fonts/deco/Kalnia-Bold.ttf) format("truetype"); font-display: block; }
-  @font-face { font-family: DecoFedero; src: url(../fonts/deco/Federo-Regular.ttf) format("truetype"); font-display: block; }
-  @font-face { font-family: DecoItaliana; src: url(../fonts/deco/Italiana-Regular.ttf) format("truetype"); font-display: block; }
   :root { --paper: rgb(242 236 222); --ink: #26211c; --rubric: rgb(192 54 32); color-scheme: light; }
   :root[data-theme=dark] { --paper: rgb(22 21 20); --ink: rgb(222 216 204); --rubric: rgb(230 104 72); color-scheme: dark; }
   html { background: var(--paper); }
@@ -136,7 +132,7 @@ STYLES.deco = deco;   // (in the registry, as nouveau.html and insular.html did;
 
 const q = new URLSearchParams(location.search), sd = location.hash.match(/seed=(\d+)/)?.[1];
 document.documentElement.dataset.theme = q.get('theme') === 'dark' || (!q.get('theme') && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-deco.bite = q.get('bite') ?? 'on'; deco.face = q.get('face') ?? 'limelight'; deco.lface = q.get('lface') ?? q.get('face') ?? 'limelight'; deco.burst = q.get('burst') ?? 'grille'; deco.lotus = q.get('lotus') ?? 'off';
+deco.bite = q.get('bite') ?? 'on'; deco.face = q.get('face') ?? 'limelight'; deco.lineFace = q.get('lface') ?? 'kalnia'; deco.burst = q.get('burst') ?? 'grille'; deco.lotus = q.get('lotus') ?? 'off';   // (each face fetched only when chosen)
 document.getElementById('redraw').href = '?' + new URLSearchParams([...q.entries(), ['draw', '']]).toString().replace(/=$/, '') + location.hash;
 if (q.get('lines')) document.querySelectorAll('.ini.drop').forEach(s => s.dataset.lines = Math.max(2, Math.min(9, +q.get('lines') || 4)));
 await deco.initial.load(); await document.fonts.load('20px "EB Garamond"');
