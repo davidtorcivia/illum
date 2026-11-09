@@ -139,12 +139,62 @@ export function glyph(ch, face, cap, cx, cy) {
   const w = (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) * k, a = m.actualBoundingBoxAscent * k, d = m.actualBoundingBoxDescent * k;
   const x = cx - w / 2 + m.actualBoundingBoxLeft * k, y = cy + (a - d) / 2, size = 200 * k;
   const draw = g => { g.font = `${size}px ${face}`; g.textBaseline = 'alphabetic'; g.fillText(ch, x, y); };
+  draw.stroke = g => { g.font = `${size}px ${face}`; g.textBaseline = 'alphabetic'; g.strokeText(ch, x, y); };
   draw.box = [x - m.actualBoundingBoxLeft * k, y - a, x - m.actualBoundingBoxLeft * k + w, y + d]; return draw;
 }
 // The engraver's weight: the faces' shades are ~1.4x the master's (Pinyon 8.5-10 % of the cap height against
 // Champion's 6-7 %), so the shades are cut back by k of their thickness over tau0 (cells); hairlines are left alone.
 // Thickness is carried from each stroke's ridge out across it (uphill only where the distance rises steeply, i.e.
 // across a stroke, never along a hairline into the shade it grows from).
+// cutShades: the same cut, but each edge is the face's own outline offset inward along its normal (the glyph drawn and its
+// outline stroked away at a ladder of widths, so every edge stays a true, smooth, symmetric vector curve with sharp
+// corners), each cell taking the offset its stroke's thickness asks (k of it over tau0, the thickness carried as
+// thinShades carries it), between the two nearest rungs. draw: the glyph's draw(g) (from glyph()).
+export function cutShades(L, draw, { k = .4, tau0 = 2, step = .7 } = {}) {
+  const { M, w, h, x0, y0, res } = L, n = w * h, paper = new Uint8Array(n); for (let q = 0; q < n; q++) paper[q] = M[q] < .5;
+  const D = dist(paper, w, h), T = Float32Array.from(D), idx = []; for (let q = 0; q < n; q++) if (!paper[q]) idx.push(q);
+  idx.sort((a, b) => D[b] - D[a]);
+  const nb = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
+  for (const q of idx) { const i = q % w, j = q / w | 0;
+    for (const [dx, dy, l] of nb) { const x = i + dx, y = j + dy; if (x < 0 || y < 0 || x >= w || y >= h) continue; const o = y * w + x; if ((D[o] - D[q]) / l > .7 && T[o] > T[q]) T[q] = T[o]; } }
+  // the offset each cell asks (cells), its fringe taking its stroke's; the ladder of eroded glyphs
+  const E = new Float32Array(n); let emax = 0;
+  for (let q = 0; q < n; q++) { if (!M[q]) continue; let t = T[q];
+    if (paper[q]) { const i = q % w, j = q / w | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = i + dx, y = j + dy; if (x >= 0 && y >= 0 && x < w && y < h && !paper[y * w + x]) t = Math.max(t, T[y * w + x]); } }
+    E[q] = k * Math.max(0, t - tau0); if (E[q] > emax) emax = E[q]; }
+  const rungs = Math.max(1, Math.ceil(emax / step)), lad = [M], g = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
+  for (let r = 1; r <= rungs; r++) { const e = r * step;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h); g.setTransform(res, 0, 0, res, -x0 * res, -y0 * res); g.globalCompositeOperation = 'source-over'; g.fillStyle = g.strokeStyle = '#000'; draw(g);
+    g.globalCompositeOperation = 'destination-out'; g.lineWidth = 2 * e / res; g.lineJoin = 'miter'; g.miterLimit = 8;
+    strokeGlyph(g, draw); g.globalCompositeOperation = 'source-over';
+    const d = g.getImageData(0, 0, w, h).data, R = new Float32Array(n); for (let q = 0; q < n; q++) R[q] = d[q * 4 + 3] / 255; lad.push(R); }
+  const O = new Float32Array(n);
+  for (let q = 0; q < n; q++) { if (!M[q]) continue; const f = E[q] / step, a = Math.min(rungs, Math.floor(f)), b = Math.min(rungs, a + 1), u = Math.min(1, f - a);
+    O[q] = Math.min(M[q], lad[a][q] * (1 - u) + lad[b][q] * u); }
+  return { ...L, M: O };
+}
+// the glyph's outline stroked (draw.stroke, from glyph(); a fill-only draw falls back to the fill)
+const strokeGlyph = (g, draw) => draw.stroke ? draw.stroke(g) : draw(g);
+// thinShadesFine: thinShades worked at `ss` times the grid and box-filtered back down, so the cut's cell steps fall below a
+// cell and its edge comes back smooth and anti-aliased (the plain cut, at the grid's own size, steps and waves at 4x)
+// The cut rounds a letter's inner corners (eroding an outline rounds its reflex corners: the joins pinch and bite), so the
+// cut letter is closed again over its own body (dilated and eroded back by r, about the cut's depth): a notch narrower than
+// r fills, a stroke keeps its new weight, and nothing grows past the face's own outline.
+export function thinShadesFine(draw, box, res, k = .4, tau0 = 2, ss = 3, close = 1) {
+  const L0 = coverage([], box, res * ss, draw), F = thinShades(L0, k, tau0 * ss);
+  if (close) { const n = F.w * F.h, inkB = new Uint8Array(n), out = new Uint8Array(n); let emax = 0;
+    for (let q = 0; q < n; q++) { inkB[q] = F.M[q] > .5; if (L0.M[q] > .5 && F.M[q] <= .5) emax++; }
+    // (r: the cut's depth, k of the heaviest stroke's half-width over tau0, in fine cells)
+    const Din = dist(Uint8Array.from(L0.M, v => v < .5), F.w, F.h); let tmax = 0; for (let q = 0; q < n; q++) if (Din[q] > tmax) tmax = Din[q];
+    const r = Math.max(1, close * k * Math.max(0, tmax - tau0 * ss));
+    const Dout = dist(inkB, F.w, F.h); for (let q = 0; q < n; q++) out[q] = Dout[q] > r;   // outside the dilation
+    const Dback = dist(out, F.w, F.h);
+    for (let q = 0; q < n; q++) if (Dback[q] > r + .5 && L0.M[q] > F.M[q]) F.M[q] = Math.min(L0.M[q], Math.max(F.M[q], Math.min(1, Dback[q] - r)));
+    void emax; }
+  const w = Math.ceil((box[2] - box[0]) * res), h = Math.ceil((box[3] - box[1]) * res), M = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { let a = 0; for (let y = 0; y < ss; y++) { const r = (j * ss + y) * F.w; if (j * ss + y >= F.h) break; for (let x = 0; x < ss; x++) if (i * ss + x < F.w) a += F.M[r + i * ss + x]; } M[j * w + i] = a / (ss * ss); }
+  return { M, w, h, x0: box[0], y0: box[1], res };
+}
 export function thinShades(L, k = .3, tau0 = 2) {
   const { M, w, h } = L, n = w * h, paper = new Uint8Array(n); for (let q = 0; q < n; q++) paper[q] = M[q] < .5;
   const D = dist(paper, w, h), T = Float32Array.from(D), idx = []; for (let q = 0; q < n; q++) if (!paper[q]) idx.push(q);

@@ -404,3 +404,53 @@ Chrome, a panel's five pieces, load average ~10–12. B is faster now, without t
 |---|---|---|
 | B (pen) | 77 / 109 ms | 36 / 50 ms |
 | C (hand) | 119 / 122 ms | 56 / 77 ms |
+
+## Stage 6: B as one written gesture; C's capital clean up close
+
+### B: one gesture
+The user on stage 5: "B everything needs to be more connected". The parts sat near one another: the oval, the capital, two
+loose curls, and an entry crossing in on its own. Now every element grows out of another:
+- **Touch-down into the capital.** The pen sets down in a small curl just outside the capital's free end that lies farthest up
+  and right, and runs into the letter along the letter's own stroke.
+- **The capital.** The face's body is the pen's next stroke (letterAfter). The face is kept whole: writing all of it with the pen
+  broke it in stage 4.
+- **The capital's last end into the oval.** The capital leaves by its free end farthest down and left, in one smooth sweep out
+  and round the foot. It arrives along the way the oval sets off, so there is no corner. This sweep's pressure is eased to .3,
+  so it does not drown the oval's swell.
+- **The oval's terminal.** The great oval turns, opening down its left side, and closes inside itself into an inward curl and
+  a ball.
+- **How the joins are found.** The capital's free ends come from its skeleton (`letterEnds()`): the ends of
+  glyphStrokes' walk, each with the way into the letter.
+
+?draw follows the pen in order: the touch-down curl, then the capital along its skeleton, then the sweep, the oval and the curl.
+
+B's other pieces were already single strokes, each ending in a point or a ball: the copybook oval, the compound curve into a
+small oval, the oval in the break, and the rule into an oval at the quotation's corner.
+
+Ways tried first, which made a hairpin below the letter:
+- running the oval's end on into the nearest free end of the capital;
+- choosing the end jointly with where the oval should leave off.
+
+The capital's ends all point back against the oval's direction there.
+
+### C's capital (tests/copperplate-caps.html: the capital alone at 1×, 4× and 8×, by cut)
+- **Stage 4's cut was what read as wonky.** `thinShades` works on the grid itself, so at 4× its edges stepped and waved, and the
+  joins pinched and bit. Eroding an outline rounds its reflex corners, and Maguntia's joins are sharp reflex corners.
+- **Tried: a vector offset** (`cutShades`, the glyph's outline stroked away at a ladder of widths). The edges were smoother, but
+  the joins still bit. The face's contours overlap inside the letter, and stroking the outline cuts along the internal overlaps
+  too. Kept in the code, not used.
+- **Used: `thinShadesFine`.** The cut is worked at twice the grid and box-filtered back down, so its steps fall below a cell. The
+  cut letter is then closed back over its own body: dilated and eroded by the cut's depth, never past the face's own outline.
+  Notches narrower than the cut fill, and each stroke keeps its new weight. B, L, R and S at 4× now have smooth edges and whole
+  joins (scratchpad shots/caps3-4x.png).
+- **At page size** the weight is a touch heavier than stage 5's (the closing gives back the joins).
+
+### Speed
+Chrome, a panel's five pieces, load average 5–9:
+
+| direction | light, dpr 1 / 2 | dark, dpr 1 / 2 |
+|---|---|---|
+| B (pen) | 77 / 96 ms | 37 / 47 ms |
+| C (hand) | 141 / 184 ms | 91 / 115 ms |
+
+The fine cut costs C about 20–60 ms, which puts C's light page at dpr 2 near the 200 ms line.

@@ -6,7 +6,7 @@
 // Every piece: { W, H, strokes, letter?, medium, base? } in its own px; d = device px a css px (the engraved hairline never
 // drawn under the engine's floor, 1.2 device px).
 //   each stroke: { p, w, balls, t } — t: the hand's time at each point (ms), for ?draw
-import { SLANT, burin, press, stroke, cubic, beauty, curl, join, lensShape } from '../kit/styles/copperplate-print.js';
+import { SLANT, burin, press, stroke, cubic, beauty, curl, join, lensShape, coverage, glyph, glyphStrokes } from '../kit/styles/copperplate-print.js';
 import { move, chain, fit, rosettePlan, smooth } from '../kit/styles/copperplate-hand.js';
 import { stream, resample } from '../kit/marks.js';
 
@@ -34,8 +34,11 @@ export function pace(p, vmax = .9) {
 }
 // one stroke of the hand: the path cut by the burin's steadiness (or the pen's), its weight from the flexible pen's pressure
 // along it (press: nothing is drawn at a constant width), its ends
-function written(path, seed, { hair, peak, how, start = 'point', end = 'ball', amp = .12, ball = 1.9 }) {
+// (ease: [u0, u1, k] the pressure eased to k over that share of the stroke's length, easing in and out: a passage the hand
+// carries lightly, as the sweep out of a letter that must not drown the oval's own swell)
+function written(path, seed, { hair, peak, how, start = 'point', end = 'ball', amp = .12, ball = 1.9, ease = null }) {
   const p = burin(path.p ?? path, seed, amp, 70, .5), t = pace(p), w = press(p, t, { hair, peak: peak / 2, ...how });
+  if (ease) { const [u0, u1, k] = ease, n = p.length; for (let i = 0; i < n; i++) { const u = i / (n - 1), f = u < u0 || u > u1 ? 0 : Math.min(1, (u - u0) / .03, (u1 - u) / .03); w[i] = hair + (w[i] - hair) * (1 - f * (1 - k)); } }
   const S = stroke(p, w, { start, end, hair, ball }); S.t = t; return S;
 }
 // a dot-curl: a hairline that turns into a small tightening curl and closes on a dot (Bickham's accents among his ovals)
@@ -65,22 +68,55 @@ const PEN_HOW = () => B_OPTS.line === 'crisp' ? { ...PEN, slow: .12 } : PEN;
 // One great oval on the slant round the capital: entered as a hairline from below left, run once round and a little more,
 // the pen opening on its left side where it is pulled down the slant; a curl or two inside (stage 1's composition, which
 // the user liked, now with the pen's weight). The rest are the copybook's single gestures.
+// The capital's free ends, where the pen can join it: the ends of its skeleton (glyphStrokes, at 3 cells a px), each with
+// the way into the letter from there. A stroke's start is a true end of the skeleton; its last point may be a fork, so only
+// starts, and lasts that no other stroke passes near, count.
+function letterEnds(ch, face, cap, cx, cy, W, H) {
+  const L = coverage([], [0, 0, W, H], 3, glyph(ch, face, cap, cx, cy)), S = glyphStrokes(L, { min: 6 }), ends = [];
+  const near = (q, self) => S.some(o => o !== self && o.p.some(v => Math.hypot(v[0] - q[0], v[1] - q[1]) < 1.2));
+  for (const st of S) { const p = st.p, n = p.length; if (n < 6) continue;
+    const a = p[0], b = p[Math.min(n - 1, 6)], la = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; ends.push({ pt: a, inward: [(b[0] - a[0]) / la, (b[1] - a[1]) / la], w: st.w[0] });
+    const z = p[n - 1], y = p[Math.max(0, n - 7)], lz = Math.hypot(y[0] - z[0], y[1] - z[1]) || 1; if (!near(z, st)) ends.push({ pt: z, inward: [(y[0] - z[0]) / lz, (y[1] - z[1]) / lz], w: st.w[n - 1] }); }
+  return ends;
+}
+// One great oval on the slant round the capital, and the whole of it one written gesture (stage 6): the pen sets down in a
+// small curl at the far foot, runs in as a hairline along the foot, turns the great oval (opening down its left side), and
+// the oval's end runs on, without a lift, into the capital at its nearest free end, arriving the way the letter's stroke goes;
+// the capital (the face's body) is the pen's next stroke; and the capital's exit, where it points, flies out into a tightening
+// curl closing on a ball. Every curl is the end of a stroke; where the pen lifts (into and out of the face) the next stroke
+// sets off where the last one points. The rest are the copybook's single gestures.
 const pen = {
   initial(ch, H, seed, d) {
     const W = Math.round(H * 1.06), pk = H * .085, hair = penHair(d, pk), c = [W * .52, H * .5], o = [], g = B_OPTS.geo, r = stream(seed, 'pen-oval:' + ch);
     // (the hand's oval: turning in by ~10 % over the turn, its slant drifting ~3 deg, its middle carried on by the arm, a
     // little fuller on the side it pulls down; all from the turn's own progress u, none of it noise)
     const t0 = PI * 1.12, ph = r() * TAU, tilt0 = (r() - .5) * deg(3);   // (begun at the oval's foot, moving right, so the hairline runs straight in)
-    for (let t = t0; t <= t0 + TAU * 1.08; t += .02) { const u = (t - t0) / TAU, sc = 1 - g * .1 * u, eg = 1 + g * .05 * Math.sin(t + ph), tl = g * (tilt0 + deg(3) * u);
+    for (let t = t0; t <= t0 + TAU * 1.04; t += .02) { const u = (t - t0) / TAU, sc = 1 - g * .1 * u, eg = 1 + g * .05 * Math.sin(t + ph), tl = g * (tilt0 + deg(3) * u);
       const q = slantPt([c[0] + g * H * .03 * u, c[1] - g * H * .015 * u], H * .58 * sc * eg, H * .34 * sc, -t), ct = Math.cos(tl), st = Math.sin(tl);
       o.push([c[0] + (q[0] - c[0]) * ct - (q[1] - c[1]) * st, c[1] + (q[0] - c[0]) * st + (q[1] - c[1]) * ct]); }
-    // (the entry runs into the oval along the way the oval sets off: no corner where the hand joins it)
-    const tg = [o[1][0] - o[0][0], o[1][1] - o[0][1]], tl = Math.hypot(...tg) || 1, u0 = [tg[0] / tl, tg[1] / tl], s0 = [Math.max(2, o[0][0] - H * .42), Math.min(H - 2, o[0][1] + H * .04)];
-    const entry = cubic(s0, [s0[0] + (o[0][0] - s0[0]) * .4, s0[1] + H * .02], [o[0][0] - u0[0] * H * .14, o[0][1] - u0[1] * H * .14], o[0], 24), how = PEN_HOW();
-    const strokes = [written(join(entry, o), seed + 1, { hair, peak: pk, how, start: 'point', end: 'point', amp: .25 }),
-      dotCurl([W * .2, H * .22], -PI * .62, H * .055, 1, seed + 2, { hair, how }), dotCurl([W * .86, H * .76], PI * .4, H * .05, 1, seed + 3, { hair, how })];
+    const how = PEN_HOW(), letter = { ch, face: '"CopperB"', cap: H * .66, cx: W * .55, cy: H * .48, pen: B_OPTS.letter === 'pen', thin: B_OPTS.line === 'crisp' ? .4 : .3 };
+    // the capital's free ends: the pen comes into the one farthest up and right out of a small curl (its touch-down), and
+    // leaves by the one farthest down and left
+    const ends = letterEnds(ch, letter.face, letter.cap, letter.cx, letter.cy, W, H), strokes = [];
+    const into = ends.slice().sort((a, b) => (b.pt[0] - b.pt[1]) - (a.pt[0] - a.pt[1]))[0], from = ends.filter(e => e !== into).sort((a, b) => (a.pt[0] - a.pt[1] * 1.2) - (b.pt[0] - b.pt[1] * 1.2))[0];
+    if (into) { const p0 = [into.pt[0] - into.inward[0] * H * .1, into.pt[1] - into.inward[1] * H * .1], h = Math.atan2(-into.inward[1], -into.inward[0]);
+      const set = curl(p0, h, H * .05, -1, 1.15).reverse();
+      strokes.push(written(join(set, [[into.pt[0] + into.inward[0] * H * .015, into.pt[1] + into.inward[1] * H * .015]]), seed + 2, { hair, peak: pk * .5, how, start: 'ball', end: 'point', amp: .04 })); }
+    // the capital is written next (letterAfter); then the pen leaves it by its last end, runs out to the far foot, turns
+    // there in a small loop, and comes back along the foot into the great oval, whose turn closes inside itself and ends in
+    // a tightening curl: one movement from the capital to the last curl
+    const tg = [o[1][0] - o[0][0], o[1][1] - o[0][1]], tl = Math.hypot(...tg) || 1, u0 = [tg[0] / tl, tg[1] / tl];
+    if (from) { const out = [-from.inward[0], -from.inward[1]], st = [from.pt[0] + from.inward[0] * H * .015, from.pt[1] + from.inward[1] * H * .015];
+      // (one smooth sweep out of the letter's last end and round into the oval's start along the way it sets off: the turn
+      // at the foot is the hand's, not a corner)
+      const lead = cubic(st, [st[0] + out[0] * H * .3, st[1] + out[1] * H * .3], [o[0][0] - u0[0] * H * .38, o[0][1] - u0[1] * H * .38], o[0], 60);
+      const tail = move(o.at(-1), Math.atan2(o.at(-1)[1] - o.at(-3)[1], o.at(-1)[0] - o.at(-3)[0]), [{ run: H * .03 }, { curl: H * .05, sense: -1, turns: 1.15 }], { lag: H * .02 });
+      const all = join(lead, o, tail.p), uLead = lead.length / all.length;
+      strokes.push(written(all, seed + 1, { hair, peak: pk, how, start: 'point', end: 'ball', amp: .25, ease: [0, uLead, .3] })); }
+    else strokes.push(written(o, seed + 1, { hair, peak: pk, how, start: 'point', end: 'ball', amp: .25 }));
     const crisp = B_OPTS.line === 'crisp';
-    return { W, H, strokes, letter: { ch, face: '"CopperB"', cap: H * .66, cx: W * .55, cy: H * .48, pen: B_OPTS.letter === 'pen', thin: crisp ? .4 : .3 }, medium: crisp ? 'ink' : 'quill', ink: { wet: B_OPTS.wet, rough: B_OPTS.rough, rim: B_OPTS.rim } };
+    // (letterAfter: the capital is written after the first stroke, before the exit; ?draw follows the pen)
+    return { W, H, strokes, letterAfter: 1, letter, medium: crisp ? 'ink' : 'quill', ink: { wet: B_OPTS.wet, rough: B_OPTS.rough, rim: B_OPTS.rim } };
   },
   // the copybook's oval: entered from below, once round on the slant, the pen opening down its left side, out to a dot
   paraph(fs, seed, d) {
@@ -136,7 +172,7 @@ function dropPiece(ch, H, seed, d) {
   for (const [a, h, sn] of [[deg(255) + g, -PI * .1, 1], [deg(20) + g, PI * .5, 1], [deg(140) + g, PI * 1.1, -1]]) strokes.push(dotCurl(at([c[0] + H * .36 * Math.cos(a), c[1] + H * .34 * Math.sin(a)]), h, H * .04 * k, sn, seed + 9, { hair: Math.max(hair, .45 / d), how: LACE }));
   strokes.push(thorn(at([c[0] - H * .33, c[1] - H * .2]), -PI * .12, H * .14 * k, 1, seed + 11, { hair, peak: H * .026 }), thorn(at([c[0] + H * .3, c[1] + H * .28]), PI * .92, H * .12 * k, 1, seed + 12, { hair, peak: H * .022 }));
   // the capital: Bickham's rosettes hold a heavy text letter that anchors the ovals; UnifrakturMaguntia, at its own weight
-  return { W, H, strokes, letter: { ch, face: '"CopperC"', cap: H * .5, cx: c[0] + H * .01, cy: c[1], thin: .42 }, medium: 'engrave', flat: true };
+  return { W, H, strokes, letter: { ch, face: '"CopperC"', cap: H * .5, cx: c[0] + H * .01, cy: c[1], thin: .42, fine: true }, medium: 'engrave', flat: true };
 }
 // The paraph: the filler's motif in small, rising: a hairline in from below left, two loops riding it (the second the
 // larger), a curl and a ball
