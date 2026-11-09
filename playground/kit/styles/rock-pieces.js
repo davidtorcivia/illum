@@ -416,15 +416,17 @@ export const BRK3 = ['the sun-ship: a ship under the sun-wheel on its pole', 'da
 function runout_(w, h, seed) { const r = rng(seed * 19), H = Math.round(h * .62), lw = H * .3, out = []; let x = H * .5;
   while (x < w - H * .4) { const f = x / w, R = H * .3 * (1 - .5 * f) * (.8 + .4 * r()); out.push(...cup(x, H / 2 + H * .07 * gauss(r), R, r, .75 + .35 * r())); x += H * (.9 + .9 * r()) * (1 - .25 * f); }
   return piece(w, H, lw, () => out, { seed, dur: 1400 }); }
-function frame_(kind, w, h, seed, fs = 20) { const r = rng(seed * 23 + kind.length), lw = fs * .22, rp = lw / 4.5, k = pick(seed, kind.length, 2);
+// lv: the page's budget (0-4) where a frame's form follows it (the pull quote's wheel from fine, the aside's spirals and the
+// figure's end cups at lavish); otherwise (null) its form by the seed
+function frame_(kind, w, h, seed, fs = 20, lv = null) { const r = rng(seed * 23 + kind.length), lw = fs * .22, rp = lw / 4.5, k = lv == null ? pick(seed, kind.length, 2) : kind === 'pull' ? +(lv < 3) : kind === 'aside' ? +(lv >= 4) : 0;
   const rule = (x0, x1, y, wd) => { const ph = r() * 6.28; return stroke(pts(t => [x0 + (x1 - x0) * t, y + wd * .25 * Math.sin(ph + t * 7)], 40), Array.from({ length: 41 }, (_, i) => wd * (.7 + .3 * Math.sin(ph * 2 + i / 40 * 9) + .25 * Math.sin(Math.PI * i / 40))), rp, r); };
   if (kind === 'quote') { const W = fs * 1.6; return piece(W, h, lw, () => tree(W * .5, h - fs * .2, h - fs * .4, lw, rp, r, Math.max(2, Math.floor(h / (fs * 1.2))), W * .5), { seed, dur: 1800 }); }
   // the pull quote: two cranes facing each other, a sun-wheel or a cup between them (stage 12: the lur-blowers
   // and horses here were too small to read)
   if (kind === 'pull') { const s = fs * 2.6, g = lw * .95, y = s * 1.15; return piece(w, s * 1.3, lw, () => k ? [...crane(w / 2 - s * .6, y, s, 1, g, rp, r), ...cup(w / 2, y - s * .25, s * .09, r), ...crane(w / 2 + s * .6, y, s, -1, g, rp, r)]
     : [...crane(w / 2 - s * 1.05, y, s, 1, g, rp, r), ...wheel([w / 2, s * .6], s * .26, lw * .9, rp, r), ...crane(w / 2 + s * 1.05, y, s, -1, g, rp, r)], { seed, dur: 2600 }); }
-  if (kind === 'aside') return piece(w, h, lw, () => [[1, 1], [w - 1, 1], [1, h - 1], [w - 1, h - 1]].flatMap(([x, y]) => { const c = [x + Math.sign(w / 2 - x) * fs * .45, y + Math.sign(h / 2 - y) * fs * .45]; return k ? spiral(c, fs * .32, lw * .5, rp, r) : cup(c[0], c[1], fs * .17, r); }), { seed, dur: 1000 });
-  if (kind === 'figure') return piece(w, h, lw, () => [...rule(fs * .3, w - fs * .3, fs * .3, lw * .85), ...rule(fs * .3, w - fs * .3, h - fs * .3, lw * .85)], { seed, dur: 1600 });
+  if (kind === 'aside') return piece(w, h, lw, () => [[1, 1], [w - 1, 1], [1, h - 1], [w - 1, h - 1]].flatMap(([x, y]) => { const c = [x + Math.sign(w / 2 - x) * fs * .45, y + Math.sign(h / 2 - y) * fs * .45]; return k ? [...cup(c[0], c[1], fs * .2, r), ...cup(c[0] + Math.sign(w / 2 - x) * fs * .55, c[1], fs * .13, r), ...cup(c[0], c[1] + Math.sign(h / 2 - y) * fs * .55, fs * .13, r)] : cup(c[0], c[1], fs * .17, r); }), { seed, dur: 1000 });   // (lavish: a cup and two smaller beside it, along the box's sides)
+  if (kind === 'figure') return piece(w, h, lw, () => [...rule(fs * .3, w - fs * .3, fs * .3, lw * .85), ...rule(fs * .3, w - fs * .3, h - fs * .3, lw * .85), ...(lv >= 4 ? [[fs * .3, fs * .3], [w - fs * .3, fs * .3], [fs * .3, h - fs * .3], [w - fs * .3, h - fs * .3]].flatMap(([x, y]) => cup(x, y, fs * .2, r)) : [])], { seed, dur: 1600 });
   if (kind === 'code') return piece(w, h, lw, () => [...rule(lw, w - lw, lw, lw * .5), ...rule(lw, w - lw, lw * 2.4, lw * .5)], { seed, dur: 1400 });
   const W = fs * 1.2; return piece(W, h, lw, () => { const n = Math.max(2, Math.floor(h / (fs * 1.6))), gap = (h - fs * 1.2) / Math.max(1, n - 1), out = [];
     for (let i = 0; i < n; i++) { const y = fs * .6 + i * gap; out.push(...cup(W / 2, y, fs * .2, r)); if (i) out.push(...stroke([[W / 2, y - gap + fs * .25], [W / 2, y - fs * .25]], lw * .7, rp, r)); } return out; }, { seed, dur: 1600 });

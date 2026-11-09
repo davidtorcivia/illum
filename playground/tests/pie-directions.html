@@ -140,19 +140,19 @@ for (const key of Object.keys(DIRS).filter(k => !ONLY || ONLY === k)) {
   const z = sec.querySelector('.zoom'), fig = (el, cap, theme = 'light') => { const f = document.createElement('figure'); f.dataset.theme = theme; f.append(el); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); z.append(f); return f; };
   // the drop at 4x beside its reference at the same height
   for (const [i, [src, cap]] of REF[key].entries()) { const side = document.createElement('div'); side.className = 'side';
-    if (i === 0) { const cv = print(key, 'light', D.initial('I', m.H, seed, m.fs), { zoom: 4 }), im = new Image(); im.src = 'pie-refs/' + src; im.style.height = cv.style.height; im.style.width = 'auto'; side.append(im, cv); fig(side, `the drop, 4×, beside: ${cap}`); }
+    if (i === 0) { const cv = print(key, 'light', D.initial('I', m.H, seed, m.fs), { zoom: 4, flow: true }), im = new Image(); im.src = 'pie-refs/' + src; im.style.height = cv.style.height; im.style.width = 'auto'; side.append(im, cv); fig(side, `the drop, 4×, beside: ${cap}`); }
     else { const im = new Image(); im.src = 'pie-refs/' + src; im.style.height = '300px'; im.style.width = 'auto'; side.append(im); fig(side, cap); } }
   for (const theme of ['light', 'dark']) {
-    fig(print(key, theme, D.initial('T', m.H, seed + 1, m.fs), { zoom: 3 }), `drop T, 3× (${theme})`, theme);
-    fig(print(key, theme, D.lineInitial('W', m.fs, seed), { zoom: 3 }), 'line initial, 3×', theme);
-    fig(print(key, theme, D.paraph(m.fs, seed), { zoom: 4 }), 'paraph, 4×', theme);
-    fig(print(key, theme, D.filler(220, m.lh, seed), { zoom: 3 }), 'filler, 3×', theme);
-    fig(print(key, theme, D.runout(260, m.fs * 1.3, seed), { zoom: 3 }), 'heading run-out, 3×', theme);
-    for (const k of [1, 2, 3]) fig(print(key, theme, D.brk(k, 560, m.lh * (k === 1 ? 1.4 : k === 2 ? 2.6 : 7 * 19 / m.lh) , seed), { zoom: 2 }), `break ${k}, 2×`, theme);
+    fig(print(key, theme, D.initial('T', m.H, seed + 1, m.fs), { zoom: 3, flow: true }), `drop T, 3× (${theme})`, theme);
+    fig(print(key, theme, D.lineInitial('W', m.fs, seed), { zoom: 3, flow: true }), 'line initial, 3×', theme);
+    fig(print(key, theme, D.paraph(m.fs, seed), { zoom: 4, flow: true }), 'paraph, 4×', theme);
+    fig(print(key, theme, D.filler(220, m.lh, seed), { zoom: 3, flow: true }), 'filler, 3×', theme);
+    fig(print(key, theme, D.runout(260, m.fs * 1.3, seed), { zoom: 3, flow: true }), 'heading run-out, 3×', theme);
+    for (const k of [1, 2, 3]) fig(print(key, theme, D.brk(k, 560, m.lh * (k === 1 ? 1.4 : k === 2 ? 2.6 : 7 * 19 / m.lh) , seed), { zoom: 2, flow: true }), `break ${k}, 2×`, theme);
     if (key === 'rock') for (const [v, nm] of D.BRK3.map((nm, v) => [v, nm]))
-      fig(print(key, theme, D.brk(3, 900, 7 * 19 * 1.3, seed, v), { zoom: 1.5 }), `the end panel, ${nm}, 1.5×`, theme);
+      fig(print(key, theme, D.brk(3, 900, 7 * 19 * 1.3, seed, v), { zoom: 1.5, flow: true }), `the end panel, ${nm}, 1.5×`, theme);
     const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end';
-    for (const ch of 'BRSWAEKM') row.append(print(key, theme, D.initial(ch, m.H, seed + ch.charCodeAt(0), m.fs)));
+    for (const ch of 'BRSWAEKM') row.append(print(key, theme, D.initial(ch, m.H, seed + ch.charCodeAt(0), m.fs), { flow: true }));
     fig(row, `drops, page size (${theme})`, theme);
   }
   const ph = document.createElement('div'); ph.className = 'phones'; ph.innerHTML = `<iframe src="pie-directions.html?only=${key}&bare#seed=${seed}" title="phone"></iframe><iframe src="pie-directions.html?only=${key}&bare&theme=dark#seed=${seed}" title="phone, dark"></iframe>`;

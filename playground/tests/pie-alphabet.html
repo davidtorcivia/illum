@@ -51,7 +51,7 @@ const seen = new IntersectionObserver(es => { for (const e of es) if (e.isInters
 const out = document.getElementById('out');
 function section(theme, title, note) { const s = document.createElement('section'); s.className = theme === 'dark' ? 'ink' : 'paper'; s.innerHTML = `<h2 class="display">${title}</h2>${note ? `<p class="note">${note}</p>` : ''}`; out.append(s); s._w = []; if (DRAW) seen.observe(s); return s; }
 function grid(sec) { const g = document.createElement('div'); g.className = 'grid'; sec.append(g); return g; }
-function cell(sec, g, theme, piece, label, zoom = 1) { const o = print('rock', theme, piece, { dpr, zoom, live: DRAW }), c = document.createElement('div'); c.className = 'cell'; c.append(o.cv ?? o);
+function cell(sec, g, theme, piece, label, zoom = 1) { const o = print('rock', theme, piece, { dpr, zoom, live: DRAW, flow: true }), c = document.createElement('div'); c.className = 'cell'; c.append(o.cv ?? o);
   if (o.w) sec._w.push(o.w); if (label) c.insertAdjacentHTML('beforeend', `<span>${label}</span>`); g.append(c); return c; }
 const PART = q.get('part');   // ?part=zoom: only the enlarged section; ?part=letters: only the bare letters (a full page is taller than a screenshot can hold)
 // legibility (stage 10): each drop set as it is on a page, followed by its word, so a partner that would read as a letter
@@ -65,6 +65,7 @@ if (!PART) { const s = section('light', 'Legibility: each drop and its word', 'S
   for (const ch of LETTERS) { const box = document.createElement('div'); box.style.cssText = 'position:relative;width:330px;font:500 19px/30px Newsreader,serif;margin:0 18px 24px 0';
     const pc = rock.initial(ch, H, seed + ch.charCodeAt(0), fs), cv = print('rock', 'light', pc, { dpr }), sp = document.createElement('span');
     sp.style.cssText = `float:left;width:${pc.W + fs * .45}px;height:${4 * lh - 2}px`; Object.assign(cv.style, { position: 'absolute', left: '0', top: (lh - fs) / 2 + fs * .2 + 'px' });
+    box.style.marginTop = (+cv.dataset.oy || 0) + 'px';   // (room above for the figure over the letter)
     box.append(sp, cv, document.createTextNode(WORDS[ch] + '. The phrase runs on into the next lines so the drop sits as it would in a paragraph.')); g.append(box); } }
 for (const theme of PART ? [] : ['light', 'dark']) {
   const tag = theme === 'light' ? 'on the paper' : 'on the ink';
@@ -88,11 +89,11 @@ if (!PART) { const s = section('light', 'Every element on a page', 'The specimen
   const p = document.createElement('div'); p.className = 'pair'; p.innerHTML = `<iframe src="pie-directions.html?only=rock&bare${DRAW ? '&draw' : ''}#seed=${seed}" title="light"></iframe><iframe src="pie-directions.html?only=rock&bare&theme=dark${DRAW ? '&draw' : ''}#seed=${seed}" title="dark"></iframe>`; s.append(p); }
 // enlarged beside the panels
 if (PART !== 'letters') { const s = section('light', 'Enlarged, beside the panels');
-  for (const [ch, zoom] of [['R', 4], ['O', 4], ['B', 4]]) { const side = document.createElement('div'); side.className = 'side'; const cv = print('rock', 'light', rock.initial(ch, H, seed, fs), { dpr, zoom }), im = new Image();
+  for (const [ch, zoom] of [['R', 4], ['O', 4], ['B', 4]]) { const side = document.createElement('div'); side.className = 'side'; const cv = print('rock', 'light', rock.initial(ch, H, seed, fs), { flow: true, dpr, zoom }), im = new Image();
     im.src = ch === 'O' ? 'pie-refs/vitlycke-rider.jpg' : 'pie-refs/vitlycke-crew.jpg'; im.style.height = cv.style.height; side.append(im, cv); s.append(side); }
   const nameK = n => rock.SHEET.findIndex(e => e[0].startsWith(n));
   for (const [k, src, cap, z] of [[nameK('horse'), 'tanum-horse.jpg', 'the horse, its lines read from an unpainted Tanum horse (CC0)', 4], [nameK('ship'), 'tanumshede-ship.jpg', 'the ship, traced from Tanumshede', 4], [nameK('warrior'), 'vitlycke-rider.jpg', 'the warrior, traced from Vitlycke', 4], [nameK('sun-wheel'), 'vitlycke-rider.jpg', 'a sun-wheel (drawn in the manner; beside it the Vitlycke shield)', 4], [nameK('adorant'), 'vitlycke-adorant.jpg', 'the adorant, traced from Vitlycke', 4], [nameK('ship'), 'tanumshede-ship.jpg', 'the ship', 8], [nameK('warrior'), 'vitlycke-rider.jpg', 'the warrior', 8]]) {
-    const side = document.createElement('div'); side.className = 'side'; const cv = print('rock', 'light', rock.sheetPiece(k, 110, seed), { dpr, zoom: z }), im = new Image(); im.src = 'pie-refs/' + src; im.style.height = Math.min(parseFloat(cv.style.height), 520) + 'px'; side.append(im, cv);
+    const side = document.createElement('div'); side.className = 'side'; const cv = print('rock', 'light', rock.sheetPiece(k, 110, seed), { dpr, zoom: z, flow: true }), im = new Image(); im.src = 'pie-refs/' + src; im.style.height = Math.min(parseFloat(cv.style.height), 520) + 'px'; side.append(im, cv);
     side.insertAdjacentHTML('beforeend', `<span style="font:italic 15px 'Instrument Serif',serif">${cap}, ${z}×, beside the panel</span>`); s.append(side); } }
 const ms = Math.round(performance.now() - t0); document.body.dataset.timing = `${ms} ms`; document.getElementById('timing').textContent = `Printed in ${ms} ms (a specimen: every letter, figure and piece, twice).`;
 </script>

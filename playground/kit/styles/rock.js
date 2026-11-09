@@ -37,7 +37,7 @@ const letterOf = ch => { const c = String(ch).normalize('NFD')[0].toUpperCase();
 // budget, each kept only if it stands clear of every word on the page (and of the page's edge):
 //   plain, the letter alone; modest, a figure in the letter's own space (none over it); usual, the seed's composition;
 //   fine, the seed's, and one in the letter's space as well where the seed's stands over it; lavish, two (one over the
-//   letter, one in it) where both fit. A composition that would touch a word is passed over for the next.
+//   letter, one in it) and a third where it stands clear of both. A composition that would touch a word is passed over for the next.
 // (the cranes, liked and so many: at usual one is taken only where the seed's composition is one, not as a fallback)
 function initial({ ch = 'B', G, big = true, seed = 1, rich = .5, keep = [], u = 8 }) {
   const c = letterOf(ch), [x0, y0, , y1] = G.box, capH = y1 - y0, s = sd(seed);
@@ -49,7 +49,9 @@ function initial({ ch = 'B', G, big = true, seed = 1, rich = .5, keep = [], u = 
   let ks = [];
   if (lv === 1) ks = order.filter(q => !q.top && fits(q)).slice(0, 1);
   else if (lv >= 2) { const first = fits(order[0] ?? { none: true }) ? order[0] : order.find(q => !q.crane && fits(q)); if (first) ks = [first];
-    if (lv >= 3 && first) { const second = order.find(q => q !== first && (lv >= 4 || first.top) && q.top !== first.top && !meets(q, first) && fits(q)); if (second) ks.push(second); } }
+    if (lv >= 3 && first) { const second = order.find(q => q !== first && (lv >= 4 || first.top) && q.top !== first.top && !meets(q, first) && fits(q)); if (second) ks.push(second); }
+    // (lavish: a third where one more stands clear of both, a second crane or a second figure in the letter)
+    if (lv >= 4) { const third = order.find(q => !ks.includes(q) && ks.every(p => !meets(q, p)) && fits(q)); if (third) ks.push(third); } }
   const job = ['drop', c, H, s, 20, ks.map(q => q.k)];
   return { marks: [], letters: [piece(ox, oy, job, 'drop:' + c)], width: (letterWidth(c) + .1) * capH };
 }
@@ -97,14 +99,14 @@ const frames = {
     return x < 2 ? none : { marks: [], letters: [piece(x, L[1] - u * .6, ['frame', 'quote', 0, h, sd(seed), fs], 'quote')] }; },
   // an aside: a cup at each corner of its box (from usual)
   aside: ({ box, u, seed = 1, rich = .5 }) => { if (lvOf(rich) < 2) return none; const fs = +(u * 2.45).toFixed(2), w = +(box[2] - box[0]).toFixed(1), h = +(box[3] - box[1]).toFixed(1);
-    return { marks: [], letters: [piece(box[0], box[1], ['frame', 'aside', w, h, sd(seed), fs], 'aside')] }; },
+    return { marks: [], letters: [piece(box[0], box[1], ['frame', 'aside', w, h, sd(seed), fs, lvOf(rich)], 'aside')] }; },
   // a pull quote: two cranes over it, facing each other, a cup or a sun-wheel between them (from modest)
   pull: ({ cx, yTop, measure, u, seed = 1, rich = .5 }) => { if (lvOf(rich) < 1) return none; const fs = +(u * 1.3).toFixed(2), w = +Math.min(measure * .5, u * 30).toFixed(1), Hp = fs * 2.6 * 1.3;
-    return { marks: [], letters: [piece(cx - w / 2, yTop + u * 1.2 - Hp, ['frame', 'pull', w, 0, sd(seed), fs], 'pull')] }; },
+    return { marks: [], letters: [piece(cx - w / 2, yTop + u * 1.2 - Hp, ['frame', 'pull', w, 0, sd(seed), fs, lvOf(rich)], 'pull')] }; },
   // a figure: a ground rule over it and under its caption (from usual)
   figure: ({ box, cap, u, seed = 1, rich = .5 }) => { if (lvOf(rich) < 2) return none; const fs = +(u * 2.45).toFixed(2), Wp = globalThis.document?.documentElement.clientWidth ?? Infinity;
     const X0 = Math.max(u * .5, box[0] - u * 1.2), X1 = Math.min(Wp - u * .5, box[2] + u * 1.2), Y0 = box[1] - u * 1.6 - fs * .3, Y1 = (cap ?? box[3]) + u * 1.6 + fs * .3;
-    return { marks: [], letters: [piece(X0, Y0, ['frame', 'figure', +(X1 - X0).toFixed(1), +(Y1 - Y0).toFixed(1), sd(seed), fs], 'figure')] }; },
+    return { marks: [], letters: [piece(X0, Y0, ['frame', 'figure', +(X1 - X0).toFixed(1), +(Y1 - Y0).toFixed(1), sd(seed), fs, lvOf(rich)], 'figure')] }; },
   // code: two ground rules at its head (from usual)
   code: ({ box, u, seed = 1, rich = .5 }) => { if (lvOf(rich) < 2) return none; const fs = +(u * 2.45).toFixed(2), w = +(box[2] - box[0] - u * 3.2).toFixed(1);
     return { marks: [], letters: [piece(box[0] + u * 1.6, box[1] + u * .9, ['frame', 'code', w, fs * 3, sd(seed), fs], 'code')] }; },

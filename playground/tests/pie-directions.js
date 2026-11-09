@@ -23,9 +23,11 @@ export const DIRS = { potter, rock, smith };
 export const NAMES = { potter: 'A · the potter', rock: 'B · the rock', smith: 'C · the smith' };
 
 // a piece printed onto its own canvas at zoom; live: returned empty with its writer (?draw)
-export function print(key, theme, piece, { zoom = 1, dpr = Math.min(2, devicePixelRatio || 1), live = false } = {}) {
+// (flow: the canvas left in the page's flow as it is, its overhang inside it; else shifted back so the piece's own origin
+// stands where the page put it)
+export function print(key, theme, piece, { zoom = 1, dpr = Math.min(2, devicePixelRatio || 1), live = false, flow = false } = {}) {
   const d = dpr * zoom, cv = document.createElement('canvas'), place = ({ W, H, ox, oy }, cw, ch) => { cv.width = cw; cv.height = ch; cv.style.width = W * zoom + 'px'; cv.style.height = H * zoom + 'px';
-    if (ox || oy) { cv.style.transform = `translate(${-ox * zoom}px, ${-oy * zoom}px)`; cv.dataset.ox = ox; cv.dataset.oy = oy; } };
+    if ((ox || oy) && !flow) { cv.style.transform = `translate(${-ox * zoom}px, ${-oy * zoom}px)`; cv.dataset.ox = ox; cv.dataset.oy = oy; } };
   // (the rock: kit/styles/rock-print.js, the one path the page's printer and its workers use too)
   if (key === 'rock') { if (live) { const r = rockWrite(piece, theme, d, cv); place(r, r.cw, r.ch); return { cv, w: r.w }; }
     const r = rockRender(piece, theme, d); place(r, r.img.width, r.img.height); cv.getContext('2d').putImageData(r.img, 0, 0); return cv; }

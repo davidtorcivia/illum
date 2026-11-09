@@ -7,9 +7,13 @@ import { launch, open, load } from '../../tools/chrome.mjs';
 const base = process.argv[2] ?? 'http://localhost:8000', b = await launch(), env = (k, d) => (process.env[k] ?? d).split(',');
 let bad = 0;
 try {
-  for (const width of env('W', '1440,390').map(Number)) for (const theme of env('THEMES', 'light')) for (const rich of env('RICH', '0,.25,.5,.75,1')) for (const seed of env('SEEDS', '1,2,3,7')) {
+  // (and the specimen sheets: no figure on a label or a caption)
+  const pages = [];
+  for (const width of env('W', '1440,390').map(Number)) { for (const theme of env('THEMES', 'light')) for (const rich of env('RICH', '0,.25,.5,.75,1')) for (const seed of env('SEEDS', '1,2,3,7')) pages.push([width, theme, `rock.html?rich=${rich}&theme=${theme}#seed=${seed}`, `rich ${rich} seed ${seed}`]);
+    if (!process.env.NOSHEETS) for (const sh of ['pie-alphabet.html', 'pie-directions.html?only=rock']) pages.push([width, 'light', sh, sh]); }
+  for (const [width, theme, path, tag] of pages) {
     const p = await open(b, { width, height: 900, dpr: 1, dark: theme === 'dark' });
-    await load(p, `${base}/playground/tests/rock.html?rich=${rich}&theme=${theme}#seed=${seed}`, { timeout: 120000 }); await new Promise(r => setTimeout(r, 300));
+    await load(p, `${base}/playground/tests/${path}`, { timeout: 240000 }); await new Promise(r => setTimeout(r, 300));
     const hits = await p.evaluate(() => { const lines = [], out = [];
       const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => n.textContent.trim() && !n.parentElement.closest('.ini, script, style') ? 1 : 2 });
       for (let n; (n = tw.nextNode());) { const rg = document.createRange(); rg.selectNodeContents(n); for (const r of rg.getClientRects()) if (r.width > 1) lines.push([r.left + scrollX, r.top + scrollY + r.height * .12, r.right + scrollX, r.bottom + scrollY - r.height * .12, n.textContent.trim().slice(0, 24)]); }
@@ -20,7 +24,7 @@ try {
           if (n > 2) out.push(`${n} px on "${L[4]}" at (${Math.round(L[0])}, ${Math.round(L[1])})`); } }
       return out; });
     if (hits.length) bad++;
-    console.log(`${width} ${theme} rich ${rich} seed ${seed}: ${hits.length ? hits.join('; ') : 'ok'}`); await p.close();
+    console.log(`${width} ${theme} ${tag}: ${hits.length ? hits.slice(0, 6).join('; ') + (hits.length > 6 ? ` (+${hits.length - 6})` : '') : 'ok'}`); await p.close();
   }
 } finally { await b.close(); }
 if (bad) { console.log(`${bad} pages with paint on words`); process.exitCode = 1; }
