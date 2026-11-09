@@ -10,6 +10,7 @@ import { Grid, PIG, fromColour, absorbing, lin, fillLoads, insideDist, compose, 
 import { hash2 } from '../marks.js';
 
 const MM = .15;   // mm per css px at the page's size
+const SRGB = Uint8Array.from({ length: 4096 }, (_, i) => Math.round(255 * (i / 4095) ** (1 / 2.2)));   // (linear to sRGB, a table)
 const shade = (c, k, warm = 0) => [c[0] * k * (1 + warm), c[1] * k, c[2] * k * (1 - warm)].map(v => Math.max(0, Math.min(255, v)));
 const cache = new Map();
 function pigs(pal, ink) {
@@ -19,6 +20,7 @@ function pigs(pal, ink) {
 }
 export const ROLE = { k: 'ink', gr: 'ink', v: 'vellum', l: 'vellum', d: 'dots' };   // everything else is a pigment
 
+export const PT = { read: 0, loads: 0, dots: 0, compose: 0 };   // (where the paint's time goes)
 export function paintPrint(ctx, S, pal, opts = {}) { ctx.drawImage(paintSheet(S, pal, opts).canvas, 0, 0); }
 // the piece painted onto a canvas of the Sheet's own size; grow: also each cell's moment in the making (T, 0..1): the pen
 // first, along each line from where it set down (a walk through the line's own cells), then each pigment pocket by pocket in
@@ -29,10 +31,11 @@ export function paintSheet(S, pal, { order = S.order, seed = 1, grow = false, go
   const sub = pal.v ?? pal.l ?? [241, 232, 213], layers = [], alpha = new Float32Array(n);
   // each ink's coverage, less what the inks laid over it cover (the Sheet's inks are laid in order and hide what they cover;
   // its trap leaves a hair of the lower ink under every edge, which must stay hidden)
-  const inks = order.filter(ink => S.c.get(ink) && pal[ink]), masks = inks.map(ink => { const d = S.c.get(ink).getImageData(0, 0, w, h).data, M = new Float32Array(n); for (let q = 0; q < n; q++) M[q] = d[q * 4 + 3] / 255; return M; });
+  let t0 = performance.now(); const inks = order.filter(ink => S.c.get(ink) && pal[ink]), masks = inks.map(ink => { const d = S.c.get(ink).getImageData(0, 0, w, h).data, M = new Float32Array(n); for (let q = 0; q < n; q++) M[q] = d[q * 4 + 3] / 255; return M; });
   const above = new Float32Array(n);
   for (let i = inks.length - 1; i >= 0; i--) { const M = masks[i]; for (let q = 0; q < n; q++) { const v = M[q], a = above[q]; M[q] = v * (1 - a); above[q] = 1 - (1 - a) * (1 - v); } }
   for (let q = 0; q < n; q++) alpha[q] = above[q];
+  PT.read += performance.now() - t0; t0 = performance.now();
   for (let i = 0; i < inks.length; i++) {
     const ink = inks[i], M = masks[i]; let any = false; for (let q = 0; q < n && !any; q++) if (M[q] > .01) any = true;
     if (!any) continue;
@@ -40,17 +43,18 @@ export function paintSheet(S, pal, { order = S.order, seed = 1, grow = false, go
     if (role === 'vellum') { if (pal[ink].join() !== sub.join()) { const tau = new Float32Array(n); for (let q = 0; q < n; q++) tau[q] = M[q] / Math.max(.5, M[q]); layers.push({ pig: fromColour(pal[ink], 4), tau }); } continue; }
     if (role === 'ink') { const tau = new Float32Array(n); for (let q = 0; q < n; q++) tau[q] = M[q] / Math.max(.5, M[q]);
  layers.push({ pig: absorbing(pal[ink]), tau }); continue; }
-    if (role === 'dots') { layers.push({ pig: pigs(pal, ink)[0], tau: touches(G, M, seed) }); continue; }
+    if (role === 'dots') { const td = performance.now(); layers.push({ pig: pigs(pal, ink)[0], tau: touches(G, M, seed) }); PT.dots += performance.now() - td; continue; }
     // a pigment: brush loads over its pockets, the colour by load between two mixes of the pot
     const F = fillLoads(G, M, { seed: seed + ink.charCodeAt(0) * 7, swath: 1.3, dragP: .3, thr: .3 }), [A, B] = pigs(pal, ink), ta = new Float32Array(n), tb = new Float32Array(n);
     const rub = S.buf?.rub;   // (the strands' raised middles rubbed thin: the geometry knows where they run)
     for (let q = 0; q < n; q++) { if (!(M[q] > 0)) continue; const t = F.tau[q] / Math.max(.5, M[q]) * (rub ? 1 - rub[q] : 1), m = .7 * F.mix[q]; ta[q] = t * (1 - m); tb[q] = t * m; }
     layers.push({ pig: A, tau: ta }, { pig: B, tau: tb });
   }
+  PT.loads += performance.now() - t0; t0 = performance.now();
   const P = { Rp: new Float32Array(n * 3) }, s = lin(sub); for (let q = 0; q < n; q++) { P.Rp[q * 3] = s[0]; P.Rp[q * 3 + 1] = s[1]; P.Rp[q * 3 + 2] = s[2]; }
-  const out = compose(G, P, layers), im = new ImageData(w, h), D = im.data;
-  for (let q = 0; q < n; q++) { if (alpha[q] <= 0) continue; for (let k = 0; k < 3; k++) D[q * 4 + k] = Math.round(255 * Math.max(0, Math.min(1, out[q * 3 + k])) ** (1 / 2.2)); D[q * 4 + 3] = Math.round(alpha[q] * 255); }
-  const c = new OffscreenCanvas(w, h); c.getContext('2d').putImageData(im, 0, 0);
+  const out = compose(G, P, layers, alpha), im = new ImageData(w, h), D = im.data;
+  for (let q = 0; q < n; q++) { if (alpha[q] <= 0) continue; for (let k = 0; k < 3; k++) D[q * 4 + k] = SRGB[Math.max(0, Math.min(4095, (out[q * 3 + k] * 4095) | 0))]; D[q * 4 + 3] = Math.round(alpha[q] * 255); }
+  const c = new OffscreenCanvas(w, h); c.getContext('2d').putImageData(im, 0, 0); PT.compose += performance.now() - t0;
   return { canvas: c, T: grow ? times(G, inks.map((ink, i) => ({ ink, M: masks[i], role: ROLE[ink] ?? 'pigment' })), S.buf?.clock) : null };
 }
 // the making's clock per cell: walks through each ink's coverage (breadth-first, 4-neighbour) from each part's first cell

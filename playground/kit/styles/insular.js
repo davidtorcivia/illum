@@ -18,7 +18,7 @@
 //   breakMark(cx, y, measure, rank, seed, rich, u, n)   frames.{ quote, aside, pull, figure, code, nav }   palette.{ light, dark }
 //   print(made, { dpr, kind, animate }) -> { pours, letters, seq, runs, y0 }   timeline(printed, kind, animate)
 import * as D from './insular-pieces.js';
-import { paintSheet } from './insular-print.js';
+import { paintSheet, PT } from './insular-print.js';
 import { Sheet, dotsAlong } from './insular-knot.js';
 
 let KIND = 'lind', PAINT = 'hand';
@@ -103,9 +103,11 @@ const linesBox = (box, lines) => !lines?.length ? box : [Math.min(...lines.map(L
 const margin = (xl, top, bot, u, seed) => { const ht = Math.min(u * 2.6, Math.max(u * 1.6, xl - u * .9 - 4)), len = bot - top + u * 2.4; if (len < u * 6) return [];
   const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durBand : D.lindBand)(len, ht, seed, { theme, res }); return { S: r.S, ox: (r.W - len) / 2, oy: (r.H - ht) / 2 }; };
   return [piece(Math.max(4, xl - u * .9 - ht), top - u * 1.2, ht, len, build, seed, 1, 'margin')]; };
-const frameAround = ([X0, Y0, X1, Y1], seed, level = 1) => { const bw = X1 - X0, bh = Y1 - Y0;
-  const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durFrame : D.lindFrame)(bw, bh, seed, { theme, res, level }); return { S: r.S, ox: r.pad, oy: r.pad }; };
-  return [piece(X0, Y0, bw, bh, build, seed, 0, 'frame' + level)]; };
+// a frame: built as its four sides' strips (the corners with the top and bottom), so its empty middle is never rastered
+const frameAround = ([X0, Y0, X1, Y1], seed, level = 1) => { const bw = X1 - X0, bh = Y1 - Y0, st = D.frameStrip(bw, bh);
+  return ['t', 'b', 'l', 'r'].map(part => { const [sx0, sy0, sx1, sy1] = st[part];
+    const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durFrame : D.lindFrame)(bw, bh, seed, { theme, res, level, part }); return { S: r.S, ox: 0, oy: 0, trim: st.trim[part] }; };   // (the strip's sheet starts where the piece does)
+    return piece(X0 - st.pad + sx0, Y0 - st.pad + sy0, sx1 - sx0, sy1 - sy0, build, seed, 0, 'frame' + level + part + ':' + bw.toFixed(1) + 'x' + bh.toFixed(1)); }); };
 const levelOf = rich => rich < .25 ? 0 : rich < .75 ? 1 : rich < 1 ? 2 : 3;
 const frames = {
   quote: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : margin(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
@@ -128,7 +130,7 @@ const frames = {
 // Each piece built at print (its Sheet at the device's resolution) and painted once; the pour lays the painted piece. Drawn,
 // the piece is revealed by its own clock (paintSheet's T): what has been made by now is shown, the rest not yet there.
 const CACHE = new Map(), MADE = new Map();
-export const TIME = { build: 0, paint: 0, pieces: 0 };   // (where the time goes: the Sheets' geometry, and their painting)
+export const TIME = { build: 0, paint: 0, pieces: 0, PT };   // (where the time goes: the Sheets' geometry, and their painting)
 function turn(c) { const o = new OffscreenCanvas(c.height, c.width), g = o.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return o; }
 function turnT(T, w, h) { if (!T) return T; const O = new Float32Array(T.length); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) O[i * h + (h - 1 - j)] = T[j * w + i]; return O; }
 function print(made, { dpr = 1, animate = false, kind } = {}) {
@@ -140,11 +142,13 @@ function print(made, { dpr = 1, animate = false, kind } = {}) {
       // (the piece itself — its geometry and its paint — does not depend on where it stands: kept by what it is, its size
       // and seed, so a page laid out again, or a mode come back to, reuses it)
       const pk = [KIND, PAINT, theme, res, b.bkey, animate].join('|'); let made = MADE.get(pk);
-      if (!made) { const tb = performance.now(), { S, ox, oy } = b.build(res, theme), pal = PAL()[theme], tp = performance.now(); TIME.build += tp - tb; TIME[b.what.split(':')[0]] = (TIME[b.what.split(':')[0]] ?? 0) + tp - tb;
+      if (!made) { const tb = performance.now(), { S, ox, oy, trim = null } = b.build(res, theme), pal = PAL()[theme], tp = performance.now(); TIME.build += tp - tb; TIME[b.what.split(':')[0]] = (TIME[b.what.split(':')[0]] ?? 0) + tp - tb;
         let canvas, T = null;
         if (PAINT === 'engine') { canvas = new OffscreenCanvas(S.w, S.h); const g = canvas.getContext('2d'); g.scale(res, res); S.print(g, pal, { dpr: res, order: DIR().order, seed: b.seed, tex: DIR().tex, alias: DIR().alias }); }
         else ({ canvas, T } = paintSheet(S, pal, { order: DIR().order, seed: b.seed, grow: animate }));
         let w = S.w, h = S.h, dx = ox, dy = oy;
+        if (trim) { const tr = Math.round(trim[0] * res), h2 = h - tr - Math.round(trim[1] * res), c2 = new OffscreenCanvas(w, h2); c2.getContext('2d').drawImage(canvas, 0, -tr);   // (a strip trimmed back to its own rows)
+          if (T) T = T.slice(tr * w, (tr + h2) * w); canvas = c2; h = h2; dy -= tr / res; }
         if (b.rot) { T = turnT(T, w, h); canvas = turn(canvas); [w, h] = [h, w]; dx = oy; dy = ox; }
         TIME.paint += performance.now() - tp; TIME.pieces++;
         made = { canvas, T, w, h, dx, dy }; if (MADE.size > 200) MADE.clear(); MADE.set(pk, made); }

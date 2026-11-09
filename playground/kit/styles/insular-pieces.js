@@ -619,8 +619,15 @@ function ruledBreak(len, ht, res, look, { seed = 1, rank = 2 } = {}) {
 // outside.
 // level: 0 the rules and their corners alone (a plain page); 1 the usual (a row of dots outside, a panel on each long side);
 // 2 fuller (a knot at the middle of the short sides too); 3 the fullest (a second row of dots)
-function ruledFrame(w, h, res, look, { seed = 1, level = 1 } = {}) {
-  const c = Math.max(10, Math.min(15, h * .13)), pad = c * .9, S = new Sheet([0, 0, w + 2 * pad, h + 2 * pad], res), x0 = pad, y0 = pad, x1 = pad + w, y1 = pad + h;
+// part: one side's strip of it ('t', 'b', 'l', 'r'; the corners with the top and bottom), built on its own small sheet —
+// the same drawing, the hand's drift in the page's own coordinates, so the four meet exactly; a large frame's empty middle
+// is never rastered (strip(w, h) gives each part's box)
+export const frameStrip = (w, h) => { const c = Math.max(10, Math.min(15, h * .13)), pad = c * .9, T = 2 * pad + c * .9, W = w + 2 * pad, H = h + 2 * pad;
+  // (the sides' strips reach m into the top's and the bottom's: the hand's drift empties a sheet's last rows, so each is built
+  // with that overlap and trimmed back to its own rows when laid — no gap and no doubled ink at the joins)
+  const m = 6; return { pad, m, t: [0, 0, W, T + m], b: [0, H - T - m, W, H], l: [0, T - m, T, H - T + m], r: [W - T, T - m, W, H - T + m], trim: { t: [0, m], b: [m, 0], l: [m, m], r: [m, m] } }; };
+function ruledFrame(w, h, res, look, { seed = 1, level = 1, part = null } = {}) {
+  const c = Math.max(10, Math.min(15, h * .13)), pad = c * .9, S = new Sheet(part ? frameStrip(w, h)[part] : [0, 0, w + 2 * pad, h + 2 * pad], res), x0 = pad, y0 = pad, x1 = pad + w, y1 = pad + h;
   for (const [a, b] of [[[x0, y0], [x1, y0]], [[x0, y1], [x1, y1]], [[x0, y0], [x0, y1]], [[x1, y0], [x1, y1]]]) rule(S, a, b, look.rules);
   const dr = Math.max(.75, c * .065), o = c * .5 + dr * 2.6, P = [], pts = [[x0 - o, y0 - o], [x1 + o, y0 - o], [x1 + o, y1 + o], [x0 - o, y1 + o]];
   for (let i = 0; i < 4; i++) { const a = pts[i], b = pts[(i + 1) % 4]; for (let t = 0; t < 1; t += .004) P.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
@@ -642,7 +649,7 @@ const lindLook = dark => { const rk = dark ? 'l' : 'k';
     centre: (S, x, y, th) => { const u = (th - 2) / 4, A = 4; knotPanel(S, x - A * u, y - 2 * u, A, 2, u, endBreaks(A), lindLook(dark), 1); return A * 2 * u + 5; },
     band: (S, x, y, th, len) => { const u = (th - 2) / 4, A = Math.max(4, Math.floor(len / (2 * u))); knotPanel(S, x - A * u, y - 2 * u, A, 2, u, bandBreaks(A), lindLook(dark), 1); return A * 2 * u + 5; } }; };
 export const lindBand = (len, ht, seed = 1, { theme = 'light', res = 2, rank = 2 } = {}) => ruledBreak(len, ht, res, lindLook(theme === 'dark'), { seed, rank });
-export const lindFrame = (w, h, seed = 1, { theme = 'light', res = 2, level = 1 } = {}) => ruledFrame(w, h, res, lindLook(theme === 'dark'), { seed, level });
+export const lindFrame = (w, h, seed = 1, { theme = 'light', res = 2, level = 1, part = null } = {}) => ruledFrame(w, h, res, lindLook(theme === 'dark'), { seed, level, part });
 // the filler: a row of red dots at the pitch of f. 27r's field, closed by the positura
 export function lindFiller(len, ht, seed = 1, { res = 2 } = {}) {
   const pad = ht * .4, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), cy = pad + ht / 2, dr = Math.max(.8, ht * .085), x1 = pad + len - dr * 5;
@@ -660,7 +667,7 @@ const durLook = dark => { const rk = dark ? 'v' : 'k';
     centre: (S, x, y, th, seed) => { const u = th / 4.6, A = 3; knotPanel(S, x - A * u, y - 2 * u, A, 2, u, endBreaks(A), durLook(dark), seed); return A * 2 * u + 2.4; },
     band: (S, x, y, th, len, seed) => { const u = th / 4.6, A = Math.max(3, Math.floor(len / (2 * u))); knotPanel(S, x - A * u, y - 2 * u, A, 2, u, bandBreaks(A), durLook(dark), seed); return A * 2 * u + 2.4; } }; };
 export const durBand = (len, ht, seed = 1, { theme = 'light', res = 2, rank = 2 } = {}) => ruledBreak(len, ht, res, durLook(theme === 'dark'), { seed, rank });
-export const durFrame = (w, h, seed = 1, { theme = 'light', res = 2, level = 1 } = {}) => ruledFrame(w, h, res, durLook(theme === 'dark'), { seed, level });
+export const durFrame = (w, h, seed = 1, { theme = 'light', res = 2, level = 1, part = null } = {}) => ruledFrame(w, h, res, durLook(theme === 'dark'), { seed, level, part });
 // the filler (fol. 86r, beside the text): a red pen line wound into a spiral, then rolling forward in loops to the margin
 export function durFiller(len, ht, seed = 1, { res = 2 } = {}) {
   const pad = ht * .45, S = new Sheet([0, 0, len + 2 * pad, ht + 2 * pad], res), cy = pad + ht / 2, a = ht * .32, R = ht * .5, w = Math.max(1.1, ht * .15);

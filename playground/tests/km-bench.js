@@ -7,7 +7,7 @@
 //   edge was handled); the same loads, pen and KM compose.
 import { plait, cords, measure } from '../kit/styles/insular-knot.js';
 import { noise1, noise2, hash2 } from '../kit/marks.js';
-import * as KM from '../kit/styles/insular-paint.js';
+import * as KM from './km-paint.js';
 
 export const MM = .15;   // mm per css px at the page's size
 export const rect = ([x0, y0, x1, y1]) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];

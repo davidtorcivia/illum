@@ -4,7 +4,7 @@
 // then the cheap tricks, each with a cause: a few losses placed by hand where a stroke ended or an edge was handled, a faint
 // warm falloff across the piece (light, handling), one soft optic (how the eye and a camera take a page).
 import { hash2 } from '../kit/marks.js';
-import { compose, flatParchment, toImage, blur } from '../kit/styles/insular-paint.js';
+import { compose, flatParchment, toImage, blur } from './km-paint.js';
 
 export function cheap(G, layers, { losses = [], soft = .04, warm = .04, seed = 1 } = {}) {
   const { w, h, n } = G, hole = new Float32Array(n);

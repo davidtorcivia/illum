@@ -142,7 +142,7 @@ const r = rubricate(document.querySelector('.text'), { style: 'insular', rich: q
   select: { filler: 'h2, .text > p:not(.sub):not(.pull)' },
   variant: location.search,   // (in the cache's key: the page's settings on the style module are not rubricate options)
   on: (state, t) => { document.getElementById('seed').textContent = r.state.seed;
-    document.body.dataset.timing = t ? `in view ${t.view} ms, all ${t.all} ms (grow ${t.grow}, draw ${t.draw}), ${t.parts} parts; pieces ${TIME.pieces}: build ${Math.round(TIME.build)} ms, paint ${Math.round(TIME.paint)} ms ${JSON.stringify(Object.fromEntries(Object.entries(TIME).filter(([k]) => !['build', 'paint', 'pieces'].includes(k)).map(([k, v]) => [k, Math.round(v)])))}` : state === 'written' ? 'drawn' : state; } });
+    document.body.dataset.timing = t ? `in view ${t.view} ms, all ${t.all} ms (grow ${t.grow}, draw ${t.draw}), ${t.parts} parts; pieces ${TIME.pieces}: build ${Math.round(TIME.build)} ms, paint ${Math.round(TIME.paint)} ms ${JSON.stringify(Object.fromEntries(Object.entries(TIME).filter(([k]) => !['build', 'paint', 'pieces'].includes(k)).map(([k, v]) => [k, typeof v === 'number' ? Math.round(v) : Object.fromEntries(Object.entries(v).map(([a, b]) => [a, Math.round(b)]))])))}` : state === 'written' ? 'drawn' : state; } });
 window.R = r;
 </script>
 <script type="module" src="../kit/theme-toggle.js"></script>
