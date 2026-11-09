@@ -13,7 +13,7 @@
 //   compose(): two-constant Kubelka–Munk per band, bottom up over the parchment; inks and the carbon ground as absorbing
 //     layers (S = 0); the surface by Saunderson.
 // Pigment constants fitted on f. 139r (scratchpad paintv2/fit.py): per band K/S, and X = S·d of the median film.
-import { noise1, noise2, hash2 } from '../kit/marks.js';
+import { noise1, noise2, hash2 } from '../marks.js';
 
 export const VELLUM = [241, 232, 213];
 // Fitted on Lindisfarne f. 139r (BL photograph, 12.25 px/mm), white-balanced on the vellum beside the dots (201 189 152 ->

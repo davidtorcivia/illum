@@ -6,8 +6,8 @@
 //   dots: each a touch of the brush, a small dome, fuller after the brush was charged (a reload every 11 dots);
 //   vellum inks (the reserve, dark mode's pale line): the skin itself.
 // Over a flat vellum (the palette's own), with the coverage as alpha so the pieces sit on the page in light and dark.
-import { Grid, PIG, fromColour, absorbing, lin, fillLoads, insideDist, compose, smooth } from './km-paint.js';
-import { hash2 } from '../kit/marks.js';
+import { Grid, PIG, fromColour, absorbing, lin, fillLoads, insideDist, compose, smooth } from './insular-paint.js';
+import { hash2 } from '../marks.js';
 
 const MM = .15;   // mm per css px at the page's size
 const shade = (c, k, warm = 0) => [c[0] * k * (1 + warm), c[1] * k, c[2] * k * (1 - warm)].map(v => Math.max(0, Math.min(255, v)));

@@ -17,7 +17,7 @@
 <body>
 <div class="grid" id="out"></div>
 <script type="module">
-import * as D from './insular-directions.js';
+import * as D from '../kit/styles/insular-pieces.js';
 const q = new URLSearchParams(location.search), key = q.get('dir') ?? 'lind', ch = q.get('ch') ?? 'E', seed = +(q.get('seed') ?? 7);
 const Z = +(q.get('z') ?? 4), H = +(q.get('h') ?? 109), dpr = Math.min(2, devicePixelRatio || 1), dir = D.DIRS[key];
 await document.fonts.load('40px InsularUncial');

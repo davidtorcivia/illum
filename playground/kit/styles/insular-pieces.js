@@ -4,10 +4,10 @@
 // the paraph, the line-filler, the break and the frame. Every piece is a Sheet (kit/styles/insular-knot.js) of per-ink
 // coverage, poured ink by ink through the ink engine. Nothing here is drawn from a raster of the master: the letter's shape is
 // Uncial Antiqua's (OFL), everything else is generated.
-import { plait, cords, knot, measure, dotsAlong, Sheet, pathOf, stream, NIB, handOn, strand } from '../kit/styles/insular-knot.js';
-import { dist } from '../kit/inkletter.js';
-import { contours } from '../kit/brushwork.js';
-import { noise1, tendril } from '../kit/marks.js';
+import { plait, cords, knot, measure, dotsAlong, Sheet, pathOf, stream, NIB, handOn, strand } from './insular-knot.js';
+import { dist } from '../inkletter.js';
+import { contours } from '../brushwork.js';
+import { noise1, tendril } from '../marks.js';
 
 // ---- palettes (sampled, research/20 §palette; lifted for a screen's light) --------------------------------------------------
 export const PAL = {

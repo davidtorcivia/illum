@@ -1,4 +1,4 @@
-// The paint bench's subjects (tests/insular-paint.html): geometry in mm, and each one's paint layers through km-paint.js.
+// The paint bench's subjects (tests/insular-paint.html): geometry in mm, and each one's paint layers through kit/styles/insular-paint.js.
 // hand: the scribe's hand in the GEOMETRY, measured on f. 139r at the scan's sampling (scratchpad paintv2/measure.py):
 //   pen line ink-mass width .15–.18 mm, cv .25–.27 over ~.9 mm; centre wander .026 mm sd over ~.9 mm; ruled lines off
 //   their axis by 4–7° sd; the reserved vellum beside a line .30 mm (keys) / .50 mm (rules) where present, cv ~.3, absent
@@ -7,7 +7,7 @@
 //   edge was handled); the same loads, pen and KM compose.
 import { plait, cords, measure } from '../kit/styles/insular-knot.js';
 import { noise1, noise2, hash2 } from '../kit/marks.js';
-import * as KM from './km-paint.js';
+import * as KM from '../kit/styles/insular-paint.js';
 
 export const MM = .15;   // mm per css px at the page's size
 export const rect = ([x0, y0, x1, y1]) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];

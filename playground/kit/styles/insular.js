@@ -7,18 +7,18 @@
 //   kind 'durrow'  Durrow (TCD MS 57, fol. 86r): the letter in orpiment over red lead, long panels of two-strand twist, its
 //       ends swollen into coils; two coils for the paraph, the red wave scroll, ribbon knots on double rules, coils at the
 //       frame's corners. Dark: Durrow's own pigments on black; Lindisfarne's ink line becomes pale vellum.
-//   paint 'hand' (default)  the page-size paint (tests/km-print.js): each Sheet's inks as brush loads with a hue by load,
+//   paint 'hand' (default)  the page-size paint (kit/styles/insular-print.js): each Sheet's inks as brush loads with a hue by load,
 //       composed by Kubelka–Munk over the vellum, the pen and black as absorbing ink, dots as touches of the brush
 //       | 'engine'  the ink engine's pour (Sheet.print).
-// Every piece is a Sheet built in its own px by tests/insular-directions.js (on kit/styles/insular-knot.js, the measured
+// Every piece is a Sheet built in its own px by kit/styles/insular-pieces.js (on kit/styles/insular-knot.js, the measured
 // hand in every cord), set on the page here and painted when it is printed. Drawn (?draw), each piece is made in the order
 // it was made: the pen along each line from where it set down, each pigment pocket by pocket from where the brush touched
 // down, the dots touch by touch; never faded.
 //   initial(o) -> { letters, width }   paraph(x, base, u, seed, rich, n)   filler(x0, x1, yTop, yBase, kind, seed, rich)
 //   breakMark(cx, y, measure, rank, seed, rich, u, n)   frames.{ quote, aside, pull, figure, code, nav }   palette.{ light, dark }
 //   print(made, { dpr, kind, animate }) -> { pours, letters, seq, runs, y0 }   timeline(printed, kind, animate)
-import * as D from '../../tests/insular-directions.js';
-import { paintSheet } from '../../tests/km-print.js';
+import * as D from './insular-pieces.js';
+import { paintSheet } from './insular-print.js';
 import { Sheet, dotsAlong } from './insular-knot.js';
 
 let KIND = 'lind', PAINT = 'hand';

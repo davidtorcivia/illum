@@ -11,7 +11,7 @@
 //   grime: soil in the skin's hollows and at the step of every loss.
 // age 0 changes nothing. Cracks are drawn as coverage (a 20 µm gap is a quarter of a pixel at page size, a line at 400%).
 import { hash2 } from '../kit/marks.js';
-import { Grid, blur, smooth } from './km-paint.js';
+import { Grid, blur, smooth } from '../kit/styles/insular-paint.js';
 
 // brittleness (stress per thickness), adhesion, loss budget at age 1 (% of its area), crumbly rim, the thickness under which
 // a film does not crack. Starting values from weathering.md §5 (vermilion 1.4 % is the one measured anchor; age 1 is about

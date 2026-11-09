@@ -5,7 +5,7 @@
 <title>Insular paint</title>
 <!--
   The paint bench (research/21-paint.md): each subject three ways at the same physical scale — the master (Lindisfarne
-  f. 139r, BL photograph, 12.25 px/mm; crops in insular-refs/, not committed), the physical paint (tests/km-paint.js: brush
+  f. 139r, BL photograph, 12.25 px/mm; crops in insular-refs/, not committed), the physical paint (kit/styles/insular-paint.js: brush
   loads, levelling, two-constant Kubelka–Munk over a parchment, a pen laid over time, weathering by cause, tests/km-age.js)
   and the page-size paint (km-smoke.js: the same loads and pen over a flat vellum, losses placed by hand, one soft optic).
   Figures, in order, per subject: master, [before: exact geometry, physical paint, with ?before=1], then the hand with the
@@ -22,7 +22,7 @@
 </head>
 <body>
 <script type="module">
-import * as KM from './km-paint.js';
+import * as KM from '../kit/styles/insular-paint.js';
 import * as AGE from './km-age.js';
 import * as SM from './km-smoke.js';
 import * as KM_B from './km-bench.js';
