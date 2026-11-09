@@ -990,3 +990,19 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
   - Each print's paint is tested against its own pecked hollow, grown by three pits. All pass; the old paint failed at
     once (B, G and K at 200 px, 2x).
 - **Speed.** One 400 px in-line initial at dpr 2: carved in 3-19 ms, printed in 123-223 ms, on a worker on the page.
+
+## The groove's depth restored (the user's approval)
+
+- **What.** D, the groove-depth field the edge zone reads, is back in settle(). It was lost from there in stage 12's edit.
+  - With it, the film is thicker at the groove's centre and thinner at its shoulders. A dry brush's edge steps grain by
+    grain where the groove shallows, reading the true depth instead of the pecked mask.
+- **Where it shows.** It is computed only when the zone is open (a grain 2.5-4.5 device px on screen) and read only
+  there. A page at its own size, where the zone is shut, is unchanged by construction. tools/diff.mjs against 6bcdad1:
+  - **The alphabet:** its 1x letters identical at dpr 1 and 2; only the 4x section changes, and the timing line.
+  - **rock.html and the wekwos snippet page:** identical at 1440 and 390, dpr 1 and 2.
+  - **The wekwos mock:** identical at dpr 2 and at 390; 15 pixels at most 2 apart at 1440, dpr 1, the noise that page
+    showed before this change too.
+  - **The large initials** (tests/rock-bigini.html): at 80 px identical at dpr 1 and 2, at 100 px identical at dpr 1.
+    At 100 px, dpr 2 (13,779 pixels, at most 21 apart) and larger, the change shows only on letters whose zone is open.
+- **The big-initial check** (no paint off the carving) passes at dpr 1, 2 and 3. tests/rock-big.html now runs after the
+  page's load, so a long run at dpr 3 no longer holds up the page's navigation.

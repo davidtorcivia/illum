@@ -25,6 +25,8 @@ const test = (name, piece) => { const r = render(piece, theme, d), F = r.F, w = 
   for (let x = 0; x < w; x++) { let last = -1e9; for (let y = 0; y < h; y++) { if (Rw[y * w + x]) last = y; M[y * w + x] = y - last <= rad; } last = 1e9; for (let y = h - 1; y >= 0; y--) { if (Rw[y * w + x]) last = y; if (last - y <= rad) M[y * w + x] = 1; } }
   let bad = 0; for (let Y = 0; Y < img.height; Y++) for (let X = 0; X < img.width; X++) if (img.data[(Y * img.width + X) * 4 + 3] > 24) { const i = Math.min(h - 1, Y * k) * w + Math.min(w - 1, X * k); if (!M[i]) bad++; }
   n++; if (bad > 4) fails.push(`${name}: ${bad} px painted off the carving`); };
+// (run once the module has finished: a module's own evaluation holds up the page's load, and a long run must not)
+setTimeout(() => {
 const sizes = (q.get('sizes') ?? '80,130,200,300,400').split(',').map(Number), seeds = (q.get('seeds') ?? '7,7823045,1234567,98765').split(',').map(Number);
 for (const px of sizes) for (const sd of seeds) for (const ch of q.get('letters') ?? 'BGKRSW') {
   // (an in-line initial px tall in its font: its cap ~.65 of that; a drop of the same cap height)
@@ -34,6 +36,7 @@ for (const px of sizes) for (const sd of seeds) for (const ch of q.get('letters'
   test(`drop ${ch} ${px}px seed ${sd}`, R.initial(ch, H, sd, 20, 1)); }
 document.getElementById('out').textContent = `${n} prints at dpr ${d}, ${theme}, ${Math.round(performance.now() - t0)} ms; ${fails.length} with paint off the carving\n` + fails.join('\n');
 document.body.dataset.timing = document.body.dataset.check = fails.length ? fails.join('; ') : 'ok';
+});
 </script>
 </body>
 </html>
