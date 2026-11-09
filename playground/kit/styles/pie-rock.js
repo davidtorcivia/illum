@@ -22,6 +22,10 @@ const TAU = Math.PI * 2;
 const pts = (f, n = 24) => Array.from({ length: n + 1 }, (_, i) => f(i / n));
 const swell = (n, a, b, c = a) => Array.from({ length: n }, (_, i) => { const t = i / (n - 1); return t < .5 ? a + (b - a) * t * 2 : b + (c - b) * (t - .5) * 2; });
 export const arc = (c, R, a0, a1, n = 40) => pts(t => { const a = a0 + (a1 - a0) * t; return [c[0] + R * Math.cos(a), c[1] + R * Math.sin(a)]; }, n);
+// a pecked ring: never a circle. Its radius swells and dips (two and three lobes, ~6 % and ~3.5 %: by eye from the panels'
+// wheels and cup rings), its centre is off a little, and the groove's two ends overlap where the carver closed it
+export const loop = (c, R, r, n = 44) => { const p1 = r() * 6.28, p2 = r() * 6.28, a0 = r() * 6.28, cx = c[0] + R * .04 * gauss(r), cy = c[1] + R * .04 * gauss(r), e = 1 + .05 * gauss(r);
+  return pts(t => { const a = a0 + t * 6.28 * 1.05, rr = R * (1 + .06 * Math.sin(2 * a + p1) + .035 * Math.sin(3 * a + p2)); return [cx + rr * Math.cos(a) * e, cy + rr * Math.sin(a) / e]; }, n); };
 
 // ---- the carver ----------------------------------------------------------------------------------------------------------------
 // a pecked line along p, width w (number or per point): pits across it at every step
@@ -36,10 +40,27 @@ function pecks(p, w, rp, r, d = .55) {
   return out; }
 // a figure's line: pecked, then painted along the same path with a brush as wide as the furrow (a wide furrow takes
 // two passes). Returns its pits then its strokes; the brush's load and the order come from the figure's builder
-export function stroke(p, w, rp, r, { brush = true, load = 1 } = {}) {
+// the hand in a groove (figures, not letters, which carry their own): resampled along its length, its course wandering off
+// the drawn line by ~.07 of its width (measured: a Tanumshede keel departs from a smooth curve by .066 of the hull band,
+// rms) over a slow and a quick wavelength (the arm's reach, the stone's angle), its width breathing ±12 %
+function handed(p, w, r) { const W0 = (Array.isArray(w) ? w.reduce((a, v) => a + v, 0) / w.length : w), L = [0]; let tot = 0;
+  for (let i = 1; i < p.length; i++) L.push(tot += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]));
+  const n = Math.max(2, Math.ceil(tot / Math.max(.6, W0 * .5))), ww = i => Array.isArray(w) ? w[i] : w, P = [], Wd = [], ph = [r() * 6.28, r() * 6.28, r() * 6.28], l1 = W0 * (2 + 1.5 * r()), l2 = W0 * (.8 + .4 * r());
+  for (let k = 0, i = 0; k <= n; k++) { const sv = tot * k / n; while (i < p.length - 2 && L[i + 1] < sv) i++; const f = Math.min(1, (sv - L[i]) / Math.max(1e-6, L[i + 1] - L[i]));
+    const x = p[i][0] + (p[i + 1][0] - p[i][0]) * f, y = p[i][1] + (p[i + 1][1] - p[i][1]) * f, dx = p[i + 1][0] - p[i][0], dy = p[i + 1][1] - p[i][1], l = Math.hypot(dx, dy) || 1, wi = ww(i) + (ww(i + 1) - ww(i)) * f;
+    const o = W0 * .07 * (.7 * Math.sin(ph[0] + sv / l1) + .3 * Math.sin(ph[1] + sv / l2)) * Math.min(1, sv / W0, (tot - sv) / W0 + .3);
+    P.push([x - dy / l * o, y + dx / l * o]); Wd.push(wi * (1 + .12 * Math.sin(ph[2] + sv / (W0 * 1.6)))); }
+  return [P, Wd]; }
+export function stroke(p, w, rp, r, { brush = true, load = 1, hand: hd = 1 } = {}) {
+  if (hd && p.length > 1) [p, w] = handed(p, w, r);
   const out = pecks(p, w, rp, r); if (!brush) return out;
   const W = Math.max(...(Array.isArray(w) ? w : [w])), bw = Math.min(W * 1.08, rp * 7);
-  if (W <= bw * 1.25) out.push({ k: 'brush', p, w: Array.isArray(w) ? w.map(v => v * 1.08) : w * 1.08, load });
+  if (W <= bw * 1.25) { // the brush is dipped again every ~9 widths along a long groove, so a loop or a keel never runs dry halfway
+    const L = [0]; for (let i = 1; i < p.length; i++) L.push(L[i - 1] + Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]));
+    const step = W * 9, n = Math.max(1, Math.round(L.at(-1) / step)), wv = Array.isArray(w) ? w.map(v => v * 1.08) : null;
+    for (let k = 0; k < n; k++) { const a = L.at(-1) * k / n - W * .4, b = L.at(-1) * (k + 1) / n; const idx = p.map((_, i) => i).filter(i => L[i] >= a && L[i] <= b + 1e-6);
+      if (idx.length < 2) { if (n === 1) out.push({ k: 'brush', p, w: wv ?? w * 1.08, load }); continue; }
+      out.push({ k: 'brush', p: idx.map(i => p[i]), w: wv ? idx.map(i => wv[i]) : w * 1.08, load }); } }
   else { const n = Math.ceil(W / (bw * .85)); for (let j = 0; j < n; j++) { const o = (j / (n - 1) - .5);
     const q = p.map((pt, i) => { const a = p[Math.max(0, i - 1)], b = p[Math.min(p.length - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, wi = Array.isArray(w) ? w[i] : w;
       return [pt[0] - dy / l * o * (wi - bw * .7), pt[1] + dx / l * o * (wi - bw * .7)]; });
@@ -52,7 +73,11 @@ const ordered = parts => { const pits = parts.filter(m => m.k === 'pit'), br = p
 // a cup mark: a round hollow ground deep; painted, the paint pools in it
 export const cup = (x, y, R, r, deep = 1) => [{ k: 'pit', x, y, r: R, d: .9 * R * deep, rim: .05 }, { k: 'brush', p: [[x - R * .3, y], [x + R * .3, y]], w: R * 2.1, load: 1.2 }];
 // the sun-wheel: a ring and a cross (four spokes)
-export function wheel(c, R, lw, rp, r) { return [...stroke(arc(c, R, -1.4, 4.95, 48), lw, rp, r), ...stroke([[c[0] - R, c[1]], [c[0] + R, c[1]]], lw * .9, rp, r), ...stroke([[c[0], c[1] - R], [c[0], c[1] + R]], lw * .9, rp, r)]; }
+// the sun-wheel: a broad rim (never round, its width breathing), two spokes crossing neither at a right angle nor at the
+// centre, each overrunning or falling short of the rim a little
+export function wheel(c, R, lw, rp, r) { const rim = loop(c, R, r), mx = c[0] + R * .07 * gauss(r), my = c[1] + R * .07 * gauss(r), out = stroke(rim, rim.map((_, i) => lw * 1.35 * (1 + .18 * Math.sin(i * .4 + r()))), rp, r);
+  for (const a of [.0, Math.PI / 2]) { const t = a + .07 * gauss(r), k1 = R * (1 + .05 * gauss(r)), k2 = R * (1 + .05 * gauss(r)); out.push(...stroke([[mx - Math.cos(t) * k1, my - Math.sin(t) * k1], [mx + Math.cos(t) * k2, my + Math.sin(t) * k2]], [lw * 1.05, lw * .85, lw * 1.1], rp, r)); }
+  return out; }
 // a ship (Tanumshede 7): the keel, heavy in the middle, running on past the bow into an up-curled prow; the gunwale over
 // it, joined to the keel at the stern; struts between them; the crew a comb of short strokes on the gunwale
 export function ship(x, y, L, h, lw, rp, r, { crew = 1, reach = null, high = 1, double = false } = {}) {
@@ -62,33 +87,37 @@ export function ship(x, y, L, h, lw, rp, r, { crew = 1, reach = null, high = 1, 
   const kx = x + L, ke = ky(1) - h * .25, hh = h * high, prow = [keel[40], [kx + h * .12, ke - hh * .3], [kx + h * .16, ke - hh * .62], [kx + h * .08, ke - hh * .82], [kx - h * .06, ke - hh * .78], [kx - h * .08, ke - hh * .66]];
   const stern = [[x, ky(0)], [x - h * .14, ky(0) - hh * .3], [x - h * .2, ky(0) - hh * .62], ...(high > 1.2 ? [[x - h * .1, ky(0) - hh * .8], [x + h * .02, ky(0) - hh * .74]] : [])];
   const gun = pts(t => [x + L * (.02 + .9 * t), gy(.02 + .9 * t)], 30);
-  const out = [...stroke(keel, swell(41, lw * .8, lw * 1.8, lw * .9), rp, r), ...stroke(prow, swell(prow.length, lw * .95, lw * .8, lw * .95), rp, r), ...stroke(stern, swell(stern.length, lw * .85, lw * .7, lw * .55), rp, r), ...stroke(gun, lw * .7, rp, r)];
+  const out = [...stroke(keel, keel.map((_, i) => lw * (1.3 + 1.3 * Math.sin(Math.PI * i / 40) ** .7 + .9 * (i / 40) ** 3)), rp, r), ...stroke(prow, swell(prow.length, lw * 2.1, lw * 1.4, lw * 1.2), rp, r), ...stroke(stern, swell(stern.length, lw * 1.3, lw * .95, lw * .75), rp, r), ...stroke(gun, lw * 1.05, rp, r)];
   if (double) out.push(...stroke(pts(t => [x + L * (.04 + .9 * t), ky(.04 + .9 * t) + h * .26 * Math.sin(Math.PI * (.04 + .9 * t)) ** .5], 30), swell(31, lw * .55, lw * 1.1, lw * .55), rp, r));   // a second keel line under the first (Tanum's double-lined hulls)
   const ns = Math.max(3, Math.round(L / (h * .55)));
-  for (let i = 1; i < ns; i++) { const u = .02 + .9 * i / ns; out.push(...stroke([[x + L * u, gy(u)], [x + L * u, ky(u)]], lw * .65, rp, r)); }
+  for (let i = 1; i < ns; i++) { const u = .02 + .9 * (i + .25 * gauss(r)) / ns; out.push(...stroke([[x + L * u, gy(u)], [x + L * u + .04 * h * gauss(r), ky(u)]], lw * .85, rp, r)); }
   if (crew) { const nc = Math.max(4, Math.round(L / (h * .22)));
-    for (let i = 1; i < nc; i++) { const u = .05 + .85 * i / nc, cx = x + L * u + .03 * h * gauss(r), top = reach && i % 3 === 1 ? reach(cx) : null, y1 = top !== null && top > gy(u) - h * 1.6 ? top + lw * .3 : gy(u) - h * (.26 + .06 * r());
-      out.push(...stroke([[cx, gy(u)], [cx + .02 * h, y1]], [lw * .6, lw * .72], rp, r)); } }
+    // (crew strokes: their spacing, height and lean uneven, their tops heavier; under a letter, one in three reaches up into it
+    // and shares its line, the others stop clear of it)
+    for (let i = 1; i < nc; i++) { const u = .05 + .85 * (i + .3 * gauss(r)) / nc, cx = x + L * u, top = reach ? reach(cx) : null, y0 = gy(u), yn = y0 - h * (.22 + .12 * r());
+      const y1 = top === null ? yn : i % 3 === 1 && top > y0 - h * 1.6 ? top + lw * .3 : Math.max(yn, top + lw * 2.2);
+      if (y0 - y1 > lw) out.push(...stroke([[cx, y0], [cx + .06 * h * gauss(r), y1]], [lw * .75, lw * 1.05], rp, r)); } }
   return out; }
 // a horse, as Tanum's carvers drew one: a long body thick at chest and rump, a neck rising at ~50 degrees to a small
 // head, four legs (front and back pairs apart), a hanging tail. s: body length; facing dir
-export function horse(x, y, s, dir, lw, rp, r) { const X = u => x + dir * u * s;
-  const body = pts(t => [X(-.5 + t), y - .05 * s * Math.sin(Math.PI * t)], 14);
-  return [...stroke(body, swell(15, lw * 1.5, lw * 1.25, lw * 1.7), rp, r),
-    ...stroke([[X(.44), y - .02 * s], [X(.56), y - .18 * s], [X(.64), y - .27 * s]], [lw * 1.35, lw * 1.1, lw * 1], rp, r),
-    ...stroke([[X(.6), y - .29 * s], [X(.72), y - .24 * s], [X(.8), y - .17 * s]], [lw * 1.15, lw * .95, lw * .8], rp, r),   // the head, long and dropped to the muzzle
-    ...stroke([[X(.6), y - .29 * s], [X(.6), y - .36 * s]], [lw * .6, lw * .4], rp, r),
-    ...[[.42, .04], [.3, -.03], [-.38, .04], [-.48, -.04]].flatMap(([u, k]) => stroke([[X(u), y + .03 * s], [X(u + k), y + .22 * s], [X(u + k * .5), y + .42 * s]], [lw * .85, lw * .7, lw * .6], rp, r)),
-    ...stroke([[X(-.5), y - .02 * s], [X(-.62), y + .12 * s], [X(-.64), y + .3 * s]], [lw * .8, lw * .65, lw * .45], rp, r)]; }
+export function horse(x, y, s, dir, lw, rp, r) { const X = u => x + dir * u * s, j = () => .04 * gauss(r);   // each leg its own length and lean
+  const body = pts(t => [X(-.48 + .96 * t), y - .05 * s * Math.sin(Math.PI * t) + .03 * s * Math.sin(t * 9)], 16);
+  return [...stroke(body, swell(17, lw * 2.3, lw * 1.9, lw * 2.6), rp, r),
+    ...stroke([[X(.4), y - .02 * s], [X(.52), y - .18 * s], [X(.6), y - .28 * s]], [lw * 2.2, lw * 1.6, lw * 1.3], rp, r),
+    ...stroke([[X(.58), y - .3 * s], [X(.7), y - .25 * s], [X(.79), y - .17 * s]], [lw * 1.45, lw * 1.2, lw * 1], rp, r),   // the head, long and dropped to the muzzle
+    ...stroke([[X(.57), y - .3 * s], [X(.56), y - .38 * s]], [lw * .7, lw * .45], rp, r),
+    ...[[.4, .05], [.29, -.03], [-.33, .05], [-.44, -.05]].flatMap(([u, k]) => { const L = .4 + j(); return stroke([[X(u + j() * .3), y + .03 * s], [X(u + k), y + L * .55 * s], [X(u + k * .4 + j() * .5), y + L * s]], [lw * 1.35, lw * .85, lw * .62], rp, r); }),
+    ...stroke([[X(-.48), y - .02 * s], [X(-.6), y + .12 * s], [X(-.62), y + .3 * s]], [lw * 1.1, lw * .8, lw * .5], rp, r)]; }
 // a footsole: the outline of a foot with a bar across the instep (Vitlycke)
 export function foot(x, y, s, a, lw, rp, r) { const c = Math.cos(a), sn = Math.sin(a), T = ([u, v]) => [x + c * u - sn * v, y + sn * u + c * v];
   return [...stroke(pts(t => { const q = t * TAU; return T([s * .22 * Math.sin(q) * (1 + .25 * Math.cos(q)), -s * .5 * Math.cos(q)]); }, 36), lw * .75, rp, r), ...stroke([T([-s * .2, s * .05]), T([s * .2, s * .05])], lw * .7, rp, r)]; }
 // a man (the Vitlycke warrior's build: heavy calves, a long trunk); arms: 'up' (the adorant), 'axe' (raised, an axe in hand)
-export function man(x, y, s, lw, rp, r, arms = 'up', dir = 1) { const X = u => x + dir * u * s;
-  const out = [...stroke([[X(0), y - s * .55], [X(0), y]], [lw * 1.1, lw * 1.3], rp, r), ...stroke(arc([X(0), y - s * .64], s * .07, 0, TAU, 16), lw * .8, rp, r),
-    ...stroke([[X(0), y], [X(-.12), y + s * .22], [X(-.1), y + s * .44]], [lw * 1.2, lw * 1.6, lw * .9], rp, r), ...stroke([[X(0), y], [X(.13), y + s * .22], [X(.16), y + s * .44]], [lw * 1.2, lw * 1.6, lw * .9], rp, r)];
-  if (arms === 'up') out.push(...stroke([[X(-.3), y - s * .82], [X(-.22), y - s * .5], [X(0), y - s * .42], [X(.22), y - s * .5], [X(.3), y - s * .82]], lw * .9, rp, r));
-  else { out.push(...stroke([[X(-.2), y - s * .2], [X(0), y - s * .42], [X(.18), y - s * .62], [X(.24), y - s * .82]], lw * .9, rp, r), ...stroke([[X(.16), y - s * .9], [X(.34), y - s * .78], [X(.3), y - s * .68]], lw * 1.1, rp, r)); }
+export function man(x, y, s, lw, rp, r, arms = 'up', dir = 1) { const X = u => x + dir * u * s, j = () => .03 * gauss(r);
+  const leg = (sg) => { const kx = sg * (.13 + j()), fx = sg * (.15 + j()), L = .44 + j(); return [...stroke([[X(sg * .02), y], [X(kx), y + s * L * .45], [X(fx), y + s * L]], [lw * 1.6, lw * 2.3, lw * .95], rp, r), ...stroke([[X(fx), y + s * L], [X(fx + .12 + j()), y + s * (L + .01)]], [lw * 1.1, lw * .9], rp, r)]; };
+  const out = [...stroke([[X(0), y - s * .52], [X(.01), y - s * .25], [X(0), y]], [lw * 1.5, lw * 2.3, lw * 2], rp, r), ...stroke(loop([X(0), y - s * .63], s * .075, r, 18), lw * 1.1, rp, r), ...leg(-1), ...leg(1)];
+  const handAt = (hx, hy) => out.push(...stroke([[hx - s * .03, hy], [hx + s * .03, hy - s * .02]], lw * 1.6, rp, r));
+  if (arms === 'up') { out.push(...stroke([[X(-.3), y - s * .84], [X(-.22), y - s * .52], [X(0), y - s * .44], [X(.22), y - s * .5], [X(.31), y - s * .82]], [lw * .9, lw * 1.1, lw * 1.3, lw * 1.1, lw * .9], rp, r)); handAt(X(-.3), y - s * .86); handAt(X(.31), y - s * .84); }
+  else { out.push(...stroke([[X(-.2), y - s * .22], [X(0), y - s * .42], [X(.18), y - s * .62], [X(.24), y - s * .82]], [lw * .9, lw * 1.3, lw * 1.1, lw * .9], rp, r), ...stroke([[X(.16), y - s * .92], [X(.36), y - s * .8], [X(.31), y - s * .68]], lw * 1.5, rp, r)); handAt(X(-.21), y - s * .2); }
   return out; }
 // a serpent: a long line in slow waves, its head a little heavier
 export function serpent(x, y, L, amp, dir, lw, rp, r) { const p = pts(t => [x + dir * L * t, y + amp * Math.sin(t * 3.2 * Math.PI) * (.4 + .6 * t)], 48);
@@ -105,38 +134,38 @@ export const xform = (ms, f) => ms.map(m => m.k === 'pit' ? { ...m, ...((([x, y]
 export function disc(c, R, rp, r) { const out = []; for (let rr = R - rp * .8; rr > 0; rr -= rp * 1.1) { const n = Math.max(1, Math.round(TAU * rr / (rp * 1.05))); for (let k = 0; k < n; k++) { const a = TAU * k / n + r(); out.push({ k: 'pit', x: c[0] + rr * Math.cos(a), y: c[1] + rr * Math.sin(a), r: rp * (1 + .1 * gauss(r)), d: .55 * rp * (.8 + .4 * r()) }); } }
   out.push({ k: 'pit', x: c[0], y: c[1], r: rp, d: .55 * rp }); out.push({ k: 'brush', p: arc(c, R * .5, 0, TAU, 24), w: R * 1.1, load: 1 }); return out; }
 // a rayed sun: a ring, a cup at its heart, short rays round it
-export function sun(c, R, lw, rp, r, n = 10) { const out = [...stroke(arc(c, R, 0, TAU * 1.02, 40), lw, rp, r), ...cup(c[0], c[1], R * .28, r)];
-  for (let k = 0; k < n; k++) { const a = TAU * k / n + .2; out.push(...stroke([[c[0] + R * 1.25 * Math.cos(a), c[1] + R * 1.25 * Math.sin(a)], [c[0] + R * 1.7 * Math.cos(a), c[1] + R * 1.7 * Math.sin(a)]], [lw * .85, lw * .55], rp, r)); }
+export function sun(c, R, lw, rp, r, n = 10) { const out = [...stroke(loop(c, R, r), lw * 1.3, rp, r), ...cup(c[0], c[1], R * .28, r)];
+  for (let k = 0; k < n; k++) { const a = TAU * (k + .15 * gauss(r)) / n + .2, l = 1.6 + .2 * gauss(r); out.push(...stroke([[c[0] + R * 1.25 * Math.cos(a), c[1] + R * 1.25 * Math.sin(a)], [c[0] + R * l * Math.cos(a), c[1] + R * l * Math.sin(a)]], [lw * 1.1, lw * .7], rp, r)); }
   return out; }
 // concentric circles round a cup; a spiral
-export const rings = (c, R, lw, rp, r, k = 3) => [...cup(c[0], c[1], R * .2, r), ...Array.from({ length: k }, (_, i) => stroke(arc(c, R * (.45 + .55 * (i + 1) / k), r() * TAU, r() * TAU + TAU * 1.02, 40), lw * (.75 + .15 * i), rp, r)).flat()];
-export const spiral = (c, R, lw, rp, r, turns = 2.4) => stroke(pts(t => { const a = t * turns * TAU, rr = R * (.12 + .88 * t); return [c[0] + rr * Math.cos(a), c[1] + rr * Math.sin(a)]; }, 70), swell(71, lw * .6, lw, lw * 1.1), rp, r);
+export const rings = (c, R, lw, rp, r, k = 3) => [...cup(c[0], c[1], R * .2, r), ...Array.from({ length: k }, (_, i) => stroke(loop(c, R * (.45 + .55 * (i + 1) / k), r), lw * (1 + .2 * i), rp, r)).flat()];
+export const spiral = (c, R, lw, rp, r, turns = 2.4) => { const p1 = r() * 6.28, e = 1 + .08 * gauss(r); return stroke(pts(t => { const a = t * turns * TAU, rr = R * (.12 + .88 * t ** (.85 + .2 * r() * 0)) * (1 + .09 * Math.sin(2 * a + p1)); return [c[0] + rr * Math.cos(a) * e, c[1] + rr * Math.sin(a) / e]; }, 70), swell(71, lw * .8, lw * 1.3, lw * 1.5), rp, r); };   // (opening unevenly, a little oval)
 // a hand: a palm and five fingers, spread
-export function hand(x, y, s, a, lw, rp, r) { const c = Math.cos(a), sn = Math.sin(a), T = ([u, v]) => [x + c * u - sn * v, y + sn * u + c * v], out = stroke(pts(t => { const q = t * TAU; return T([s * .2 * Math.sin(q), s * .22 * Math.cos(q)]); }, 24), lw * .8, rp, r);
+export function hand(x, y, s, a, lw, rp, r) { const c = Math.cos(a), sn = Math.sin(a), T = ([u, v]) => [x + c * u - sn * v, y + sn * u + c * v], out = stroke(loop([0, 0], s * .2, r, 20).map(T), lw * 1.2, rp, r);
   [[-.2, -.1, -.42, -.32], [-.1, -.2, -.16, -.55], [0, -.22, 0, -.6], [.1, -.2, .16, -.55], [.2, -.06, .4, -.22]].forEach(([u0, v0, u1, v1]) => out.push(...stroke([T([u0 * s, v0 * s]), T([u1 * s, v1 * s])], [lw * .75, lw * .55], rp, r)));
   return out; }
 // a deer: the horse's long body, a short tail up, branching antlers
 export function deer(x, y, s, dir, lw, rp, r) { const X = u => x + dir * u * s;
-  return [...stroke(pts(t => [X(-.45 + .9 * t), y - .04 * s * Math.sin(Math.PI * t)], 12), swell(13, lw * 1.2, lw * 1.05, lw * 1.35), rp, r),
-    ...stroke([[X(.42), y - .02 * s], [X(.55), y - .3 * s], [X(.68), y - .3 * s]], [lw * 1.05, lw * .85, lw * .7], rp, r),
+  return [...stroke(pts(t => [X(-.45 + .9 * t), y - .04 * s * Math.sin(Math.PI * t)], 12), swell(13, lw * 2, lw * 1.7, lw * 2.2), rp, r),
+    ...stroke([[X(.42), y - .02 * s], [X(.55), y - .3 * s], [X(.68), y - .3 * s]], [lw * 1.8, lw * 1.2, lw * .9], rp, r),
     ...stroke([[X(.54), y - .32 * s], [X(.46), y - .62 * s], [X(.32), y - .74 * s]], [lw * .6, lw * .5, lw * .4], rp, r), ...stroke([[X(.5), y - .5 * s], [X(.62), y - .66 * s]], [lw * .5, lw * .4], rp, r), ...stroke([[X(.47), y - .62 * s], [X(.5), y - .82 * s]], [lw * .45, lw * .35], rp, r),
-    ...[[.38, .03], [.28, -.02], [-.36, .03], [-.44, -.03]].flatMap(([u, k]) => stroke([[X(u), y + .02 * s], [X(u + k), y + .42 * s]], [lw * .75, lw * .5], rp, r)),
+    ...[[.38, .03], [.28, -.02], [-.36, .03], [-.44, -.03]].flatMap(([u, k]) => stroke([[X(u), y + .02 * s], [X(u + k), y + (.4 + .04 * gauss(r)) * s]], [lw * 1.2, lw * .55], rp, r)),
     ...stroke([[X(-.45), y - .02 * s], [X(-.55), y - .14 * s]], [lw * .7, lw * .45], rp, r)]; }
 // a bird (a crane): a body, a long neck up and forward, a small head, long legs
 export function bird(x, y, s, dir, lw, rp, r) { const X = u => x + dir * u * s;
-  return [...stroke(pts(t => [X(-.3 + .55 * t), y - .08 * s * Math.sin(Math.PI * t)], 10), swell(11, lw * .9, lw * 1.5, lw * .8), rp, r),
+  return [...stroke(pts(t => [X(-.3 + .55 * t), y - .08 * s * Math.sin(Math.PI * t)], 10), swell(11, lw * 1.3, lw * 2.4, lw * 1.1), rp, r),
     ...stroke(pts(t => [X(.25 + .12 * t + .05 * Math.sin(t * 3)), y - .05 * s - .55 * s * t], 10), swell(11, lw * .9, lw * .6, lw * .6), rp, r), ...stroke([[X(.4), y - .6 * s], [X(.56), y - .54 * s]], [lw * .8, lw * .4], rp, r),
     ...stroke([[X(0), y + .02 * s], [X(-.04), y + .45 * s]], [lw * .6, lw * .45], rp, r), ...stroke([[X(.08), y + .02 * s], [X(.1), y + .45 * s]], [lw * .6, lw * .45], rp, r)]; }
 // a rider: a man astride a horse, arms out
 export function rider(x, y, s, dir, lw, rp, r) { const X = u => x + dir * u * s;
-  return [...horse(x, y, s, dir, lw, rp, r), ...stroke([[X(.05), y - .05 * s], [X(.05), y - .45 * s]], [lw * 1.2, lw * 1], rp, r), ...stroke(arc([X(.05), y - .52 * s], s * .06, 0, TAU, 14), lw * .7, rp, r),
+  return [...horse(x, y, s, dir, lw, rp, r), ...stroke([[X(.05), y - .05 * s], [X(.05), y - .45 * s]], [lw * 1.2, lw * 1], rp, r), ...stroke(loop([X(.05), y - .52 * s], s * .065, r, 16), lw * 1, rp, r),
     ...stroke([[X(-.12), y - .3 * s], [X(.05), y - .36 * s], [X(.26), y - .3 * s]], lw * .75, rp, r), ...stroke([[X(.05), y - .05 * s], [X(.14), y + .12 * s]], [lw * .9, lw * .7], rp, r)]; }
 // a lur-blower: a man, legs apart, a long curved horn rising from his mouth and curling forward
 export function lur(x, y, s, dir, lw, rp, r) { const X = u => x + dir * u * s;
-  return [...stroke([[X(0), y - s * .55], [X(0), y]], [lw * 1.1, lw * 1.3], rp, r), ...stroke(arc([X(0), y - s * .64], s * .07, 0, TAU, 16), lw * .8, rp, r),
+  return [...stroke([[X(0), y - s * .55], [X(0), y]], [lw * 1.1, lw * 1.3], rp, r), ...stroke(loop([X(0), y - s * .64], s * .075, r, 16), lw * 1.1, rp, r),
     ...stroke([[X(0), y], [X(-.12), y + s * .22], [X(-.1), y + s * .44]], [lw * 1.2, lw * 1.6, lw * .9], rp, r), ...stroke([[X(0), y], [X(.13), y + s * .22], [X(.16), y + s * .44]], [lw * 1.2, lw * 1.6, lw * .9], rp, r),
     ...stroke([[X(0), y - s * .4], [X(.12), y - s * .52]], lw * .8, rp, r),
-    ...stroke(pts(t => [X(.06 + .46 * t), y - s * .6 - s * .3 * Math.sin(t * 2.6) + s * .08 * t], 24), swell(25, lw * .55, lw * .7, lw * .9), rp, r), ...stroke(arc([X(.54), y - s * .66], s * .07, 0, TAU, 14), lw * .7, rp, r)]; }   // the lur: an S-curved bronze horn, its bell a small disc
+    ...stroke(pts(t => [X(.06 + .46 * t), y - s * .6 - s * .3 * Math.sin(t * 2.6) + s * .08 * t], 24), swell(25, lw * .55, lw * .7, lw * .9), rp, r), ...stroke(loop([X(.54), y - s * .66], s * .07, r, 16), lw * .9, rp, r)]; }   // the lur: an S-curved bronze horn, its bell a small disc
 // the Tanum chariot, seen from above as the carvers drew it: the pole forward, the axle across with a four-spoked wheel
 // at each end laid flat, the two horses in profile on either side of the pole, their backs to it (Bronze Age, Scandinavia)
 export function chariot(x, y, L, lw, rp, r) { const R = L * .17, a = L * .3, out = [...stroke([[x, y], [x + L, y]], [lw * 1.1, lw * .8], rp, r), ...stroke([[x, y - a], [x, y + a]], lw, rp, r), ...wheel([x, y - a - R * .2], R, lw * .8, rp, r), ...wheel([x, y + a + R * .2], R, lw * .8, rp, r)];
@@ -156,27 +185,32 @@ const pick = (seed, k, n) => { const r = rng(seed * 7919 + k * 104729); r(); ret
 // the seed: a ship under it whose crew reach up into the letter; a deer, horse or crane walking along its foot; the sun
 // (wheel or rayed) at its shoulder over a row of cups; a rider or a spiral beside it. O and Q are themselves sun-wheels.
 export function initial(ch, H, seed, fs = 20) {
-  const r = rng(seed * 13 + ch.charCodeAt(0)), W = Math.round(H * 1.08), lw = H * .05, rp = lw / 4.5, m = H * .05;
-  const lay = pick(seed, ch.charCodeAt(0), 4), lw0 = letterWidth(ch), cap = Math.min(H * (lay === 0 ? .66 : lay === 2 ? .74 : .82), (W * .68) / lw0), x0 = m + (W * .68 - lw0 * cap) / 2 * .4, y0 = m * 1.1;
+  const r = rng(seed * 13 + ch.charCodeAt(0)), W = Math.round(H * 1.12), lw = H * .045, rp = lw / 4.5, m = H * .05;
+  const lay = pick(seed, ch.charCodeAt(0), 4), lw0 = letterWidth(ch), cap = Math.min(H * (lay === 0 ? .64 : lay === 2 ? .74 : .8), (W * .58) / lw0), x0 = m, y0 = m * 1.1;
   const L = letterStrokes(ch, x0, y0, cap, r);
-  const carveLetter = out => { for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r)); if (s.cupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .62, r)); if (s.cupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .62, r)); }
+  const carveLetter = out => { for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .62, r)); if (s.cupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .62, r)); }
     if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], [lw * .8, lw * .8], rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], [lw * .8, lw * .8], rp, r)); } };
-  const fx = x0 + L.W + m, fw = W - fx - m, foot = y0 + cap, band = H - foot - m;
+  const fx = x0 + L.W + m * .6, fw = W - fx - m * .4, band = H - (y0 + cap) - m;
+  // a figure never meets the letter by accident: its pits are kept a groove's width clear of every letter stroke, or it is
+  // made smaller and tried again (the ship's reaching crew are the one deliberate meeting)
+  const clear = ms => ms.every(q => q.k !== 'pit' || L.strokes.every(st => st.p.every((pt, i) => Math.hypot(pt[0] - q.x, pt[1] - q.y) > st.w[i] / 2 + q.r + lw * 1.2)));
+  const fit = make => { for (let k = 1; k > .55; k *= .86) { const ms = make(k); if (clear(ms)) return ms; } return []; };
   return piece(W, H, lw, F => { const out = []; carveLetter(out);
-    if (lay === 0) { const sy = H - m * 1.1, sh = Math.min(band * 1.1, H * .22), low = x => { let best = null; for (const s of L.strokes) for (let i = 0; i < s.p.length; i++) if (Math.abs(s.p[i][0] - x) < s.w[i] * .4) best = Math.max(best ?? -1e9, s.p[i][1] + s.w[i] * .3); return best; };
-      out.push(...ship(m + H * .04, sy, W - 2 * m - H * .16, sh, lw * .8, rp, r, { crew: 1, reach: low, high: 1 + .5 * (seed % 2) })); }
-    else if (lay === 1) { const kind = pick(seed, ch.charCodeAt(0) + 7, 3), s = Math.min(fw / 1.5, H * .3), y = H - m - s * .45, x = fx + s * .66;   // walking away from the letter, inside the room it leaves
-      if (s > H * .1) out.push(...(kind === 0 ? deer(x, y, s, 1, lw * .75, rp, r) : kind === 1 ? horse(x, y, s, 1, lw * .75, rp, r) : bird(x, y - s * .1, s * 1.1, 1, lw * .75, rp, r))); out.push(...cup(m + H * .08, H - m * 1.6, lw * .7, r), ...cup(m + H * .2, H - m * 1.3, lw * .55, r, .8)); }
-    else if (lay === 2) { const R = Math.min(fw * .38, H * .1), c = [W - m - R * 1.7, m + R * 1.8];
-      if (fw > R * 2.4) out.push(...(seed % 2 ? sun(c, R, lw * .7, rp, r) : wheel(c, R * 1.2, lw * .8, rp, r)));
-      const n = 5; for (let k = 0; k < n; k++) out.push(...cup(m + H * .1 + (W - 2 * m - H * .2) * k / (n - 1), H - m * 1.5 + lw * .3 * Math.sin(k * 2.3), lw * (.5 + .25 * Math.sin(k * 1.7 + seed)), r)); }
-    else { const R = Math.min(fw * .4, H * .11); if (fw > R * 2.2) out.push(...(seed % 2 ? spiral([W - m - R * 1.1, m + R * 1.6], R, lw * .7, rp, r) : rings([W - m - R * 1.1, m + R * 1.6], R, lw * .65, rp, r)));
-      const s = Math.min(fw * 1.3, H * .3); if (fw > s * .6) out.push(...rider(W - m - s * .5, H - m - s * .45, s, -1, lw * .7, rp, r)); }
+    if (lay === 0) { const sy = H - m * 1.1, sh = Math.min(band * 1.15, H * .26), low = x => { let best = null; for (const s of L.strokes) for (let i = 0; i < s.p.length; i++) if (Math.abs(s.p[i][0] - x) < s.w[i] * .4) best = Math.max(best ?? -1e9, s.p[i][1] + s.w[i] * .3); return best; };
+      out.push(...ship(m + H * .04, sy, W - 2 * m - H * .16, sh, lw, rp, r, { crew: 1, reach: low, high: 1 + .5 * (seed % 2) })); }
+    else if (lay === 1) { const kind = pick(seed, ch.charCodeAt(0) + 7, 3);   // an animal walking away from the letter, as large as the room allows
+      out.push(...fit(k => { const s = Math.min(fw / 1.3, H * .42) * k, y = H - m - s * .45, x = W - m * .4 - s * .82;
+        return kind === 0 ? deer(x, y, s, 1, lw, rp, r) : kind === 1 ? horse(x, y, s, 1, lw, rp, r) : bird(x, y - s * .1, s * 1.1, 1, lw, rp, r); }));
+      out.push(...cup(m + H * .06, H - m * 1.5, lw * .9, r), ...cup(m + H * .17, H - m * 1.2, lw * .7, r, .8)); }
+    else if (lay === 2) { out.push(...fit(k => { const R = Math.min(fw * .36, H * .16) * k, c = [W - m * .5 - R * 1.75, m + R * 1.85]; return seed % 2 ? sun(c, R, lw, rp, r) : wheel(c, R * 1.25, lw, rp, r); }));
+      const n = 5; for (let k = 0; k < n; k++) out.push(...cup(m + H * .1 + (W - 2 * m - H * .2) * (k + .25 * gauss(r)) / (n - 1), H - m * 1.5 + lw * .4 * gauss(r), lw * (.6 + .3 * r()), r, .7 + .4 * r())); }
+    else { out.push(...fit(k => { const R = Math.min(fw * .36, H * .13) * k, c = [W - m * .5 - R * 1.2, m + R * 1.5]; return seed % 2 ? spiral(c, R, lw * .8, rp, r) : rings(c, R, lw * .8, rp, r); }));
+      out.push(...fit(k => { const s = Math.min(fw / 1.1, H * .42) * k; return rider(W - m * .4 - s * .72, H - m - s * .45, s, -1, lw, rp, r); })); }
     return out; }, { seed, dur: 3400 });
 }
 export const DROP_GROUND = { v: 'none' };
 export function lineInitial(ch, fs, seed) { const r = rng(seed * 3 + ch.charCodeAt(0)), H = Math.round(fs * 1.9), cap = H * .86, lw = fs * .3, rp = lw / 4.5, L = letterStrokes(ch, lw * .4, H * .07, cap, r), W = Math.ceil(L.W + lw);
-  return piece(W, H, lw, () => { const out = []; for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r)); if (s.cupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .6, r)); if (s.cupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .6, r)); }
+  return piece(W, H, lw, () => { const out = []; for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .6, r)); if (s.cupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .6, r)); }
     if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], lw * .5, rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], lw * .5, rp, r)); } return out; }, { seed, dur: 1600 }); }
 // the paraph: a cup mark, or a little cup with a ring round it, or a footsole (by seed)
 export function paraph(fs, seed) { const r = rng(seed), R = fs * .27, lw = fs * .22, rp = lw / 4.5, k = pick(seed, 3, 3);

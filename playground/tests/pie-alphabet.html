@@ -53,7 +53,8 @@ function section(theme, title, note) { const s = document.createElement('section
 function grid(sec) { const g = document.createElement('div'); g.className = 'grid'; sec.append(g); return g; }
 function cell(sec, g, theme, piece, label, zoom = 1) { const o = print('rock', theme, piece, { dpr, zoom, live: DRAW }), c = document.createElement('div'); c.className = 'cell'; c.append(o.cv ?? o);
   if (o.w) sec._w.push(o.w); if (label) c.insertAdjacentHTML('beforeend', `<span>${label}</span>`); g.append(c); return c; }
-for (const theme of ['light', 'dark']) {
+const PART = q.get('part');   // ?part=zoom: only the enlarged section (a full page is taller than a screenshot can hold)
+for (const theme of PART === 'zoom' ? [] : ['light', 'dark']) {
   const tag = theme === 'light' ? 'on the paper' : 'on the ink';
   { const s = section(theme, `Drops, A–Z, ${tag}`, theme === 'light' ? 'Each at the drop size of a wekwos.com paragraph (four lines). The figure beside a letter is chosen by the letter and the seed: a ship whose crew reach up into it, an animal at its foot, the sun at its shoulder over a row of cups, or a rider and a spiral.' : ''), g = grid(s);
     for (const ch of LETTERS) cell(s, g, theme, rock.initial(ch, H, seed, fs), ch); }
@@ -71,13 +72,15 @@ for (const theme of ['light', 'dark']) {
     rock.BRK3.forEach((name, v) => cell(s, g, theme, rock.brk(3, 700, 7 * fs * 1.15, seed, v), name)); }
 }
 // every element on the specimen page, light and dark (the directions page, bare)
-{ const s = section('light', 'Every element on a page', 'The specimen page (pie-directions.html, B): drop, paraph, filler, run-out, the three breaks, quote, pull quote, aside, figure, code, contents. Light, and the ink.');
+if (PART !== 'zoom') { const s = section('light', 'Every element on a page', 'The specimen page (pie-directions.html, B): drop, paraph, filler, run-out, the three breaks, quote, pull quote, aside, figure, code, contents. Light, and the ink.');
   const p = document.createElement('div'); p.className = 'pair'; p.innerHTML = `<iframe src="pie-directions.html?only=rock&bare${DRAW ? '&draw' : ''}#seed=${seed}" title="light"></iframe><iframe src="pie-directions.html?only=rock&bare&theme=dark${DRAW ? '&draw' : ''}#seed=${seed}" title="dark"></iframe>`; s.append(p); }
 // enlarged beside the panels
 { const s = section('light', 'Enlarged, beside the panels');
   for (const [ch, zoom] of [['R', 4], ['O', 4], ['S', 4]]) { const side = document.createElement('div'); side.className = 'side'; const cv = print('rock', 'light', rock.initial(ch, H, seed, fs), { dpr, zoom }), im = new Image();
     im.src = ch === 'O' ? 'pie-refs/vitlycke-rider.jpg' : 'pie-refs/vitlycke-crew.jpg'; im.style.height = cv.style.height; side.append(im, cv); s.append(side); }
-  const g = grid(s); for (const k of [0, 5, 6, 7, 16, 20]) cell(s, g, 'light', rock.sheetPiece(k, 110, seed), rock.SHEET[k][0] + ', 3×', 3); }
+  for (const [k, src, cap] of [[4, 'tanumshede-ship.jpg', 'a horse (and Tanumshede’s animal and ship)'], [0, 'tanumshede-ship.jpg', 'a ship'], [15, 'vitlycke-rider.jpg', 'a person (the Vitlycke warrior)'], [8, 'vitlycke-rider.jpg', 'a sun-wheel (the warrior’s round shield)']]) {
+    const side = document.createElement('div'); side.className = 'side'; const cv = print('rock', 'light', rock.sheetPiece(k, 110, seed), { dpr, zoom: 4 }), im = new Image(); im.src = 'pie-refs/' + src; im.style.height = cv.style.height; side.append(im, cv);
+    side.insertAdjacentHTML('beforeend', `<span style="font:italic 15px 'Instrument Serif',serif">${cap}, 4×, beside the panel</span>`); s.append(side); } }
 const ms = Math.round(performance.now() - t0); document.body.dataset.timing = `${ms} ms`; document.getElementById('timing').textContent = `Printed in ${ms} ms (a specimen: every letter, figure and piece, twice).`;
 </script>
 </body>

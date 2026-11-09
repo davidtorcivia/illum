@@ -82,8 +82,8 @@ export function lay(F, S, from, upto, { load = 1, decay = 18, inPeck = 1, seed =
     const ld = load * Math.max(.12, Math.exp(-s / (decay * S.w)));
     const lane = Math.floor((e + 1) * 3.5), lf = .94 + .12 * hash(sid, lane, seed);
     const pk = G[i] / (.35 * g), cav = clamp01((-H[i] - .3 * pd) / (.5 * pd)) + clamp01((-G[i] - .03 * g) / (.06 * g)) * .5;   // a peak's height; a hollow's depth (a pit's floor, a striation)
-    const catchK = sm(-.07, .07, pk - (.3 - .5 * ld * lf)), pecked = K[i];   // a full brush skips only the lowest grains (~15 %, measured); a dry one only the high points take it
-    const film = cov * (.78 + .22 * ld) * lf * catchK * sm(.15, .6, pecked) * inPeck, pool = cov * (cav * (.1 + .3 * ld) * pecked + .3 * ld * (1 - Math.abs(2 * pecked - 1)) ** 2 * sm(.1, .3, pecked));   // (and against the groove's wall, where the brush pushed it)
+    const catchK = sm(-.08, .08, pk - (.4 - .6 * ld * lf)), pecked = K[i];   // a full brush skips only the lowest grains (~15 %, measured); a dry one only the high points take it
+    const film = cov * (.78 + .22 * ld) * lf * (.6 + .4 * catchK) * sm(.15, .6, pecked) * inPeck, pool = cov * (cav * (.03 + .1 * ld) * pecked + .32 * ld * (1 - Math.abs(2 * pecked - 1)) ** 2 * sm(.1, .3, pecked));   // (and against the groove's wall, where the brush pushed it)
     T[i] = Math.min(2.4, Math.max(T[i], film + pool));
     const X = i % cw, Y = (i / cw) | 0; if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; }
   S.next = n; return x1 >= 0 ? [x0, y0, x1, y1] : null;
@@ -98,7 +98,7 @@ export function shadeRock(F, look, img, bb = null) {
     const i = Y * cw + X, slab = S ? S[i] : 0, pk = K[i], t = T[i], q = i * 4;
     const ab = Math.max(slab, sm(.05, .4, pk));                        // the rock shows where it is a panel or was pecked
     if (ab <= 0 && t <= 0) { o[q + 3] = 0; continue; }
-    const hk = .35 + .65 * (1 - sm(.2, .8, t)), h = (j) => G[j] + F.Wb[j] + H[j] * hk;   // (under a coat of paint the pits' relief softens)
+    const hk = .12 + .88 * (1 - sm(.15, .7, t)), h = (j) => G[j] + F.Wb[j] + H[j] * hk;   // (under a coat of paint the pits' relief softens)
     const gx = (h(i + 1) - h(i - 1)) / (2 * px), gy = (h(i + cw) - h(i - cw)) / (2 * px), l = Math.hypot(gx, gy, 1);
     const ndl = (-gx * LV[0] - gy * LV[1] + LV[2]) / l, lit = .8 + .4 * (ndl - LV[2]);
     // the rock: the crystal's colour; pecked, its faces crushed paler and its contrast lost
@@ -108,12 +108,15 @@ export function shadeRock(F, look, img, bb = null) {
     if (F.lift && look.paper) { const lf = look.lift * (1 - pe); r += (look.paper[0] - r) * lf; g += (look.paper[1] - g) * lf; b += (look.paper[2] - b) * lf; }
     // the paint: thin film is the dry red, a body of it the fresh red, a pool the dark; its cover by Beer's law, over the
     // rock where there is rock, over nothing (the page) where the brush strayed onto unpecked, unshown ground
-    let a = 0, cr = 0, cg = 0, cb = 0;
+    let a = 0, cr = 0, cg = 0, cb = 0, gloss = 0;
     if (t > 0) { const [d, f, p] = look.paint, m1 = sm(.12, .7, t), m2 = sm(1.1, 2.2, t); a = 1 - Math.exp(-3.6 * t);
       // the film has body: its own edge lit on the sunward side and shadowed on the other, a little sheen on its top
       const tx = (T[i + 1] - T[i - 1]) / (2 * px), ty = (T[i + cw] - T[i - cw]) / (2 * px), fe = Math.max(-1, Math.min(1, -(tx * LV[0] + ty * LV[1]) * .35 * F.g));
-      const pr = d[0] + (f[0] - d[0]) * m1, pg = d[1] + (f[1] - d[1]) * m1, pb = d[2] + (f[2] - d[2]) * m1, sh = (.55 + .45 * lit) * (1 + .16 * fe) + .05 * sm(.5, 1, t) * sm(.97, 1.08, lit);
-      cr = (pr + (p[0] - pr) * m2) * sh; cg = (pg + (p[1] - pg) * m2) * sh; cb = (pb + (p[2] - pb) * m2) * sh; }
+      const pr = d[0] + (f[0] - d[0]) * m1, pg = d[1] + (f[1] - d[1]) * m1, pb = d[2] + (f[2] - d[2]) * m1, sh = (.7 + .3 * lit) * (1 + .16 * fe);
+      // its gloss: the film's own surface (its thickness over the softened rock) catching the light where it faces it
+      const fnx = -(gx * .5 + tx * .25 * F.g), fny = -(gy * .5 + ty * .25 * F.g), fl = Math.hypot(fnx, fny, 1), hx = LV[0], hy = LV[1], hz = LV[2] + 1, hl = Math.hypot(hx, hy, hz);
+      gloss = .16 * sm(.35, .9, t) * Math.max(0, (fnx * hx + fny * hy + hz) / (fl * hl)) ** 60;
+      cr = (pr + (p[0] - pr) * m2) * sh + gloss; cg = (pg + (p[1] - pg) * m2) * sh + gloss * .9; cb = (pb + (p[2] - pb) * m2) * sh + gloss * .85; }
     const oa = a + ab * (1 - a);
     o[q] = clamp01(cr * a + r * ab * (1 - a)) * 255; o[q + 1] = clamp01(cg * a + g * ab * (1 - a)) * 255; o[q + 2] = clamp01(cb * a + b * ab * (1 - a)) * 255; o[q + 3] = oa * 255;
   }

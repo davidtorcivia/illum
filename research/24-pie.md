@@ -310,3 +310,45 @@ Beauty 2, not yet 3.
   vocabulary is broad enough for a page to vary. At 4× the paint is mottled (pit by pit) where the Vitlycke paint is a
   smoother, glossier film. Some figures are still sketches beside the panels: the horse's head, the chariot's horses, the
   lur's horn. The drop compositions sometimes crowd, a figure close to a letter's leg. Beauty 2.
+
+## Stage 4: the figures made by a hand (the user: "the figures are too neat and even: perfect circles, perfect straight lines")
+
+The letters were kept; the figures and the paint film changed.
+- **Every figure groove carries the hand** (`handed()` in kit/styles/pie-rock.js): resampled along its length, its course
+  wanders off the drawn line by ~.07 of its width over two wavelengths (the arm's reach, the hammer-stone's angle), its
+  width breathes ±12 %, and its ends stay blunt. The amplitude is measured: a Tanumshede keel departs from a smooth
+  cubic by .066 of the hull band, rms (scratchpad pie/py/fig.py). The letters keep their own, lighter hand.
+- **Nothing round or square.** Rings (`loop()`) swell and dip in radius (two and three lobes, ~6 % and ~3.5 %), sit a
+  little off-centre, are slightly oval, and overlap where they were closed. A sun-wheel's rim breathes in width; its
+  spokes cross neither at 90° nor at the centre, and each overruns or falls short of the rim. Rays are uneven; spirals
+  open unevenly and are oval. The rings', rims' and spirals' amplitudes are **by eye** (no clean sun-wheel photograph
+  among the open sources).
+- **Fleshy forms.**
+  - Horses: the body 2–2.6 lw, the neck 2.2 tapering to 1.3, the head long and dropped, the legs 1.35 tapering to .6,
+    each with its own length and lean.
+  - Deer and cranes: likewise heavier.
+  - People: a heavy torso (2.3), bulging calves (2.3 against .95 at the ankle), big feet and hands.
+  - Ship hulls: a thick band (1.3 to 2.6 lw, thickening toward the prow); the crew vary in spacing, height and lean,
+    with heavier tops.
+
+  Widths are by eye from tanumshede-7 and the Vitlycke warrior (my automatic medial-width measurement of the deer and
+  the crew failed on the joined figures).
+- **Scale and collisions.** A drop's figure is up to ~.42 of the drop's height: a partner, not a footnote. Every figure
+  is checked against the letter's strokes (its pits kept a groove's width clear) and made smaller until it fits, or
+  left out. The ship's crew stop clear of a letter above them, except one in three, which reaches up into it and shares
+  its line on purpose.
+- **The paint film.**
+  - Under a coat, the pits' relief is softened to ~12 %; the pooling in each pit floor is cut to a third; the darker rim
+    at the groove's wall is kept.
+  - A gloss: the film's own surface catches the light (a narrow specular term).
+  - A long groove's brush is reloaded every ~9 widths, so loops and keels don't run dry halfway.
+  - Skips are subtler: a grain the brush missed lightens the film rather than opening it.
+- **Speed (mock).** In view: 37 ms at dpr 1, 56–67 ms at dpr 2. Every piece at once: 130 ms (dpr 1), 269 ms (dpr 2).
+  Alphabet specimen ~1.6 s.
+- **Where it stands (honest).**
+  - The figures are fleshier and no longer geometric. The paint reads as a smooth red film with organic edges.
+  - Beside the panels at 4×, our horse is still leaner and longer in the leg than Tanum's animals.
+  - Our ship's crew comb is sparser and less regular than the master's dense comb of rounded strokes, and the oval
+    openings between keel and gunwale are missing.
+  - Some drop animals come out small where the collision fit had to shrink them.
+  - Beauty 2, closer to 3 at 1× than before.
