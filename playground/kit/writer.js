@@ -20,7 +20,9 @@ let ok = null;
 export function supported() {
   if (ok !== null) return ok;
   try { const gl = document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true });
-    if (!gl?.getExtension('EXT_color_buffer_float')) return ok = false;
+    // (the medium renders into half-float targets: full float or the half-float extension will do — many phones' GPUs
+    // have only the latter)
+    if (!gl?.getExtension('EXT_color_buffer_float') && !gl?.getExtension('EXT_color_buffer_half_float')) return ok = false;
     const info = gl.getExtension('WEBGL_debug_renderer_info'), name = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
     gl.getExtension('WEBGL_lose_context')?.loseContext();
     return ok = !/swiftshader|llvmpipe|softpipe|lavapipe|software|basic render|warp/i.test(name); }

@@ -130,7 +130,7 @@ export function lineInto(bake, L, damp, rgb, { dpr = 2, wet = .9, ink = 1.3, onl
 export function washPour(bake, L, rgb, { dpr = 2, seed = 1, ink = .42, edge = 1, bloom = .5, soft = 0, wet = .35, gran = .42, pool = .3, lifts = .5, glaze = null, steps = 18 } = {}) {
   const { M, w, h, x0, y0, res } = L;
   if (!supported()) { const c = new OffscreenCanvas(w, h), g = c.getContext('2d'), im = g.createImageData(w, h);
-    for (let i = 0; i < w * h; i++) { im.data.set([rgb[0], rgb[1], rgb[2], Math.round(Math.min(1, M[i]) * 150)], i * 4); } g.putImageData(im, 0, 0); bake.drawImage(c, x0 * dpr, y0 * dpr, w / res * dpr, h / res * dpr); return; }
+    for (let i = 0; i < w * h; i++) { im.data.set([rgb[0], rgb[1], rgb[2], Math.round(Math.min(1, M[i]) * 235)], i * 4); } g.putImageData(im, 0, 0); bake.drawImage(c, x0, y0, w / res, h / res); return; }   // (without the medium: the wash laid flat, at its full load, where it belongs — the bake is in page px, as inkLetter's flat letter lays it)
   const rag = noise2(seed ^ 0x13), slow = noise2(seed ^ 0x2b), bl = noise2(seed ^ 0x47);
   // the wash's own edge: a little uneven (the brush's load and the paper), softened where it ran wet into wet
   const S = blur(M, w, h, Math.max(1, Math.round((.6 + soft) * res))), C = new Float32Array(w * h), [a0, b0, a1, b1] = S.reach;   // (outside S.reach, S, C and all after are empty)

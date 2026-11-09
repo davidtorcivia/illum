@@ -121,7 +121,8 @@ void main(){
 
 export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1), seed = 7, paper = [243, 237, 225], ink = [30, 21, 15], rough = .6 } = {}) {
   const gl = canvas.getContext('webgl2', { antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: true });
-  if (!gl || !gl.getExtension('EXT_color_buffer_float')) throw new Error('This needs WebGL2 with float render targets.');
+  // (its targets are RGBA16F: renderable with EXT_color_buffer_float, or on many phones' GPUs only EXT_color_buffer_half_float)
+  if (!gl || !(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'))) throw new Error('This needs WebGL2 with float render targets.');
   gl.getExtension('EXT_float_blend');
   let W = canvas.width, H = canvas.height;
   const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
