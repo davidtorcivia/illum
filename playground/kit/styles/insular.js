@@ -47,22 +47,27 @@ function smallInitial(c, H, seed, res, theme) {
   const L = D.letterField(c, H, { res, bold: H * .08 }), S = new Sheet([0, 0, L.W, L.Ht], res), px = 1 / res, dk = theme === 'dark';
   const pen = Math.max(.7 * px, H * .045), band = Math.max(.8 * px, H * .07), lay = (ink, d0) => { const M = new Float32Array(L.w * L.h); for (let q = 0; q < M.length; q++) M[q] = Math.max(0, Math.min(1, (L.Din[q] - d0) * res + .5)) * (L.M[q] > .02 ? 1 : 0); S.image(ink, M); };
   lay(KIND === 'lind' && dk ? 'l' : 'k', 0); lay('y', pen); lay('r', pen + band);
-  const dr = Math.max(.7 * px, H * .035); for (const lp of D.ring(L, dr * 2.2)) S.dots(dotsAlong(lp, dr * 2 * 1.85, dr, true, { load: 11 }), 'd');
+  const dr = Math.max(.7 * px, H * .035); for (const lp of D.ring(L, dr * 1.45)) S.dots(dotsAlong(lp, dr * 2 * 1.85, dr, true, { load: 11 }), 'd');
   // its counters: the diaper of red dots f. 27r sets in a closed counter, in a lozenge lattice clear of the letter's edge
   const pit = dr * 2 * 1.9, hd = []; for (let y = L.P, row = 0; y < L.Ht - L.P; y += pit * .87, row++) for (let x = L.P + (row % 2) * pit / 2; x < L.W - L.P; x += pit) if (L.at(x, y, L.hole) && L.at(x, y, L.Dout) > dr * 1.6) hd.push([x, y, dr * .9, 0, 1]);
   if (hd.length) S.dots(hd, 'd');
   S.drift({ amp: H * .01, lam: H * .4, amp2: H * .002, lam2: H * .1, mis: H * .003, seed });
   return { S, ox: L.P, oy: L.P };
 }
-function initial({ ch = 'E', G, big = true, seed = 1 }) {
-  const c = letterOf(ch), [x0, y0, , y1] = G.box, H = y1 - y0, W = widthOf(c) * H;
-  const build = (res, theme) => { if (!big) return smallInitial(c, H, seed, res, theme); const r = DIR().initial(c, H, seed, { theme, res }); return { S: r.S, ox: r.P, oy: r.P }; };
-  return { marks: [], letters: [piece(x0, y0, W, H, build, seed, 0, (big ? 'drop:' : 'line:') + c)], width: W };
+function initial({ ch = 'E', G, big = true, seed = 1, rich = .5 }) {
+  const c = letterOf(ch), [x0, y0, , y1] = G.box, H = y1 - y0, W = widthOf(c) * H, rk = rich >= 1 ? 1 : rich >= .75 ? .75 : .5;
+  const build = (res, theme) => { if (!big) return smallInitial(c, H, seed, res, theme); const r = DIR().initial(c, H, seed, { theme, res, rich: rk }); return { S: r.S, ox: r.P, oy: r.P }; };
+  return { marks: [], letters: [piece(x0, y0, W, H, build, seed, 0, (big ? 'drop:' : 'line:') + c + ':' + rk)], width: W };
 }
 initial.width = ch => widthOf(ch) + .04;
 initial.line = ch => widthOf(ch) + .04;
 initial.lines = 4; initial.phone = 3; initial.margin = .3;
-initial.load = () => document.fonts.load(`40px ${FACE}`).then(() => {});
+// the face: Illum Uncial Caps, Uncial Antiqua (OFL; its licence beside it) subset to the capitals and renamed (the OFL's
+// Reserved Font Name is not used for a modified version), loaded once (a page that declares it itself
+// in CSS has it already)
+const fontDir = new URL('../../fonts/insular/', import.meta.url); let faceP = null;
+initial.load = () => faceP ??= (document.fonts.check(`40px ${FACE}`) && [...document.fonts].some(f => f.family.replace(/"/g, '') === FACE) ? Promise.resolve()
+  : new FontFace(FACE, `url(${new URL('illum-uncial-caps.woff2', fontDir)})`).load().then(f => { document.fonts.add(f); }).catch(e => console.warn('insular:', e)));
 
 // ---- the paraph, fillers, breaks ---------------------------------------------------------------------------------------------------
 // the paraph: in the gap the indent keeps (u: the x-height): Lindisfarne's small knot and three dots, Durrow's two coils
@@ -98,18 +103,24 @@ const linesBox = (box, lines) => !lines?.length ? box : [Math.min(...lines.map(L
 const margin = (xl, top, bot, u, seed) => { const ht = Math.min(u * 2.6, Math.max(u * 1.6, xl - u * .9 - 4)), len = bot - top + u * 2.4; if (len < u * 6) return [];
   const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durBand : D.lindBand)(len, ht, seed, { theme, res }); return { S: r.S, ox: (r.W - len) / 2, oy: (r.H - ht) / 2 }; };
   return [piece(Math.max(4, xl - u * .9 - ht), top - u * 1.2, ht, len, build, seed, 1, 'margin')]; };
-const frameAround = ([X0, Y0, X1, Y1], seed) => { const bw = X1 - X0, bh = Y1 - Y0;
-  const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durFrame : D.lindFrame)(bw, bh, seed, { theme, res }); return { S: r.S, ox: r.pad, oy: r.pad }; };
-  return [piece(X0, Y0, bw, bh, build, seed, 0, 'frame')]; };
+const frameAround = ([X0, Y0, X1, Y1], seed, level = 1) => { const bw = X1 - X0, bh = Y1 - Y0;
+  const build = (res, theme) => { const r = (KIND === 'durrow' ? D.durFrame : D.lindFrame)(bw, bh, seed, { theme, res, level }); return { S: r.S, ox: r.pad, oy: r.pad }; };
+  return [piece(X0, Y0, bw, bh, build, seed, 0, 'frame' + level)]; };
+const levelOf = rich => rich < .25 ? 0 : rich < .75 ? 1 : rich < 1 ? 2 : 3;
 const frames = {
   quote: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : margin(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
-  aside: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : margin(L[0], L[1], L[3] + u * .3, u, seed + 4) }; },
+  // (an aside: from fine its margin band; lavish, a ruled frame round it as well)
+  aside: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : [...margin(L[0], L[1], L[3] + u * .3, u, seed + 4), ...(rich >= 1 && box ? frameAround([box[0] + u, box[1] + u, box[2] - u * .4, box[3] - u], seed + 9, 1) : [])] }; },
   pull: ({ cx, yTop, yBot, measure, u, seed = 1, rich = .5 }) => { if (rich < .25) return { marks: [], letters: [] };
-    const W = Math.min(measure * .42, u * 30) * (rich >= 1 ? 1.15 : 1), ht = u * 2.4, f = KIND === 'durrow' ? D.durBand : D.lindBand;
-    const one = (yc, s) => piece(cx - W / 2, yc - ht / 2, W, ht, (res, theme) => { const r = f(W, ht, s, { theme, res }); return { S: r.S, ox: (r.W - W) / 2, oy: (r.H - ht) / 2 }; }, s, 0, 'pull');
+    // (modest and usual: a knot panel on its rules; fine, longer; lavish, a band of knotwork)
+    const rk = rich >= 1 ? 3 : 2, W = Math.min(measure * (rich >= 1 ? .6 : .42), u * (rich >= .75 ? 36 : 30)), ht = u * 2.4, f = KIND === 'durrow' ? D.durBand : D.lindBand;
+    const one = (yc, s) => piece(cx - W / 2, yc - ht / 2, W, ht, (res, theme) => { const r = f(W, ht, s, { theme, res, rank: rk }); return { S: r.S, ox: (r.W - W) / 2, oy: (r.H - ht) / 2 }; }, s, 0, 'pull' + rk);
     return { marks: [], letters: [one(yTop - ht * .2, seed + 2), one(yBot + ht * .35, seed + 7)] }; },
-  figure: ({ box, cap, u, seed = 1, rich = .5 }) => rich < .25 ? { marks: [], letters: [] } : { marks: [], letters: frameAround([box[0] - u * 1.2, box[1] - u * 1.2, box[2] + u * 1.2, (cap ?? box[3]) + u * 1.2], seed) },
-  code: ({ box, u, seed = 1, rich = .5 }) => rich < .5 ? { marks: [], letters: [] } : { marks: [], letters: frameAround([box[0] + u * 1.6, box[1] + u * 1.6, box[2] - u * 1.6, box[3] - u * 1.6], seed + 2) },
+  // (plain: the rules and corners alone; usual: dots and the long sides' panels; fine: the short sides' knots too; lavish:
+  // a second row of dots, and the figure's margin band beside it)
+  figure: ({ box, cap, u, seed = 1, rich = .5 }) => { const B = [box[0] - u * 1.2, box[1] - u * 1.2, box[2] + u * 1.2, (cap ?? box[3]) + u * 1.2];
+    return { marks: [], letters: [...frameAround(B, seed, levelOf(rich)), ...(rich >= 1 ? margin(B[0] - u * .6, B[1] + u * 1.2, B[3] - u * 1.2, u, seed + 5) : [])] }; },
+  code: ({ box, u, seed = 1, rich = .5 }) => ({ marks: [], letters: frameAround([box[0] + u * 1.6, box[1] + u * 1.6, box[2] - u * 1.6, box[3] - u * 1.6], seed + 2, levelOf(rich)) }),
   nav: ({ box, entries, u, seed = 1 }) => ({ marks: [], letters: entries.filter(Boolean).map((e, i) => paraph(Math.max(4, box[0] - u * 3.6), e.base, u * .8, seed + i).letters[0]) }),
 };
 

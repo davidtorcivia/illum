@@ -14,7 +14,8 @@ const shade = (c, k, warm = 0) => [c[0] * k * (1 + warm), c[1] * k, c[2] * k * (
 const cache = new Map();
 function pigs(pal, ink) {
   const key = ink + pal[ink].join(','); if (cache.has(key)) return cache.get(key);
-  const c = pal[ink], r = [fromColour(c, .6), fromColour(shade(c, .93, .03), .6)]; cache.set(key, r); return r;
+  // (orpiment: dense, high in S — a body colour, so a thin rule of it reads as gold beside the ink, not as a khaki glaze)
+  const c = pal[ink], X = ink === 'y' ? 1.6 : .6, r = ink === 'y' ? [fromColour(shade(c, 1.05, .02), X), fromColour(shade(c, .95, -.02), X)] : [fromColour(c, X), fromColour(shade(c, .93, .03), X)]; cache.set(key, r); return r;
 }
 export const ROLE = { k: 'ink', gr: 'ink', v: 'vellum', l: 'vellum', d: 'dots' };   // everything else is a pigment
 
@@ -42,25 +43,28 @@ export function paintSheet(S, pal, { order = S.order, seed = 1, grow = false, go
     if (role === 'dots') { layers.push({ pig: pigs(pal, ink)[0], tau: touches(G, M, seed) }); continue; }
     // a pigment: brush loads over its pockets, the colour by load between two mixes of the pot
     const F = fillLoads(G, M, { seed: seed + ink.charCodeAt(0) * 7, swath: 1.3, dragP: .3, thr: .3 }), [A, B] = pigs(pal, ink), ta = new Float32Array(n), tb = new Float32Array(n);
-    for (let q = 0; q < n; q++) { if (!(M[q] > 0)) continue; const t = F.tau[q] / Math.max(.5, M[q]), m = .7 * F.mix[q]; ta[q] = t * (1 - m); tb[q] = t * m; }
+    const rub = S.buf?.rub;   // (the strands' raised middles rubbed thin: the geometry knows where they run)
+    for (let q = 0; q < n; q++) { if (!(M[q] > 0)) continue; const t = F.tau[q] / Math.max(.5, M[q]) * (rub ? 1 - rub[q] : 1), m = .7 * F.mix[q]; ta[q] = t * (1 - m); tb[q] = t * m; }
     layers.push({ pig: A, tau: ta }, { pig: B, tau: tb });
   }
   const P = { Rp: new Float32Array(n * 3) }, s = lin(sub); for (let q = 0; q < n; q++) { P.Rp[q * 3] = s[0]; P.Rp[q * 3 + 1] = s[1]; P.Rp[q * 3 + 2] = s[2]; }
   const out = compose(G, P, layers), im = new ImageData(w, h), D = im.data;
   for (let q = 0; q < n; q++) { if (alpha[q] <= 0) continue; for (let k = 0; k < 3; k++) D[q * 4 + k] = Math.round(255 * Math.max(0, Math.min(1, out[q * 3 + k])) ** (1 / 2.2)); D[q * 4 + 3] = Math.round(alpha[q] * 255); }
   const c = new OffscreenCanvas(w, h); c.getContext('2d').putImageData(im, 0, 0);
-  return { canvas: c, T: grow ? times(G, inks.map((ink, i) => ({ ink, M: masks[i], role: ROLE[ink] ?? 'pigment' }))) : null };
+  return { canvas: c, T: grow ? times(G, inks.map((ink, i) => ({ ink, M: masks[i], role: ROLE[ink] ?? 'pigment' })), S.buf?.clock) : null };
 }
 // the making's clock per cell: walks through each ink's coverage (breadth-first, 4-neighbour) from each part's first cell
-function times(G, L) {
+function times(G, L, clock = null) {
   const { w, h, n } = G, T = new Float32Array(n).fill(2), seen = new Uint8Array(n), Q = new Int32Array(n), Dd = new Int32Array(n), px = 1 / G.pxmm;
   // An ink is the pen where it is thin and a ground where it is broad (Lindisfarne's and Durrow's black is both: the line
   // round the letter and the panels' black between the strands): the thin part is drawn with the pen, first, along its
   // path; the broad part painted as a ground, after the colours, from where its brush touched down.
   const jobs = [];
+  // (the black between a field's cords is ground laid round them, not pen: near the cords' own cells it waits for the ground)
+  let nearC = null; if (clock) { const C = new Float32Array(n); for (let q = 0; q < n; q++) C[q] = clock[q] < Infinity ? 1 : 0; nearC = blur(C, w, h, 3); for (let q = 0; q < n; q++) if (C[q]) nearC[q] = 0; }
   for (const l of L) {
     if (l.role === 'ink' || l.role === 'vellum') { const D = insideDist(G, l.M), K = new Float32Array(n); for (let q = 0; q < n; q++) K[q] = D[q] >= 1.8 * px ? 1 : 0;
-      const B = blur(K, w, h, 1.6), pen = new Float32Array(n), gr = new Float32Array(n); for (let q = 0; q < n; q++) { if (B[q] > .12) gr[q] = l.M[q]; else pen[q] = l.M[q]; }
+      const B = blur(K, w, h, 1.6), pen = new Float32Array(n), gr = new Float32Array(n); for (let q = 0; q < n; q++) { if (B[q] > .12 || (nearC && nearC[q] > .04)) gr[q] = l.M[q]; else pen[q] = l.M[q]; }
       jobs.push({ M: pen, ph: [0, .3], span: 1.2 }, { M: gr, ph: [.6, .84], span: 1.6 }); }
     else if (l.role === 'dots') jobs.push({ M: l.M, ph: [.84, 1], span: 0 });
     else jobs.push({ M: l.M, pig: true, span: 2.2 }); }
@@ -80,6 +84,10 @@ function times(G, L) {
     for (const p of lines) for (const q of p.cells) T[q] = Math.min(T[q], .04 + .9 * Dd[q] / p.far);
     const N = touches.length; touches.forEach((p, k) => { const t0 = a + (b - a) * k / Math.max(1, N), span = (b - a) / Math.max(1, N) * sp;
       for (const q of p.cells) T[q] = Math.min(T[q], t0 + (p.far ? span * Dd[q] / p.far : 0)); }); }
+  // the knots and twists: written cord by cord along each cord's length, as the geometry recorded it (Sheet.along 'clock'),
+  // between the letter's outline and its colours — not flooded through the mesh they make
+  if (clock) { let N = 0; for (let q = 0; q < n; q++) if (clock[q] < Infinity && clock[q] > N) N = clock[q];
+    if (N > 0) for (let q = 0; q < n; q++) { const c = clock[q]; if (c < Infinity && T[q] < .84) T[q] = .1 + .5 * (c - 1) / N; } }
   // (a cell under-covered by every ink takes its neighbours' moment, a few passes: no rim lingers to the end)
   // (each pass reads the last one's moments, not its own: in place, an edge's earliest moment ran along a whole row of rim
   // in one pass, and a line's faint outline showed the moment it began)

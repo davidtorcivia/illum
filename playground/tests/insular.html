@@ -29,6 +29,7 @@
   p.par { text-indent: calc(1.8em * max(1, var(--orn, 1))); }   /* (wider for a larger paraph: ?scale) */
   hr { border: 0; height: 3.4em; margin: .4em 0; }
   hr[data-rank="2"] { height: 9em; margin: 1em 0 0; }
+  hr[data-rank="3"] { height: 6em; margin: 1.2em 0 .4em; }
   a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
   nav.toc { margin: 0 0 2.4em; font-style: italic; }
   nav.toc ol { list-style: none; margin: 0; padding: 0; }
@@ -111,6 +112,8 @@
     <p>Ornament that marks everything marks nothing. In the book the ladder was strict: a painted initial opened a book, a penwork initial a chapter, a paraph a paragraph.</p>
     <p class="pull">Our most invisible typographic convention is an ornament that was never painted.</p>
     <p class="par">On the web the ranks are already in the markup: headings, sections, quotations, figures, code, asides, navigation.</p>
+
+    <hr data-rank="3">
 
     <h2 id="grown">Grown from the page</h2>
     <p>Each frame on this page is measured from its box when the page is laid out, and written again when it changes.</p>

@@ -152,6 +152,13 @@ export function knot(sheet, C, crossings, { layers, gap = 1, ground = null, colo
     lay(2, ov.t, stretch(c, s - Lp, s + Lp), false, Math.max(0, k));
   }
   for (const j of [...jobs.values()].sort((a, b) => a.ph - b.ph || a.i - b.i)) sheet.strokeMany(j.list, j.ink == null || j.ink === 'null' ? null : j.ink, { trap: j.ph === 1 ? 0 : trap });
+  // the making: each cord written in turn along its length (?draw); the strand's raised middle rubbed thin, broken along it,
+  // most where it rides over a crossing (it stands highest there) — the cause is the facing page and the reader's hand
+  const rubAmp = layers.length >= 2 ? .5 * Math.min(1, W / 3) : 0;
+  C.forEach(c => { const n0 = sheet.clockN = (sheet.clockN ?? 0) + 1; sheet.along('clock', c.pts, W + 1, (s, L) => n0 + s / L);
+    if (!rubAmp) return; const nb = noise2(c.pts.length * 13 + 5), overs = c.ev.map((e, i) => e.cross && e.over ? c.s[i] : null).filter(v => v != null), Lc = c.L;
+    sheet.along('rub', c.pts, W * .34, (s, L) => { const sc = s / L * Lc, near = overs.some(o => Math.abs(o - sc) < W * .7) ? 1 : .45, b = Math.max(0, Math.min(1, (nb(sc / (W * 1.1), .5) - .45) * 3));
+      return rubAmp * near * b; }); });
 }
 // each cord's distance between crossings (so a laid-again stretch never reaches the next crossing)
 export function measure(C, u) { for (const c of C) { c.unit = u; c.step = Math.SQRT2 * u; } return C; }
@@ -233,12 +240,27 @@ export class Sheet {
       const TS = 16, tw = Math.ceil(w / TS), th = Math.ceil(h / TS), occ = new Uint8Array(tw * th), reach = Math.ceil((amp + amp2) * res + Math.abs(ox) + Math.abs(oy)) + 2;
       for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (A[j * w + i]) { const a0 = Math.max(0, Math.floor((i - reach) / TS)), a1 = Math.min(tw - 1, Math.floor((i + reach) / TS)), b0 = Math.max(0, Math.floor((j - reach) / TS)), b1 = Math.min(th - 1, Math.floor((j + reach) / TS)); for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) occ[b * tw + a] = 1; }
       for (let j = 0, q = 0; j < h; j++) for (let i = 0; i < w; i++, q++) {
-        if (!occ[((j / TS) | 0) * tw + ((i / TS) | 0)]) { i += TS - 1 - (i % TS); q = j * w + i; continue; }
+        if (!occ[((j / TS) | 0) * tw + ((i / TS) | 0)]) { i = Math.min(w - 1, i + TS - 1 - (i % TS)); q = j * w + i; continue; }   // (held to the row: past its end, q ran into the next row)
         const u = i - DX[q] - ox, v = j - DY[q] - oy, i0 = Math.floor(u), j0 = Math.floor(v), fu = u - i0, fv = v - j0;
         if (i0 < 0 || j0 < 0 || i0 >= w - 1 || j0 >= h - 1) { d[q * 4 + 3] = 0; continue; }
         const p = j0 * w + i0; d[q * 4 + 3] = (A[p] * (1 - fu) + A[p + 1] * fu) * (1 - fv) + (A[p + w] * (1 - fu) + A[p + w + 1] * fu) * fv; }
       g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'copy'; g.putImageData(im, 0, 0); g.restore(); g.globalCompositeOperation = 'source-over';
     }
+    // (the fields that go with the ink — the making's clock, the rubbing — moved with it, nearest cell)
+    for (const [name, F] of Object.entries(this.buf ?? {})) { const O = new Float32Array(F.length).fill(name === 'clock' ? Infinity : 0);
+      for (let j = 0, q = 0; j < h; j++) for (let i = 0; i < w; i++, q++) { const u = Math.round(i - DX[q]), v = Math.round(j - DY[q]); if (u >= 0 && v >= 0 && u < w && v < h) O[q] = F[v * w + u]; }
+      this.buf[name] = O; }
+  }
+  // A field the printer reads beside the inks, drawn along a line: 'clock' (when each cell was made: kept the earliest), 'rub'
+  // (how far the paint was rubbed thin: kept the most). fn(s, L) gives the value at arc length s of the line's length L.
+  field(name) { this.buf ??= {}; return this.buf[name] ??= new Float32Array(this.w * this.h).fill(name === 'clock' ? Infinity : 0); }
+  along(name, pts, w, fn, close = true) {
+    const F = this.field(name), { res } = this, [x0, y0] = this.box, n = pts.length, m = close ? n : n - 1, r = w / 2, min = name === 'clock';
+    let L = 0; const S = [0]; for (let k = 0; k < m; k++) { const a = pts[k], b = pts[(k + 1) % n]; L += Math.hypot(b[0] - a[0], b[1] - a[1]); S.push(L); }
+    for (let k = 0; k < m; k++) { const a = pts[k], b = pts[(k + 1) % n], ex = b[0] - a[0], ey = b[1] - a[1], L2 = ex * ex + ey * ey || 1e-9;
+      const i0 = Math.max(0, Math.floor((Math.min(a[0], b[0]) - r - x0) * res)), i1 = Math.min(this.w - 1, Math.ceil((Math.max(a[0], b[0]) + r - x0) * res)), j0 = Math.max(0, Math.floor((Math.min(a[1], b[1]) - r - y0) * res)), j1 = Math.min(this.h - 1, Math.ceil((Math.max(a[1], b[1]) + r - y0) * res));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const px = x0 + (i + .5) / res - a[0], py = y0 + (j + .5) / res - a[1]; let t = (px * ex + py * ey) / L2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+        if ((px - t * ex) ** 2 + (py - t * ey) ** 2 > r * r) continue; const q = j * this.w + i, v = fn(S[k] + t * (S[k + 1] - S[k]), L); if (min ? v < F[q] : v > F[q]) F[q] = v; } }
   }
   // pour every ink (order: bottom first) through the ink engine; tex(ink) -> grain amount (0: a flat coat, as the key).
   // alias: { ink: other } pours an ink as part of another (the dots are the red lead, one pour). Each pour covers only the
