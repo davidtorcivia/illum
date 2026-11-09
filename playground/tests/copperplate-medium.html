@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copperplate medium</title>
+<!--
+  The medium first (research/23-copperplate.md): engraved hairlines at full widths .4-1.4 px, a lens with a hairline
+  crossing it, a terminal curl to a point and one to a ball, printed through the ink engine (kit/styles/copperplate-print.js
+  engrave) beside the same written by the pen (quill); light and dark. For the hairline floor and the 4x look.
+-->
+<style>
+  html { background: rgb(236 231 220); } body { margin: 0; font: 15px/1.4 Georgia, serif; color: #2b2119; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; padding: 12px; }
+  figure { margin: 0; padding: 10px; background: var(--paper); } figcaption { font-size: 12px; opacity: .7; color: var(--ink); }
+  [data-theme=light] { --paper: rgb(244 238 226); --ink: #2b2119; } [data-theme=dark] { --paper: rgb(24 22 20); --ink: rgb(222 212 196); }
+  canvas, img { display: block; }
+</style>
+</head>
+<body>
+<div class="row" id="out"></div>
+<script type="module">
+import { beauty, oval, curl, join, burin, shade, lens, stroke, coverage, engrave, quill } from '../kit/styles/copperplate-print.js';
+const dpr = Math.min(2, devicePixelRatio || 1), out = document.getElementById('out'), t0 = performance.now();
+const INK = { light: [30, 24, 22], dark: [208, 146, 104] };
+function sample(kind) {
+  const S = [];
+  [.4, .6, .8, 1.0, 1.2, 1.4].forEach((fw, k) => { const p = burin([[20, 20 + k * 14], [300, 20 + k * 14]], 3 + k, 0); S.push(stroke(p, new Float32Array(p.length).fill(fw / 2), { start: 'blunt', end: 'blunt' })); });
+  // a long sweep, its lens on the near-horizontal run, and a hairline crossing it
+  const sw = burin(join(beauty([20, 190], [300, 130], .12), curl([300, 130], -.6, 22, -1)), 11);
+  S.push(stroke(sw, shade(sw, { hair: .35, peak: 3.2, axis: [1, 0] }), { start: 'point', end: 'point', hair: .35 }));
+  const cr = burin(beauty([60, 120], [240, 230], -.2), 12); S.push(stroke(cr, lens(cr, new Float32Array(cr.length).fill(.35), .2, .9, 2.4), { start: 'ball', end: 'point', hair: .35 }));
+  const o = burin(oval([170, 200], 70, 26, .12, 0, 2 * Math.PI * 1.02), 13); S.push(stroke(o, shade(o, { hair: .35, peak: 2.6, axis: [-1, 0] }), { start: 'point', end: 'ball', hair: .35 }));
+  return S;
+}
+for (const theme of ['light', 'dark']) for (const kind of ['engrave', 'quill']) {
+  const f = document.createElement('figure'); f.dataset.theme = theme; const cv = document.createElement('canvas'), W = 330, H = 250;
+  cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px'; f.append(cv);
+  const cap = document.createElement('figcaption'); cap.textContent = `${kind}, ${theme}: hairlines .4 .6 .8 1 1.2 1.4 px; a lens and a crossing; curls`; f.append(cap); out.append(f);
+  const S = sample(kind), g = cv.getContext('2d');
+  if (kind === 'engrave') engrave(g, coverage(S, [0, 0, W, H], Math.max(3, dpr * 2)), INK[theme], { dpr });
+  else quill(g, S, theme === 'light' ? [58, 38, 28] : [226, 214, 192], { dpr, box: [0, 0, W, H], seed: 5 });
+}
+document.body.dataset.timing = `drawn in ${Math.round(performance.now() - t0)} ms`;
+</script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copperplate directions</title>
+<!--
+  Copperplate, direction studies (research/23-copperplate.md): A the plate, B the writing master's pen, C command of hand.
+  Each: a drop initial, a paraph, a line-filler, a break and a quotation's head at page size in light and dark, then
+  enlarged, and the master beside ours. Drawn live as vector (tests/copperplate-directions.js) and printed through the ink
+  engine (kit/styles/copperplate-print.js).   ?only=plate|pen|hand  ?letters=BLRS  #seed=n
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  html { background: rgb(236 231 220); }
+  body { margin: 0; font: 400 20px/1.6 "EB Garamond", Garamond, serif; color: #2b2119; -webkit-font-smoothing: antialiased; }
+  header { max-width: 1320px; margin: 0 auto; padding: 40px 24px 0; }
+  header h1 { font-weight: 500; font-size: 1em; letter-spacing: .14em; text-transform: uppercase; margin: 0; }
+  header p { font-style: italic; margin: .2em 0 0; font-size: .9em; }
+  header nav a { color: inherit; margin-right: 1em; font-size: .9em; }
+  section.dir { max-width: 1320px; margin: 0 auto; padding: 36px 24px 12px; }
+  section.dir > h2 { font-weight: 500; font-size: 1em; letter-spacing: .1em; text-transform: uppercase; margin: 0 0 .2em; }
+  section.dir > p.note { margin: 0 0 1em; font-style: italic; font-size: .9em; max-width: 56em; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel { position: relative; padding: 44px 44px 40px 56px; background: var(--paper); color: var(--ink); overflow: hidden; }
+  [data-theme=light] { --paper: rgb(244 238 226); --ink: #2b2119; }
+  [data-theme=dark] { --paper: rgb(24 22 20); --ink: rgb(222 212 196); }
+  .panel .text { position: relative; hyphens: auto; text-align: justify; max-width: 560px; }
+  .panel p { margin: 0; } .panel p.par { text-indent: 0; margin-top: .5em; }
+  .panel .pf { display: inline-block; }
+  .panel hr { border: 0; height: 3.4em; margin: .4em 0; }
+  .panel blockquote { margin: 1em 0 0; padding: 1.3em 0 0 2.4em; font-style: italic; }
+  .ini { float: left; color: transparent; }
+  .zoom { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; align-items: flex-start; }
+  .zoom figure { margin: 0; background: var(--paper); padding: 16px; max-width: 100%; box-sizing: border-box; }
+  .zoom figcaption { font: italic 13px/1.3 "EB Garamond", serif; color: var(--ink); opacity: .75; margin-top: 6px; max-width: 46em; }
+  .zoom canvas, .zoom img { display: block; max-width: 100%; height: auto; }
+  .refs { display: flex; gap: 12px; flex-wrap: wrap; width: 100%; }
+  .refs figure { margin: 0; padding: 0; background: none; }
+  .refs img { height: 260px; width: auto; object-fit: contain; }
+  .side { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  @media (max-width: 900px) {
+    body { font-size: 18px; line-height: 1.55; }
+    .pair { grid-template-columns: 1fr; }
+    .panel { padding: 32px 20px 28px 20px; }
+    .panel .text { text-align: left; }
+    section.dir { padding: 28px 0 8px; } header, section.dir > h2, section.dir > p.note { padding-left: 16px; padding-right: 16px; }
+    .refs img { height: 150px; }
+  }
+</style>
+</head>
+<body>
+<header><h1>Copperplate · three directions</h1><p>Each: a drop initial, a paraph, a line-filler, a break and a quotation’s head at page size, light and dark; then enlarged; then the master beside ours. Seed <span id="seed"></span>. <span id="timing"></span></p>
+<nav><a href="?only=plate">A · the plate</a><a href="?only=pen">B · the pen</a><a href="?only=hand">C · command of hand</a><a href="?">all</a></nav></header>
+<template id="txt">
+  <p><span class="ini">B</span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience.</p>
+  <p class="par fill"><span class="pf"></span>Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art for which rules can be given.</p>
+  <hr>
+  <p>A book had no page numbers, no index and no search. Its readers found their way by its ornament: every mark said where you were.</p>
+  <blockquote>Ornament is the mark of a hand that took its time.</blockquote>
+</template>
+<main id="out"></main>
+<script type="module">
+import { DIRS, PAL } from './copperplate-directions.js';
+import { coverage, glyph, thinShades, engrave, quill } from '../kit/styles/copperplate-print.js';
+import { inkLetter } from '../kit/inkletter.js';
+const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+document.getElementById('seed').textContent = seed;
+// the letters (fonts/copperplate/): Pinyon Script for the plate and the hand, Imperial Script for the pen, cut to A-Z
+await Promise.all([['CopperA', 'illum-copper-pinyon-caps.woff2'], ['CopperB', 'illum-copper-imperial-caps.woff2']].map(async ([fam, f]) => { const ff = new FontFace(fam, `url(../fonts/copperplate/${f})`); await ff.load(); document.fonts.add(ff); }));
+await document.fonts.load('20px "EB Garamond"');
+const letters = (q.get('letters') ?? 'BLRS').split(''), dpr = Math.min(2, devicePixelRatio || 1), PAD = 6, t0 = performance.now();
+const NOTES = {
+  plate: 'The engraved plate, after Bickham and Champion (The Universal Penman, 1733–41): the capital from Pinyon Script, its shades cut back to the master’s weight (6–7 % of the cap height), and a few long sweeps cut with the burin: each carries one lens where it runs near the level (15–22 times as long as it is wide, its peak .4 of the way along, full-bodied), hairlines even along their length that end in a point or a ball. Intaglio: the ink lies in the cut, crisp, no creep. In the dark, the plate itself: its cuts bright copper.',
+  pen: 'The writing master’s own pen: the same hand written with a pointed quill in iron-gall ink (the approved pen of the ink engine, kit/medium.js): the shade where the pen is pulled down the slant (54–57°), the swell given as pressure, the ink pooling where the hand slows into a turn, blunt ends where the nib closes. The copybook’s ovals, the running oval, the compound curve. The capital from Imperial Script. In the dark, white ink on a dark card.',
+  hand: 'Command of hand, after Bickham’s ABC headpiece (the capitals in rosettes, Universal Penman p. 209) and the WIT bands (p. 46): the capital in a ring of loops written as one continuous stroke, each loop shaded on its level run; a knot of three loops for the paraph, running loops for the filler, a band of loops swelling to the middle for the break, loops along the quotation’s head and down its margin. Engraved, as A. In the dark, an ivory ink.',
+};
+const REFS = {
+  plate: [['bickham-0040-command.jpg', 'Bickham sculp., after Chambers: the command of hand (Universal Penman, Getty Research Institute via IA, not in copyright)'], ['champion-caps.jpg', 'Joseph Champion’s round-hand capitals, engraved (the same book)'], ['velde-spieghel-31.jpg', 'Jan van de Velde, Spieghel der Schrijfkonste (1605), Met 358328 (CC0): the Dutch comparison']],
+  pen: [['forbes-lion-detail.jpg', 'H. E. Forbes, Ornamental Lion Composed of Scrolls, pen and ink, Met 363599 (CC0): the pen’s shade, its pooling and pale hairlines'], ['champion-caps.jpg', 'Champion’s capitals (engraved after the pen)']],
+  hand: [['bickham-abc-rosettes.jpg', 'Bickham, the ABC headpiece: capitals in rosettes of loops (Universal Penman p. 209, Getty via IA)'], ['bickham-0124-wit.jpg', 'John Bickham sculp., WIT (p. 46): bands of loops']],
+};
+const SIDE = { plate: 'champion-B.jpg', pen: 'forbes-lion-detail.jpg', hand: 'bickham-rosette-B.jpg' };
+// a piece printed onto its own canvas, PAD px of margin round it, at zoom; the piece made for that zoom (its hairline floor)
+function printed(key, theme, make, zoom = 1) {
+  const d = dpr * zoom, piece = make(d), { W, H } = piece, cv = document.createElement('canvas'), rgb = PAL[key][theme];
+  cv.width = Math.ceil((W + PAD * 2) * d); cv.height = Math.ceil((H + PAD * 2) * d); cv.style.width = (W + PAD * 2) * zoom + 'px'; cv.style.height = (H + PAD * 2) * zoom + 'px';
+  const g = cv.getContext('2d'), box = [0, 0, W + PAD * 2, H + PAD * 2], res = Math.max(2, d * 1.25);
+  const strokes = piece.strokes.map(s => ({ p: s.p.map(([x, y]) => [x + PAD, y + PAD]), w: s.w, balls: s.balls.map(([[x, y], r]) => [[x + PAD, y + PAD], r]) }));
+  let Lm = null;
+  if (piece.letter) { const { ch, face, cap, cx, cy } = piece.letter, draw = glyph(ch, face, cap, cx + PAD, cy + PAD); Lm = thinShades(coverage([], box, res, draw), .3, res * .9); }
+  if (piece.medium === 'engrave') { const M = coverage(strokes, box, res); if (Lm) for (let i = 0; i < M.M.length; i++) M.M[i] = Math.max(M.M[i], Lm.M[i]); engrave(g, M, rgb, { dpr: d }); }
+  else { if (Lm) inkLetter(g, { ...Lm, wet: .1, dry: .2 }, rgb, { dpr: d }); quill(g, strokes, rgb, { dpr: d, box, seed }); }
+  return cv;
+}
+const ONLY = q.get('only'), PERF = [];
+for (const key of Object.keys(DIRS).filter(k => !ONLY || ONLY === k)) {
+  const D = DIRS[key], sec = document.createElement('section'); sec.className = 'dir'; sec.id = key;
+  sec.innerHTML = `<h2>${D.name}</h2><p class="note">${NOTES[key]}</p><div class="pair"></div><div class="zoom"></div>`;
+  document.getElementById('out').append(sec);
+  const z = sec.querySelector('.zoom'), fig = (el, cap, theme) => { const f = document.createElement('figure'); if (theme) f.dataset.theme = theme; f.append(el); const fc = document.createElement('figcaption'); fc.textContent = cap; f.append(fc); z.append(f); return f; };
+  { const f = document.createElement('div'); f.className = 'refs'; for (const [src, cap] of REFS[key]) { const fg = document.createElement('figure'); fg.innerHTML = `<img src="copperplate-refs/${src}" alt=""><figcaption>${cap}</figcaption>`; f.append(fg); } z.append(f); }
+  let iniH = 0;
+  for (const theme of ['light', 'dark']) {
+    const panel = document.createElement('div'); panel.className = 'panel'; panel.dataset.theme = theme;
+    const text = document.createElement('div'); text.className = 'text'; text.append(document.getElementById('txt').content.cloneNode(true)); panel.append(text);
+    sec.querySelector('.pair').append(panel);
+    const cs = getComputedStyle(text), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = innerWidth < 600 ? 3 : 4;
+    const capTop = (lh - fs) / 2 + fs * .2, H = (n - 1) * lh + fs * .72; iniH = H;
+    const place = (cv, x, y) => { Object.assign(cv.style, { position: 'absolute', left: x - PAD + 'px', top: y - PAD + 'px', pointerEvents: 'none' }); text.append(cv); };
+    const tp = performance.now(), ini0 = D.initial('B', H, seed, dpr), ispan = text.querySelector('.ini');
+    Object.assign(ispan.style, { width: ini0.W + fs * .3 + 'px', height: n * lh + 'px', lineHeight: '1px', fontSize: '1px' });
+    const par0 = D.paraph(fs, seed, dpr), pf = text.querySelector('.pf'); pf.style.width = par0.W + fs * .3 + 'px'; pf.style.height = '1px';
+    const tr = text.getBoundingClientRect(), ir = ispan.getBoundingClientRect();
+    place(printed(key, theme, d => D.initial('B', H, seed, d)), ir.left - tr.left, ir.top - tr.top + capTop);
+    const pr = pf.getBoundingClientRect(), base = pr.bottom - tr.top;
+    place(printed(key, theme, d => D.paraph(fs, seed, d)), pr.left - tr.left, base - par0.H * (par0.base ?? .9));
+    const p = text.querySelector('p.fill'), rg = document.createRange(); rg.selectNodeContents(p); const last = [...rg.getClientRects()].at(-1);
+    const x0 = last.right - tr.left + fs * .3, gw = tr.width - x0;
+    if (gw > fs * 2) { const fl = D.filler(gw, lh, seed, dpr); place(printed(key, theme, d => D.filler(gw, lh, seed, d)), x0, last.top - tr.top + (last.height - fl.H) / 2 + fs * .12); }
+    const hr = text.querySelector('hr').getBoundingClientRect(), bw = Math.min(tr.width * .7, 380);
+    place(printed(key, theme, d => D.brk(bw, hr.height, seed, d)), (tr.width - bw) / 2, hr.top - tr.top);
+    const bq = text.querySelector('blockquote').getBoundingClientRect(), csz = fs * 1.2;
+    place(printed(key, theme, d => D.corner(csz, seed, d)), bq.left - tr.left, bq.top - tr.top);
+    PERF.push(`${key} ${theme}: ${Math.round(performance.now() - tp)} ms`);
+    fig(printed(key, theme, d => D.initial(theme === 'light' ? 'B' : letters[2] ?? 'R', H, seed, d), 4), `initial, 4× (${theme})`, theme);
+    fig(printed(key, theme, d => D.paraph(fs, seed, d), 4), `paraph, 4×`, theme);
+    fig(printed(key, theme, d => D.filler(150, lh, seed, d), 4), `filler, 4×`, theme);
+    fig(printed(key, theme, d => D.brk(bw, hr.height, seed, d), 2), `break, 2×`, theme);
+    fig(printed(key, theme, d => D.corner(csz, seed, d), 3), `quotation’s head, 3×`, theme);
+  }
+  // the master beside ours, at the same height: page size, then 4x
+  { const side = document.createElement('div'); side.className = 'side';
+    for (const zz of [1, 4]) { const im = document.createElement('img'); im.src = `copperplate-refs/${SIDE[key]}`; im.style.height = (iniH + PAD * 2) * zz + 'px'; im.style.width = 'auto'; side.append(im, printed(key, 'light', d => D.initial('B', iniH, seed, d), zz)); }
+    fig(side, 'master (left) beside ours, at the same height: page size, then 4×', 'light'); }
+  for (const theme of ['light', 'dark']) {
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end';
+    for (const ch of letters) row.append(printed(key, theme, d => D.initial(ch, iniH, seed + ch.charCodeAt(0), d)));
+    fig(row, `${letters.join(' ')}, page size (${theme})`, theme);
+  }
+}
+const ms = Math.round(performance.now() - t0); document.body.dataset.timing = `drawn in ${ms} ms`; document.body.dataset.perf = PERF.join('; ');
+document.getElementById('timing').textContent = `Drawn in ${ms} ms. A page’s ornament (initial, paraph, filler, break, quotation): ${PERF.join('; ')}.`;
+</script>
+</body>
+</html>
