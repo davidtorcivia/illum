@@ -346,7 +346,7 @@ function filigrana1(L, seed, keep = [], level = 2, o = {}) {
   const small = H < 60;   // (a phone's drop: his thinning rule, fewer and plainer parts)
   const out = { frame: [], spokes: [], scrolls: [], pearls: [], spikes: [], dots: [] };
   const Px = (i, j) => [x0 + (i + .5) / res, y0 + (j + .5) / res];
-  const inWords = (x, y, m = 1) => keep.some(k => x >= k[0] - m && x <= k[2] + m && y >= k[1] - m && y <= k[3] + m);
+  const inWords = (x, y, m = 1) => x < 1 + m || keep.some(k => x >= k[0] - m && x <= k[2] + m && y >= k[1] - m && y <= k[3] + m);   // (the page's edge as a word)
   const wob = (pts, a = .18) => { const n = noise1((seed * 31 + pts.length * 7) | 0); return pts.map((p, i) => [p[0] + (n(i * .09) - .5) * a, p[1] + (n(i * .09 + 50) - .5) * a]); };
   const smooth = (p, closed, n = 4) => { let q = p; const m = q.length; for (let it = 0; it < n; it++) q = q.map((pt, i) => {
     if (!closed && (i === 0 || i === m - 1)) return pt; const a = q[closed ? (i - 1 + m) % m : i - 1], b = q[closed ? (i + 1) % m : i + 1]; return [(a[0] + 2 * pt[0] + b[0]) / 4, (a[1] + 2 * pt[1] + b[1]) / 4]; }); return q; };
@@ -572,6 +572,9 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
   const blocked = new Uint8Array(W * H);
   for (const k of keep) { const i0 = Math.max(0, Math.ceil(k[0] - X0 - .5)), i1 = Math.min(W - 1, Math.floor(k[2] - X0 - .5)), j0 = Math.max(0, Math.ceil(k[1] - Y0 - .5)), j1 = Math.min(H - 1, Math.floor(k[3] - Y0 - .5));
     for (let j = j0; j <= j1; j++) if (i1 >= i0) blocked.fill(1, j * W + i0, j * W + i1 + 1); }   // (the words, laid once)
+  // (and the page's edge: on a narrow page the margin's work, which a richer budget carries further out, is laid only where
+  // the page is, never cut off at its edge)
+  for (let i = 0; i < W && X0 + i + .5 < 1; i++) for (let j = 0; j < H; j++) blocked[j * W + i] = 1;
   { const i0 = Math.max(0, Math.floor(gx - X0)), i1 = Math.min(W - 1, Math.ceil(gx + gw / res - X0)), j0 = Math.max(0, Math.floor(gy - Y0)), j1 = Math.min(H - 1, Math.ceil(gy + gh / res - Y0));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (onLetter(X0 + i + .5, Y0 + j + .5)) blocked[j * W + i] = 1; }
   const CL = clearance(X0, Y0, W, H, blocked, 16, g * 1.2);   // (no query asks more than .95 g)
