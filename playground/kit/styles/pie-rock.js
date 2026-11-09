@@ -136,9 +136,9 @@ function carveCluster(shapes, box, W, H, rp, a, salt) {
 import { TRACED, HORSE } from './pie-traced.js';
 // (a traced ring smoothed twice, corner-cutting: the photograph's pixel steps and highlights go, the outline's own shape stays)
 const chaikin = (ring, n = 2) => { let p = ring; for (let k = 0; k < n; k++) { const q = []; for (let i = 0; i < p.length; i++) { const a = p[i], b = p[(i + 1) % p.length]; q.push([a[0] * .75 + b[0] * .25, a[1] * .75 + b[1] * .25], [a[0] * .25 + b[0] * .75, a[1] * .25 + b[1] * .75]); } p = q; } return p; };
-export function traced(name, x, y, h, dir, r, { wd = null, axis = 0, bw = null, rp: rq = null, erode = 0 } = {}) { const T = TRACED[name], sx = (wd ? wd / (T.w * h) : 1) * (1 + .06 * gauss(r)), sh = .05 * gauss(r), bend = .025 * gauss(r), ph = r() * 6.28, W = T.w * h * sx;
+export function traced(name, x, y, h, dir, r, { wd = null, axis = 0, bw = null, rp: rq = null, erode = null } = {}) { const T = TRACED[name], sx = (wd ? wd / (T.w * h) : 1) * (1 + .06 * gauss(r)), sh = .05 * gauss(r), bend = .025 * gauss(r), ph = r() * 6.28, W = T.w * h * sx;
   const map = ([u, v]) => { const X = u * h * sx, Y = v * h; const xx = dir > 0 ? X : W - X; return [x + xx + sh * (h - Y), y - h + Y + bend * h * Math.sin(ph + u / T.w * Math.PI)]; };
-  const rings = T.rings.map(ring => chaikin(ring).map(map)); return [{ k: 'poly', rings, axis, bw, rp: rq ?? h * (name === 'ship' ? .009 : .014), erode, box: [x - h * .1, y - h * 1.1, x + W + h * .1, y + h * .1] }]; }
+  const rings = T.rings.map(ring => chaikin(ring).map(map)); return [{ k: 'poly', rings, axis, bw, rp: rq ?? h * (name === 'ship' ? .009 : .014), erode: erode ?? (name === 'ship' ? 0 : tracedErode(h)), box: [x - h * .1, y - h * 1.1, x + W + h * .1, y + h * .1] }]; }
 export const tracedW = (name, h) => TRACED[name].w * h;
 // order a figure: all pits (in the passes they were laid) before any paint, then the strokes as listed
 const ordered = parts => { const pits = parts.filter(m => m.k === 'pit'), br = parts.filter(m => m.k === 'brush'); pits.forEach((m, k) => m.t = k / pits.length); return [...pits, ...br]; };
@@ -166,7 +166,7 @@ export function ship(x, y, L, h, lw, rp, r, { high = 1, double = false, sun = fa
 // and long legs), its widths a little fuller for the paint; s: its body length, (x, y) its body's middle; facing dir
 export function horse(x, y, s, dir, lw, rp, r) { const h = s / 1.25, X = u => x - dir * (u - .59) * h, Y = v => y + (v - .45) * h, out = [];   // (the Tanum horse faces left as traced; dir 1 turns it right)
   HORSE.strokes.forEach(([p, w], k) => { const lj = k > 2 ? 1 + .06 * gauss(r) : 1;   // (each leg its own length)
-    out.push(...stroke(p.map(([u, v]) => [X(u), Y(p[0][1] + (v - p[0][1]) * lj)]), w.map(v => v * h * (1.3 + 1.0 * sm01((h - 30) / 80))), rp, r)); });   // (full mass when large; slimmer when small, so its legs part)   // (fuller than the unpainted grooves, as the painted figures are)
+    out.push(...stroke(p.map(([u, v]) => [X(u), Y(p[0][1] + (v - p[0][1]) * lj)]), w.map(v => v * h * (1.75 + .55 * sm01((h - 30) / 80))), rp, r)); });   // (full mass when large; slimmer when small, so its legs part)   // (fuller than the unpainted grooves, as the painted figures are)
   return out; }
 // a footsole: the outline of a foot with a bar across the instep (Vitlycke)
 export function foot(x, y, s, a, lw, rp, r) { const c = Math.cos(a), sn = Math.sin(a), T = ([u, v]) => [x + c * u - sn * v, y + sn * u + c * v];
@@ -215,7 +215,7 @@ export function bird(x, y, s, dir, lw, rp, r) { const X = u => x + dir * u * s;
     ...stroke(pts(t => [X(.25 + .12 * t + .05 * Math.sin(t * 3)), y - .05 * s - .55 * s * t], 10), swell(11, lw * .9, lw * .6, lw * .6), rp, r), ...stroke([[X(.4), y - .6 * s], [X(.56), y - .54 * s]], [lw * .8, lw * .4], rp, r),
     ...stroke([[X(0), y + .02 * s], [X(-.04), y + .45 * s]], [lw * .6, lw * .45], rp, r), ...stroke([[X(.08), y + .02 * s], [X(.1), y + .45 * s]], [lw * .6, lw * .45], rp, r)]; }
 // the warrior (traced from Vitlycke): sword and oval shield; h his height
-export const warrior = (x, y, h, dir, rp, r) => traced('warrior', x, y, h, dir, r, { axis: 2, bw: Math.max(rp * 3, h * .08), erode: tracedErode(h) });
+export const warrior = (x, y, h, dir, rp, r) => traced('warrior', x, y, h, dir, r, { axis: 2, bw: Math.max(rp * 2.2, h * .08 * slimAt(h)), erode: tracedErode(h) });
 // a rider: a man astride a horse, arms out
 export function rider(x, y, s, dir, lw, rp, r) { const X = u => x + dir * u * s;
   return [...horse(x, y, s, dir, lw, rp, r), ...stroke([[X(.05), y - .05 * s], [X(.05), y - .45 * s]], [lw * 1.2, lw * 1], rp, r), ...stroke(loop([X(.05), y - .52 * s], s * .065, r, 16), lw * 1, rp, r),
@@ -261,16 +261,16 @@ function extentOf(ms) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; const g = 
 const FIGS = {
   round: [(c, s, lw, rp, r) => wheel(c, s * .5, lw, rp, r), (c, s, lw, rp, r) => sun(c, s * .3, lw, rp, r), (c, s, lw, rp, r) => rings(c, s * .48, lw, rp, r, 2), (c, s, lw, rp, r) => spiral(c, s * .46, lw, rp, r, 2)],
   wide: [(c, s, lw, rp, r) => horse(c[0], c[1], s * .8, 1, lw, rp, r), (c, s, lw, rp, r) => deer(c[0], c[1], s * .9, 1, lw, rp, r), (c, s, lw, rp, r) => rider(c[0], c[1], s * .7, 1, lw, rp, r)],
-  tall: [(c, s, lw, rp, r) => warrior(c[0] - s * .4, c[1] + s * .5, s * .9, 1, rp, r, s), (c, s, lw, rp, r) => traced('adorant', c[0] - s * .32, c[1] + s * .5, s * .9, 1, r, { axis: 2, bw: Math.max(rp * 3, s * .07), erode: tracedErode(s) }), (c, s, lw, rp, r) => bird(c[0], c[1] + s * .1, s * .8, 1, lw, rp, r), (c, s, lw, rp, r) => man(c[0], c[1], s * .7, lw, rp, r, 'axe')],
+  tall: [(c, s, lw, rp, r) => warrior(c[0] - s * .4, c[1] + s * .5, s * .9, 1, rp, r), (c, s, lw, rp, r) => traced('adorant', c[0] - s * .32, c[1] + s * .5, s * .9, 1, r, { axis: 2, bw: Math.max(rp * 2.2, s * .07 * slimAt(s)), erode: tracedErode(s) }), (c, s, lw, rp, r) => bird(c[0], c[1] + s * .1, s * .8, 1, lw, rp, r), (c, s, lw, rp, r) => man(c[0], c[1], s * .7, lw, rp, r, 'axe')],
 };
 // a figure of a kind fitted into box: drawn once at a trial size to measure it, then again at the size that fits, centred
 function fitFig(kind, k, box, lw0, rp, seed, clearOf) { const [bx0, by0, bx1, by1] = box, bw = bx1 - bx0, bh = by1 - by0, c = [(bx0 + bx1) / 2, (by0 + by1) / 2], mk = FIGS[kind][k % FIGS[kind].length];
-  for (let f = 1; f > .5; f *= .88) { const s0 = Math.min(bw, bh) * f, lw = Math.max(rp * 2.2, lw0 * slimAt(s0)), t = mk(c, s0, lw, rp, rng(seed)), [ex0, ey0, ex1, ey1] = extentOf(t);
-    const q = Math.min(bw / (ex1 - ex0), bh / (ey1 - ey0), 2.5) * .96 * f, s1 = s0 * q, lw1 = Math.max(rp * 2.2, lw0 * slimAt(s1)), t1 = mk(c, s1, lw1, rp, rng(seed)), [fx0, fy0, fx1, fy1] = extentOf(t1);
-    const dx = c[0] - (fx0 + fx1) / 2, dy = c[1] - (fy0 + fy1) / 2, ms = xform(t1, ([x, y]) => [x + dx, y + dy]).map(m => m.k === 'pit' ? m : m.k === 'cap' ? m : m);
+  for (let f = 1; f > .5; f *= .88) { const s0 = Math.min(bw, bh) * f, lw = Math.max(rp * 3.4, lw0 * slimAt(s0)), t = mk(c, s0, lw, rp, rng(seed)), [ex0, ey0, ex1, ey1] = extentOf(t);
+    const q = Math.min(bw / (ex1 - ex0), bh / (ey1 - ey0), 2.5) * .96 * f, s1 = s0 * q, lw1 = Math.max(rp * 3.4, lw0 * slimAt(s1)), t1 = mk(c, s1, lw1, rp, rng(seed)), [fx0, fy0, fx1, fy1] = extentOf(t1);
+    const dx = c[0] - (fx0 + fx1) / 2, dy = c[1] - (fy0 + fy1) / 2, ms = xform(t1, ([x, y]) => [x + dx, y + dy]);
     if (!clearOf || clearOf(ms)) return ms; }
   return []; }
-const tracedErode = h => (1 - sm01((h - 40) / 80)) * h * .012;
+const tracedErode = h => (1 - sm01((h - 40) / 90)) * h * .03;   // ~1.2 px at 40 px tall, none past ~130 px
 function initial_(ch, H, seed, fs = 20) {
   const r = rng(seed * 13 + ch.charCodeAt(0)), ix = Math.max(0, ch.charCodeAt(0) - 65), lw = H * .045, rp = lw / 4.5, m = H * .05, lw0 = letterWidth(ch);
   const cap = H * .8, x0 = m, y0 = m, L = letterStrokes(ch, x0, y0, cap, r), W = Math.round(x0 + L.W + m * 1.4);
@@ -281,10 +281,17 @@ function initial_(ch, H, seed, fs = 20) {
     return pts2.every(([x, y, e]) => L.strokes.every(st => st.p.every((pt, i) => Math.hypot(pt[0] - x, pt[1] - y) > st.w[i] / 2 + e + gap))); });
   const spaces = SPACE[ch];
   return piece(W, H, lw, F => { const out = []; carveLetter(out);
-    if (spaces && spaces.length) { const sp = spaces[(seed + ix) % spaces.length], box = [x0 + sp[0] * cap, y0 + sp[1] * cap, x0 + sp[2] * cap, y0 + sp[3] * cap];
-      out.push(...fitFig(sp[4], seed + ix, box, lw * 1.1, rp, seed * 37 + ix, clear)); }
-    else if (spaces === null) { const box = [x0 + L.W * .2, -H * .34, x0 + L.W + H * .32, -m * .3], kind = (seed + ix) % 2 ? 'round' : 'wide';
-      out.push(...fitFig(kind, seed + ix, box, lw, rp, seed * 37 + ix, null)); }
+    // inside: each of the letter's spaces in turn (from the seed's), kept only if the figure that fits is big enough to
+    // read as a figure (.36 of the cap, ~30 px at a page's drop); else above the shoulder (within about a line of the drop's top, so it stays
+    // clear of anything set above the paragraph)
+    let fig = [];
+    for (let i = 0; i < (spaces?.length ?? 0) && !fig.length; i++) { const sp = spaces[(seed + ix + i) % spaces.length], box = [x0 + sp[0] * cap, y0 + sp[1] * cap, x0 + sp[2] * cap, y0 + sp[3] * cap];
+      const t = fitFig(sp[4], seed + ix, box, lw * 1.1, rp, seed * 37 + ix, clear), [a, b, c, d] = t.length ? extentOf(t) : [0, 0, 0, 0];
+      if (Math.max(c - a, d - b) >= cap * .36) fig = t; }
+    if (!fig.length && ch !== 'O' && ch !== 'Q') { const box = [x0 + L.W * .1, -H * .36, x0 + L.W + H * .5, -m * .3];   // (the traced deer: at this size it is the one figure that still reads as an animal; a dot, a ring or the
+      // horse's thin back this small up there reads as an accent)
+      fig = fitFig('wide', 1, box, lw, rp, seed * 37 + ix, null); }
+    out.push(...fig);
     return out; }, { seed, dur: 3400 });
 }
 export const DROP_GROUND = { v: 'none' };

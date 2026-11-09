@@ -536,17 +536,253 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
 ## Stage 10: partners out of the reading line; nothing cut off; small figures legible
 
 - **Legibility (the user: "2 then 1").** A partner beside the letter, on its baseline and in its red, read as the next
-  letter ("IHn the end", "Mo").
-  - It now sits in the letter's own open space (pie-letters.js SPACE): a counter, the room under an arm, a notch,
-    between legs. It is sized to the space with a clear gap from the strokes (fitted by drawing it once to measure, then
-    at the size that fits).
-  - The seed picks the space and the figure (round: wheel, sun, rings, spiral; wide: horse, deer, rider; tall: warrior,
-    adorant, crane, axe-bearer).
-  - I, J and S have no usable interior; their partner sits above the shoulder, above the first line's x-height band,
-    out of the reading line. O and Q are their own sun-wheels.
-  - The alphabet page has a legibility section (each drop set as on a page and followed by its word). On the mock,
-    "In the end" and "The lexicon" read as words.
-  - Honest limit: at drop size most counters are small, so most partners are small, often under 20 CSS px.
+  letter ("IHn the end", "Mo"). Now no partner sits in the reading line.
+  - **Inside first.** Each letter's open spaces are listed in pie-letters.js SPACE (a counter, the room under an arm, a
+    notch). A figure of the kind that fits is drawn once to measure it, then drawn again to fit, with a gap from the
+    strokes.
+    - It is kept only if it comes out at least .36 of the cap (~30 px at a page's drop). Smaller, it read as a speck or
+      a blemish (tried first at .28; E F H K showed dots).
+    - At a page's drop size this holds for C (horse), F and L (crane) and P (horse under the bowl). O and Q are their own
+      wheels.
+  - **Otherwise above the shoulder** (option 1), clear of the first line's x-height and within about a line of the
+    drop's top. This is the traced deer.
+    - Dots, rings, the slim horse and the rider all read as accents ("Ḃ", "Ã", "ṫ") at that size; the deer is the one
+      figure that reads as an animal there.
+    - So most letters (20 of 26) carry the same deer above. That is legible but repetitive; the honest limit of letter
+      counters at ~80 px.
+    - The overhang assumes a heading or a paragraph gap above the drop, as on the mock.
+  - The alphabet page has a legibility section (each drop as on a page, followed by its word). On the mock, "In the
+    end" and "The lexicon" read as words.
+- **Clipping (the user: "symbols … cut off on the edges").**
+  - Cause: the carver clamped its work to the piece's layout box, and the printer sized the raster to that box, so paint
+    the carver laid near or past the box (prows, rings, a figure's reach, the settle margin) was cut.
+  - Now the carver is unclamped, and the printer sizes every rock piece's raster from its paint (every pit's reach plus
+    the paint's margin), shifting the canvas back so the piece's origin stays where the page put it.
+  - Automated check: tests/pie-check.html with tests/pie-rock.check.mjs.
+    - It covers every piece type: drops and line initials A–Z, paraph, filler, run-out, breaks 1 and 2, all seven
+      panels, six frames and the 22 sheet figures.
+    - It runs at seeds 1, 2, 7 and 12, at the sizes a 1440 and a 390 page give them, and at dpr 1 and 2. It scans each
+      raster's border ring for paint.
+    - Stage 9 fails it at 531 pieces at dpr 1; stage 10 passes at dpr 1 and 2.
+- **Fat figures at small sizes (the user: "the fatter figures are harder to make out").** Thickness now follows a
+  figure's size on the page.
+  - Drawn figures: the horse's widths go from ×2.3 at full size to ×1.75 when small, so its legs part. People and the
+    figures fitted into drops are slimmed by size, with a floor so the pecking still fits in the groove; below that
+    floor a figure turned to mush.
+  - Traced figures (warrior, adorant, deer) are drawn in by up to 3 % of their height when small (none past ~130 px),
+    and their brush is narrowed with them.
+  - The visible gain is clearest on the horses and the drops' small figures. The warrior on a 78 px break opens a
+    little between the legs; it is still a dense figure, since the traced source is.
+- **Speed (mock).** In view: 37 ms at dpr 1, 56–67 ms at dpr 2. Every piece at once: 130 ms (dpr 1), 269 ms (dpr 2).
+  Alphabet specimen ~1.6 s.
+- **Where it stands (honest).**
+  - The figures are fleshier and no longer geometric. The paint reads as a smooth red film with organic edges.
+  - Beside the panels at 4×, our horse is still leaner and longer in the leg than Tanum's animals.
+  - Our ship's crew comb is sparser and less regular than the master's dense comb of rounded strokes, and the oval
+    openings between keel and gunwale are missing.
+  - Some drop animals come out small where the collision fit had to shrink them.
+  - Beauty 2, closer to 3 at 1× than before.
+
+## Stage 5: traced masses and pecked edges (the user: "lots of hard even flat/straight edges which looks artificial")
+
+- **Traced figures** (kit/styles/pie-traced.js, from scratchpad pie/py/trace.py):
+  - The painted area of three figures was traced as outline rings and normalised to height 1:
+    - the Tanumshede ship: hull band, crew comb and the 27 oval openings between keel and gunwale;
+    - the Tanumshede antlered animal (used as the deer);
+    - the Vitlycke warrior with sword and shield.
+  - Ours are those outlines placed with the seed's hand: a stretch of up to ±15 % that keeps the traced proportions, a
+    slant, a slow bend, and a mirror.
+  - The horse, the other people's poses, the sun-wheel and the rest have no clean open photograph (Fossum's photograph
+    is too faded to segment; the Vitlycke ships photograph is too noisy). They are drawn in the traced figures' manner,
+    and the page says so.
+- **One carver for everything** (`carve()` in pie-rock.js): a piece's grooves (paths with widths, including the
+  letters') and traced outlines are laid as one area.
+  - Drawn grooves get fillets where they merge (a blur-and-threshold ~1.1 pits across) and round blunt ends.
+  - Traced outlines keep their own gaps and holes.
+  - The area is then pecked in the carver's passes, so every edge is the outermost pits' scallop, never a cut line.
+  - Traced figures are pecked at their own finer scale so their openings stay open.
+  - Long grooves bow a little with the arm's arc.
+  - Cup marks are pecked ovals of their own size and roundness.
+  - The paint closes over the pits' scallops by half a pit (`settle()` in pie-paint.js): the edge is soft where it
+    thinned and crisp where it pooled.
+- **The ship** is now the traced Tanumshede hull (thick band, dense comb, the row of ovals), never squashed: a short
+  slot gets a smaller ship, centred.
+- **Drops reflow** instead of shrinking the figure:
+  - the ship under the letter, across the full width;
+  - an animal beside it (drop 1.4× its height wide);
+  - the sun beside it over cups (1.3×);
+  - the warrior beside it (1.5×).
+- **Speed.** Mock, in view: 82–108 ms at dpr 1 and 2 (1440), 66 ms at 390. Every piece at once: 440 ms (dpr 1) /
+  650 ms (dpr 2): the carver's area raster and pitting is now the cost. Print-on-approach keeps the page within budget;
+  eager printing would want a worker.
+- **Where it stands (honest).**
+  - At 4× and 8× the traced ship and warrior read as the panels' own figures, organic and smoothly painted, with their
+    openings.
+  - The drawn-in-manner figures (horse, wheel, people) are still more regular than the traced ones.
+  - At 1× the traced ship is a thin band under the drop's letter.
+  - Some thin traced parts (the warrior's spear) take paint unevenly.
+  - Beauty 2+.
+
+## Stage 6: speed first, then the edges, the ship and more tracing
+
+**Speed (profiled per piece in the browser, scratchpad pie/prof.mjs).** Stage 5's jump came from the carver:
+- It iterated the pecking lattice over the whole piece's box, drawing every blow's jitter from one random sequence (a
+  rule at the top of a frame and another at the bottom paid for everything between; a traced ship's fine pits ran over
+  the whole filler).
+- It also blurred the whole box.
+
+Fixes:
+- Pieces and their carving are cached, keyed by what made them. This alone is pixel-identical: 0 % of pixels differ on
+  the specimen, 0.0001 % (max 1/255) on the mock.
+- The carver works per cluster of touching grooves over that cluster's box, its lattice bounded to the box, each blow's
+  jitter a hash of its lattice place. This step is not pixel-identical, by necessity: the pits are re-rolled with the
+  same statistics. 0.36 % of the mock's pixels and 0.65 % of the specimen's differ, all at pit scale.
+
+Per-piece carving times:
+
+| piece | before | after |
+|---|---|---|
+| filler | 149 ms | 2 ms |
+| aside | 116 ms | 0 ms |
+| figure frame | 143 ms | 28 ms |
+| code frame | 95 ms | 17 ms |
+| drop | 54 ms | 14 ms |
+
+| | before | after |
+|---|---|---|
+| Mock, every piece at once, dpr 1 | 503 ms | 231 ms |
+| Mock, every piece at once, dpr 2 | 646 ms | 368 ms |
+| Mock, in view | 106 ms | 52–86 ms |
+| Specimen page | 420 ms | 209 ms |
+
+(The after numbers include the look changes below.)
+
+**Edges.** The paint now closes over a whole pit at the pits' own size (`settle()`, radius = the lower-quartile pit
+radius), so only a faint ripple is left. And a pit lands only where the whole blow stays inside the figure, so the pecked
+area keeps the figure's own outline instead of swelling by a pit all round. The traced rings are smoothed twice
+(corner-cutting) to lose the photograph's pixel steps and highlights.
+
+**The ship.** With pits kept inside the outline at the ship's finer scale, its crew comb stays separate rounded strokes
+and its oval openings stay open, at 8×. The ship under a drop letter is taller: the drop is 1.45× wide and the letter
+shorter.
+
+**More tracing.**
+- An **adorant** from Vitlyckehällen (RAÄ Kulturmiljöbild, Bengt A. Lundberg, CC BY 2.5) traced: hands raised, a staff
+  beside him. It replaces the drawn adorant in the sheet and the sky-father panel.
+- A **horse** from Tanum (Tulipasylvestris, CC0): it is unpainted, its pale grooves would not segment, so its
+  centrelines and widths were read off the photograph by eye. The horse (and the rider and chariot) are now built on it:
+  the long rising neck, small forward head, thin back and long legs, filled out a little for paint.
+- A **ring** on Vitlyckehällen (KMB 16000300015074) measured: it departs from its circle by .055 of its radius (sd), which
+  matches the drawn wheels' rims.
+- **No clean four-spoked sun-wheel** was found among the open photographs (Commons' Tanum, Vitlycke, Aspeberget,
+  Litsleby, Kalleby, Fossum; the RAÄ KMB images on Commons); it stays drawn in the traced figures' manner.
+- SHFA's archive was not searched (no open licence confirmed in this session).
+- Credits are in tests/pie-refs/SOURCES.md and kit/styles/pie-traced.js.
+
+**Where it stands.**
+- The traced figures at 8× (warrior, ship) have smooth, confident painted edges, their openings and separate crew.
+- Thin traced parts can break where no pit fits inside them (part of the warrior's spear).
+- The traced horse is slender, as the master's is: beside the bold letters it is lighter than the other figures.
+- Beauty 2+.
+
+## Stage 7: the edge as a zone, not a line (the user: "too vectorized … hard edges even when blobby feel off")
+
+- **Measured edge zone.** From rock to full red the paint takes .07–.2 of a stroke's width (Vitlycke, Tanumshede;
+  scratchpad pie/py/paint.py), about one to two grains. The share of crisp to feathered edge was **by eye** (roughly half
+  and half), not measured.
+- **The model (kit/styles/pie-paint.js).** An invisible granite stays the cause. D is the groove's depth: the pecked
+  area blurred over ~2 grains, never wider than the figure's own pits.
+  - The film's thickness follows D: deep at the centre, thinner over the shoulders. Its colour follows its thickness:
+    thin is lighter and warmer (#cf7652), the body #a5361e, pooled #561810.
+  - At the margin, where the brush was no longer fresh, a grain takes paint only if it stands high enough for how
+    shallow the groove is there. The boundary steps from grain to grain over one to two grains instead of running as a
+    line.
+  - Where the brush was fresh (the first ~4 widths of each load; about half of each figure's edge) the paint pooled
+    against the wall: a crisp, darker rim.
+  - The brush is now wider than its groove, so the groove, not the brush's footprint, makes the edge.
+  - The pecked floor shows only inside the figure, never as a halo.
+  - The gloss is quieter.
+- **The drops.**
+  - The letter keeps its full drop size (.8 of the drop's height). The ship passes under and behind its foot, in a drop
+    1.7× its height wide.
+  - The warrior has a 1.75× drop.
+  - The horse is larger and fuller (its traced widths ×2.3).
+- **Thin traced parts.** A pit may straddle a thin traced part's edge by half its radius, and the poly brush passes are
+  denser, so the warrior's spear holds.
+- **The sun-wheel** is less regular: a fifth-order lobe on the rim, its width breathing ±28 %, and spokes that bow.
+- **Speed.**
+  - Mock, in view: 60–92 ms (dpr 1–2).
+  - Every piece at once: 259 ms (dpr 1) / 461 ms (dpr 2). The second blur and the wider brushes cost at dpr 2; the
+    cache is kept.
+- **Where it stands (honest).**
+  - At 4× a letter's edge now steps grain by grain in its thin stretches and is crisp where it pooled. No edge reads as
+    a single anti-aliased line, and the warrior's edges read as painted.
+  - At 1× the letters' edges are speckled: organic, but at the edge of reading as grain on a bare page.
+  - The traced ship at drop size is still a thin band with prows. Its comb and ovals only read from about 4× up.
+  - At 8× the ship's comb is partly merged again where paint fills between close strokes.
+  - Beauty 2+.
+
+## Stage 8: back to crisp at page size (the user: "drops look so muddy … a regression")
+
+- **The edge zone scales with the screen** (commit dcc56ef, on its own so it can be compared). Real grain is ~.1 of a
+  stroke's width, sub-pixel at drop size. Stage 7 opened the thinning and grain-stepped edge at every size, so at 1× the
+  drops went fuzzy.
+  - The zone now opens only once a grain is 2.5–4.5 device px on screen (z = sm(2.5, 4.5, grain × dpr)). Below that the
+    paint is stage 6's: crisp, bold, no thin margins, no pale halo.
+  - From ~4× the zone opens: the film thins toward the shoulders and steps grain by grain where the brush was dry, with
+    a crisp, darker rim where it pooled.
+  - The groove-depth field is computed only when the zone is open, in one pass.
+  - Three-way 1× comparison (stage 6 / 7 / new, dpr 1 and 2): scratchpad pie/shots/cmp/three-1.png and three-2.png. The
+    new drops are as clean as stage 6.
+- **A ship for drop size** (`dropShip()`). The traced ship reads as a lumpy underline at drop size, so a ship drawn in
+  its manner partners the letter:
+  - a keel thickening to the prow, a lighter gunwale;
+  - three struts making large openings;
+  - prow and stern rising and curling;
+  - five or six big uneven crew strokes, one in two under the letter rising into it.
+
+  The traced ship stays for the large pieces (fillers, the rank-3 panels).
+- **The warrior** is back to a partner's scale (≤ .74 of the drop's height).
+- **The interior film at 4× and up** is a little thicker over the pits' floors and thinner over their rims (scaled by
+  z, so nothing shows at 1×).
+- **Speed (mock, every piece at once).**
+
+  | | stage 6 | stage 7 | now |
+  |---|---|---|---|
+  | dpr 1 | 231 ms | 259 ms | 254 ms |
+  | dpr 2 | 368 ms | 461 ms | 385 ms |
+
+  In view: 56 ms (dpr 1), 90–100 ms (dpr 2).
+
+## Stage 9: no ships in drops (the user: "Drop the ships on dropcaps")
+
+The drop-ship composition and `dropShip()` are deleted (the panels did not use it). A drop's partner is now one of four,
+spread evenly down the alphabet and shifted by the seed so neighbours differ: an animal (deer, horse or crane, by letter
+and seed), the sun over a row of cups, the Vitlycke warrior, or a rider. Ships stay in the fillers, breaks and panels.
+The 1× crispness of dcc56ef is unchanged.
+
+Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at once: 237 ms at dpr 1, 435 ms at dpr 2.
+
+## Stage 10: partners out of the reading line; nothing cut off; small figures legible
+
+- **Legibility (the user: "2 then 1").** A partner beside the letter, on its baseline and in its red, read as the next
+  letter ("IHn the end", "Mo"). Now no partner sits in the reading line.
+  - **Inside first.** Each letter's open spaces are listed in pie-letters.js SPACE (a counter, the room under an arm, a
+    notch). A figure of the kind that fits is drawn once to measure it, then drawn again to fit, with a gap from the
+    strokes.
+    - It is kept only if it comes out at least .36 of the cap (~30 px at a page's drop). Smaller, it read as a speck or
+      a blemish (tried first at .28; E F H K showed dots).
+    - At a page's drop size this holds for C (horse), F and L (crane) and P (horse under the bowl). O and Q are their own
+      wheels.
+  - **Otherwise above the shoulder** (option 1), clear of the first line's x-height and within about a line of the
+    drop's top. This is the traced deer.
+    - Dots, rings, the slim horse and the rider all read as accents ("Ḃ", "Ã", "ṫ") at that size; the deer is the one
+      figure that reads as an animal there.
+    - So most letters (20 of 26) carry the same deer above. That is legible but repetitive; the honest limit of letter
+      counters at ~80 px.
+    - The overhang assumes a heading or a paragraph gap above the drop, as on the mock.
+  - The alphabet page has a legibility section (each drop as on a page, followed by its word). On the mock, "In the
+    end" and "The lexicon" read as words.
 - **Clipping (the user: "symbols … cut off on the edges").**
   - Cause: the carver clamped its work to the piece's layout box, and the printer sized the raster to that box, so paint
     the carver laid near or past the box (prows, rings, a figure's reach, the settle margin) was cut.
@@ -565,5 +801,5 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
   - Traced figures shown small are drawn in (their outline eroded by up to ~1.2 % of their height), so their openings
     stay open.
   - At full size they keep the traced mass.
-- **Speed (mock).** In view: 53–58 ms (dpr 1), 77–79 ms (dpr 2), 64 ms at 390. Every piece at once: 256 ms (dpr 1),
-  414 ms (dpr 2).
+- **Speed (mock).** In view: 67–68 ms (dpr 1), 92–95 ms (dpr 2), 59 ms at 390. Every piece at once: 267 ms (dpr 1),
+  460 ms (dpr 2), 318 ms at 390. pie-paint.js is untouched this round, so the 1× rendering is stage 6's (dcc56ef).

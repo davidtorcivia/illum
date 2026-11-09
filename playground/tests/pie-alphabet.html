@@ -60,7 +60,7 @@ const WORDS = { A: 'ncient fame outlives the hand that cut it', B: 'ronze came l
 if (PART !== 'zoom') { const s = section('light', 'Legibility: each drop and its word', 'Set as on a page (four lines): the partner sits inside the letter or above its shoulder, never in the reading line.'), g = grid(s);
   for (const ch of LETTERS) { const box = document.createElement('div'); box.style.cssText = 'position:relative;width:330px;font:500 19px/30px Newsreader,serif;margin:0 18px 24px 0';
     const pc = rock.initial(ch, H, seed + ch.charCodeAt(0), fs), cv = print('rock', 'light', pc, { dpr }), sp = document.createElement('span');
-    sp.style.cssText = `float:left;width:${pc.W - (cv.dataset.ox ? 0 : 0) + fs * .45}px;height:${4 * lh - 2}px`; Object.assign(cv.style, { position: 'absolute', left: '0', top: (lh - fs) / 2 + fs * .2 + 'px' });
+    sp.style.cssText = `float:left;width:${pc.W + fs * .45}px;height:${4 * lh - 2}px`; Object.assign(cv.style, { position: 'absolute', left: '0', top: (lh - fs) / 2 + fs * .2 + 'px' });
     box.append(sp, cv, document.createTextNode(WORDS[ch] + '. The phrase runs on into the next lines so the drop sits as it would in a paragraph.')); g.append(box); } }
 for (const theme of PART === 'zoom' ? [] : ['light', 'dark']) {
   const tag = theme === 'light' ? 'on the paper' : 'on the ink';
