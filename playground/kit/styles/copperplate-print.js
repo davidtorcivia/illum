@@ -116,17 +116,27 @@ export function stroke(p, w, { start = 'point', end = 'point', hair = Math.min(.
 }
 
 // ---- coverage -------------------------------------------------------------------------------------------------------------
-// every stroke as one union of discs (filled once, nonzero: an overlap is never darker), plus `extra(g)` (a letter), on a
+// every stroke as one ribbon union (filled once, nonzero: an overlap is never darker), plus `extra(g)` (a letter), on a
 // grid of res cells a px over box [x0, y0, x1, y1]
 export function coverage(strokes, box, res, extra = null) {
   const [x0, y0, x1, y1] = box, W = Math.ceil((x1 - x0) * res), H = Math.ceil((y1 - y0) * res);
   const g = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true }); g.setTransform(res, 0, 0, res, -x0 * res, -y0 * res); g.fillStyle = '#000';
   const P = new Path2D();
-  // (discs close enough that their union has no beads: a step of half the radius, never over .3 px)
-  for (const S of strokes) { const { p, w } = S;
-    for (let i = 0; i < p.length; i++) { const r = Math.max(.05, w[i]); P.moveTo(p[i][0] + r, p[i][1]); P.arc(p[i][0], p[i][1], r, 0, TAU);
-      if (i === p.length - 1) break; const q = p[i + 1], r2 = Math.max(.05, w[i + 1]), l = Math.hypot(q[0] - p[i][0], q[1] - p[i][1]), n = Math.ceil(l / Math.min(.3, Math.min(r, r2) * .5));
-      for (let k = 1; k < n; k++) { const f = k / n, x = p[i][0] + (q[0] - p[i][0]) * f, y = p[i][1] + (q[1] - p[i][1]) * f, rr = r + (r2 - r) * f; P.moveTo(x + rr, y); P.arc(x, y, rr, 0, TAU); } }
+  // each stroke as a ribbon of quads, one a step, each edge at a point shared exactly with the next quad's (the normal at that
+  // point), all wound the same way, so the one fill is their seamless union; a disc at each end and where the ribbon turns
+  // sharper than its width can follow (a cusp). (Was a union of discs a fraction of a px apart: the same shape, ten times
+  // the work at a fine hairline.)
+  for (const S of strokes) { const { p, w } = S, n = p.length; if (!n) continue;
+    const L = [], R = [];
+    for (let i = 0; i < n; i++) { const a = p[Math.max(0, i - 1)], b = p[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, r = Math.max(.05, w[i]);
+      L.push([p[i][0] - dy / l * r, p[i][1] + dx / l * r]); R.push([p[i][0] + dy / l * r, p[i][1] - dx / l * r]); }
+    // (one outline a stroke: its left edge out and its right edge back; every stretch of the ribbon is wound the same way, so
+    // where the stroke crosses itself the winding adds and nonzero fills it)
+    if (n > 1) { P.moveTo(L[0][0], L[0][1]); for (let i = 1; i < n; i++) P.lineTo(L[i][0], L[i][1]); for (let i = n - 1; i >= 0; i--) P.lineTo(R[i][0], R[i][1]); P.closePath(); }
+    const disc = i => { const r = Math.max(.05, w[i]); P.moveTo(p[i][0] + r, p[i][1]); P.arc(p[i][0], p[i][1], r, 0, TAU); };
+    disc(0); disc(n - 1);
+    for (let i = 1; i < n - 1; i++) { if (w[i] < .6) continue; const a = p[i - 1], b = p[i], c = p[i + 1], h1 = Math.atan2(b[1] - a[1], b[0] - a[0]), h2 = Math.atan2(c[1] - b[1], c[0] - b[0]); let dh = Math.abs(h2 - h1); if (dh > Math.PI) dh = TAU - dh;
+      if (dh * w[i] > Math.hypot(c[0] - b[0], c[1] - b[1]) * .5) disc(i); }
     for (const [c, r] of S.balls ?? []) { P.moveTo(c[0] + r, c[1]); P.arc(c[0], c[1], r, 0, TAU); } }
   g.fill(P, 'nonzero'); if (extra) extra(g);
   const d = g.getImageData(0, 0, W, H).data, M = new Float32Array(W * H); for (let q = 0; q < W * H; q++) M[q] = d[q * 4 + 3] / 255;
@@ -195,12 +205,19 @@ export function thinShadesFine(draw, box, res, k = .4, tau0 = 2, ss = 3, close =
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { let a = 0; for (let y = 0; y < ss; y++) { const r = (j * ss + y) * F.w; if (j * ss + y >= F.h) break; for (let x = 0; x < ss; x++) if (i * ss + x < F.w) a += F.M[r + i * ss + x]; } M[j * w + i] = a / (ss * ss); }
   return { M, w, h, x0: box[0], y0: box[1], res };
 }
+// the ink cells deepest first (a bucket sort by the distance to paper, in quarter cells: the order the thickness is carried in)
+function byDepth(D, paper, n) {
+  let mx = 0; for (let q = 0; q < n; q++) if (!paper[q] && D[q] > mx) mx = D[q];
+  const B = Math.ceil(mx * 4) + 1, cnt = new Int32Array(B + 1); for (let q = 0; q < n; q++) if (!paper[q]) cnt[B - 1 - Math.floor(D[q] * 4)]++;
+  for (let b = 1; b <= B; b++) cnt[b] += cnt[b - 1]; const out = new Int32Array(cnt[B]), at = new Int32Array(B + 1); at.set(cnt.subarray(0, B), 1);
+  for (let q = 0; q < n; q++) if (!paper[q]) out[at[B - 1 - Math.floor(D[q] * 4)]++] = q;
+  return out;
+}
 export function thinShades(L, k = .3, tau0 = 2) {
   const { M, w, h } = L, n = w * h, paper = new Uint8Array(n); for (let q = 0; q < n; q++) paper[q] = M[q] < .5;
-  const D = dist(paper, w, h), T = Float32Array.from(D), idx = []; for (let q = 0; q < n; q++) if (!paper[q]) idx.push(q);
-  idx.sort((a, b) => D[b] - D[a]);
+  const D = dist(paper, w, h), T = Float32Array.from(D), idx = byDepth(D, paper, n);
   const nb = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
-  for (const q of idx) { const i = q % w, j = q / w | 0;
+  for (let z = 0; z < idx.length; z++) { const q = idx[z], i = q % w, j = q / w | 0;
     for (const [dx, dy, l] of nb) { const x = i + dx, y = j + dy; if (x < 0 || y < 0 || x >= w || y >= h) continue; const o = y * w + x; if ((D[o] - D[q]) / l > .7 && T[o] > T[q]) T[q] = T[o]; } }
   const O = new Float32Array(n);
   for (let q = 0; q < n; q++) { if (!M[q]) continue; let t = T[q];
