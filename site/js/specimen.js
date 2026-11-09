@@ -19,6 +19,7 @@ export const STYLE = {
   insular: { lines: null, filler: FILLER },
   deco: { lines: null, filler: FILLER },
   choirbook: { lines: 3, filler: FILLER },
+  copperplate: { lines: null, filler: FILLER },
   draft: { lines: null, filler: '.text > p:not(.sub):not(.pull):not(.bare)' },
 };
 export const RICH = ['plain', 'modest', 'usual', 'fine', 'lavish'];

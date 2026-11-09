@@ -6,7 +6,7 @@
 # What it copies (from playground/, which stays the source of truth; never edit the copies):
 #   playground/kit/{illum,registry,all,marks,wayfinding,initials,frames,penwork,writer,medium,inkletter,cache,spray}.js  -> site/kit/
 #   playground/kit/styles/*.js                                                               -> site/kit/styles/
-#   playground/fonts/, fonts/kelmscott/, fonts/nouveau/, fonts/insular/, fonts/deco/ and fonts/choirbook/hand3/ (faces, letter outlines and licences) -> site/fonts/
+#   playground/fonts/, fonts/kelmscott/, fonts/nouveau/, fonts/insular/, fonts/deco/, fonts/choirbook/hand3/ and fonts/copperplate/ (faces, letter outlines and licences) -> site/fonts/
 # The styles find their faces at new URL('../../fonts/', import.meta.url), so kit/ and fonts/ must stay siblings.
 #
 # The site's own faces (site/faces/) are not copied: they are subsets made once with fontTools and kept in site/:
@@ -37,9 +37,12 @@ mkdir -p "$site/fonts/deco"; cp "$src"/fonts/deco/illum-deco-*.woff2 "$src"/font
 # (the choir book's Lombards, a letter to a file, fetched only for the initials a page has, and their licence; the earlier
 # passes beside them in the source, chosen only by ?lombard= for study, are not shipped)
 mkdir -p "$site/fonts/choirbook/hand3"; cp "$src"/fonts/choirbook/hand3/choir-lombard-*.woff2 "$src"/fonts/choirbook/hand3/OFL.txt "$site/fonts/choirbook/hand3/"
+# (Copperplate's pen capitals: Imperial Script subset to A-Z and renamed, with its note and licence; the hand's capitals are
+# UnifrakturMaguntia, already among fonts/*.woff2. The Pinyon subset beside them in the source is not loaded, so not shipped)
+mkdir -p "$site/fonts/copperplate"; cp "$src"/fonts/copperplate/illum-copper-imperial-caps.woff2 "$src"/fonts/copperplate/illum-copper-imperial-caps-README.txt "$src"/fonts/copperplate/ImperialScript-OFL.txt "$site/fonts/copperplate/"
 # the library's hash (kit/cache.js keys every remembered or baked ornament by it): every module and face as shipped, so a
 # reader's browser need not read them all to know whether what it remembers is still current
-echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 "$site"/fonts/kelmscott/* "$site"/fonts/nouveau/* "$site"/fonts/insular/* "$site"/fonts/deco/* "$site"/fonts/choirbook/hand3/* | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
+echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 "$site"/fonts/kelmscott/* "$site"/fonts/nouveau/* "$site"/fonts/insular/* "$site"/fonts/deco/* "$site"/fonts/choirbook/hand3/* "$site"/fonts/copperplate/* | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
 
 # the ornament baked (tools/bake.mjs), so a first visit is drawn from it rather than by the ink engine: every page at 1440
 # and 390, light and dark, dpr 1 and 2, served from site/ itself on a spare port; into site/kit/bake.json and site/kit/bake/,

@@ -519,3 +519,28 @@ I tried wings of loops either side of the lavish end and dropped them: the turne
 **Checks.**
 - `?draw` finished pages equal the still pages for the pages below. Each differs by the same 212 px, all at the fixed theme toggle on the right edge: B; C seeds 1 and 3; C lavish; C fine with seed 5.
 - At 390 wide nothing crosses the page edge.
+
+## Stage 9: on the site
+
+The user approved Copperplate for the site, both kinds. Before it went on:
+
+- B's capital was made larger in its drop (.78 of the height). The great oval already fills the four lines, so only the letter grew.
+- B's breaks rise a rank from fine, and the book's end turns into a third ring at lavish.
+- C's trefoil paraph is larger and finer, and C's wings are lighter.
+- `?draw` now reads the capital's skeleton order from `letterOrder`. `letterWriter` skips that order where WebGL is missing, which made `?draw` throw in a browser without WebGL.
+
+Whole-page time, measured on a quiet machine at dpr 2:
+
+| | in view / whole page (ms) |
+|---|---|
+| C usual | 88 / 137 |
+| C lavish | 88–95 / 141–145 |
+| B lavish | 71 / 118 |
+
+The 224–240 ms of stage 8 was the machine's load, not the page, so nothing was optimised.
+
+On the site:
+
+- The catalogue lists Copperplate under Print, with its manner as a module setting (`kind`: The pen, Command of hand).
+- Its headings take the ink's brown.
+- `tools/build-site.sh` ships the Imperial capitals subset with its note and licence. UnifrakturMaguntia was already shipped. The Pinyon subset is not loaded by the style, so it is not shipped.
