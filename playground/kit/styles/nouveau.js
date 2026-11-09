@@ -44,7 +44,10 @@ const ORDER = { fouet: ['olive', 'whip', 'letter', 'k'], plante: ['paper', ...PC
 
 // ---- placing pieces ---------------------------------------------------------------------------------------------------------------
 // a piece: built when it is printed (its plate in its own px), set at x, y on the page (y may be moved by rubricate's fitIn)
-const piece = (x, y, w, h, build, seed) => ({ shape: 'nv', x, y, w, h, build, seed });
+const piece = (x, y, w, h, build, seed, v = 0) => ({ shape: 'nv', x, y, w, h, build, seed, v });
+// a page given its own seed (nouveau.seeded, set by kit/illum.js as it makes each case; 0: the page left to its text's seed,
+// every piece exactly as approved) chooses its plant, its compositions and its forms (nouveau-pieces.js pageOf)
+const vary = () => nouveau.seeded | 0;
 const hand = (f, seed) => { if (KIND === 'fouet') setHand(.35, seed); try { return f(); } finally { setHand(0); } };
 
 // ---- the initials ---------------------------------------------------------------------------------------------------------------
@@ -54,9 +57,10 @@ const BIG = { plante: b => .1 + .56 * b + .38, fouet: b => .2 + .6 * b + .34 }, 
 function initial({ ch = 'B', G, big = true, seed = 1, u = 8 }) {
   const c = letterOf(ch), J = LET[c], [x0, y0, , y1] = G.box, H = y1 - y0;
   if (!J) return { marks: [], letters: [], width: H };
+  const v = vary();
   if (!big) { const W = SMALL[KIND](J.b[2]) * H; return { marks: [], letters: [piece(x0, y0, W, H, () => hand(() => PC.smallInitial(KIND, J, H, seed), seed), seed)], width: W }; }
   const W = BIG[KIND](J.b[2]) * H;
-  return { marks: [], letters: [piece(x0, y0, W, H, () => hand(() => KIND === 'fouet' ? PC.fouetInitial(J, H, seed) : PC.planteInitial(J, H, seed), seed), seed)], width: W };
+  return { marks: [], letters: [piece(x0, y0, W, H, () => hand(() => KIND === 'fouet' ? PC.fouetInitial(J, H, seed, v) : PC.planteInitial(J, H, seed, v), seed), seed, v)], width: W };
 }
 initial.width = ch => { const J = LET[letterOf(ch)]; return J ? BIG[KIND](J.b[2]) : 1.2; };
 initial.line = ch => { const J = LET[letterOf(ch)]; return J ? SMALL[KIND](J.b[2]) : 1.2; };
@@ -69,32 +73,32 @@ initial.load = () => { const need = new Set(['B', 'O']); try { document.querySel
   return Promise.all([...need].map(c => loadLetter(c).then(j => { LET[c] = j; }))); };
 
 // ---- the paraph, fillers, breaks -------------------------------------------------------------------------------------------------
-function paraph(x, base, u, seed, rich = .5) {
-  const h = u * 2.1, w = u * 1.65;
-  return { marks: [], letters: [piece(x, base - h * .96, w, h, () => hand(() => PC.paraphPiece(KIND, w, h, seed), seed), seed)] };
+function paraph(x, base, u, seed, rich = .5, n, k = 0) {
+  const h = u * 2.1, w = u * 1.65, v = vary();
+  return { marks: [], letters: [piece(x, base - h * .96, w, h, () => hand(() => PC.paraphPiece(KIND, w, h, seed, k, v), seed), seed, v)] };
 }
 // a paragraph's free end: the filler drawn for a line (lh: a line's height); a heading's run-out, a short one
 function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
   if (kind === 'none' || (kind === 'rule' && rich < .25)) return { marks: [], letters: [] };   // (the plainest page: its heads not run out)
   const u = yBase - yTop, lh = u * 3.3, room = x1 - x0 - u * .4, L = kind === 'rule' ? Math.min(room, u * 16) : Math.min(room, u * 44);
   if (L < u * (kind === 'rule' ? 5 : rich >= 1 ? 7 : 9)) return { marks: [], letters: [] };   // (lavish: a shorter gap closed too)
-  const y = yBase - lh * .64, f = KIND === 'fouet' ? PC.fouetFiller : PC.planteFiller;
-  return { marks: [], letters: [piece(x0 + u * .2, y, L, lh, () => hand(() => f(L, lh, seed), seed), seed)] };
+  const y = yBase - lh * .64, f = KIND === 'fouet' ? PC.fouetFiller : PC.planteFiller, v = vary();
+  return { marks: [], letters: [piece(x0 + u * .2, y, L, lh, () => hand(() => f(L, lh, seed, kind, v), seed), seed, v)] };
 }
 // three ranks: a part (rank 1, half the measure), a chapter or book (rank 2, wider and taller, the seed head or the two
 // irises), the end (rank 3, across the measure). The budget: plain, a part's break smaller; fine, a part's break in a
 // chapter's form; lavish, a chapter's wider still
-function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8) {
+function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, n = 1) {
   const rk = rank === 1 && rich >= .75 ? 2 : rank, wide = rich >= 1 ? 1.12 : 1;
   const W = rk > 2 ? measure * .92 : rk > 1 ? Math.min(measure * .72 * wide, u * 62 * wide) : Math.min(measure * .52, u * 42) * (rich < .25 ? .8 : 1), h = u * (rk > 1 ? 7 : 5.6);
-  const f = KIND === 'fouet' ? PC.fouetBreak : PC.planteBreak;
-  return { marks: [], letters: [piece(cx - W / 2, y - h / 2, W, h, () => hand(() => f(W, h, seed, rk), seed), seed)] };
+  const f = KIND === 'fouet' ? PC.fouetBreak : PC.planteBreak, v = vary();
+  return { marks: [], letters: [piece(cx - W / 2, y - h / 2, W, h, () => hand(() => f(W, h, seed, rk, n, v), seed), seed, v)] };
 }
 
 // ---- frames ----------------------------------------------------------------------------------------------------------------------
 const linesBox = (box, lines) => !lines?.length ? box : [Math.min(...lines.map(L => L.left)), lines[0].top, Math.max(...lines.map(L => L.right)), lines.at(-1).base];
-const margin = (xl, top, bot, u, seed) => { const w = Math.min(u * 3, Math.max(u * 1.6, xl - u * 1.1 - 4)), h = bot - top + u * 2.4; if (h < u * 6) return [];   // (on a phone the margin is narrow: the piece slimmer, never past the page's edge)
-  return [piece(Math.max(4, xl - u * 1.1 - w), top - u * 1.6, w, h, () => hand(() => PC.marginPiece(KIND, w, h, seed), seed), seed)]; };
+const margin = (xl, top, bot, u, seed, v = vary()) => { const w = Math.min(u * 3, Math.max(u * 1.6, xl - u * 1.1 - 4)), h = bot - top + u * 2.4; if (h < u * 6) return [];   // (on a phone the margin is narrow: the piece slimmer, never past the page's edge)
+  return [piece(Math.max(4, xl - u * 1.1 - w), top - u * 1.6, w, h, () => hand(() => PC.marginPiece(KIND, w, h, seed, v), seed), seed, v)]; };
 const frameAround = ([X0, Y0, X1, Y1], t, seed, light) => { const bw = X1 - X0, bh = Y1 - Y0;
   return [piece(X0 - t, Y0 - t, bw + 2 * t, bh + 2 * t, () => hand(() => PC.framePiece(KIND, bw, bh, t, seed, light), seed), seed)]; };
 const frames = {
@@ -104,13 +108,13 @@ const frames = {
   quote: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : margin(L[0], L[1], box?.[3] ?? L[3], u, seed) }; },
   aside: ({ box, lines, u, seed = 1, rich = .5 }) => { const L = linesBox(box, lines); return { marks: [], letters: rich < .5 ? [] : margin(L[0], L[1], L[3] + u * .3, u, seed + 4) }; },
   pull: ({ cx, yTop, yBot, measure, u, seed = 1, rich = .5 }) => { if (rich < .25) return { marks: [], letters: [] };
-    const rk = rich >= .75 ? 2 : 1, W = Math.min(measure * .42, u * 30) * (rich >= 1 ? 1.15 : 1), h = u * 4.4, f = KIND === 'fouet' ? PC.fouetBreak : PC.planteBreak;
-    return { marks: [], letters: [piece(cx - W / 2, yTop - h * .8, W, h, () => hand(() => f(W, h, seed + 2, rk), seed + 2), seed), piece(cx - W / 2, yBot - h * .25, W, h, () => hand(() => f(W, h, seed + 7, rk), seed + 7), seed)] }; },
+    const rk = rich >= .75 ? 2 : 1, W = Math.min(measure * .42, u * 30) * (rich >= 1 ? 1.15 : 1), h = u * 4.4, f = KIND === 'fouet' ? PC.fouetBreak : PC.planteBreak, v = vary();
+    return { marks: [], letters: [piece(cx - W / 2, yTop - h * .8, W, h, () => hand(() => f(W, h, seed + 2, rk, 1, v), seed + 2), seed, v), piece(cx - W / 2, yBot - h * .25, W, h, () => hand(() => f(W, h, seed + 7, rk, 1, v), seed + 7), seed, v)] }; },
   figure: ({ box, cap, u, seed = 1, limit = [-1e9, 1e9], rich = .5 }) => { const room = Math.min(box[0] - limit[0], limit[1] - box[2]) - 2, t = Math.max(u * 1.2, Math.min(room, u * (rich >= 1 ? 3.4 : 2.8)));
     return { marks: [], letters: frameAround([box[0], box[1], box[2], cap ?? box[3]], t, seed, rich < .5) }; },
   code: ({ box, u, seed = 1, rich = .5 }) => ({ marks: [], letters: frameAround([box[0] + u * 2.2, box[1] + u * 2.2, box[2] - u * 2.2, box[3] - u * 2.2], u * 2, seed + 2, rich < .75) }),
   nav: ({ box, entries, u, seed = 1 }) => { const h = u * 1.7, w = u * 1.4;
-    return { marks: [], letters: entries.filter(Boolean).map((e, i) => piece(Math.max(4, box[0] - u * 1.2 - w), e.base - h * .96, w, h, () => hand(() => PC.paraphPiece(KIND, w, h, seed + i), seed + i), seed + i)) }; },
+    const v = vary(); return { marks: [], letters: entries.filter(Boolean).map((e, i) => piece(Math.max(4, box[0] - u * 1.2 - w), e.base - h * .96, w, h, () => hand(() => PC.paraphPiece(KIND, w, h, seed + i, i, v), seed + i), seed + i, v)) }; },
 };
 
 // ---- printing ------------------------------------------------------------------------------------------------------------------
@@ -245,7 +249,7 @@ const CACHE = new Map();
 function print(made, { dpr = 1, animate = false, kind } = {}) {
   const res = dpr >= 1.5 ? 2 : 1, all = [], seq = [], dark = isDark();
   for (const b of made.letters ?? []) { if (b.shape !== 'nv') continue;
-    const key = [KIND, PAINT, FPAINT, DARKWC, dark, res, b.x.toFixed(1), b.y.toFixed(1), b.w.toFixed(1), b.h.toFixed(1), b.seed, animate].join('|');
+    const key = [KIND, PAINT, FPAINT, DARKWC, dark, res, b.x.toFixed(1), b.y.toFixed(1), b.w.toFixed(1), b.h.toFixed(1), b.seed, b.v ?? 0, animate].join('|');
     let p = CACHE.get(key);   // (still: one pour that lays every layer; drawn: a pour a layer, each revealed by its own items' growth)
     if (!p) { const { P } = b.build(); if (KIND === 'fouet' && FPAINT === 'wash') asWash(P); const onPaper = KIND === 'plante' && dark && DARKWC === 'toned' && toned(P); growth(P); shift(P, b.x, b.y);
       const box = inkBounds(P, [b.x, b.y, b.x + b.w, b.y + b.h]), ls = layers(P, box, res, b.seed ?? 1);
@@ -273,7 +277,9 @@ function timeline(pr, kind, animate) {
 }
 
 export const nouveau = { label: 'Nouveau', minGap: 2, theme: { rubric: 'rgb(176 92 70)', rubricDark: 'rgb(214 140 112)' },
-  setup: () => ({}), kinds: (v, rich) => rich < .3 ? ['none'] : ['vine'],
+  // (the fillers' forms, which the host cycles down a page, shuffled by a page's own seed; unseeded, every one is drawn as
+  // the approved 'vine' whatever its name)
+  setup: () => ({}), kinds: (v, rich) => rich < .3 ? ['none'] : KIND === 'fouet' ? ['spiral', 'pod', 'cord', 'seed'] : ['vine', 'leaf', 'pod'],
   fillAt: { gap: .6, head: 3, rise: 1 },
   steady: ['drop'],
   paraph, filler, breakMark, initial, frames, palette, print, timeline,

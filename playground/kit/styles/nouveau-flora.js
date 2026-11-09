@@ -21,7 +21,7 @@ export function organ({ axisCp, W, ea = .6, eb = 1, asym = 1, frill = null, r = 
   for (let i = 0; i < m; i++) { const a = ax[Math.max(0, i - 1)], b = ax[Math.min(m - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; N.push([-dy / l, dx / l]);
     const t = i / (m - 1), base = W * Math.pow(Math.max(t, .015), ea) * Math.pow(Math.max(1 - t, 0), eb) / mx; wl.push(base); wr.push(base * asym); }
   const ph = r() * 6.3, side = (wv, sgn) => ax.map((p, i) => { const t = i / (m - 1); let w = wv[i];
-    if (frill && t > frill.from) w += frill.amp * Math.sin(t * frill.n * Math.PI + ph + sgn) * Math.min(1, (t - frill.from) / .12) * (1 - t * t * .3);
+    if (frill && t > frill.from) w += frill.amp * (frill.saw ? saw(t * frill.n * .5 + ph + sgn * .25) : Math.sin(t * frill.n * Math.PI + ph + sgn)) * Math.min(1, (t - frill.from) / .12) * (1 - t * t * .3);
     return [p[0] + sgn * N[i][0] * w, p[1] + sgn * N[i][1] * w]; });
   const L = side(wl, 1), R = side(wr, -1);
   const loop = [...L, ...R.slice().reverse().slice(1, -1)];
@@ -29,6 +29,9 @@ export function organ({ axisCp, W, ea = .6, eb = 1, asym = 1, frill = null, r = 
   const at = (t, f) => { const i = Math.max(0, Math.min(m - 1, Math.round(t * (m - 1)))), w = f > 0 ? wl[i] : wr[i]; return [ax[i][0] + N[i][0] * f * w, ax[i][1] + N[i][1] * f * w]; };
   return { loop, halves: [[...L, ...ax.slice().reverse()], [...R, ...ax.slice().reverse()]], axis: ax, at, W };
 }
+// (frill.saw: lobes that swell toward the leaf's tip and are cut back sharply, each lobe drawn to a point, as Grasset's poppy
+// leaf; else the edge crinkled evenly)
+const saw = x => { const f = x - Math.floor(x); return Math.pow(f, 1.8) * 1.6 - .45; };
 // the key line round a shape, with its hand
 const KEY = (P, loop, w, o = {}) => P.line(contour(loop, { w, lo: o.lo ?? .3, lift: o.lift ?? .35, inset: .35, tip: 1.8 }), { ...(o.cut ? { cut: o.cut } : {}), at: o.at ?? loop[0], reach: o.reach });
 // a vein: a fine line along the organ from t0 to t1 at fraction f of its half-width, fading at both ends
@@ -133,6 +136,22 @@ export function blade(P, axisCp, W, r, o = {}) {
     KEY(P, loop, k, { cut, lift: .3, at: ax[i0], reach }); };
   piece(0, Math.min(cross, m - 1), o.ink ?? 'leaf', 'leafD');
   if (cross < m - 1) piece(cross, m - 1, 'leafB', null);
+}
+// the poppy's leaf (Grasset pl. 4): a long blade cut into rounded lobes along both edges, the lobes growing toward its middle
+// and closing at the tip, a midrib down it; grey-green, its shaded half the darker tint
+export function leaf(P, axisCp, W, r, o = {}) {
+  const k = o.kw ?? Math.max(.6, W * .16);
+  const O = organ({ axisCp, W, ea: .55, eb: .9, asym: .85 + r() * .2, frill: { amp: W * .38, n: o.lobes ?? 9, from: .08, saw: 1 }, r, n: 60 });
+  lay3(P, O, o.ink ?? 'leaf', 'leafD', k, { cut: o.cut, veins: [[.04, .9, 0, .42]], shadeSide: o.shadeSide ?? 1 });
+}
+// the poppy's seed capsule (Grasset pl. 4): an urn on its stalk, its flat crown rayed, seen a little from above
+export function capsule(P, at, s, a, r, o = {}) {
+  const k = o.kw ?? Math.max(.6, s * .03), cut = o.cut, T = (x, y) => { const [u, v] = rotp([y * s, x * s], a); return [at[0] + u, at[1] + v]; };
+  const O = organ({ axisCp: [T(0, 0), T(J(r, .02), .3), T(J(r, .02), .55), T(0, .74)], W: s * (.27 + J(r, .02)), ea: .9, eb: .45, asym: .9 + r() * .15, r });
+  lay3(P, O, 'crown', null, k, { cut, veins: [[.15, .85, .5, .22], [.15, .88, 0, .22], [.15, .85, -.5, .22]], veinInk: 'k' });
+  const disc = []; for (let i = 0; i < 28; i++) { const t = i / 28 * Math.PI * 2; disc.push(T(Math.cos(t) * .25, .78 + Math.sin(t) * .09)); }
+  P.fill('crown', shape(disc), { cut, at, reach: s * 1.1 }); KEY(P, disc, k * .8, { lift: .2, cut, at, reach: s * 1.1 });
+  for (let i = 0; i < 7; i++) { const t = (i + .5) / 7 * Math.PI; P.fill('k', path(stroke([T(0, .78), T(Math.cos(t) * .21, .78 + Math.sin(t) * .075)], { hair: k * .22, a: { kind: 'taper', len: s * .03 } })), { knock: false, cut, at, reach: s * 1.1 }); }
 }
 // a stem: a tapering line in the leaf's dark, with nodes (a sheathing scale) where given
 export function stem(P, pts, o = {}) {
