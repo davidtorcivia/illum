@@ -87,11 +87,11 @@ export function lay(F, S, from, upto, { load = 1, decay = 18, inPeck = 1, seed =
     // was no longer fresh, takes only the high grains, grain by grain, over ~1-2 grains (measured: rock to full red over
     // .07-.2 of a stroke's width, Vitlycke and Tanumshede); where the brush was fresh it pooled against the wall: a crisp,
     // darker rim. The interior's thickness follows the groove's depth.
-    const Dp = F.D ? F.D[i] : pecked, core = sm(.45, .85, Dp), crisp = sm(.8, .95, ld), mw = (1 - core) * (1 - crisp);
+    const z = F.z ?? 0, Dp = F.D ? F.D[i] : pecked, core = 1 - z + z * sm(.45, .85, Dp), crisp = sm(.8, .95, ld), mw = (1 - core) * (1 - crisp);   // (z: how far the edge zone is open, by how large a grain is on screen)
     // (where the edge falls, grain by grain: a grain at the margin takes paint if it stands high enough for how shallow the
     // groove is there, so the boundary steps from grain to grain instead of running as a line; a fresh brush ignores it)
-    const presence = crisp * sm(.2, .3, Dp) + (1 - crisp) * sm(-.04, .04, pk * .8 + 2.4 * (Dp - .3));
-    const film = cov * (.78 + .22 * ld) * lf * (.45 + .55 * core) * (.6 + .4 * catchK) * presence * inPeck, pool = cov * (cav * (.03 + .1 * ld) * pecked + .38 * ld * crisp * (1 - Math.abs(2 * Dp - 1)) ** 2 * sm(.12, .3, Dp));
+    const presence = (1 - z) * sm(.15, .6, pecked) + z * (crisp * sm(.2, .3, Dp) + (1 - crisp) * sm(-.04, .04, pk * .8 + 2.4 * (Dp - .3)));
+    const film = cov * (.78 + .22 * ld) * lf * (.45 + .55 * core) * (.6 + .4 * catchK) * presence * inPeck, pool = cov * (cav * (.03 + .1 * ld) * pecked + (z * .38 * crisp * (1 - Math.abs(2 * Dp - 1)) ** 2 * sm(.12, .3, Dp) + (1 - z) * .32 * (1 - Math.abs(2 * pecked - 1)) ** 2 * sm(.1, .3, pecked)) * ld);
     T[i] = Math.min(2.4, Math.max(T[i], film + pool));
     const X = i % cw, Y = (i / cw) | 0; if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; }
   S.next = n; return x1 >= 0 ? [x0, y0, x1, y1] : null;
@@ -104,7 +104,7 @@ export function shadeRock(F, look, img, bb = null) {
   const { cw, ch, G, H, T, K, S, C, dpr } = F, o = img.data, px = 1 / dpr, [x0, y0, x1, y1] = bb ?? [0, 0, cw - 1, ch - 1];
   for (let Y = Math.max(1, y0); Y <= Math.min(ch - 2, y1); Y++) for (let X = Math.max(1, x0); X <= Math.min(cw - 2, x1); X++) {
     const i = Y * cw + X, slab = S ? S[i] : 0, pk = K[i], t = T[i], q = i * 4;
-    const ab = Math.max(slab, sm(.65, .92, pk) * (F.D ? sm(.6, .9, F.D[i]) : 1));                       // the rock shows where it is a panel, or inside the pecked figure where the paint skipped (never as a halo round it)
+    const ab = Math.max(slab, sm(.65, .92, pk) * (F.D && F.z ? 1 - F.z + F.z * sm(.6, .9, F.D[i]) : 1));                       // the rock shows where it is a panel, or inside the pecked figure where the paint skipped (never as a halo round it)
     if (ab <= 0 && t <= 0) { o[q + 3] = 0; continue; }
     const hk = .12 + .88 * (1 - sm(.15, .7, t)), h = (j) => G[j] + F.Wb[j] + H[j] * hk;   // (under a coat of paint the pits' relief softens)
     const gx = (h(i + 1) - h(i - 1)) / (2 * px), gy = (h(i + cw) - h(i - cw)) / (2 * px), l = Math.hypot(gx, gy, 1);
@@ -165,14 +165,14 @@ function prepare(F, piece, look, live = false) {
   return { pits, strokes };
 }
 // the paint closes over the pits' scallops a little: the pecked floor it fills is the pits' union softened by half a pit
-function boxBlur(A, cw, ch, R) { for (let pass = 0; pass < 2; pass++) { const T = new Float32Array(cw * ch), B = new Float32Array(cw * ch);
+function boxBlur(A, cw, ch, R, passes = 2) { for (let pass = 0; pass < passes; pass++) { const T = new Float32Array(cw * ch), B = new Float32Array(cw * ch);
     for (let y = 0; y < ch; y++) { let s = 0; for (let x = -R; x <= R; x++) s += A[y * cw + Math.min(cw - 1, Math.max(0, x))]; for (let x = 0; x < cw; x++) { T[y * cw + x] = s / (2 * R + 1); s += A[y * cw + Math.min(cw - 1, x + R + 1)] - A[y * cw + Math.max(0, x - R)]; } }
     for (let x = 0; x < cw; x++) { let s = 0; for (let y = -R; y <= R; y++) s += T[Math.min(ch - 1, Math.max(0, y)) * cw + x]; for (let y = 0; y < ch; y++) { B[y * cw + x] = s / (2 * R + 1); s += T[Math.min(ch - 1, y + R + 1) * cw + x] - T[Math.max(0, y - R) * cw + x]; } }
     A = B; } return A; }
 // the paint closes over the pits' scallops (a whole pit: only a faint ripple is left); and D, the groove's depth, falls
 // from its centre to its shoulders over ~2.5 grains: the zone where the film thins and breaks on the grain
 function settle(F) { const { cw, ch, K } = F, A = boxBlur(K, cw, ch, Math.max(1, Math.round(1.0 * (F.prs ?? F.rp) * F.dpr)));
-  F.D = boxBlur(K, cw, ch, Math.max(1, Math.round(Math.min(2 * F.g, 1.6 * (F.prs ?? F.rp)) * F.dpr)));   // (never wider than the figure's own pits: a traced ship's comb and ovals keep their gaps)
+  F.z = sm(2.5, 4.5, F.g * F.dpr); F.D = F.z > 0 ? boxBlur(K, cw, ch, Math.max(1, Math.round(Math.min(2 * F.g, 1.6 * (F.prs ?? F.rp)) * F.dpr)), 1) : null;   // (never wider than the figure's own pits; computed only when the zone is open, in one pass)
   for (let i = 0; i < K.length; i++) K[i] = sm(.36, .56, A[i]); }
 const peckedFrom = (F, bb) => { const [x0, y0, x1, y1] = bb; for (let Y = y0; Y <= y1; Y++) for (let X = x0; X <= x1; X++) { const i = Y * F.cw + X; F.K[i] = sm(.02 * F.g, .25 * F.g, -F.H[i]); } };
 export const PROF = {};
