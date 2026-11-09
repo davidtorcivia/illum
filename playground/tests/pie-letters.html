@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIE letters</title>
+<!--
+  PIE, the letter test (research/24-pie.md). No PIE letter exists to overlay against, so each candidate face is tested
+  for what the mediums ask of it: (1) its stem as a fraction of its cap height (the cord zone needs three rows of
+  beads across a stem, the pecked fill five pits, the raised line a clear counter), measured here from its own I;
+  (2) every candidate set in each medium's drop, beside the same letter plain; (3) Old Italic only for the letters an
+  English reader takes for Latin.
+-->
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500&family=Archivo:wdth,wght@125,900&display=block" rel="stylesheet">
+<style>
+  @font-face { font-family: "Illum PIE Archivo"; src: url(../fonts/pie/illum-pie-archivo-caps.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "Illum PIE Cinzel"; src: url(../fonts/pie/illum-pie-cinzel-caps.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "Illum PIE Old Italic"; src: url(../fonts/pie/illum-pie-olditalic.woff2) format("woff2"); font-display: block; }
+  body { margin: 0; padding: 24px; background: #efe7d6; color: #0e0d0b; font: 500 17px/1.5 Newsreader, serif; }
+  h1, h2 { font: 900 1.3em/1 Archivo, sans-serif; font-variation-settings: 'wdth' 125; margin: 1em 0 .4em; }
+  .row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 8px; }
+  .plain { font-size: 104px; line-height: 1; width: 1.1em; text-align: center; }
+  p.m { margin: 0 0 1em; max-width: 60em; }
+</style>
+</head>
+<body>
+<h1>PIE · the letters</h1>
+<div id="out"></div>
+<script type="module">
+import { DIRS, print } from './pie-directions.js';
+const FACES = [['"Illum PIE Archivo"', 'Archivo 900, wdth 125 (wekwos.com’s own display face; Omnibus-Type, OFL)', 'ITWBRSAE'],
+  ['"Illum PIE Cinzel"', 'Cinzel 700 (Natanael Gama, OFL): the Roman inscriptional capital, cut', 'ITWBRSAE'],
+  ['"Illum PIE Old Italic"', 'Noto Sans Old Italic (OFL): only the letters a reader of English takes for Latin', 'ITOX']];
+const OI = { I: '\u{10309}', T: '\u{10315}', O: '\u{1030F}', X: '\u{10317}', A: '\u{10300}', E: '\u{10304}', B: '\u{10301}', S: '\u{10314}' };
+await Promise.all(['900 20px Archivo', '500 20px Newsreader', ...FACES.map(f => `20px ${f[0]}`)].map(f => document.fonts.load(f, f.includes('Old') ? '\u{10309}' : 'A')));
+const stem = face => { const c = new OffscreenCanvas(400, 400).getContext('2d', { willReadFrequently: true }); const ch = face.includes('Old') ? OI.I : 'I';
+  c.font = `300px ${face}`; c.fillText(ch, 100, 330); const d = c.getImageData(0, 0, 400, 400).data; let best = 0, top = 400, bot = 0;
+  for (let y = 0; y < 400; y++) { let run = 0, mx = 0; for (let x = 0; x < 400; x++) { if (d[(y * 400 + x) * 4 + 3] > 127) { run++; mx = Math.max(mx, run); top = Math.min(top, y); bot = Math.max(bot, y); } else run = 0; } if (y > 160 && y < 260) best = Math.max(best, mx); }
+  return best / (bot - top + 1); };
+const out = document.getElementById('out'), H = 3 * 30 + 13.7;
+for (const [face, name, set] of FACES) {
+  out.insertAdjacentHTML('beforeend', `<h2>${name}</h2><p class="m">stem / cap height ${stem(face).toFixed(3)} (the I's vertical stroke, mid-height)</p>`);
+  for (const ch of set) { const row = document.createElement('div'); row.className = 'row'; const g = face.includes('Old') ? OI[ch] : ch;
+    row.insertAdjacentHTML('beforeend', `<div class="plain" style='font-family:${face}'>${g}</div>`);
+    for (const k of Object.keys(DIRS)) row.append(print(k, 'light', DIRS[k].initial(g, H, 7, 19, face)));
+    out.append(row); }
+}
+document.body.dataset.timing = 'done';
+</script>
+</body>
+</html>

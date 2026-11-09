@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIE directions</title>
+<!--
+  PIE, stage 1 (research/24-pie.md): three directions for wekwos.com, each a whole page grammar in its own medium.
+  A the potter (cord and comb pressed into clay), B the rock (figures pecked into granite), C the smith (sheet bronze
+  chased and punched). Each: every piece on a specimen page in light (the site's paper) and dark (its ink sections); the
+  drop at 4x beside its reference; the pieces enlarged; a phone width (390).   ?only=potter|rock|smith  ?draw  ?bare
+  (one light panel only, for the phone frames)  #seed=n
+  The specimen's text is wekwos.com's own (the model page), quoted unchanged.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;1,6..72,400&family=Archivo:wdth,wght@125,900&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@500&display=block" rel="stylesheet">
+<style>
+  @font-face { font-family: "Illum PIE Archivo"; src: url(../fonts/pie/illum-pie-archivo-caps.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "Illum PIE Cinzel"; src: url(../fonts/pie/illum-pie-cinzel-caps.woff2) format("woff2"); font-display: block; }
+  :root { --yellow: #ffd21a; --ink: #0e0d0b; --paper: #efe7d6; --chalk: #f6f1e4; }
+  html { background: var(--yellow); }
+  body { margin: 0; color: var(--ink); font: 500 19px/1.58 Newsreader, Georgia, serif; -webkit-font-smoothing: antialiased; }
+  .display { font-family: Archivo, sans-serif; font-weight: 900; font-variation-settings: 'wdth' 125; letter-spacing: -.03em; }
+  header.top { max-width: 1400px; margin: 0 auto; padding: 40px 24px 8px; }
+  header.top h1 { font-size: clamp(40px, 6vw, 92px); line-height: .9; margin: 0; }
+  header.top p { font: italic 400 20px/1.3 "Instrument Serif", serif; max-width: 60ch; }
+  header.top nav a { color: inherit; margin-right: 1.2em; font: 500 13px "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: .1em; }
+  section.dir { max-width: 1400px; margin: 0 auto; padding: 36px 24px 12px; }
+  section.dir > h2 { font-size: clamp(30px, 4vw, 56px); line-height: .9; margin: 0 0 .3em; }
+  section.dir > p.note { margin: 0 0 1em; font: italic 400 19px/1.35 "Instrument Serif", serif; max-width: 70ch; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel { position: relative; padding: 48px 44px 40px; overflow: hidden; }
+  .panel[data-theme=light] { background: var(--paper); color: var(--ink); } .panel[data-theme=dark] { background: var(--ink); color: var(--chalk); }
+  .text { position: relative; max-width: 680px; margin: 0 auto; }
+  .text p { margin: 0 0 1.05em; } .text p.par { margin-top: -.5em; }
+  .text h3 { font-size: 34px; line-height: 1; margin: 1.1em 0 .5em; position: relative; }
+  .text h3 .ro { display: inline-block; height: 1px; }
+  .text hr { border: 0; margin: 1em 0; } hr.r1 { height: 1.3em; } hr.r2 { height: 2.6em; } hr.r3 { height: 7em; }
+  .text blockquote.quote { margin: 1.2em 0; padding-left: 2.6em; font: italic 400 1.12em/1.35 "Instrument Serif", serif; }
+  .text blockquote.pull { margin: 1.4em 0; padding: 3.8em 1em 3.6em; text-align: center; font-family: Archivo, sans-serif; font-weight: 900; font-variation-settings: 'wdth' 125; font-size: 30px; line-height: 1.05; letter-spacing: -.02em; }
+  .text blockquote.pull small { display: block; font: italic 400 19px/1.3 "Instrument Serif", serif; letter-spacing: 0; margin-top: .4em; }
+  .text aside { margin: 1.4em 0; padding: 1.4em 1.8em; font-size: .9em; }
+  .text figure { margin: 1.4em 0; padding: 2.1em 0; } .text figure .plate { height: 120px; background: color-mix(in srgb, currentColor 7%, transparent); }
+  .text figcaption { font: italic 400 16px/1.4 "Instrument Serif", serif; margin-top: .7em; } .text figcaption b { font: 500 11px "JetBrains Mono", monospace; letter-spacing: .14em; text-transform: uppercase; margin-right: .5em; font-style: normal; }
+  .text pre { margin: 1.4em 0; padding: 1.6em 0; font: 500 15px/1.5 "JetBrains Mono", monospace; white-space: pre-wrap; }
+  .text nav.toc { margin: 1.4em 0; padding-left: 2.6em; font: 500 13px/2.2 "JetBrains Mono", monospace; letter-spacing: .1em; text-transform: uppercase; }
+  .text nav.toc a { display: block; color: inherit; text-decoration: none; }
+  .ini, .li { float: left; } .pf { display: inline-block; height: 1px; }
+  .zoom { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; align-items: flex-start; }
+  .zoom figure { margin: 0; padding: 16px; max-width: 100%; box-sizing: border-box; }
+  .zoom figure[data-theme=light] { background: var(--paper); } .zoom figure[data-theme=dark] { background: var(--ink); color: var(--chalk); }
+  .zoom figcaption { font: italic 400 15px/1.3 "Instrument Serif", serif; opacity: .8; margin-top: 6px; max-width: 46em; }
+  .zoom canvas, .zoom img { display: block; max-width: 100%; height: auto; }
+  .side { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .phones { display: flex; gap: 16px; flex-wrap: wrap; } .phones iframe { width: 390px; height: 1500px; border: 0; background: var(--paper); }
+  body.bare { background: var(--paper); } body.bare .panel { padding: 28px 16px; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } .panel { padding: 32px 16px 28px; } section.dir { padding: 28px 0 8px; } header.top, section.dir > h2, section.dir > p.note { padding-left: 16px; padding-right: 16px; } .text h3 { font-size: 28px; } .text blockquote.pull { font-size: 24px; } }
+</style>
+</head>
+<body>
+<header class="top"><h1 class="display">PIE · three directions</h1>
+<p>For wekwos.com. Each direction is one material and one hand: the potter’s cord in clay, the carver’s hammer-stone on rock, the smith’s punch in bronze. Every mark is one thing a hand did. <span id="timing"></span></p>
+<nav><a href="?only=potter">A · the potter</a><a href="?only=rock">B · the rock</a><a href="?only=smith">C · the smith</a><a href="?">all</a><a href="?draw">all, made</a><a href="pie-wekwos.html">on the model page</a><a href="pie-medium.html">mediums</a></nav></header>
+<template id="txt">
+  <p class="lead"><span class="ini" data-ch="I"></span>n the end, on the project's benchmark the model scores 88.5 lenient and 86.2 strict. The best frontier runs I tested, Claude Opus 5.5 at xhigh and GPT-6.1 Sol at high, score 86.0 and 84.4 lenient, then 50.0 and 47.0 strict. The lenient score forgives notation (accents, vowel length, ASCII spellings like h2 for h₂), and simply asks whether the grammar is right.</p>
+  <p class="par fill"><span class="pf"></span>A review that finds a wrong record does not simply fix that record: it finds the cause in the engine, the classifier or the lexicon, fixes it there, and then the entire tier is regenerated.</p>
+  <hr class="r1" data-rank="1">
+  <p>Generating this corpus was the most painstaking part of this process. There are no native speakers to learn from, no recordings and no text written by anyone who spoke the language.</p>
+  <blockquote class="quote">The best-known phrase of Indo-European poetry, reconstructed from Vedic <i>śrávas ákṣitam</i> and Homer's <i>kléos áphthiton</i>.</blockquote>
+  <hr class="r2" data-rank="2">
+  <h3 class="display">The lexicon<span class="ro"></span></h3>
+  <p class="sub"><span class="li" data-ch="T"></span>he lexicon holds over 8,300 entries. Over 7,400 come directly from the well-sourced work of Wiktionary's reconstructions (roots, words and the derivatives in their descendant trees), over 800 are from LIV², the standard lexicon of PIE verbs.</p>
+  <blockquote class="pull">ḱléwos ń̥dʰgʷʰitom<small>“Imperishable fame”</small></blockquote>
+  <aside>Nemotron 3.5 Super by NVIDIA. Fine-tuned on Tinker by Thinking Machines; reinforcement learning with mlx-lm-lora.</aside>
+  <figure><div class="plate"></div><figcaption><b>Figure 1.</b> The benchmark. Solid bars are the strict score, the hatched extension is the lenient score.</figcaption></figure>
+  <pre>ḱléwos ń̥dʰgʷʰitom</pre>
+  <nav class="toc"><a>The result</a><a>The lexicon</a><a>The grammar engine</a><a>The corpus</a><a>Fine-tuning</a></nav>
+  <p>The final round still trails the round before the vocabulary fine-tune by about a point of chrF and a little on paradigm cells.</p>
+  <hr class="r3" data-rank="3">
+</template>
+<main id="out"></main>
+<script type="module">
+import { DIRS, NAMES, print } from './pie-directions.js';
+await Promise.all(['900 20px Archivo', '500 20px Newsreader', 'italic 20px "Instrument Serif"', '500 13px "JetBrains Mono"', '20px "Illum PIE Archivo"', '20px "Illum PIE Cinzel"'].map(f => document.fonts.load(f)));
+const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), BARE = q.has('bare');
+const DRAW = q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+if (BARE) { document.body.classList.add('bare'); document.querySelector('header.top').remove(); }
+const NOTES = {
+  potter: 'The Beaker potter’s zoned style. The letter is a zone drawn round with a stick and filled with rows of twisted cord; above and below it a band of cord between guide lines, as round a beaker’s neck. Paraph: a hanging triangle hatched with the comb. Filler: one cord, pressed lighter where the thumb set it down. Breaks: a cord between strokes; two cords and the comb’s zigzag; the neck band with its fringe of hanging triangles. Every bead is one turn of the cord, measured on the Prague beaker (pitch, slant, two plies). In the ink, the dark-fired clay, its impressions filled with white lime, as the potters filled them.',
+  rock: 'Tanum’s pecked figures. The capital is pecked full by the carver’s passes, each pit one blow of the hammer-stone; a sun-wheel (*séh₂ul’s wheel) above its shoulder and cup marks at its foot. Paraph: a cup mark. Filler: a ship as long as the gap, its crew standing. Breaks: three cups; the sun-wheel between cups; the sun-ship with a horse (*h₁éḱwos) ahead. The quotation grows a world-tree down its margin; the pull quote is held by the Twins as two horses. The red is the modern custom of painting the furrows, and only that; in the ink a brighter ochre.',
+  smith: 'Sheet bronze, chased and punched, after the Trundholm disc and the Hallstatt cuirass. The drop is a cut plate: its border punched, the capital raised in a line round its edge and its body traced in dots, rings in the free corners. Paraph: a little disc with the ring motif. Filler: a belt-plate with bosses. Breaks: a short boss strip; a diadem of ring motifs; the sun disc. Gold only on the bosses’ crowns. Verdigris in the hollows.',
+};
+const REF = { potter: [['cw-beaker-cord.jpg', 'Corded Ware beaker, Prague City Museum (photo Zde, CC BY-SA 4.0): the cord, enlarged'], ['cw-beaker-neck.jpg', 'the same beaker’s neck: bands of cord'], ['yamnaya-pottery.jpg', 'Yamnaya pottery of the Azov–Black Sea steppes (after Shaposhnikova 1985, S. Ivanova, CC BY 4.0)']],
+  rock: [['tanumshede-ship.jpg', 'Tanumshede (public domain photo): a ship, its crew, a cup mark'], ['vitlycke-crew.jpg', 'Vitlycke (photo Bjoertvedt, CC BY-SA 3.0): pecked and painted'], ['herrebro-unpainted.jpg', 'Herrebro (photo Västgöten, CC BY-SA 3.0): unpainted, in raking light, with cup marks']],
+  smith: [['trundholm-rings.jpg', 'Trundholm sun disc (Nationalmuseet; photo Marie-Lan Nguyen, public domain)'], ['cuirass-bosses.jpg', 'Hallstatt cuirass, Met 248133 (CC0): bosses and pointillé'], ['irish-disc.jpg', 'Irish gold disc, c. 800 BCE, Met 468176 (CC0)']] };
+const dpr = Math.min(2, devicePixelRatio || 1), PERF = [], ONLY = q.get('only');
+// ?draw: a panel's pieces, made one after another in reading order as it comes into view (one hand for the page)
+const queue = []; let running = false, st = 0;
+function run(now) { const w = queue[0]; if (!w) { running = false; return; } if (!st) st = now; const f = (now - st) / w.dur; if (f >= 1) { w.done(); queue.shift(); st = 0; } else w.at(f); requestAnimationFrame(run); }
+const seen = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { seen.unobserve(e.target); queue.push(...e.target._w); } if (queue.length && !running) { running = true; requestAnimationFrame(run); } }, { threshold: .1 });
+
+function page(key, theme, host) {
+  const D = DIRS[key], panel = document.createElement('div'); panel.className = 'panel'; panel.dataset.theme = theme;
+  const text = document.createElement('div'); text.className = 'text'; text.append(document.getElementById('txt').content.cloneNode(true)); panel.append(text); host.append(panel);
+  const cs = getComputedStyle(text), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = innerWidth < 600 ? 3 : 4, ws = [];
+  const t0 = performance.now(), tr = () => text.getBoundingClientRect();
+  const place = (pc, x, y) => { const o = print(key, theme, pc, { dpr, live: DRAW }), el = o.cv ?? o; if (o.w) ws.push(o.w); Object.assign(el.style, { position: 'absolute', left: x + 'px', top: y + 'px', pointerEvents: 'none' }); text.append(el); return pc; };
+  // the drop
+  const H = (n - 1) * lh + fs * .72, ini = text.querySelector('.ini'), ip = D.initial(ini.dataset.ch, H, seed, fs);
+  Object.assign(ini.style, { width: ip.W + fs * .45 + 'px', height: (n * lh - 2) + 'px' });
+  // the line initial (two lines)
+  const li = text.querySelector('.li'), lp = D.lineInitial(li.dataset.ch, fs, seed); Object.assign(li.style, { width: lp.W + fs * .2 + 'px', height: 2 * lh - 2 + 'px' });
+  const pf = text.querySelector('.pf'), pp = D.paraph(fs, seed); pf.style.width = pp.W + fs * .3 + 'px';
+  const R = tr(), rel = el => { const b = el.getBoundingClientRect(); return { x: b.left - R.left, y: b.top - R.top, w: b.width, h: b.height }; };
+  { const b = rel(ini); place(ip, b.x, b.y + (lh - fs) / 2 + fs * .2); }
+  { const b = rel(li); place(lp, b.x, b.y + (lh - fs) / 2 + fs * .1); }
+  { const b = rel(pf); place(pp, b.x, b.y - pp.H * .78); }
+  // the filler: the last line of the paragraph to the measure
+  { const p = text.querySelector('p.fill'), rg = document.createRange(); rg.selectNodeContents(p); const last = [...rg.getClientRects()].at(-1), x0 = last.right - R.left + fs * .3, gw = R.width - x0;
+    if (gw > fs * 2) { const fp = D.filler(gw, lh, seed); place(fp, x0, last.top - R.top + (last.height - fp.H) / 2 + fs * .08); } }
+  // the heading's run-out
+  { const h = text.querySelector('h3'), ro = rel(h.querySelector('.ro')), b = rel(h), x0 = ro.x + fs * .5, w = R.width - x0; if (w > fs * 2) { const rp = D.runout(w, fs * 1.3, seed); place(rp, x0, b.y + b.h * .62 - rp.H / 2); } }
+  // the breaks
+  for (const hr of text.querySelectorAll('hr')) { const b = rel(hr), k = +hr.dataset.rank, bp = D.brk(k, R.width, Math.max(b.h, lh * 1.4), seed); place(bp, (R.width - bp.W) / 2, b.y + (b.h - bp.H) / 2); }
+  // the frames
+  const fr = (sel, kind, f = b => [b.x, b.y, b.w, b.h]) => { const el = text.querySelector(sel), b = rel(el), [x, y, w, h] = f(b), fp = D.frame(kind, w, h, seed, fs); place(fp, kind === 'quote' || kind === 'contents' ? x : x + (w - fp.W) / 2, y); };
+  fr('blockquote.quote', 'quote'); fr('blockquote.pull', 'pull'); fr('aside', 'aside'); fr('figure', 'figure'); fr('pre', 'code'); fr('nav.toc', 'contents');
+  PERF.push(`${key} ${theme}: ${Math.round(performance.now() - t0)} ms`);
+  if (DRAW) { panel._w = ws; seen.observe(panel); }
+  return { fs, lh, H };
+}
+
+for (const key of Object.keys(DIRS).filter(k => !ONLY || ONLY === k)) {
+  const D = DIRS[key], sec = document.createElement('section'); sec.className = 'dir'; sec.id = key;
+  if (BARE) { const pr = document.createElement('div'); document.getElementById('out').append(pr); page(key, q.get('theme') ?? 'light', pr); continue; }
+  sec.innerHTML = `<h2 class="display">${NAMES[key]}</h2><p class="note">${NOTES[key]}</p><div class="pair"></div><div class="zoom"></div>`;
+  document.getElementById('out').append(sec);
+  let m; for (const theme of ['light', 'dark']) m = page(key, theme, sec.querySelector('.pair'));
+  const z = sec.querySelector('.zoom'), fig = (el, cap, theme = 'light') => { const f = document.createElement('figure'); f.dataset.theme = theme; f.append(el); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); z.append(f); return f; };
+  // the drop at 4x beside its reference at the same height
+  for (const [i, [src, cap]] of REF[key].entries()) { const side = document.createElement('div'); side.className = 'side';
+    if (i === 0) { const cv = print(key, 'light', D.initial('I', m.H, seed, m.fs), { zoom: 4 }), im = new Image(); im.src = 'pie-refs/' + src; im.style.height = cv.style.height; im.style.width = 'auto'; side.append(im, cv); fig(side, `the drop, 4×, beside: ${cap}`); }
+    else { const im = new Image(); im.src = 'pie-refs/' + src; im.style.height = '300px'; im.style.width = 'auto'; side.append(im); fig(side, cap); } }
+  for (const theme of ['light', 'dark']) {
+    fig(print(key, theme, D.initial('T', m.H, seed + 1, m.fs), { zoom: 3 }), `drop T, 3× (${theme})`, theme);
+    fig(print(key, theme, D.lineInitial('W', m.fs, seed), { zoom: 3 }), 'line initial, 3×', theme);
+    fig(print(key, theme, D.paraph(m.fs, seed), { zoom: 4 }), 'paraph, 4×', theme);
+    fig(print(key, theme, D.filler(220, m.lh, seed), { zoom: 3 }), 'filler, 3×', theme);
+    for (const k of [1, 2, 3]) fig(print(key, theme, D.brk(k, 560, m.lh * (k === 1 ? 1.4 : k === 2 ? 2.6 : 7 * 19 / m.lh) , seed), { zoom: 2 }), `break ${k}, 2×`, theme);
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end';
+    for (const ch of 'BRSWAEKM') row.append(print(key, theme, D.initial(ch, m.H, seed + ch.charCodeAt(0), m.fs)));
+    fig(row, `drops, page size (${theme})`, theme);
+  }
+  const ph = document.createElement('div'); ph.className = 'phones'; ph.innerHTML = `<iframe src="pie-directions.html?only=${key}&bare#seed=${seed}" title="phone"></iframe><iframe src="pie-directions.html?only=${key}&bare&theme=dark#seed=${seed}" title="phone, dark"></iframe>`;
+  fig(ph, 'a phone, 390 px wide (light, dark)');
+}
+const msg = `A page’s ornament, every piece: ${PERF.join('; ')}.`; document.body.dataset.timing = PERF.join('; ');
+const tEl = document.getElementById('timing'); if (tEl) tEl.textContent = msg;
+</script>
+</body>
+</html>

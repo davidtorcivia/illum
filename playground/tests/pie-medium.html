@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIE mediums</title>
+<!--
+  PIE, the medium bench (research/24-pie.md): one drop per medium at 1x on wekwos.com's paper and ink grounds beside its
+  own body text, then 4x beside the reference at the same height. Each is a height field of marks (a cord's beads, a
+  hammer-stone's pits, a chaser's ridges and punches) lit once (kit/styles/pie-relief.js).   ?draw  ?ch=B  #seed=n
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500&family=Archivo:wdth,wght@125,900&display=block" rel="stylesheet">
+<style>
+  @font-face { font-family: "Illum PIE Archivo"; src: url(../fonts/pie/illum-pie-archivo-caps.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "Illum PIE Cinzel"; src: url(../fonts/pie/illum-pie-cinzel-caps.woff2) format("woff2"); font-display: block; }
+  body { margin: 0; background: #efe7d6; color: #0e0d0b; font: 500 19px/1.58 Newsreader, Georgia, serif; }
+  header, section { max-width: 1320px; margin: 0 auto; padding: 24px; }
+  h1, h2 { font: 900 1.2em/1 Archivo, sans-serif; font-variation-settings: 'wdth' 125; letter-spacing: -.02em; margin: 0 0 .4em; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .pane { padding: 28px; flex: 1 1 520px; }
+  .pane[data-theme=light] { background: #efe7d6; color: #0e0d0b; } .pane[data-theme=dark] { background: #0e0d0b; color: #f6f1e4; }
+  .pane p { max-width: 680px; margin: 0; }
+  .ini { float: left; margin: .32em .5em 0 0; }
+  .side { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; margin-top: 12px; }
+  .side img { display: block; } figure { margin: 0; } figcaption { font-size: 13px; font-style: italic; max-width: 40em; }
+</style>
+</head>
+<body>
+<header><h1>PIE · the mediums</h1><p id="timing"></p></header>
+<main id="out"></main>
+<script type="module">
+import { DIRS, NAMES, print } from './pie-directions.js';
+await Promise.all(['900 20px Archivo', '500 20px Newsreader', '20px "Illum PIE Archivo"', '20px "Illum PIE Cinzel"'].map(f => document.fonts.load(f)));
+const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), ch = q.get('ch') ?? 'I', DRAW = q.has('draw');
+const TXT = 'n the end, on the project’s benchmark the model scores 88.5 lenient and 86.2 strict. The best frontier runs I tested score 86.0 and 84.4 lenient, then 50.0 and 47.0 strict. The lenient score forgives notation (accents, vowel length, ASCII spellings like h2 for h₂), and simply asks whether the grammar is right.';
+const REF = { potter: ['cw-beaker-cord.jpg', 'Corded Ware beaker, Prague City Museum P0000486 (photo Zde, CC BY-SA 4.0): two-ply cord impressions'],
+  rock: ['vitlycke-crew.jpg', 'Vitlycke, Tanum (photo Bjoertvedt, CC BY-SA 3.0): pecked figures, painted red'],
+  smith: ['trundholm-rings.jpg', 'Trundholm sun disc, Nationalmuseet (photo Marie-Lan Nguyen, public domain): chased rings, punched beads'] };
+const lh = 19 * 1.58, H = 3 * lh + 19 * .72, T = [];
+for (const key of Object.keys(DIRS)) {
+  const sec = document.createElement('section'); sec.innerHTML = `<h2>${NAMES[key]}</h2><div class="row"></div><div class="side"></div>`; document.getElementById('out').append(sec);
+  for (const theme of ['light', 'dark']) {
+    const pane = document.createElement('div'); pane.className = 'pane'; pane.dataset.theme = theme;
+    const t0 = performance.now(), piece = DIRS[key].initial(ch, H, seed, 19), o = print(key, theme, piece, { live: DRAW });
+    T.push(`${key} ${theme} ${Math.round(performance.now() - t0)} ms`);
+    const cv = o.cv ?? o; cv.className = 'ini'; const p = document.createElement('p'); p.append(cv, TXT); pane.append(p); sec.querySelector('.row').append(pane);
+    if (DRAW) { const t1 = performance.now(), run = n => { const f = (n - t1) / o.w.dur; if (f >= 1) o.w.done(); else { o.w.at(f); requestAnimationFrame(run); } }; requestAnimationFrame(run); }
+  }
+  const s = sec.querySelector('.side'), cv4 = print(key, 'light', DIRS[key].initial(ch, H, seed, 19), { zoom: 4 }), im = new Image();
+  im.src = 'pie-refs/' + REF[key][0]; im.style.height = cv4.style.height;
+  const f1 = document.createElement('figure'); f1.append(im); f1.insertAdjacentHTML('beforeend', `<figcaption>${REF[key][1]}</figcaption>`);
+  const f2 = document.createElement('figure'); f2.append(cv4); f2.insertAdjacentHTML('beforeend', `<figcaption>ours, 4×, at the same height</figcaption>`);
+  s.append(f1, f2);
+}
+document.getElementById('timing').textContent = T.join(' · ');
+document.body.dataset.timing = T.join('; ');
+</script>
+</body>
+</html>
