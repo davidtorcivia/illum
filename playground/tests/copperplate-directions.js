@@ -13,7 +13,7 @@ import { stream, resample } from '../kit/marks.js';
 const PI = Math.PI, TAU = 2 * PI;
 // the shade axes. The pen: pulled down the slant toward the writer, and only that way (a pointed pen cannot shade an
 // up-stroke). The engraver of the command of hand: down the plate, both sides of an oval, the far one ~.7 as hard (0040).
-const PEN = { axis: [-Math.cos(SLANT), Math.sin(SLANT)], reverse: 0 }, BURIN = { axis: [0, 1], reverse: .7 }, LACE = { axis: [0, 1], reverse: 0, falloff: 55 };
+const PEN = { axis: [-Math.cos(SLANT), Math.sin(SLANT)], reverse: 0 }, BURIN = { axis: [0, 1], reverse: .7 }, LACE = { axis: [0, 1], reverse: 0, falloff: 55, tight: .07 };
 const hairOf = (peak, d) => Math.max(peak / 10, 1.2 / d) / 2;
 // C's hairline (stage 4): laid flat, not through the engine, so it can be finer than a device px: the master's tenth of a
 // shade, never under .55 of a device px (a fine grey thread at that, as an engraved hairline seen small)
@@ -55,15 +55,19 @@ function thorn(p, h, L, sense, seed, { hair, peak }) {
 //   wet, rough, rim   the ink engine: how wet the iron gall, how much tooth the paper has, how much ink the flexed tines draw
 //           to the swell's two edges (the rails)
 //   letter  'pen': the capital written by the same pen along its skeleton (glyphStrokes); 'face': poured from the face
-export const B_OPTS = { geo: 1, wet: .45, rough: .6, rim: .7, letter: 'face' };   // (kept after the before/after: geo, wet, rim; rough showed nothing, the pen-written letter broke the face's swells and joins)
+export const B_OPTS = { geo: 1, wet: .45, rough: .6, rim: .7, letter: 'face', line: 'crisp' };   // (kept after the before/after: geo, wet, rim; rough showed nothing, the pen-written letter broke the face's swells and joins)
 // (the quill's hairline: never under the engine's floor, 1.1 device px, or the paper's tooth breaks it into beads)
-const penHair = d => Math.max(.3, .55 / (d || 2));
+// (crisp: a twelfth of the piece's shade, as Champion's hairline is about a tenth, never under .6 of a device px)
+const penHair = (d, pk = 0) => B_OPTS.line === 'crisp' ? Math.max(pk / 12, .6 / (d || 2)) / 2 : Math.max(.3, .55 / (d || 2));
+// stage 5: B's line laid crisp (line 'crisp'): the shade's edge sharp and its ends drawn to points, the hairline a fine steady
+// thread (the speed term on it eased), the ink black-brown and deeper where the hand slowed (poolMap); 'engine': stage 4's pour
+const PEN_HOW = () => B_OPTS.line === 'crisp' ? { ...PEN, slow: .12 } : PEN;
 // One great oval on the slant round the capital: entered as a hairline from below left, run once round and a little more,
 // the pen opening on its left side where it is pulled down the slant; a curl or two inside (stage 1's composition, which
 // the user liked, now with the pen's weight). The rest are the copybook's single gestures.
 const pen = {
   initial(ch, H, seed, d) {
-    const W = Math.round(H * 1.06), pk = H * .085, hair = penHair(d), c = [W * .52, H * .5], o = [], g = B_OPTS.geo, r = stream(seed, 'pen-oval:' + ch);
+    const W = Math.round(H * 1.06), pk = H * .085, hair = penHair(d, pk), c = [W * .52, H * .5], o = [], g = B_OPTS.geo, r = stream(seed, 'pen-oval:' + ch);
     // (the hand's oval: turning in by ~10 % over the turn, its slant drifting ~3 deg, its middle carried on by the arm, a
     // little fuller on the side it pulls down; all from the turn's own progress u, none of it noise)
     const t0 = PI * 1.12, ph = r() * TAU, tilt0 = (r() - .5) * deg(3);   // (begun at the oval's foot, moving right, so the hairline runs straight in)
@@ -72,37 +76,38 @@ const pen = {
       o.push([c[0] + (q[0] - c[0]) * ct - (q[1] - c[1]) * st, c[1] + (q[0] - c[0]) * st + (q[1] - c[1]) * ct]); }
     // (the entry runs into the oval along the way the oval sets off: no corner where the hand joins it)
     const tg = [o[1][0] - o[0][0], o[1][1] - o[0][1]], tl = Math.hypot(...tg) || 1, u0 = [tg[0] / tl, tg[1] / tl], s0 = [Math.max(2, o[0][0] - H * .42), Math.min(H - 2, o[0][1] + H * .04)];
-    const entry = cubic(s0, [s0[0] + (o[0][0] - s0[0]) * .4, s0[1] + H * .02], [o[0][0] - u0[0] * H * .14, o[0][1] - u0[1] * H * .14], o[0], 24), how = PEN;
+    const entry = cubic(s0, [s0[0] + (o[0][0] - s0[0]) * .4, s0[1] + H * .02], [o[0][0] - u0[0] * H * .14, o[0][1] - u0[1] * H * .14], o[0], 24), how = PEN_HOW();
     const strokes = [written(join(entry, o), seed + 1, { hair, peak: pk, how, start: 'point', end: 'point', amp: .25 }),
       dotCurl([W * .2, H * .22], -PI * .62, H * .055, 1, seed + 2, { hair, how }), dotCurl([W * .86, H * .76], PI * .4, H * .05, 1, seed + 3, { hair, how })];
-    return { W, H, strokes, letter: { ch, face: '"CopperB"', cap: H * .66, cx: W * .55, cy: H * .48, pen: B_OPTS.letter === 'pen' }, medium: 'quill', ink: { wet: B_OPTS.wet, rough: B_OPTS.rough, rim: B_OPTS.rim } };
+    const crisp = B_OPTS.line === 'crisp';
+    return { W, H, strokes, letter: { ch, face: '"CopperB"', cap: H * .66, cx: W * .55, cy: H * .48, pen: B_OPTS.letter === 'pen', thin: crisp ? .4 : .3 }, medium: crisp ? 'ink' : 'quill', ink: { wet: B_OPTS.wet, rough: B_OPTS.rough, rim: B_OPTS.rim } };
   },
   // the copybook's oval: entered from below, once round on the slant, the pen opening down its left side, out to a dot
   paraph(fs, seed, d) {
     const W = fs * 1.1, H = fs * .95, pk = fs * .2, c = [W * .5, H * .5], o = [];
     for (let t = PI * .2; t <= PI * .2 + TAU * 1.02; t += .05) o.push(slantPt(c, H * .5, H * .26, -t));
-    return { W, H, base: .9, strokes: [written(join(cubic([W * .02, H * .95], [W * .2, H * .9], o[0], o[0], 12), o), seed + 3, { hair: penHair(d), peak: pk, how: PEN, end: 'ball', amp: .1 })], medium: 'quill' };
+    return { W, H, base: .9, strokes: [written(join(cubic([W * .02, H * .95], [W * .2, H * .9], o[0], o[0], 12), o), seed + 3, { hair: penHair(d, pk), peak: pk, how: PEN_HOW(), end: 'ball', amp: .1 })], medium: B_OPTS.line === 'crisp' ? 'ink' : 'quill' };
   },
   // a compound curve out to the measure, closing in a small oval on the slant
   filler(gw, lh, seed, d) {
     const H = lh * .62, pk = lh * .16, R = Math.min(H * .5, gw * .2), c = [gw - R * .9, H * .5], o = [];
     for (let t = PI * 1.25; t <= PI * 1.25 + TAU * .95; t += .05) o.push(slantPt(c, R, R * .5, -t));
     const lead = gw > R * 4 ? beauty([1, H * .45], o[0], .03, 60) : [o[0]];
-    return { W: gw, H, strokes: [written(join(lead, o), seed + 4, { hair: penHair(d), peak: pk, how: PEN, amp: .15 })], medium: 'quill' };
+    return { W: gw, H, strokes: [written(join(lead, o), seed + 4, { hair: penHair(d, pk), peak: pk, how: PEN_HOW(), amp: .15 })], medium: B_OPTS.line === 'crisp' ? 'ink' : 'quill' };
   },
   // one oval on the slant in the middle, a compound curve into it and out of it to a dot
   brk(bw, hb, seed, d) {
     const pk = hb * .13, a = hb * .46, b = hb * .27, p = [];
     for (let t = 0; t <= 1.08 * TAU; t += .03) p.push(slantPt([bw * .5, hb * .5], a, b, -t - PI * .5));
     const lead = beauty([bw * .04, hb * .55], p[0], -.06, 40), tail = beauty(p.at(-1), [bw * .96, hb * .45], .06, 40);
-    return { W: bw, H: hb, strokes: [written(join(lead, p, tail), seed + 5, { hair: penHair(d), peak: pk, how: PEN, end: 'ball', amp: .2 })], medium: 'quill' };
+    return { W: bw, H: hb, strokes: [written(join(lead, p, tail), seed + 5, { hair: penHair(d, pk), peak: pk, how: PEN_HOW(), end: 'ball', amp: .2 })], medium: B_OPTS.line === 'crisp' ? 'ink' : 'quill' };
   },
   // a rule along the head into an oval at the corner
   corner(cs, seed, d) {
     const W = cs * 5.5, H = cs * 2.1, pk = cs * .17, c = [cs * .75, H * .45], o = [];
     for (let t = -PI * .1; t <= -PI * .1 + TAU * 1.05; t += .03) o.push(slantPt(c, cs * .78, cs * .4, t));
     const run = beauty([W - 1, H * .08], o[0], .015, 80);
-    return { W, H, strokes: [written(join(run, o), seed + 7, { hair: penHair(d), peak: pk, how: PEN, end: 'ball', amp: .2 })], medium: 'quill' };
+    return { W, H, strokes: [written(join(run, o), seed + 7, { hair: penHair(d, pk), peak: pk, how: PEN_HOW(), end: 'ball', amp: .2 })], medium: B_OPTS.line === 'crisp' ? 'ink' : 'quill' };
   },
 };
 
@@ -111,7 +116,7 @@ const pen = {
 // round the letter clockwise (the hand turning each outward and on), the largest at the foot and the outer right where the
 // arm swings freest, then the exit tail out to the right, closing in a curl and a ball (Bickham's ABC headpiece, 0414).
 function dropPiece(ch, H, seed, d) {
-  const r = stream(seed, 'drop:' + ch), W = Math.round(H * 1.12), c = [W * .52, H * .5], pk = H * .03, hair = fineOf(H * .03, d);
+  const r = stream(seed, 'drop:' + ch), W = Math.round(H * 1.12), c = [W * .52, H * .5], pk = H * .024, hair = fineOf(H * .03, d);
   // six ovals round the letter, after Bickham's B (0414): each lying along the way round, the largest at the foot and outer
   // right where the arm swings freest; at the foot and the sides the hand turns a second, smaller oval inside the first
   // before it moves on (ovals within and through each other); the stations where the hand puts them (+-7 deg). One
@@ -177,6 +182,6 @@ export const DIRS = {
 };
 // inks: light, and a designed dark (not an inversion)
 export const PAL = {
-  pen: { light: [64, 41, 28], dark: [228, 216, 194] },      // iron gall; dark: white ink on a dark card
+  pen: { light: [46, 32, 24], dark: [226, 214, 192], pool: { light: [22, 14, 10], dark: [248, 240, 224] } },   // iron gall, black-brown (deeper where it pooled); dark: white ink on a dark card
   hand: { light: [30, 25, 24], dark: [222, 210, 186] },     // intaglio black; dark: an ivory ink
 };

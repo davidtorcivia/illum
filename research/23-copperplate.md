@@ -369,3 +369,38 @@ Chrome, a panel's five pieces, load average 12–23 on the shared machine:
 |---|---|---|
 | B (pen) | 136 / 152 ms | 69 / 86 ms |
 | C (hand) | 121 / 123 ms | 51 / 86 ms |
+
+## Stage 5: B's line made crisp; C's crescents eased
+
+The lead's review of stage 4, beside Champion's B: the gap is the line itself, not the movement.
+- **Champion:** hairlines that are a single crisp, near-black thread; shades with sharp edges that enter and leave the hairline in
+  a clean cusp; black ink.
+- **Ours:** soft-edged, brown and broad. The ink engine's spread is what reads as digital.
+
+### B (?line=engine shows stage 4 for comparison)
+- **Line.** B is now laid flat, as C is: the pressure-weighted strokes' own coverage, anti-aliased, crisp, with no engine spread.
+  - The shade's edges are sharp, and its ends run to points through the pressure's taper.
+  - The hairline is a twelfth of the piece's shade, as Champion's is about a tenth, and never under .6 of a device px. At 4× it
+    is a single crisp thread.
+  - The hairline's speed term is eased (.3 → .12), so the oval's thin side runs steady.
+- **Ink.** Black-brown iron gall, 46 32 24, in place of the milk-chocolate 64 41 28. It goes deeper (22 14 10) where the ink
+  pooled. `poolMap()` places the pools from the stroke's own causes: where the hand was slow (time per px over 1.3× the stroke's
+  median, into turns and at the swell's let-go) and at the touch-down and the lift. The engine itself is kept nowhere: at the
+  page's size its pooling was the softness.
+- **The capital.** Imperial's shades are cut back 40 % (was 30 %). `thinShades` now also clears the face's own anti-aliased
+  fringe outside a cut-back edge, which had left a faint ghost of the old outline (visible at 4×).
+- **Composition and movement:** unchanged.
+- **?draw.** B is revealed along each stroke at the hand's pace (engraveWriter, flat, with the pool tint), the capital first in
+  its skeleton's order.
+
+### C
+The heaviest crescents are eased: the oval peak goes from .03 to .024 of the drop, and a tight turn's shade is held to .07 of its
+radius.
+
+### Speed
+Chrome, a panel's five pieces, load average ~10–12. B is faster now, without the engine:
+
+| direction | light, dpr 1 / 2 | dark, dpr 1 / 2 |
+|---|---|---|
+| B (pen) | 77 / 109 ms | 36 / 50 ms |
+| C (hand) | 119 / 122 ms | 56 / 77 ms |

@@ -153,7 +153,11 @@ export function thinShades(L, k = .3, tau0 = 2) {
   for (const q of idx) { const i = q % w, j = q / w | 0;
     for (const [dx, dy, l] of nb) { const x = i + dx, y = j + dy; if (x < 0 || y < 0 || x >= w || y >= h) continue; const o = y * w + x; if ((D[o] - D[q]) / l > .7 && T[o] > T[q]) T[q] = T[o]; } }
   const O = new Float32Array(n);
-  for (let q = 0; q < n; q++) { if (!M[q]) continue; const e = k * Math.max(0, T[q] - tau0); O[q] = e > 0 ? Math.min(M[q], Math.max(0, Math.min(1, D[q] - e))) : M[q]; }
+  for (let q = 0; q < n; q++) { if (!M[q]) continue; let t = T[q];
+    // (the face's own anti-aliased fringe, outside its threshold, goes with the edge it belonged to: else a cut-back shade
+    // leaves a ghost of its old outline, a ring of faint cells)
+    if (paper[q]) { const i = q % w, j = q / w | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = i + dx, y = j + dy; if (x >= 0 && y >= 0 && x < w && y < h && !paper[y * w + x]) t = Math.max(t, T[y * w + x]); } }
+    const e = k * Math.max(0, t - tau0); O[q] = e > 0 ? (paper[q] ? (e > .3 ? 0 : M[q]) : Math.min(M[q], Math.max(0, Math.min(1, D[q] - e)))) : M[q]; }
   return { ...L, M: O };
 }
 
@@ -163,10 +167,12 @@ export function thinShades(L, k = .3, tau0 = 2) {
 // flat: the coverage laid as it is (its own anti-aliasing the only softness): an engraver's line can be finer than the ink
 // engine can hold (the engine breaks a line under ~1.2 device px into beads), and a fine engraved line is black, only
 // narrow, so a hairline narrower than a pixel is laid as the share of the pixel it covers
-export function engrave(bake, L, rgb, { dpr = 2, wet = .03, dry = .04, flat = false } = {}) {
+// tint (0..1 a cell) and rgb2: where the ink lies deeper (a pen's pool, poolMap()), its colour toward rgb2
+export function engrave(bake, L, rgb, { dpr = 2, wet = .03, dry = .04, flat = false, tint = null, rgb2 = null } = {}) {
   if (!flat) { inkLetter(bake, { ...L, wet, dry }, rgb, { dpr }); return; }
   const { M, w, h, x0, y0, res } = L, c = new OffscreenCanvas(w, h), g = c.getContext('2d'), im = g.createImageData(w, h);
-  for (let i = 0; i < w * h; i++) { if (!M[i]) continue; im.data[i * 4] = rgb[0]; im.data[i * 4 + 1] = rgb[1]; im.data[i * 4 + 2] = rgb[2]; im.data[i * 4 + 3] = Math.round(Math.min(1, M[i]) * 255); }
+  for (let i = 0; i < w * h; i++) { if (!M[i]) continue; const k = tint ? tint[i] : 0;
+    for (let j = 0; j < 3; j++) im.data[i * 4 + j] = Math.round(rgb[j] + (k ? (rgb2[j] - rgb[j]) * k : 0)); im.data[i * 4 + 3] = Math.round(Math.min(1, M[i]) * 255); }
   g.putImageData(im, 0, 0); bake.save(); bake.setTransform(dpr, 0, 0, dpr, 0, 0); bake.imageSmoothingQuality = 'high'; bake.drawImage(c, x0, y0, w / res, h / res); bake.restore();
 }
 
@@ -233,9 +239,9 @@ export function quill(bake, strokes, rgb, o = {}) { if (!supported()) return fal
 // time of the nearest point of the stroke that laid it; .at(f) lays the pixels whose time has come (each once, onto bake,
 // over what is there), so the cut runs along the line with a crisp front and nothing fades. L: the strokes' coverage.
 // cellT (0..1 a cell of L, e.g. a letter's skeleton order from letterWriter) and dur: cut in that order instead of along strokes
-export function engraveWriter(bake, L, strokes, rgb, { dpr = 2, flat = false, cellT = null, dur = 1300 } = {}) {
+export function engraveWriter(bake, L, strokes, rgb, { dpr = 2, flat = false, cellT = null, dur = 1300, tint = null, rgb2 = null } = {}) {
   const W = bake.canvas.width, H = bake.canvas.height, off = new OffscreenCanvas(W, H), og = off.getContext('2d', { willReadFrequently: true });
-  engrave(og, L, rgb, { dpr, flat }); const fin = og.getImageData(0, 0, W, H);
+  engrave(og, L, rgb, { dpr, flat, tint, rgb2 }); const fin = og.getImageData(0, 0, W, H);
   // the time of each coverage cell: the earliest point of any stroke whose disc (its width and a px of creep) covers it
   const { w, h, res } = L, Tc = new Float32Array(w * h).fill(Infinity); let T0 = 0;
   if (cellT) { for (let q = 0; q < w * h; q++) if (L.M[q] > .01) Tc[q] = cellT[q] * dur; T0 = dur; }
@@ -304,4 +310,19 @@ export function glyphStrokes(L, { min = 3 } = {}) {
   // (widths onto the resampled points)
   for (const S of out) { const n = S.p.length; S.w = Float32Array.from({ length: n }, (_, i) => S._w[Math.min(S._n - 1, Math.round(i * (S._n - 1) / Math.max(1, n - 1)))]); delete S._w; delete S._n; S.balls = []; }
   return out;
+}
+
+// Where a pen's ink lies deeper, on L's grid (0..1): where the hand was slow (its time per px well over the stroke's own
+// median: into a turn, at the swell's end where the pressure is let go, the touch-down and the lift) and at the stroke's ends;
+// a stroke's own causes, never a texture. strokes: { p, w, t }.
+export function poolMap(strokes, L) {
+  const { w, h, x0, y0, res } = L, P = new Float32Array(w * h);
+  for (const S of strokes) { if (!S.t) continue; const n = S.p.length, sl = [];
+    for (let i = 0; i < n; i++) { const a = Math.max(0, i - 2), b = Math.min(n - 1, i + 2), d = Math.hypot(S.p[b][0] - S.p[a][0], S.p[b][1] - S.p[a][1]); sl.push((S.t[b] - S.t[a]) / Math.max(.05, d)); }
+    const med = sl.slice().sort((a, b) => a - b)[n >> 1] || 1;
+    for (let i = 0; i < n; i++) { const end = Math.max(0, 1 - Math.min(i, n - 1 - i) / 10), k = Math.min(1, Math.max(end * .8, (sl[i] / med - 1.3) / 2.5)); if (k <= 0) continue;
+      const rr = (S.w[i] + .6) * res, cx = (S.p[i][0] - x0) * res, cy = (S.p[i][1] - y0) * res;
+      for (let j = Math.max(0, Math.floor(cy - rr)); j <= Math.min(h - 1, Math.ceil(cy + rr)); j++) for (let q = Math.max(0, Math.floor(cx - rr)); q <= Math.min(w - 1, Math.ceil(cx + rr)); q++) {
+        if ((q - cx) ** 2 + (j - cy) ** 2 > rr * rr) continue; const o = j * w + q; if (k > P[o]) P[o] = k; } } }
+  return P;
 }
