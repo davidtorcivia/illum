@@ -155,7 +155,7 @@ export function knot(sheet, C, crossings, { layers, gap = 1, ground = null, colo
   // the making: each cord written in turn along its length (?draw); the strand's raised middle rubbed thin, broken along it,
   // most where it rides over a crossing (it stands highest there) — the cause is the facing page and the reader's hand
   const rubAmp = layers.length >= 2 ? .5 * Math.min(1, W / 3) : 0;
-  C.forEach(c => { const n0 = sheet.clockN = (sheet.clockN ?? 0) + 1; sheet.along('clock', c.pts, W + 1, (s, L) => n0 + s / L);
+  C.forEach(c => { const n0 = sheet.clockN = (sheet.clockN ?? 0) + 1; if (Sheet.clocked) sheet.along('clock', c.pts, W + 1, (s, L) => n0 + s / L);
     if (!rubAmp) return; const nb = noise2(c.pts.length * 13 + 5), overs = c.ev.map((e, i) => e.cross && e.over ? c.s[i] : null).filter(v => v != null), Lc = c.L;
     sheet.along('rub', c.pts, W * .34, (s, L) => { const sc = s / L * Lc, near = overs.some(o => Math.abs(o - sc) < W * .7) ? 1 : .45, b = Math.max(0, Math.min(1, (nb(sc / (W * 1.1), .5) - .45) * 3));
       return rubAmp * near * b; }); });
@@ -194,6 +194,8 @@ const cell2 = seed => { let cx = NaN, cy = NaN, a = 0, b = 0, c = 0, d = 0;
 // (less a trap, so the slip never opens a seam) out of every other ink: the pigments are opaque. A knock (ink null) takes it
 // out of all; a knock with an ink lays that ink and takes it out of the others (the ground showing through a gap).
 export class Sheet {
+  // (whether the making's clock is kept: a still page never reads it)
+  static clocked = true;
   constructor(box, res = 2) { const [x0, y0, x1, y1] = box; this.box = box; this.res = res; this.w = Math.ceil((x1 - x0) * res); this.h = Math.ceil((y1 - y0) * res); this.c = new Map(); this.order = []; }
   ctx(ink) { this.read = null;
     if (!this.c.has(ink)) { const g = new OffscreenCanvas(this.w, this.h).getContext('2d', { willReadFrequently: true });
@@ -213,8 +215,10 @@ export class Sheet {
   tiles(box) { const TS = 32, tw = Math.ceil(this.w / TS), th = Math.ceil(this.h / TS); this.tw = tw; this.th = th;
     if (!box) return [0, 0, tw - 1, th - 1]; const r = this.res, [x0, y0] = this.box;
     return [Math.max(0, Math.floor(((box[0] - x0) * r - 2) / TS)), Math.max(0, Math.floor(((box[1] - y0) * r - 2) / TS)), Math.min(tw - 1, Math.floor(((box[2] - x0) * r + 2) / TS)), Math.min(th - 1, Math.floor(((box[3] - y0) * r + 2) / TS))]; }
-  mark(ink, [a0, b0, a1, b1]) { const m = (this.occ ??= new Map()).get(ink) ?? this.occ.set(ink, new Uint8Array(this.tw * this.th)).get(ink); for (let b = b0; b <= b1; b++) m.fill(1, b * this.tw + a0, b * this.tw + a1 + 1); }
-  meets(ink, [a0, b0, a1, b1]) { const m = this.occ?.get(ink); if (!m) return true; for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) if (m[b * this.tw + a]) return true; return false; }
+  mark(ink, [a0, b0, a1, b1]) { if (!this.occ && this.moved) { this.occ = new Map(); for (const k of this.c.keys()) this.occ.set(k, new Uint8Array(this.tw * this.th).fill(1)); }   // (after the drift, the moved inks may be anywhere)
+    const m = (this.occ ??= new Map()).get(ink) ?? this.occ.set(ink, new Uint8Array(this.tw * this.th)).get(ink); for (let b = b0; b <= b1; b++) m.fill(1, b * this.tw + a0, b * this.tw + a1 + 1); }
+  // (an ink made but never marked has nothing to lose)
+  meets(ink, [a0, b0, a1, b1]) { if (!this.occ) return true; const m = this.occ.get(ink); if (!m) return false; for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) if (m[b * this.tw + a]) return true; return false; }
   stroke(pts, w, ink, { close = true, cap = 'round', trap = .35, knock = false } = {}) {
     const P = pathOf(pts, close); this.op(ink, (g, d) => { g.lineCap = cap; g.lineWidth = Math.max(.01, w + 2 * d); g.stroke(P); }, { trap, knock, box: boxOf([pts], w / 2 + 1) });
   }
@@ -283,7 +287,7 @@ export class Sheet {
       g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'copy'; g.putImageData(im, 0, 0); g.restore(); g.globalCompositeOperation = 'source-over';
     }
     this.occ = null;   // (the inks moved: any later op knocks every ink)
-    this.read = read;   // (each ink's coverage as drifted, for the printer: read back once, not again from the canvas)
+    this.moved = true; this.read = read;   // (each ink's coverage as drifted, for the printer: read back once, not again from the canvas)
     // (the fields that go with the ink — the making's clock, the rubbing — moved with it, nearest cell; read only under ink)
     for (const [name, F] of Object.entries(this.buf ?? {})) { const O = new Float32Array(F.length).fill(name === 'clock' ? Infinity : 0);
       for (let j = 0, q = 0; j < h; j++) for (let i = 0; i < w; i++, q++) { if (!all[((j / TS) | 0) * tw + ((i / TS) | 0)]) { i = Math.min(w - 1, i + TS - 1 - (i % TS)); q = j * w + i; continue; }

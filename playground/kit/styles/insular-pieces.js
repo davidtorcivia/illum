@@ -60,7 +60,13 @@ export const PAL = {
 // The capital set in the face at cap height H (px), rasterised at res cells a px with a margin; its inside depth and its
 // outside distance (px); its counters (the paper it encloses).
 const FAMILY = 'InsularUncial';
-export function letterField(ch, H, { res = 2, pad = .22, bold = 0 } = {}) {
+// (kept by letter, size and grid: a page drawn again — another seed, the other theme, a richer level — sets it once;
+// whoever changes one (swell) works on its own copy)
+const LETTERS = new Map();
+export function letterField(ch, H, o = {}) { const k = [ch, H, o.res ?? 2, o.pad ?? .22, o.bold ?? 0, document.fonts?.check?.(`12px ${FAMILY}`)].join('|'); let L = LETTERS.get(k);
+  if (!L) { if (LETTERS.size > 24) LETTERS.clear(); LETTERS.set(k, L = letterField0(ch, H, o)); }
+  return L; }
+function letterField0(ch, H, { res = 2, pad = .22, bold = 0 } = {}) {
   const c = document.createElement('canvas').getContext('2d'); c.font = `${H * 1.45}px ${FAMILY}`;
   const m = c.measureText(ch), asc = m.actualBoundingBoxAscent, desc = m.actualBoundingBoxDescent, l = m.actualBoundingBoxLeft, r = m.actualBoundingBoxRight;
   const s = H / (asc + desc), P = Math.ceil(H * pad), W = Math.ceil((l + r) * s) + 2 * P, Ht = Math.ceil(H) + 2 * P;
@@ -68,7 +74,7 @@ export function letterField(ch, H, { res = 2, pad = .22, bold = 0 } = {}) {
   g.font = `${H * 1.45 * s * res}px ${FAMILY}`; g.fillStyle = '#000'; g.fillText(ch, (P + l * s) * res, (P + asc * s) * res);
   const d = g.getImageData(0, 0, w, h).data, M = new Float32Array(w * h), inn = new Uint8Array(w * h), out = new Uint8Array(w * h);
   for (let q = 0; q < M.length; q++) { M[q] = d[q * 4 + 3] / 255; inn[q] = M[q] >= .5; out[q] = !inn[q]; }
-  let Din = dist(out, w, h), Dout = dist(inn, w, h);
+  let Din = bold > 0 ? null : dist(out, w, h), Dout = dist(inn, w, h);   // (grown, the inside depth is measured again after)
   // the panel letter is broader than the type (f. 139r's band is ~0.12–0.14 of the letter's height): the face's form grown
   // evenly by `bold` px before anything is built on it
   if (bold > 0) { for (let q = 0; q < M.length; q++) { if (!inn[q]) M[q] = Math.max(M[q], Math.min(1, Math.max(0, bold * res - Dout[q] + .5))); inn[q] = M[q] >= .5; out[q] = !inn[q]; }
@@ -89,7 +95,7 @@ function refield(L, Din, Dout) {
 }
 // The letter's free ends swollen into roundels (Durrow's terminals burst into coils): a disc at each end whose swell can
 // hold one, a little larger than the stroke and set forward along it, joined to the letter's coverage.
-function swell(L, u, k = 1.4) {
+function swell(L0, u, k = 1.4) { const L = { ...L0, M: L0.M.slice() };
   const discs = [];
   for (const st of strokes(L, Math.max(1, u * .5))) { const A = along(st.pts, st.hw);
     for (const t of terminals(st, A, u, 0)) { const R = t.R * k, back = [Math.cos(t.a0), Math.sin(t.a0)], c = [t.c[0] - back[0] * t.R * (k - 1) * .8, t.c[1] - back[1] * t.R * (k - 1) * .8]; discs.push([c[0], c[1], R]); } }

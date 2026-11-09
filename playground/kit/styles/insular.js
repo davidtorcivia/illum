@@ -135,6 +135,8 @@ const CACHE = new Map(), MADE = new Map();
 export const TIME = { build: 0, paint: 0, pieces: 0, PT };   // (where the time goes: the Sheets' geometry, and their painting)
 function turn(c) { const o = new OffscreenCanvas(c.height, c.width), g = o.getContext('2d'); g.translate(c.height, 0); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0); return o; }
 function turnT(T, w, h) { if (!T) return T; const O = new Float32Array(T.length); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) O[i * h + (h - 1 - j)] = T[j * w + i]; return O; }
+// (a still page's pieces are built without the making's clock: nothing reads it)
+const built = (b, res, theme, animate) => { Sheet.clocked = animate; try { return b.build(res, theme); } finally { Sheet.clocked = true; } };
 function print(made, { dpr = 1, animate = false, kind } = {}) {
   const res = Math.min(4, Math.max(1, Math.round(dpr))), theme = isDark() ? 'dark' : 'light', all = [], seq = [];
   for (const b of made.letters ?? []) { if (b.shape !== 'ins') continue;
@@ -144,7 +146,7 @@ function print(made, { dpr = 1, animate = false, kind } = {}) {
       // (the piece itself — its geometry and its paint — does not depend on where it stands: kept by what it is, its size
       // and seed, so a page laid out again, or a mode come back to, reuses it)
       const pk = [KIND, PAINT, theme, res, b.bkey, animate].join('|'); let made = MADE.get(pk);
-      if (!made) { const tb = performance.now(), { S, ox, oy, trim = null } = b.build(res, theme), pal = PAL()[theme], tp = performance.now(); TIME.build += tp - tb; TIME[b.what.split(':')[0]] = (TIME[b.what.split(':')[0]] ?? 0) + tp - tb;
+      if (!made) { const tb = performance.now(), { S, ox, oy, trim = null } = built(b, res, theme, animate), pal = PAL()[theme], tp = performance.now(); TIME.build += tp - tb; TIME[b.what.split(':')[0]] = (TIME[b.what.split(':')[0]] ?? 0) + tp - tb;
         let canvas, T = null;
         if (PAINT === 'engine') { canvas = new OffscreenCanvas(S.w, S.h); const g = canvas.getContext('2d'); g.scale(res, res); S.print(g, pal, { dpr: res, order: DIR().order, seed: b.seed, tex: DIR().tex, alias: DIR().alias }); }
         else ({ canvas, T } = paintSheet(S, pal, { order: DIR().order, seed: b.seed, grow: animate }));
