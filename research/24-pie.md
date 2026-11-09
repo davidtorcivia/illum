@@ -392,3 +392,65 @@ The letters were kept; the figures and the paint film changed.
   - At 1× the traced ship is a thin band under the drop's letter.
   - Some thin traced parts (the warrior's spear) take paint unevenly.
   - Beauty 2+.
+
+## Stage 6: speed first, then the edges, the ship and more tracing
+
+**Speed (profiled per piece in the browser, scratchpad pie/prof.mjs).** Stage 5's jump came from the carver:
+- It iterated the pecking lattice over the whole piece's box, drawing every blow's jitter from one random sequence (a
+  rule at the top of a frame and another at the bottom paid for everything between; a traced ship's fine pits ran over
+  the whole filler).
+- It also blurred the whole box.
+
+Fixes:
+- Pieces and their carving are cached, keyed by what made them. This alone is pixel-identical: 0 % of pixels differ on
+  the specimen, 0.0001 % (max 1/255) on the mock.
+- The carver works per cluster of touching grooves over that cluster's box, its lattice bounded to the box, each blow's
+  jitter a hash of its lattice place. This step is not pixel-identical, by necessity: the pits are re-rolled with the
+  same statistics. 0.36 % of the mock's pixels and 0.65 % of the specimen's differ, all at pit scale.
+
+Per-piece carving times:
+
+| piece | before | after |
+|---|---|---|
+| filler | 149 ms | 2 ms |
+| aside | 116 ms | 0 ms |
+| figure frame | 143 ms | 28 ms |
+| code frame | 95 ms | 17 ms |
+| drop | 54 ms | 14 ms |
+
+| | before | after |
+|---|---|---|
+| Mock, every piece at once, dpr 1 | 503 ms | 231 ms |
+| Mock, every piece at once, dpr 2 | 646 ms | 368 ms |
+| Mock, in view | 106 ms | 52–86 ms |
+| Specimen page | 420 ms | 209 ms |
+
+(The after numbers include the look changes below.)
+
+**Edges.** The paint now closes over a whole pit at the pits' own size (`settle()`, radius = the lower-quartile pit
+radius), so only a faint ripple is left. And a pit lands only where the whole blow stays inside the figure, so the pecked
+area keeps the figure's own outline instead of swelling by a pit all round. The traced rings are smoothed twice
+(corner-cutting) to lose the photograph's pixel steps and highlights.
+
+**The ship.** With pits kept inside the outline at the ship's finer scale, its crew comb stays separate rounded strokes
+and its oval openings stay open, at 8×. The ship under a drop letter is taller: the drop is 1.45× wide and the letter
+shorter.
+
+**More tracing.**
+- An **adorant** from Vitlyckehällen (RAÄ Kulturmiljöbild, Bengt A. Lundberg, CC BY 2.5) traced: hands raised, a staff
+  beside him. It replaces the drawn adorant in the sheet and the sky-father panel.
+- A **horse** from Tanum (Tulipasylvestris, CC0): it is unpainted, its pale grooves would not segment, so its
+  centrelines and widths were read off the photograph by eye. The horse (and the rider and chariot) are now built on it:
+  the long rising neck, small forward head, thin back and long legs, filled out a little for paint.
+- A **ring** on Vitlyckehällen (KMB 16000300015074) measured: it departs from its circle by .055 of its radius (sd), which
+  matches the drawn wheels' rims.
+- **No clean four-spoked sun-wheel** was found among the open photographs (Commons' Tanum, Vitlycke, Aspeberget,
+  Litsleby, Kalleby, Fossum; the RAÄ KMB images on Commons); it stays drawn in the traced figures' manner.
+- SHFA's archive was not searched (no open licence confirmed in this session).
+- Credits are in tests/pie-refs/SOURCES.md and kit/styles/pie-traced.js.
+
+**Where it stands.**
+- The traced figures at 8× (warrior, ship) have smooth, confident painted edges, their openings and separate crew.
+- Thin traced parts can break where no pit fits inside them (part of the warrior's spear).
+- The traced horse is slender, as the master's is: beside the bold letters it is lighter than the other figures.
+- Beauty 2+.

@@ -147,7 +147,7 @@ export function slab(F, x0, y0, x1, y1, seed = 1, rad = .2) {
 function prepare(F, piece, look, live = false) {
   F.K = new Float32Array(F.cw * F.ch); F.rp = piece.u; let t = performance.now();
   if (piece.slab) (piece.ground === 'outcrop' ? outcrop : slab)(F, ...piece.slab, piece.seed ?? 1); t = tick('slab', t);
-  const marks = piece.marks(F); t = tick('marks', t); const pits = marks.filter(m => m.k === 'pit'), strokes = marks.filter(m => m.k === 'brush').map((s, k) => ({ ...s, sid: k, P: strokePixels(F, s, live) })); t = tick('strokePixels', t);
+  const marks = piece.marks(F); t = tick('marks', t); const pits = marks.filter(m => m.k === 'pit'); { const rs = pits.map(m => m.r).sort((a, b) => a - b); F.prs = rs.length ? rs[Math.floor(rs.length * .25)] : F.rp; } const _ = 0, strokes = marks.filter(m => m.k === 'brush').map((s, k) => ({ ...s, sid: k, P: strokePixels(F, s, live) })); t = tick('strokePixels', t);
   // the granite is worked out only where it shows or takes paint: the panel, round every pit, under every stroke
   const need = new Uint8Array(F.cw * F.ch), k = F.dpr; if (F.S) for (let i = 0; i < need.length; i++) need[i] = F.S[i] > 0 ? 1 : 0;
   for (const m of pits) { const R = m.r * 1.4 + 2 / k, x0 = Math.max(0, Math.floor((m.x - R) * k) - 1), x1 = Math.min(F.cw - 1, Math.ceil((m.x + R) * k) + 1), y0 = Math.max(0, Math.floor((m.y - R) * k) - 1), y1 = Math.min(F.ch - 1, Math.ceil((m.y + R) * k) + 1);
@@ -157,12 +157,12 @@ function prepare(F, piece, look, live = false) {
   return { pits, strokes };
 }
 // the paint closes over the pits' scallops a little: the pecked floor it fills is the pits' union softened by half a pit
-function settle(F) { const { cw, ch, K } = F, R = Math.max(1, Math.round(.5 * F.rp * F.dpr)); let A = K;
+function settle(F) { const { cw, ch, K } = F, R = Math.max(1, Math.round(1.0 * (F.prs ?? F.rp) * F.dpr)); let A = K;   // (stage 6: a whole pit, at the pits' own size: only a faint ripple is left)
   for (let pass = 0; pass < 2; pass++) { const T = new Float32Array(cw * ch), B = new Float32Array(cw * ch);
     for (let y = 0; y < ch; y++) { let s = 0; for (let x = -R; x <= R; x++) s += A[y * cw + Math.min(cw - 1, Math.max(0, x))]; for (let x = 0; x < cw; x++) { T[y * cw + x] = s / (2 * R + 1); s += A[y * cw + Math.min(cw - 1, x + R + 1)] - A[y * cw + Math.max(0, x - R)]; } }
     for (let x = 0; x < cw; x++) { let s = 0; for (let y = -R; y <= R; y++) s += T[Math.min(ch - 1, Math.max(0, y)) * cw + x]; for (let y = 0; y < ch; y++) { B[y * cw + x] = s / (2 * R + 1); s += T[Math.min(ch - 1, y + R + 1) * cw + x] - T[Math.max(0, y - R) * cw + x]; } }
     A = B; }
-  for (let i = 0; i < K.length; i++) K[i] = sm(.3, .62, A[i]); }
+  for (let i = 0; i < K.length; i++) K[i] = sm(.36, .56, A[i]); }
 const peckedFrom = (F, bb) => { const [x0, y0, x1, y1] = bb; for (let Y = y0; Y <= y1; Y++) for (let X = x0; X <= x1; X++) { const i = Y * F.cw + X; F.K[i] = sm(.02 * F.g, .25 * F.g, -F.H[i]); } };
 export const PROF = {};
 const tick = (k, t0) => { PROF[k] = (PROF[k] ?? 0) + performance.now() - t0; return performance.now(); };
