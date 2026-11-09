@@ -491,3 +491,35 @@ shorter.
   - The traced ship at drop size is still a thin band with prows. Its comb and ovals only read from about 4× up.
   - At 8× the ship's comb is partly merged again where paint fills between close strokes.
   - Beauty 2+.
+
+## Stage 8: back to crisp at page size (the user: "drops look so muddy … a regression")
+
+- **The edge zone scales with the screen** (commit dcc56ef, on its own so it can be compared). Real grain is ~.1 of a
+  stroke's width, sub-pixel at drop size. Stage 7 opened the thinning and grain-stepped edge at every size, so at 1× the
+  drops went fuzzy.
+  - The zone now opens only once a grain is 2.5–4.5 device px on screen (z = sm(2.5, 4.5, grain × dpr)). Below that the
+    paint is stage 6's: crisp, bold, no thin margins, no pale halo.
+  - From ~4× the zone opens: the film thins toward the shoulders and steps grain by grain where the brush was dry, with
+    a crisp, darker rim where it pooled.
+  - The groove-depth field is computed only when the zone is open, in one pass.
+  - Three-way 1× comparison (stage 6 / 7 / new, dpr 1 and 2): scratchpad pie/shots/cmp/three-1.png and three-2.png. The
+    new drops are as clean as stage 6.
+- **A ship for drop size** (`dropShip()`). The traced ship reads as a lumpy underline at drop size, so a ship drawn in
+  its manner partners the letter:
+  - a keel thickening to the prow, a lighter gunwale;
+  - three struts making large openings;
+  - prow and stern rising and curling;
+  - five or six big uneven crew strokes, one in two under the letter rising into it.
+
+  The traced ship stays for the large pieces (fillers, the rank-3 panels).
+- **The warrior** is back to a partner's scale (≤ .74 of the drop's height).
+- **The interior film at 4× and up** is a little thicker over the pits' floors and thinner over their rims (scaled by
+  z, so nothing shows at 1×).
+- **Speed (mock, every piece at once).**
+
+  | | stage 6 | stage 7 | now |
+  |---|---|---|---|
+  | dpr 1 | 231 ms | 259 ms | 254 ms |
+  | dpr 2 | 368 ms | 461 ms | 385 ms |
+
+  In view: 56 ms (dpr 1), 90–100 ms (dpr 2).

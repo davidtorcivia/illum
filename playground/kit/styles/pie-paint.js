@@ -91,7 +91,7 @@ export function lay(F, S, from, upto, { load = 1, decay = 18, inPeck = 1, seed =
     // (where the edge falls, grain by grain: a grain at the margin takes paint if it stands high enough for how shallow the
     // groove is there, so the boundary steps from grain to grain instead of running as a line; a fresh brush ignores it)
     const presence = (1 - z) * sm(.15, .6, pecked) + z * (crisp * sm(.2, .3, Dp) + (1 - crisp) * sm(-.04, .04, pk * .8 + 2.4 * (Dp - .3)));
-    const film = cov * (.78 + .22 * ld) * lf * (.45 + .55 * core) * (.6 + .4 * catchK) * presence * inPeck, pool = cov * (cav * (.03 + .1 * ld) * pecked + (z * .38 * crisp * (1 - Math.abs(2 * Dp - 1)) ** 2 * sm(.12, .3, Dp) + (1 - z) * .32 * (1 - Math.abs(2 * pecked - 1)) ** 2 * sm(.1, .3, pecked)) * ld);
+    const film = cov * (.78 + .22 * ld) * lf * (.45 + .55 * core) * (.6 + .4 * catchK) * presence * inPeck * (1 + z * .35 * (cav - .35)) /* (at 4x and up the film a little thicker over the pits' floors, thinner over their rims: never flat; at 1x, not at all) */, pool = cov * (cav * (.03 + .1 * ld) * pecked + (z * .38 * crisp * (1 - Math.abs(2 * Dp - 1)) ** 2 * sm(.12, .3, Dp) + (1 - z) * .32 * (1 - Math.abs(2 * pecked - 1)) ** 2 * sm(.1, .3, pecked)) * ld);
     T[i] = Math.min(2.4, Math.max(T[i], film + pool));
     const X = i % cw, Y = (i / cw) | 0; if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; }
   S.next = n; return x1 >= 0 ? [x0, y0, x1, y1] : null;
