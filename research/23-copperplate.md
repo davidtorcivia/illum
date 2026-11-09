@@ -52,6 +52,11 @@ Spieghel plates cover the comparison. Getty's scans are at ~8 px/mm, so anything
   (sd 8–9 L; the worn card 15). Plate tone: inside the plate mark the paper is ~3 L darker and a touch cooler (R −2, B +2); the
   plate mark itself a ~5 L shadow over ~1 mm. These are page-level effects; by the library contract (a style colours only its own
   marks) they are not the ornament's medium and are at most an opt-in page look. The engraving's realness has to be in the line.
+- **The burin's waver** (one isolated 211-px hairline on 0040, its centreline against itself smoothed at 25 px): residual sd
+  0.17 px (p95 1.7 px at its ends), half-wave ~60 px. That is at the skeleton's quantisation floor, so it is an upper bound: the
+  engraver's line drifts by at most ~0.02 mm over ~8 mm. `burin()` uses 0.16 px over ~70 px at page size, at that bound.
+- **Crossings: observed, not measured.** On 0040 and 0124 shades cross hairlines, at large angles (by eye 40–90°); a shade
+  crossing a shade at its swell was not seen. Used as a design rule ("a shade is crossed only by a hairline"), not a number.
 - **Hatching** (Champion's card): 0.24 mm pitch (≈4 lines a mm), the lines swelling where the tone is darker; frame rules heavier
   on the shadow side; a row of dots.
 
@@ -75,8 +80,8 @@ floored, so the ratio shrinks to ~6:1; enlarged (4×) the hairline drops toward 
 - `shade()` lays one lens on each run of a stroke that heads within ±32° of the composition's shade axis, its length setting
   its weight (aspect ~20, up to the peak), its peak .4 along it, `sin^.7` (the measured fullness), never within 10 % of the
   stroke's ends: the burin goes in and comes out as a hairline.
-- `burin()`: a long curve drifts sideways ~0.16 px over ~70 px and comes back (the engraver is steadier than any pen; the
-  waver is small and slow, never noise on the edge).
+- `burin()`: a long curve drifts sideways ~0.16 px over ~70 px and comes back, at the measured upper bound (the engraver is
+  steadier than any pen; the waver is small and slow, never noise on the edge).
 - `curl()`: the measured terminal curl (×0.38 a turn, 1.4 turns). `stroke()`: ends as a point (tapered over ~8 hairlines), a
   ball (1.75–1.9 hairlines' radius) or blunt (the pen).
 - `thinShades()`: the face's shades cut back by 30 % of their thickness over the hairline (thickness carried across each
@@ -152,9 +157,17 @@ budget.
 | 12 | Provenance | 2 | 2 | 2 |
 | | total /42 | 29 | 29 | 27 |
 
-All three are "good work, not yet museum": Beauty is the gap. Beside Champion's B at 1× and 4× (the page's last figure per
-direction), our capital is still heavier and rounder than his, whose B is slender with a long hairline entry; his flourishes are
-fewer and longer.
+All three are "good work, not yet museum": Beauty is the gap. Beside Champion's B at 1× (true scale: the scan is ~8 px/mm, about
+a 4-line drop's) and 4× (an upscaled scan, so soft; the true 4× check was the trade card at 16 px/mm and van de Velde at 12 px/mm,
+in the scratchpad), our capital is still heavier and rounder than his, whose B is slender with a long hairline entry; his
+flourishes are fewer and longer. The compression rule (hairline opening at 4×) applies to A and C; B's hairline is the pen's,
+fixed at 0.6 css px.
+
+**Recommendation:** A, the plate, as the style: its page grammar (the tilde opener and filler, the crossing break, the flourished
+head-rule) is Bickham's own, the most restrained, and its medium reads truest beside the master; with C's rosette as the drop's
+richer form at the higher richness levels (it is the most beautiful single piece at 4×, but a page of loops is too busy). B's real
+pen is the most alive surface but its pieces are the plainest; it could be a later option (the quill as an alternative medium for
+the same paths).
 
 ## What to avoid
 
