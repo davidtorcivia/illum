@@ -352,3 +352,43 @@ The letters were kept; the figures and the paint film changed.
     openings between keel and gunwale are missing.
   - Some drop animals come out small where the collision fit had to shrink them.
   - Beauty 2, closer to 3 at 1× than before.
+
+## Stage 5: traced masses and pecked edges (the user: "lots of hard even flat/straight edges which looks artificial")
+
+- **Traced figures** (kit/styles/pie-traced.js, from scratchpad pie/py/trace.py):
+  - The painted area of three figures was traced as outline rings and normalised to height 1:
+    - the Tanumshede ship: hull band, crew comb and the 27 oval openings between keel and gunwale;
+    - the Tanumshede antlered animal (used as the deer);
+    - the Vitlycke warrior with sword and shield.
+  - Ours are those outlines placed with the seed's hand: a stretch of up to ±15 % that keeps the traced proportions, a
+    slant, a slow bend, and a mirror.
+  - The horse, the other people's poses, the sun-wheel and the rest have no clean open photograph (Fossum's photograph
+    is too faded to segment; the Vitlycke ships photograph is too noisy). They are drawn in the traced figures' manner,
+    and the page says so.
+- **One carver for everything** (`carve()` in pie-rock.js): a piece's grooves (paths with widths, including the
+  letters') and traced outlines are laid as one area.
+  - Drawn grooves get fillets where they merge (a blur-and-threshold ~1.1 pits across) and round blunt ends.
+  - Traced outlines keep their own gaps and holes.
+  - The area is then pecked in the carver's passes, so every edge is the outermost pits' scallop, never a cut line.
+  - Traced figures are pecked at their own finer scale so their openings stay open.
+  - Long grooves bow a little with the arm's arc.
+  - Cup marks are pecked ovals of their own size and roundness.
+  - The paint closes over the pits' scallops by half a pit (`settle()` in pie-paint.js): the edge is soft where it
+    thinned and crisp where it pooled.
+- **The ship** is now the traced Tanumshede hull (thick band, dense comb, the row of ovals), never squashed: a short
+  slot gets a smaller ship, centred.
+- **Drops reflow** instead of shrinking the figure:
+  - the ship under the letter, across the full width;
+  - an animal beside it (drop 1.4× its height wide);
+  - the sun beside it over cups (1.3×);
+  - the warrior beside it (1.5×).
+- **Speed.** Mock, in view: 82–108 ms at dpr 1 and 2 (1440), 66 ms at 390. Every piece at once: 440 ms (dpr 1) /
+  650 ms (dpr 2): the carver's area raster and pitting is now the cost. Print-on-approach keeps the page within budget;
+  eager printing would want a worker.
+- **Where it stands (honest).**
+  - At 4× and 8× the traced ship and warrior read as the panels' own figures, organic and smoothly painted, with their
+    openings.
+  - The drawn-in-manner figures (horse, wheel, people) are still more regular than the traced ones.
+  - At 1× the traced ship is a thin band under the drop's letter.
+  - Some thin traced parts (the warrior's spear) take paint unevenly.
+  - Beauty 2+.

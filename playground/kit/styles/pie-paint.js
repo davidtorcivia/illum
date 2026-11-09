@@ -156,12 +156,19 @@ function prepare(F, piece, look, live = false) {
   t = tick('need', t); granite(F, piece.g, { stri: piece.stri ?? 0, seed: piece.seed ?? 1, need }); tick('granite', t);
   return { pits, strokes };
 }
+// the paint closes over the pits' scallops a little: the pecked floor it fills is the pits' union softened by half a pit
+function settle(F) { const { cw, ch, K } = F, R = Math.max(1, Math.round(.5 * F.rp * F.dpr)); let A = K;
+  for (let pass = 0; pass < 2; pass++) { const T = new Float32Array(cw * ch), B = new Float32Array(cw * ch);
+    for (let y = 0; y < ch; y++) { let s = 0; for (let x = -R; x <= R; x++) s += A[y * cw + Math.min(cw - 1, Math.max(0, x))]; for (let x = 0; x < cw; x++) { T[y * cw + x] = s / (2 * R + 1); s += A[y * cw + Math.min(cw - 1, x + R + 1)] - A[y * cw + Math.max(0, x - R)]; } }
+    for (let x = 0; x < cw; x++) { let s = 0; for (let y = -R; y <= R; y++) s += T[Math.min(ch - 1, Math.max(0, y)) * cw + x]; for (let y = 0; y < ch; y++) { B[y * cw + x] = s / (2 * R + 1); s += T[Math.min(ch - 1, y + R + 1) * cw + x] - T[Math.max(0, y - R) * cw + x]; } }
+    A = B; }
+  for (let i = 0; i < K.length; i++) K[i] = sm(.3, .62, A[i]); }
 const peckedFrom = (F, bb) => { const [x0, y0, x1, y1] = bb; for (let Y = y0; Y <= y1; Y++) for (let X = x0; X <= x1; X++) { const i = Y * F.cw + X; F.K[i] = sm(.02 * F.g, .25 * F.g, -F.H[i]); } };
 export const PROF = {};
 const tick = (k, t0) => { PROF[k] = (PROF[k] ?? 0) + performance.now() - t0; return performance.now(); };
 export function renderRock(F, piece, look) {
   let t = performance.now(); const { pits, strokes } = prepare(F, piece, look); t = tick('prepare', t);
-  for (const m of pits) apply(F, m); peckedFrom(F, [0, 0, F.cw - 1, F.ch - 1]); t = tick('pits', t);
+  for (const m of pits) apply(F, m); peckedFrom(F, [0, 0, F.cw - 1, F.ch - 1]); settle(F); t = tick('pits', t);
   for (const s of strokes) lay(F, s.P, 0, 1e9, { load: s.load ?? 1, decay: s.decay ?? 18, sid: s.sid, seed: piece.seed ?? 1 }); t = tick('lay', t);
   const img = shadeRock(F, look, new ImageData(F.cw, F.ch)); tick('shade', t); return img;
 }
@@ -176,6 +183,7 @@ export function rockWriter(F, piece, look, g, { dur = 2400 } = {}) {
   const at = f => { let bb = null;
     const pf = Math.min(1, f / peckEnd); while (k < pits.length && k / pits.length <= pf) { bb = union(bb, apply(F, pits[k++])); }
     if (bb) peckedFrom(F, bb);
+    if (f > peckEnd && !F.settled) { settle(F); F.settled = 1; bb = [0, 0, F.cw - 1, F.ch - 1]; }
     if (f > peckEnd) { const reach = (f - peckEnd) / (1 - peckEnd) * totLen;
       while (si < strokes.length) { const s = strokes[si], upto = reach - acc;
         const r = lay(F, s.P, sFrom, upto, { load: s.load ?? 1, decay: s.decay ?? 18, sid: s.sid, seed: piece.seed ?? 1 }); bb = union(bb, r);
