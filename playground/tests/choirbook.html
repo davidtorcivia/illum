@@ -141,7 +141,7 @@ for (const el of boxes(document))
   <label class="rich">plainer <input type="range" id="rich" min="0" max="1" step="0.25" aria-label="How rich the penwork is"> richer <span>(<output id="richName" for="rich"></output>)</span></label></p>
 
 <script type="module">
-import { rubricate } from '../kit/all.js';
+import { rubricate } from '../kit/illum.js';
 import { BUDGETS } from '../kit/styles/choirbook.js';
 
 const q = new URLSearchParams(location.search), sd = location.hash.match(/seed=(\d+)/)?.[1];

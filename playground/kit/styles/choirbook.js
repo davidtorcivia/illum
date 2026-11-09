@@ -55,10 +55,12 @@ export const BUDGETS = [
 ];
 
 // ---- the clearance (03's): distance from each cell to the nearest thing on the page, stamped as marks are accepted ---------
-function clearance(x0, y0, w, h, blocked, cap) {
+// (reach: how far a stamp need write; every query of the field compares it with less than that, so the decisions are the
+// same as a stamp to the cap, at a twentieth of the cost)
+function clearance(x0, y0, w, h, blocked, cap, reach = cap) {
   const C = edt(blocked, w, h); for (let i = 0; i < C.length; i++) C[i] = Math.min(cap, C[i]);
   const get = (x, y) => { const i = Math.round(x - x0), j = Math.round(y - y0); return i < 0 || j < 0 || i >= w || j >= h ? 0 : C[j * w + i]; };
-  const stamp = (pts, R = cap) => { for (const [px, py] of resample(pts, .8)) {
+  const stamp = (pts, R = reach) => { for (const [px, py] of resample(pts, .8)) {
     const cx = px - x0, cy = py - y0, i0 = Math.max(0, Math.floor(cx - R)), i1 = Math.min(w - 1, Math.ceil(cx + R)), j0 = Math.max(0, Math.floor(cy - R)), j1 = Math.min(h - 1, Math.ceil(cy + R));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const d = Math.hypot(i - cx, j - cy), k = j * w + i; if (d < C[k]) C[k] = d; } } };
   return { get, stamp, C };
@@ -561,7 +563,7 @@ export function flourish({ glyph, panel, keep = [], staff = null, g = 2.6, cap =
     for (let j = j0; j <= j1; j++) if (i1 >= i0) blocked.fill(1, j * W + i0, j * W + i1 + 1); }   // (the words, laid once)
   { const i0 = Math.max(0, Math.floor(gx - X0)), i1 = Math.min(W - 1, Math.ceil(gx + gw / res - X0)), j0 = Math.max(0, Math.floor(gy - Y0)), j1 = Math.min(H - 1, Math.ceil(gy + gh / res - Y0));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (onLetter(X0 + i + .5, Y0 + j + .5)) blocked[j * W + i] = 1; }
-  const CL = clearance(X0, Y0, W, H, blocked, 16);
+  const CL = clearance(X0, Y0, W, H, blocked, 16, g * 1.2);   // (no query asks more than .95 g)
   const accept = (pts, kind, o = {}) => { out.push({ pts, kind, ...o }); CL.stamp(pts); };
   const room = (pts, d) => pts.every(p => CL.get(p[0], p[1]) >= d);
   const C0 = Float32Array.from(CL.C), c0 = (x, y) => { const i = Math.round(x - X0), j = Math.round(y - Y0); return i < 0 || j < 0 || i >= W || j >= H ? 0 : C0[j * W + i]; };
@@ -763,8 +765,14 @@ export async function loadLetters(chars) {
 }
 // which letter a drop is: kit/illum.js hands a registry style the letter's Garamond coverage (G) and not the letter, so it is
 // read back from that coverage: the capital of EB Garamond 600 at that size whose ink box and cells match it best
+const IDS = new Map();   // (a letter once read back is known again by its size and its coverage's sum)
 function identify(G) {
-  if (G.ch) return G.ch; const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = `600 ${G.F}px "EB Garamond"`;
+  if (G.ch) return G.ch; let sum = 0; for (let i = 0; i < G.M.length; i += 5) sum += G.M[i];
+  const key = [G.F, G.w, G.h, (G.box[2] - G.box[0]).toFixed(1), (G.box[3] - G.box[1]).toFixed(1), sum.toFixed(2)].join('|');
+  if (!IDS.has(key)) { if (IDS.size > 200) IDS.clear(); IDS.set(key, identify1(G)); } return IDS.get(key);
+}
+function identify1(G) {
+  const c = new OffscreenCanvas(8, 8).getContext('2d'); c.font = `600 ${G.F}px "EB Garamond"`;
   const gw = G.box[2] - G.box[0], gh = G.box[3] - G.box[1]; let best = null;
   for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') { const m = c.measureText(ch), e = Math.abs(m.actualBoundingBoxLeft + m.actualBoundingBoxRight - gw) + Math.abs(m.actualBoundingBoxAscent + m.actualBoundingBoxDescent - gh);
     if (e > 1.5) continue;
