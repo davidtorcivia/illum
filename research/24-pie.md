@@ -199,3 +199,62 @@ finer, quieter grammar if the user wants ornament subordinate to the page. C sho
 metal; if kept, its relief must be re-measured against the disc (sharper ridges, broader flats, specular breaks) before
 it is shown again. Next for B: close the paint over the pits so the edge is smooth at 4×; draw the horse from a traced
 Tanum horse's proportions; give the ships the double line and comb crew of tanumshede-7.
+
+## Stage 2: B, the rock, as paint on rock (the user: "it needs to feel like paint texture on rock and not blobs … push it hard, make it beautiful"; A and C parked)
+
+Stage 1's B was a flat oxblood fill with a stippled edge. Stage 2 builds the three surfaces from their causes and lays
+the paint by them (kit/styles/pie-paint.js, new; kit/styles/pie-rock.js rewritten; nothing shared touched).
+
+### Measured (scratchpad pie/py/grain.py, paint.py)
+- **Granite grain**: autocorrelation of the rock between figures gives a grain ~.10 W (Vitlycke) to ~.13 W
+  (Tanumshede) across, W the figure's stroke width; luminance p10/50/90 128/161/192 (Tanumshede): ±20 % about the
+  median. Used: grains at ~.12 W, four minerals (pink and white feldspar, grey quartz, dark mica) within that range,
+  quartz weathered proud and mica sunk (hardness), facets with their own tilt.
+- **Striations**: the structure tensor of the coarse rock found no strong direction in these photographs (coherence
+  .05–.21); the striations are therefore **by eye**: shallow parallel grooves ~1.1 W apart at one angle, about half of
+  them cut, deep enough only to hold paint.
+- **The paint**: inside a painted figure 12–15 % of the surface still reads as rock (Vitlycke .12, Tanumshede .15);
+  the red varies at the grain's scale (Vitlycke) and at a stroke's (~.3 W, Tanumshede); weathered red p10/50/90
+  #6d3632 / #884a46 / #a06560, fresh and wet much brighter (the Vitlycke rider, added to pie-refs); the edge goes from
+  rock to full red over ~.1 W, one grain.
+- **The pit** is still by eye and from the literature [unverified] (~5 across a line).
+
+### The model (every variation one of these)
+- **Granite**: per-crystal facets (precomputed per grain, so cheap), grain boundaries opened a little, crystals'
+  colours shared at their edges; the panel under the drop and the end break is this rock with a weathered outline;
+  smaller pieces show rock only where it was pecked.
+- **Pecking**: the hammer-stone's pits (the stage 1 carver, kept), crushing the crystal faces paler.
+- **Brush**: strokes follow the figure (a ship's keel, a horse's legs); a letter is painted along and across its own
+  strokes (the direction in which the region runs longest, of horizontal and vertical). The load runs down along each
+  stroke (over ~18 brush widths); bristle lanes carry ±6 %; a full brush skips only the lowest grains (the measured
+  ~15 %), a dry one only the high points; the paint pools in the pit floors and striations; a second stroke over wet
+  paint lays a coat, it does not darken it; paint off the pecked figure does not take.
+- **Colour**: Beer's-law cover from thin/dry (#b9624b) through fresh body (#a5361e, a little warmer and brighter than
+  the site's #8e2a17) to pooled (#561810); on the ink sections the same rock, the paint brighter (#c4432a).
+- **?draw**: the figure pecked pass by pass (the floor paling as it is worked), then painted stroke by stroke along each
+  stroke's length, pigment settling as the brush passes. Nothing fades or pops.
+
+### Liberties (named on the page)
+The capital carved and painted on a rock panel with a ship under it and the sun-wheel in its counter or at its
+shoulder; the Twins as two horses facing under the wheel (the pull quote); the world-tree (quotation); dawn,
+*h₂éwsōs*: a sun-wheel rising, rayed, from a ship; the serpent-slayer: an axe-bearer facing a serpent line; the
+sky-father, *dyēus ph₂tēr*: an adorant, arms raised under the wheel, between the Twins. The end break chooses among
+these and a fleet under the sun by seed. Ships, horses, footsoles, cup marks and the wheel are Tanum's own vocabulary,
+drawn by eye from the photographs in pie-refs (not traced).
+
+### Speed
+The mock (pie-wekwos.html?dir=rock) prints each piece when its place nears the view: the first view's pieces in
+45–71 ms at dpr 1 and 2 (1440 and 390); every piece at once (`&all`) 135–160 ms at dpr 1, ~260–320 ms at dpr 2. The
+specimen page (every piece, eagerly) 150 ms dpr 1, 280 ms dpr 2. A worker could take the granite and the stroke
+rasterising off the main thread if eager printing is wanted; not built.
+
+### Engine note (not done: shared file)
+kit/medium.js's paper is generated inside its own shader (PAPER_FS: tooth and fibre). Accepting an external paper field
+(a texture of height and a second channel) would let the WebGL ink engine lay this paint with its LAY catch, wetness
+and pour, on the GPU; pie-paint.js is the CPU bench of that idea.
+
+### Where it stands (honest)
+At 1× the pieces read as red paint on pecked granite, and the panels hold a page. At 4× the drop reads as paint on
+rock, but the granite's crystals are still a little too regular (a Voronoi mosaic you can see as such), the letter's
+paint reads flatter than the master's (its strokes are straight runs), and the horse is better but still a sketch.
+Beauty 2, not yet 3.

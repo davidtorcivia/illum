@@ -80,7 +80,9 @@ const q = new URLSearchParams(location.search), raw = q.get('dir'), key = Object
 const DRAW = q.has('draw') && !matchMedia('(prefers-reduced-motion: reduce)').matches, dpr = Math.min(2, devicePixelRatio || 1), ws = [], t0 = performance.now();
 { const nav = document.getElementById('dirs'), link = (href, text, on) => { const a = document.createElement('a'); a.href = href; a.textContent = text; if (on) a.className = 'on'; nav.append(a); };
   for (const k of Object.keys(DIRS)) link(`?dir=${encodeURIComponent(k)}`, NAMES[k], k === key); link(`?dir=${encodeURIComponent(key)}&draw`, 'made'); }
-const put = (host, pc, x, y, theme = 'light') => { const o = print(key, theme, pc, { dpr, live: DRAW }), el = o.cv ?? o; if (o.w) ws.push(o.w); el.className = 'orn'; Object.assign(el.style, { left: x + 'px', top: y + 'px' }); host.append(el); };
+// each piece is printed when its place comes near the view (the first view's pieces at once; the rest as the reader scrolls)
+const jobs = [], render = ({ host, pc, x, y, theme }) => { const o = print(key, theme, pc, { dpr, live: DRAW }), el = o.cv ?? o; if (o.w) ws.push(o.w); el.className = 'orn'; Object.assign(el.style, { left: x + 'px', top: y + 'px' }); host.append(el); };
+const put = (host, pc, x, y, theme = 'light') => jobs.push({ host, pc, x, y, theme });
 const rel = (host, el) => { const a = host.getBoundingClientRect(), b = el.getBoundingClientRect(); return { x: b.left - a.left, y: b.top - a.top, w: b.width, h: b.height }; };
 for (const sec of document.querySelectorAll('.sec')) {
   const lead = sec.querySelector('p.lead'), cs = getComputedStyle(lead), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = innerWidth < 600 ? 3 : 4;
@@ -99,7 +101,13 @@ for (const sec of document.querySelectorAll('.sec')) {
 }
 for (const hr of document.querySelectorAll('hr.brk')) { const art = document.getElementById('art'), b = rel(art, hr), bp = D.brk(+hr.dataset.rank, b.w, b.h, seed); put(art, bp, b.x + (b.w - bp.W) / 2, b.y + (b.h - bp.H) / 2); }
 { const c = document.getElementById('colo'), r = c.getBoundingClientRect(), fp = D.frame('pull', r.width, r.height, seed, 20); put(c, fp, (r.width - fp.W) / 2, 0, 'dark'); }
-document.body.dataset.timing = `${key}: ${Math.round(performance.now() - t0)} ms`;
+const margin = 300, near = j => { const b = j.host.getBoundingClientRect(); return b.bottom + j.y > -margin && b.top + j.y < innerHeight + margin; };
+const tLayout = performance.now() - t0, t1 = performance.now(), first = jobs.filter(near); first.forEach(render);
+const tView = performance.now() - t1, later = jobs.filter(j => !first.includes(j));
+const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { io.unobserve(e.target); for (const j of later.filter(j => j.host === e.target && !j.done)) { j.done = true; render(j); } } }, { rootMargin: margin + 'px' });
+for (const h of new Set(later.map(j => j.host))) io.observe(h);
+if (q.has('all')) { const t2 = performance.now(); later.forEach(j => { j.done = true; render(j); }); document.body.dataset.all = Math.round(performance.now() - t2 + tView) + ' ms'; }
+const { PROF } = await import('../kit/styles/pie-paint.js'); document.body.dataset.timing = `${key}: in view ${Math.round(tView)} ms (${first.length} pieces; layout ${Math.round(tLayout)} ms)` + (q.has('all') ? `; every piece ${document.body.dataset.all}` : '') + (key === 'rock' ? ' ' + Object.entries(PROF).map(([k, v]) => k + ' ' + Math.round(v)).join(', ') : '');
 if (DRAW) { let k = 0, st = 0; const run = now => { const w = ws[k]; if (!w) return; if (!st) st = now; const f = (now - st) / w.dur; if (f >= 1) { w.done(); k++; st = 0; } else w.at(f); requestAnimationFrame(run); }; requestAnimationFrame(run); }
 </script>
 </body>
