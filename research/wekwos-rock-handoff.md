@@ -41,9 +41,9 @@ for f in cache.js frames.js illum.js initials.js inkletter.js marks.js medium.js
          wayfinding.js writer.js hash.json \
          styles/rock.js styles/rock-letters.js styles/rock-paint.js styles/rock-pieces.js styles/rock-print.js \
          styles/rock-relief.js styles/rock-traced.js styles/rock-worker.js; do
-  curl -fsS "$B/$f" -o "$f" || echo "FAILED: $f"
+  curl -fsS "$B/$f?v=$(date +%s)" -o "$f" || echo "FAILED: $f"   # (the query string skips a stale CDN copy)
 done
-cat hash.json   # expect {"hash":"cb611fd1a01ce028"}: the version this handoff was written against
+cat hash.json   # expect {"hash":"5fae9f2dbf8f6e2c"} or later (5fae9f2dbf8f6e2c fixes zero-height <hr> breaks and fillers in a narrow column)
 ```
 
 **Rules for the copy:**
