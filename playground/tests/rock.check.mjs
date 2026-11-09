@@ -2,7 +2,7 @@
 // At every budget (0, .25, .5, .75, 1), several seeds, 1440 and 390, the page drawn still; every text line on the page (its
 // body, headings, contents, quotation, caption, pull quote, aside, code; the drop's own letter excepted) against every
 // painted pixel of the ornament's canvases. Fails on any. Needs the playground served (default http://localhost:8000).
-// env: RICH=0,.25,.5,.75,1  SEEDS=1,2,3,7  W=1440,390  THEMES=light  NOSHEETS=1  SITE=http://127.0.0.1:port (a built site)
+// env: RICH=0,.25,.5,.75,1  SEEDS=1,2,3,7  W=1440,390  THEMES=light  NOSHEETS=1  NOBIG=1  SITE=http://127.0.0.1:port (a built site)
 import { launch, open, load } from '../../tools/chrome.mjs';
 const base = process.argv[2] ?? 'http://localhost:8000', b = await launch(), env = (k, d) => (process.env[k] ?? d).split(',');
 let bad = 0;
@@ -31,5 +31,11 @@ try {
     if (hits.length) bad++;
     console.log(`${width} ${theme} ${tag}: ${hits.length ? hits.slice(0, 6).join('; ') + (hits.length > 6 ? ` (+${hits.length - 6})` : '') : 'ok'}`); await p.close();
   }
+  // the large initials (tests/rock-big.html): in-line and drop, 80 to 400 px, page-sized seeds and small, dpr 1, 2 and 3,
+  // light and dark: no paint off the carving (the slab of lit rock a 2x screen showed)
+  if (!process.env.NOBIG) for (const d of [1, 2, 3]) for (const theme of env('THEMES', 'light')) {
+    const p = await open(b, { width: 1000, height: 600, dpr: 1 }); await load(p, `${base}/playground/tests/rock-big.html?d=${d}&theme=${theme}&sizes=80,100,130,160,200,300,400`, { timeout: 600000 });
+    const r = await p.evaluate(() => [document.body.dataset.check, document.getElementById('out').textContent.split('\n')[0]]); if (r[0] !== 'ok') bad++;
+    console.log(`large initials dpr ${d} ${theme}: ${r[0] === 'ok' ? 'ok' : r[0].slice(0, 400)} (${r[1]})`); await p.close(); }
 } finally { await b.close(); }
 if (bad) { console.log(`${bad} pages with paint on words`); process.exitCode = 1; }

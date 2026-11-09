@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rock carving: large initials, checked</title>
+<!--
+  Rock carving (kit/styles/rock.js): its initials printed large (the in-line initial and the drop, 80 to 400 px, as
+  wekwos.com sets them), at dpr d (?d=1|2|3), for page-sized seeds (hashes, as rubricate gives a page) and small ones, in
+  ?theme=light|dark; each print's paint against its own carved hollow: a painted pixel farther than three pits from
+  anything pecked is paint where no carving is (the slab of lit rock a 2x screen showed round large initials before
+  kit/styles/rock-paint.js kept its seeds' place on the rock in range). body.dataset.check = 'ok' or the failures.
+  Run by rock.check.mjs (BIG=1).
+-->
+</head>
+<body style="margin:0;background:#efe7d6">
+<pre id="out"></pre>
+<script type="module">
+import { render } from '../kit/styles/rock-print.js';
+import * as R from '../kit/styles/rock-pieces.js';
+const q = new URLSearchParams(location.search), d = +(q.get('d') ?? 2), theme = q.get('theme') ?? 'light', fails = [], t0 = performance.now(); let n = 0;
+const test = (name, piece) => { const r = render(piece, theme, d), F = r.F, w = F.cw, h = F.ch, K = F.K, img = r.img, k = r.ss;
+  // the pecked hollow, grown by three pits (the paint's own margin, the settle's reach): anything painted outside it is wrong
+  const rad = Math.max(2, Math.ceil(3 * (F.prs ?? F.rp) * F.dpr)), M = new Uint8Array(w * h), Rw = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) { let last = -1e9; for (let x = 0; x < w; x++) { if (K[y * w + x] > .05) last = x; Rw[y * w + x] = x - last <= rad; } last = 1e9; for (let x = w - 1; x >= 0; x--) { if (K[y * w + x] > .05) last = x; if (last - x <= rad) Rw[y * w + x] = 1; } }
+  for (let x = 0; x < w; x++) { let last = -1e9; for (let y = 0; y < h; y++) { if (Rw[y * w + x]) last = y; M[y * w + x] = y - last <= rad; } last = 1e9; for (let y = h - 1; y >= 0; y--) { if (Rw[y * w + x]) last = y; if (last - y <= rad) M[y * w + x] = 1; } }
+  let bad = 0; for (let Y = 0; Y < img.height; Y++) for (let X = 0; X < img.width; X++) if (img.data[(Y * img.width + X) * 4 + 3] > 24) { const i = Math.min(h - 1, Y * k) * w + Math.min(w - 1, X * k); if (!M[i]) bad++; }
+  n++; if (bad > 4) fails.push(`${name}: ${bad} px painted off the carving`); };
+const sizes = (q.get('sizes') ?? '80,130,200,300,400').split(',').map(Number), seeds = (q.get('seeds') ?? '7,7823045,1234567,98765').split(',').map(Number);
+for (const px of sizes) for (const sd of seeds) for (const ch of q.get('letters') ?? 'BGKRSW') {
+  // (an in-line initial px tall in its font: its cap ~.65 of that; a drop of the same cap height)
+  const cap = px * .65, e0 = R.lineExt(ch, 20, sd), fs = +(20 * cap / (e0[3] - e0[1])).toFixed(2);
+  test(`line ${ch} ${px}px seed ${sd}`, R.lineInitial(ch, fs, sd));
+  const p0 = R.dropPlan(ch, 100, sd).lext, H = +(100 * cap / (p0[3] - p0[1])).toFixed(2);
+  test(`drop ${ch} ${px}px seed ${sd}`, R.initial(ch, H, sd, 20, 1)); }
+document.getElementById('out').textContent = `${n} prints at dpr ${d}, ${theme}, ${Math.round(performance.now() - t0)} ms; ${fails.length} with paint off the carving\n` + fails.join('\n');
+document.body.dataset.timing = document.body.dataset.check = fails.length ? fails.join('; ') : 'ok';
+</script>
+</body>
+</html>

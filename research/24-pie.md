@@ -965,3 +965,28 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
   finished view matches the still one but for a piece still being drawn at the window's foot.
   - The library measures its drops with EB Garamond's metrics. With Newsreader the drop's cap sits within a pixel or two
     of the first line's.
+
+## Fix: the slab behind large initials at 2x (wekwos.com, kit 5fae9f2dbf8f6e2c)
+
+- **Cause.** The granite (kit/styles/rock-paint.js) set each piece on the endless rock at its seed times 101.3 and 57.1 grains.
+  - A page's own seeds are hashes in the millions. They put the crystals' centres near 7e8 grains, held in 32-bit floats,
+    which are exact there only to whole tens of grains. The rock's relief was noise.
+  - At 1x, and at 2x below about 130 px, the edge zone is shut, and the noise only touched the film's texture.
+  - Where the zone opens (a grain 2.5-4.5 device px: a large initial at 2x and up), a dry brush's paint is let onto a
+    grain that stands high (`pk * .8 + 2.4 * (D - .3)` in lay). The noisy relief stood high everywhere, so paint was laid
+    wherever a brush lane passed, across the letter's whole box. It showed as a slab of lit rock, cut square where the
+    lanes stopped, holed where the cups lay deeper.
+  - Proved on one print: the in-line B at 70.79 px, seed 7823045, dpr 2, has paint (T > 0) on 60,992 pixels; at seed 7,
+    33,522. With the seed's place kept in range, 40,120 and 40,844, and the slab is gone.
+- **Fix.** The seed's place is kept within 65,536 grains of the origin, where the floats are exact to a 64th. Seeds below
+  ~990 are where they always were, so every specimen and the mock are pixel-identical.
+  - Pages drawn by rubricate (hash seeds) change only in the rock's fine texture under the paint: at most 17/255 at 1x
+    and 32/255 at 2x, over 1-3 % of the page. That rock was computed from rounded coordinates before.
+- **Found on the way, not changed.** D, the groove-depth field the edge zone reads, has been absent since stage 12 (a
+  line lost in that edit of settle()). The zone falls back to the pecked mask. The 4x specimens approved since then
+  were drawn without it, so it is left out; restoring it is a look change, not a fix.
+- **Check.** tests/rock-big.html runs from rock.check.mjs. It covers in-line and drop initials at 80, 100, 130, 160, 200,
+  300 and 400 px, six letters, four seeds (hashes and small), dpr 1, 2 and 3, light and dark: 336 prints each.
+  - Each print's paint is tested against its own pecked hollow, grown by three pits. All pass; the old paint failed at
+    once (B, G and K at 200 px, 2x).
+- **Speed.** One 400 px in-line initial at dpr 2: carved in 3-19 ms, printed in 123-223 ms, on a worker on the page.

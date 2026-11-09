@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><title>rock: large in-line initials (repro from wekwos)</title>
+<style>
+  :root { --paper: #efe7d6; } body { margin: 0; background: #efe7d6; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; }
+  .cell { position: relative; width: 240px; height: 260px; outline: 1px solid #0001; }
+  .ini { color: transparent; }
+  .lab { position: absolute; left: 4px; bottom: 2px; font: 11px monospace; color: #555; }
+</style></head><body>
+<script type="module">
+  // ?size=200 (px)  #seed=n   (a large in-line .ini, one host per letter, as wekwos.com's dictionary sets it)
+  import { rubricate } from '../kit/illum.js';
+  const q = new URLSearchParams(location.search), size = +(q.get('size') ?? 200), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 0) || undefined;
+  const cells = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map(ch => { const d = document.createElement('div'); d.className = 'cell';
+    d.style.width = `${size * 1.2}px`; d.style.height = `${size * 1.3}px`;
+    const s = document.createElement('span'); s.className = 'ini'; s.style.cssText = `font: 600 ${size}px/1 "EB Garamond", serif; display: block`; s.textContent = ch;
+    const l = document.createElement('span'); l.className = 'lab'; l.textContent = ch; d.append(s, l); document.body.append(d); return d; });
+  const none = ':not(*)';
+  await Promise.all(cells.map(d => new Promise(res => rubricate(d, { host: d, style: 'rock', rich: .5, draw: 'still', seed,
+    select: { heading: none, filler: none, break: none, text: none }, on: (st) => st === 'drawn' && res() }))));
+  document.body.dataset.done = '1';
+</script>
+</body></html>
