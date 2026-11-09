@@ -19,9 +19,5 @@
   "devDependencies": {
     "puppeteer-core": "23.11.1",
     "wrangler": "^4.158.0"
-  },
-  "scripts": {
-    "deploy": "wrangler deploy",
-    "preview": "wrangler dev"
   }
 }
