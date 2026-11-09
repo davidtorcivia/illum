@@ -403,7 +403,9 @@ export function lindInitial(ch, H, seed = 1, { theme = 'light', res = 2 } = {}) 
   const L = letterField(ch, H, { res, bold: H * .055 }), S = new Sheet([0, 0, L.W, L.Ht], res), dk = theme === 'dark', Ho = H * 1.11, px = 1 / res;
   const hair = Math.max(.5 * px, Ho * .003), { frame, Bd } = rings(L, S, [{ w: Ho * .0155, ink: dk ? 'l' : 'k', pen: .3 }, { w: Ho * .0145, ink: 'y' }, { w: hair, ink: 'k', pen: .3 }], 'y');
   const u0 = Math.max(2.4, H / 40), clear = frame + .4;
-  const uf = Math.max(1.25 * px, Ho * .0078), ub = Math.max(2 * px, Ho * .0098), rnd = stream(seed, 'lind');
+  // (the knot's unit held to the display, not only to the master's absolute size: at a page's drop (~100 px) the master's
+  // .0078 Ho is a px and the plait reads as texture; a cord at least ~1/48 of the letter keeps it a plait you can follow)
+  const uf = Math.max(1.25 * px, Ho * .0078, H * .021), ub = Math.max(2 * px, Ho * .0098, H * .034), rnd = stream(seed, 'lind');
   // the fine field: cords of red lead or orpiment outlined in ink on black, a break every few cells along a row (staggered)
   // (its pen line .1 W, heavier than the knots' .06: at this size it is all that tells over from under)
   const field = (A, s0, s1, sch, holes) => { const wf = uf, ln = Math.max(.4 * px, wf * .1);
@@ -412,12 +414,14 @@ export function lindInitial(ch, H, seed = 1, { theme = 'light', res = 2 } = {}) 
   // a coarser knot: its cords pigment in a pale rim and the ink line
   const big = (C, K, u, ink) => { const W = u * 1.0; knot(S, handOn(C, u, W, seed + 3), K.crossings, { layers: strand(W, ink, { min: .35 * px }), gap: 0, ground: 'k' }); };
   compartments(L, S, Bd, { u0, clear, seed, look: {
-    long: [{ ground: 'k', cord: 'r', knot: 'b' }, { ground: 'k', cord: 'r', knot: 'g' }], short: [{ ground: 'k', cord: 'b' }, { ground: 'k', cord: 'g' }], solid: 'r',
+    // (one letter, one rhythm: long panels of red plait on black running with the stroke, a blue or a green knot set in each;
+    // between them a short compartment of plain red lead holding an orpiment cross, or a blue roundel with its triple spiral)
+    cells: rows => [rows >= 2 ? 7 : 5, 2],
+    long: [{ ground: 'k', cord: 'r', knot: 'b' }, { ground: 'k', cord: 'r', knot: 'g' }], short: [{ ground: 'r', cord: 'y', spiral: true }, { ground: 'r', cord: 'y' }], solid: 'r',
     fill: (S, A, s0, s1, p, sch) => {
       const hp = s => A.at(s)[4] - clear, mid = hp((s0 + s1) / 2);
-      if (p === 'S') {   // a closed knot fitted to the compartment, at the coarse scale
-        const f = fitted(L, A, s0, s1, ub, clear + ub * .2, { wall: BREAKS[0] }); if (f && f.K.crossings.size >= 8) big(f.C, f.K, ub, sch.cord);
-        else LOOK.jewel(S, A.at((s0 + s1) / 2), Math.min((s1 - s0) / 2, mid) * 1.1, sch);
+      if (p === 'S') { const m = A.at((s0 + s1) / 2), r = Math.min((s1 - s0) / 2, mid);
+        if (sch.spiral && r > ub * 2.2) LOOK.roundel(S, { c: [m[0], m[1]], R: r * .92, a0: rnd() * 6.28 }, hair); else LOOK.jewel(S, m, r * 1.1, sch);
         return; }
       // knots set in the field ~1.8 panel widths apart, each as large as the panel there allows (its cords at one scale)
       const n = Math.max(1, Math.round((s1 - s0) / (3.6 * Math.max(mid, ub * 3)))), holes = [];
@@ -557,14 +561,19 @@ function knotPanel(S, x, y, A, B, u, wall, look, i = 0) {
 }
 // the knot with a break at each end of its middle row (it closes as a lozenge-ended knot, not a plain plait)
 const endBreaks = A => (x, y) => y === 2 && (x === 1 || x === 2 * A - 1);
+// a long band: closed at its ends, and broken every few cells so it reads as a run of knots, not a plain plait
+const bandBreaks = A => (x, y) => y === 2 && (x === 1 || x === 2 * A - 1 || ((x & 1) && ((x - 1) / 2) % 4 === 2 && x < 2 * A - 3));
 // three dots, the positura ·:· turned on its side
 const triad = (S, x, cy, dr, ink = 'd') => S.dots([[x, cy - dr * 1.9, dr * 1.05, -.5, 1.1], [x, cy + dr * 1.9, dr * .95, -.5, 1.1], [x + dr * 3.1, cy, dr, -.5, 1.1]], ink);
 
 // The break: one panel at the centre, the rules running out from it to a positura at each end.
-function ruledBreak(len, ht, res, look, { seed = 1 } = {}) {
-  const th = Math.max(10, ht * .78), pad = th * .6, S = new Sheet([0, 0, len + 2 * pad, th + 2 * pad], res), cy = pad + th / 2, cx = pad + len / 2;
-  const pw = look.centre(S, cx, cy, th, seed), dr = Math.max(.8, th * .07);
-  for (const sg of [-1, 1]) { const x0 = cx + sg * (pw / 2 + th * .18), x1 = sg < 0 ? pad + dr * 4 : pad + len - dr * 4; rule(S, [x0, cy], [x1, cy], look.rules);
+// rank 1: the panel alone, a positura close at each side; rank 2: the panel, the rules running out to the positurae;
+// rank 3: a band of knotwork the length of the break between its rules, closed at each end
+function ruledBreak(len, ht, res, look, { seed = 1, rank = 2 } = {}) {
+  const th = Math.max(10, ht * .78), pad = th * .6, S = new Sheet([0, 0, len + 2 * pad, th + 2 * pad], res), cy = pad + th / 2, cx = pad + len / 2, dr = Math.max(.8, th * .07);
+  if (rank >= 3 && look.band) { const bl = look.band(S, cx, cy, th, len - dr * 12, seed); for (const sg of [-1, 1]) triad(S, sg < 0 ? cx - bl / 2 - dr * 5 : cx + bl / 2 + dr * 1.6, cy, dr); hand(S, th * 2, seed); return { S, W: len + 2 * pad, H: th + 2 * pad }; }
+  const pw = look.centre(S, cx, cy, th, seed);
+  for (const sg of [-1, 1]) { const x0 = cx + sg * (pw / 2 + th * .18), x1 = rank <= 1 ? x0 + sg * dr * 3 : sg < 0 ? pad + dr * 4 : pad + len - dr * 4; if (rank > 1) rule(S, [x0, cy], [x1, cy], look.rules);
     triad(S, sg < 0 ? x1 - dr * 4.2 : x1 + dr * 1.1, cy, dr); }
   hand(S, th * 2, seed);
   return { S, W: len + 2 * pad, H: th + 2 * pad };
@@ -589,8 +598,9 @@ const lindLook = dark => { const rk = dark ? 'l' : 'k';
     panel: (S, x, y, w, h) => { S.fill(rect(x - 2.5, y - 2.5, w + 5, h + 5), rk); S.fill(rect(x - 1.8, y - 1.8, w + 3.6, h + 3.6), 'y'); S.fill(rect(x - .6, y - .6, w + 1.2, h + 1.2), 'k'); },
     knot: LIND.knot,
     corner: (S, x, y, c) => { const u = (c - 2) / 4; knotPanel(S, x - 2 * u, y - 2 * u, 2, 2, u, null, lindLook(dark), 0); },
-    centre: (S, x, y, th) => { const u = (th - 2) / 4, A = 4; knotPanel(S, x - A * u, y - 2 * u, A, 2, u, endBreaks(A), lindLook(dark), 1); return A * 2 * u + 5; } }; };
-export const lindBand = (len, ht, seed = 1, { theme = 'light', res = 2 } = {}) => ruledBreak(len, ht, res, lindLook(theme === 'dark'), { seed });
+    centre: (S, x, y, th) => { const u = (th - 2) / 4, A = 4; knotPanel(S, x - A * u, y - 2 * u, A, 2, u, endBreaks(A), lindLook(dark), 1); return A * 2 * u + 5; },
+    band: (S, x, y, th, len) => { const u = (th - 2) / 4, A = Math.max(4, Math.floor(len / (2 * u))); knotPanel(S, x - A * u, y - 2 * u, A, 2, u, bandBreaks(A), lindLook(dark), 1); return A * 2 * u + 5; } }; };
+export const lindBand = (len, ht, seed = 1, { theme = 'light', res = 2, rank = 2 } = {}) => ruledBreak(len, ht, res, lindLook(theme === 'dark'), { seed, rank });
 export const lindFrame = (w, h, seed = 1, { theme = 'light', res = 2 } = {}) => ruledFrame(w, h, res, lindLook(theme === 'dark'), { seed });
 // the filler: a row of red dots at the pitch of f. 27r's field, closed by the positura
 export function lindFiller(len, ht, seed = 1, { res = 2 } = {}) {
@@ -606,8 +616,9 @@ const durLook = dark => { const rk = dark ? 'v' : 'k';
     panel: (S, x, y, w, h) => { S.fill(rect(x - 1.2, y - 1.2, w + 2.4, h + 2.4), rk); S.fill(rect(x - .5, y - .5, w + 1, h + 1), 'gr'); },
     knot: (S, C, K, u, i) => ribbon(S, C, K.crossings, u, i * 13 + 1, { w: 1.06 }),
     corner: (S, x, y, c, seed) => coil(S, [x, y], c * .5, seed + x * .1, 1, { eye: 'y', band: 'r', pen: rk }),
-    centre: (S, x, y, th, seed) => { const u = th / 4.6, A = 3; knotPanel(S, x - A * u, y - 2 * u, A, 2, u, endBreaks(A), durLook(dark), seed); return A * 2 * u + 2.4; } }; };
-export const durBand = (len, ht, seed = 1, { theme = 'light', res = 2 } = {}) => ruledBreak(len, ht, res, durLook(theme === 'dark'), { seed });
+    centre: (S, x, y, th, seed) => { const u = th / 4.6, A = 3; knotPanel(S, x - A * u, y - 2 * u, A, 2, u, endBreaks(A), durLook(dark), seed); return A * 2 * u + 2.4; },
+    band: (S, x, y, th, len, seed) => { const u = th / 4.6, A = Math.max(3, Math.floor(len / (2 * u))); knotPanel(S, x - A * u, y - 2 * u, A, 2, u, bandBreaks(A), durLook(dark), seed); return A * 2 * u + 2.4; } }; };
+export const durBand = (len, ht, seed = 1, { theme = 'light', res = 2, rank = 2 } = {}) => ruledBreak(len, ht, res, durLook(theme === 'dark'), { seed, rank });
 export const durFrame = (w, h, seed = 1, { theme = 'light', res = 2 } = {}) => ruledFrame(w, h, res, durLook(theme === 'dark'), { seed });
 // the filler (fol. 86r, beside the text): a red pen line wound into a spiral, then rolling forward in loops to the margin
 export function durFiller(len, ht, seed = 1, { res = 2 } = {}) {

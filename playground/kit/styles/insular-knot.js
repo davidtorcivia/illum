@@ -229,7 +229,11 @@ export class Sheet {
     for (const [ink, g] of this.c) {
       const rs = noise2(ink.charCodeAt(0) * 7 + seed), ox = (rs(1.3, 2.1) - .5) * 2 * mis * res, oy = (rs(4.7, .4) - .5) * 2 * mis * res;
       const im = g.getImageData(0, 0, w, h), d = im.data, A = new Uint8ClampedArray(w * h); for (let q = 0; q < A.length; q++) A[q] = d[q * 4 + 3];
+      // (only the tiles the ink can reach are remapped: a frame's or a band's empty middle is left as it is)
+      const TS = 16, tw = Math.ceil(w / TS), th = Math.ceil(h / TS), occ = new Uint8Array(tw * th), reach = Math.ceil((amp + amp2) * res + Math.abs(ox) + Math.abs(oy)) + 2;
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (A[j * w + i]) { const a0 = Math.max(0, Math.floor((i - reach) / TS)), a1 = Math.min(tw - 1, Math.floor((i + reach) / TS)), b0 = Math.max(0, Math.floor((j - reach) / TS)), b1 = Math.min(th - 1, Math.floor((j + reach) / TS)); for (let b = b0; b <= b1; b++) for (let a = a0; a <= a1; a++) occ[b * tw + a] = 1; }
       for (let j = 0, q = 0; j < h; j++) for (let i = 0; i < w; i++, q++) {
+        if (!occ[((j / TS) | 0) * tw + ((i / TS) | 0)]) { i += TS - 1 - (i % TS); q = j * w + i; continue; }
         const u = i - DX[q] - ox, v = j - DY[q] - oy, i0 = Math.floor(u), j0 = Math.floor(v), fu = u - i0, fv = v - j0;
         if (i0 < 0 || j0 < 0 || i0 >= w - 1 || j0 >= h - 1) { d[q * 4 + 3] = 0; continue; }
         const p = j0 * w + i0; d[q * 4 + 3] = (A[p] * (1 - fu) + A[p + 1] * fu) * (1 - fv) + (A[p + w] * (1 - fu) + A[p + w + 1] * fu) * fv; }

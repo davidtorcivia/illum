@@ -6,7 +6,7 @@
 //   dots: each a touch of the brush, a small dome, fuller after the brush was charged (a reload every 11 dots);
 //   vellum inks (the reserve, dark mode's pale line): the skin itself.
 // Over a flat vellum (the palette's own), with the coverage as alpha so the pieces sit on the page in light and dark.
-import { Grid, PIG, fromColour, absorbing, lin, fillLoads, insideDist, compose, smooth } from './insular-paint.js';
+import { Grid, PIG, fromColour, absorbing, lin, fillLoads, insideDist, compose, smooth, blur } from './insular-paint.js';
 import { hash2 } from '../marks.js';
 
 const MM = .15;   // mm per css px at the page's size
@@ -53,18 +53,32 @@ export function paintSheet(S, pal, { order = S.order, seed = 1, grow = false, go
 }
 // the making's clock per cell: walks through each ink's coverage (breadth-first, 4-neighbour) from each part's first cell
 function times(G, L) {
-  const { w, h, n } = G, T = new Float32Array(n).fill(2), ph = { ink: [0, .34], vellum: [0, .34], pigment: [.3, .86], dots: [.82, 1] };
-  const pig = L.filter(l => l.role === 'pigment'), seen = new Int32Array(n), Q = new Int32Array(n);
-  L.forEach(l => { let [a, b] = ph[l.role]; if (l.role === 'pigment') { const i = pig.indexOf(l), k = (b - a) / Math.max(1, pig.length); a = a + i * k * .8; b = a + k * 1.6; }
-    const parts = []; seen.fill(0);
-    for (let q0 = 0; q0 < n; q0++) { if (l.M[q0] < .3 || seen[q0]) continue; let hd = 0, tl = 0, far = 0; Q[tl++] = q0; seen[q0] = 1; const D = new Map([[q0, 0]]), cells = [];
-      while (hd < tl) { const q = Q[hd++], d = D.get(q); cells.push(q); far = Math.max(far, d); const i = q % w, j = (q - i) / w;
-        for (const r of [i + 1 < w ? q + 1 : -1, i > 0 ? q - 1 : -1, j + 1 < h ? q + w : -1, j > 0 ? q - w : -1]) if (r >= 0 && !seen[r] && l.M[r] >= .3) { seen[r] = 1; D.set(r, d + 1); Q[tl++] = r; } }
-      parts.push({ cells, D, far }); }
-    const N = parts.length; parts.forEach((p, k) => { const t0 = a + (b - a) * k / Math.max(1, N), span = l.role === 'dots' ? 0 : (b - a) / Math.max(1, N) * (l.role === 'pigment' ? 2.5 : 1.6);
-      for (const q of p.cells) T[q] = Math.min(T[q], t0 + span * (p.far ? p.D.get(q) / p.far : 0)); }); });
-  // (a cell under-covered by every ink takes its neighbour's moment: no rim lingers)
-  for (let q = 0; q < n; q++) if (T[q] > 1.5) T[q] = (q > 0 && T[q - 1] <= 1.5) ? T[q - 1] : (q >= w && T[q - w] <= 1.5) ? T[q - w] : 1;
+  const { w, h, n } = G, T = new Float32Array(n).fill(2), seen = new Uint8Array(n), Q = new Int32Array(n), Dd = new Int32Array(n), px = 1 / G.pxmm;
+  // An ink is the pen where it is thin and a ground where it is broad (Lindisfarne's and Durrow's black is both: the line
+  // round the letter and the panels' black between the strands): the thin part is drawn with the pen, first, along its
+  // path; the broad part painted as a ground, after the colours, from where its brush touched down.
+  const jobs = [];
+  for (const l of L) {
+    if (l.role === 'ink' || l.role === 'vellum') { const D = insideDist(G, l.M), K = new Float32Array(n); for (let q = 0; q < n; q++) K[q] = D[q] >= 1.8 * px ? 1 : 0;
+      const B = blur(K, w, h, 1.6), pen = new Float32Array(n), gr = new Float32Array(n); for (let q = 0; q < n; q++) { if (B[q] > .12) gr[q] = l.M[q]; else pen[q] = l.M[q]; }
+      jobs.push({ M: pen, ph: [0, .3], span: 1.2 }, { M: gr, ph: [.6, .84], span: 1.6 }); }
+    else if (l.role === 'dots') jobs.push({ M: l.M, ph: [.84, 1], span: 0 });
+    else jobs.push({ M: l.M, pig: true, span: 2.2 }); }
+  const pig = jobs.filter(j => j.pig); pig.forEach((j, i) => { const k = .32 / Math.max(1, pig.length); j.ph = [.28 + i * k, .28 + (i + 1) * k + .06]; });
+  for (const { M, ph: [a, b], span: sp } of jobs) {
+    seen.fill(0); const parts = [];
+    for (let q0 = 0; q0 < n; q0++) { if (M[q0] < .08 || seen[q0]) continue; let hd = 0, tl = 0, far = 0; Q[tl++] = q0; seen[q0] = 1; Dd[q0] = 0;
+      while (hd < tl) { const q = Q[hd++], d = Dd[q]; if (d > far) far = d; const i = q % w, j = (q - i) / w;
+        if (i + 1 < w && !seen[q + 1] && M[q + 1] >= .08) { seen[q + 1] = 1; Dd[q + 1] = d + 1; Q[tl++] = q + 1; }
+        if (i > 0 && !seen[q - 1] && M[q - 1] >= .08) { seen[q - 1] = 1; Dd[q - 1] = d + 1; Q[tl++] = q - 1; }
+        if (j + 1 < h && !seen[q + w] && M[q + w] >= .08) { seen[q + w] = 1; Dd[q + w] = d + 1; Q[tl++] = q + w; }
+        if (j > 0 && !seen[q - w] && M[q - w] >= .08) { seen[q - w] = 1; Dd[q - w] = d + 1; Q[tl++] = q - w; } }
+      parts.push({ cells: Q.slice(0, tl), far }); }
+    const N = parts.length; parts.forEach((p, k) => { const t0 = a + (b - a) * k / Math.max(1, N), span = (b - a) / Math.max(1, N) * sp;
+      for (const q of p.cells) T[q] = Math.min(T[q], t0 + (p.far ? span * Dd[q] / p.far : 0)); }); }
+  // (a cell under-covered by every ink takes its neighbours' moment, a few passes: no rim lingers to the end)
+  for (let it = 0; it < 4; it++) for (let q = 0; q < n; q++) if (T[q] > 1.5) { const i = q % w; let m = 2; if (i > 0) m = Math.min(m, T[q - 1]); if (i + 1 < w) m = Math.min(m, T[q + 1]); if (q >= w) m = Math.min(m, T[q - w]); if (q + w < n) m = Math.min(m, T[q + w]); if (m <= 1.5) T[q] = m; }
+  for (let q = 0; q < n; q++) if (T[q] > 1) T[q] = 1;
   return T;
 }
 // dots from their coverage: each connected dot a dome by its depth, charged by its place in the brush's reload cycle
