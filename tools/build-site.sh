@@ -47,8 +47,8 @@ if [ -z "${NOBAKE:-}" ]; then
   trap 'kill $srv 2>/dev/null' EXIT; sleep 1
   # what every page's ornament depends on besides its own HTML: the library and the site's shared css, js and faces
   export STAMP=$(cat "$site/kit/hash.json" "$site"/css/* "$site"/js/* "$site"/faces/* 2>/dev/null | sha256sum | cut -c1-16)
-  # (not swatch.html, nav-options.html or type.html: a tool and drafts nobody is sent to)
-  pages=$(cd "$site" && find . -name '*.html' ! -name swatch.html ! -name nav-options.html ! -name type.html | sed "s#^\./#http://127.0.0.1:$port/#" | sort)
+  # (not swatch.html, nav-options.html, type.html or diag.html: tools and drafts nobody is sent to)
+  pages=$(cd "$site" && find . -name '*.html' ! -name swatch.html ! -name nav-options.html ! -name type.html ! -name diag.html | sed "s#^\./#http://127.0.0.1:$port/#" | sort)
   node "$here/tools/bake.mjs" "$site/kit/bake.json" $pages
   kill $srv; trap - EXIT
 fi

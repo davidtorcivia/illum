@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>illum · diagnostics</title>
+<style>
+  :root { color-scheme: light; } html { background: rgb(243 237 225); } body { margin: 0; padding: 16px; font: 14px/1.45 system-ui, sans-serif; color: #2b2119; }
+  h1 { font: 600 18px system-ui; margin: 0 0 8px; } pre { white-space: pre-wrap; word-break: break-word; background: #fff8; padding: 10px; border-radius: 6px; font-size: 12.5px; }
+  canvas { display: block; background: rgb(243 237 225); outline: 1px solid #0002; margin: 8px 0; } .ok { color: #2a6a2a; } .bad { color: #a32; }
+</style>
+</head>
+<body>
+<h1>illum on this device</h1>
+<p>A screenshot of this whole page tells us why the ink isn't painting here.</p>
+<canvas id="cv" width="300" height="120" style="width:300px;height:120px"></canvas>
+<pre id="out">testing…</pre>
+<script type="module">
+const out = document.getElementById('out'), L = [], log = (k, v) => { L.push(`${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`); out.textContent = L.join('\n'); };
+log('user agent', navigator.userAgent);
+log('devicePixelRatio', devicePixelRatio);
+for (const [name, opts] of [['webgl2', {}], ['webgl2 (failIfMajorPerformanceCaveat)', { failIfMajorPerformanceCaveat: true }]]) {
+  try { const gl = document.createElement('canvas').getContext('webgl2', opts);
+    if (!gl) { log(name, 'NONE'); continue; }
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    log(name, { renderer: String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)), maxTex: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+      colorBufferFloat: !!gl.getExtension('EXT_color_buffer_float'), colorBufferHalfFloat: !!gl.getExtension('EXT_color_buffer_half_float'), floatBlend: !!gl.getExtension('EXT_float_blend'),
+      fragHighp: gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT)?.precision });
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+  } catch (e) { log(name, 'ERROR ' + e.message); } }
+const stat = (c, x, y, w, h) => { const d = c.getContext('2d').getImageData(x, y, w, h).data; let n = 0, r = 0, g = 0, b = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 8) { n++; r += d[i]; g += d[i + 1]; b += d[i + 2]; } return n ? `${n} px painted, mean rgb ${[r, g, b].map(v => Math.round(v / n)).join(',')}` : 'NOTHING painted'; };
+try {
+  const { supported } = await import('./kit/writer.js'); log('engine supported()', supported());
+  const { createMedium } = await import('./kit/medium.js');
+  try { const t = document.createElement('canvas'); t.width = t.height = 64; createMedium(t, { dpr: 1 }); log('createMedium', 'ok'); } catch (e) { log('createMedium', 'ERROR ' + e.message); }
+  const cv = document.getElementById('cv'), dpr = 1, bake = cv.getContext('2d');
+  const sq = (x0) => { const w = 80, h = 80, M = new Float32Array(w * h); for (let j = 8; j < 72; j++) for (let i = 8; i < 72; i++) M[j * w + i] = 1; return { M, w, h, x0, y0: 20, res: 1 }; };
+  try { const { inkLetter } = await import('./kit/inkletter.js'); inkLetter(bake, { ...sq(20), wet: .06, dry: .16 }, [52, 48, 32], { dpr }); log('ink pour (left square)', stat(cv, 20, 20, 80, 80)); } catch (e) { log('ink pour', 'ERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
+  try { const { washPour } = await import('./kit/styles/nouveau-ink.js'); washPour(bake, sq(160), [190, 78, 52], { dpr, seed: 3, ink: 1 }); log('wash pour (right square)', stat(cv, 160, 20, 80, 80)); } catch (e) { log('wash pour', 'ERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
+  try { const h = await (await fetch('./kit/hash.json', { cache: 'no-store' })).json(); log('library hash', h.hash); } catch (e) { log('library hash', 'ERROR ' + e.message); }
+} catch (e) { log('load', 'ERROR ' + e.message); }
+log('done', new Date().toISOString());
+</script>
+</body>
+</html>
