@@ -476,8 +476,13 @@ export function lindInitial(ch, H, seed = 1, { theme = 'light', res = 2, rich = 
         return; }
       // knots set in the field ~1.8 panel widths apart, each as large as the panel there allows (its cords at one scale)
       const n = Math.max(1, Math.round((s1 - s0) / ((rich >= .75 ? 2.6 : 3.6) * kd * Math.max(mid, ub * 3)))), holes = [];
-      for (let k = 0; k < n; k++) { const sc = s0 + (s1 - s0) * (k + .5) / n, h = Math.min(hp(sc - ub * 3), hp(sc), hp(sc + ub * 3)) * .94, r = Math.max(2, Math.min(3, Math.floor((h * Math.SQRT2 / ub - 1) / 2))), u = Math.min(ub * 1.25, h * Math.SQRT2 / (2 * r + 1));
-        if (u < ub * .55 || (s1 - s0) < 2 * h + 4 * uf) continue; const q = squareKnot(A, sc, 0, r, u, null, { centre: false, edgeInset: .05, edgeRound: 1.7 }); big(q.C, q.K, u, sch.knot); holes.push([sc, 0, q.half]); }
+      const place = (sc, hs = 1, fit = false) => { const h = Math.min(hp(sc - ub * 3), hp(sc), hp(sc + ub * 3)) * .94 * hs, r = Math.max(2, Math.min(3, Math.floor((h * Math.SQRT2 / ub - 1) / 2))), u = Math.min(ub * 1.25, h * Math.SQRT2 / (2 * r + 1));
+        if (u < ub * .55 || (s1 - s0) < 2 * h + 4 * uf || (fit && (sc - h < s0 + uf || sc + h > s1 - uf))) return false; const q = squareKnot(A, sc, 0, r, u, null, { centre: false, edgeInset: .05, edgeRound: 1.7 }); big(q.C, q.K, u, sch.knot); holes.push([sc, 0, q.half]); return true; };
+      for (let k = 0; k < n; k++) place(s0 + (s1 - s0) * (k + .5) / n);
+      // (every long panel holds a knot, as on f. 139r: where none stood at its even places, the first place along the panel,
+      // in the seed's order, where one fits — a little smaller if it must)
+      if (!holes.length) { const fl = stream(seed + Math.round(s0), 'floor'), at = [.5, .38, .62, .27, .73, .18, .82].map(f => [f, fl()]).sort((x, y) => x[1] - y[1]).map(x => x[0]);
+        outer: for (const hs of [1, .82, .68]) for (const f of at) if (place(s0 + (s1 - s0) * f, hs, true)) break outer; }
       field(A, s0, s1, sch, holes); },
     bars: (S, B, Bd, L) => { const q = (b, w) => handBar(b, w, seed);
       S.image('k', masked(L, Bd, B.map(b => q(b, b.w + 2 * hair)))); S.image('y', masked(L, Bd, B.map(b => q(b, b.w)))); },
