@@ -55,6 +55,21 @@ try {
       try { f({ g: c.getContext('2d'), L: { M, w, h, x0: 8, y0: 8, res: 1 } }); log(name, stat(c, 8, 8, 80, 80)); } catch (e) { log(name, 'ERROR ' + e.message); }
       const fig = document.createElement('figure'); fig.style.margin = 0; fig.append(c, Object.assign(document.createElement('figcaption'), { textContent: name, style: 'font-size:10px;width:96px' })); document.getElementById('vars').append(fig); } }
   catch (e) { log('variants', 'ERROR ' + e.message); }
+  // the medium's own layers read back: the paper's tooth and fibre, the stroke as poured (R ink, G coverage, B dryness),
+  // and the dry and wet ink after the flow, inside the poured square; once with the wash's granulation, once without
+  try { const { createMedium } = await import('./kit/medium.js'), mean = (A, k, keep) => { let s = 0, n = 0, lo = 1e9, hi = -1e9; for (let i = 0; i < A.length / 4; i++) if (!keep || keep(i)) { const v = A[i * 4 + k]; s += v; n++; lo = Math.min(lo, v); hi = Math.max(hi, v); } return n ? `${(s / n).toFixed(3)} [${lo.toFixed(2)}..${hi.toFixed(2)}]` : 'none'; };
+    for (const gran of [.42, 0]) { const c = document.createElement('canvas'); c.width = c.height = 128; const Md = createMedium(c, { dpr: 1, paper: [255, 255, 255] }); Md.settings.over = true;
+      Md.clear(); Md.wetness(.35); Md.settings.ink = [190, 78, 52]; Md.makePaper([0, 0], [0, 0, 96, 96]);
+      const D = new Uint8Array(64 * 64 * 4); for (let q = 0; q < 64 * 64; q++) { D[q * 4] = 255; D[q * 4 + 1] = 128; D[q * 4 + 2] = Math.round(gran * 255); }
+      Md.pour(D, 64, 64, [16, 16, 64, 64]);
+      const pap = Md.peek('paper', 16, 16, 64, 64), st = Md.peek('stroke', 0, 0, 96, 96), inS = i => st[i * 4 + 1] > .5;
+      log(`layers, granulation ${gran}: paper tooth R`, mean(pap, 0)); log(`  paper fibre G`, mean(pap, 1));
+      log(`  stroke R ink`, mean(st, 0, inS)); log(`  stroke G coverage`, mean(st, 1, inS)); log(`  stroke B dryness`, mean(st, 2, inS));
+      for (let k = 0; k < 18; k++) Md.step(16); Md.finish(); Md.render([0, 0, 96, 96]);
+      const dr = Md.peek('dry', 0, 0, 96, 96), we = Md.peek('wet', 0, 0, 96, 96);
+      log(`  after flow: dry R`, mean(dr, 0, inS)); log(`  after flow: wet R`, mean(we, 0, inS)); log(`  after flow: wet G mobility`, mean(we, 1, inS));
+      Md.gl.getExtension('WEBGL_lose_context')?.loseContext(); } }
+  catch (e) { log('layers', 'ERROR ' + e.message + ' ' + (e.stack || '').split('\n')[1]); }
   try { const h = await (await fetch('./kit/hash.json', { cache: 'no-store' })).json(); log('library hash', h.hash); } catch (e) { log('library hash', 'ERROR ' + e.message); }
 } catch (e) { log('load', 'ERROR ' + e.message); }
 log('done', new Date().toISOString());

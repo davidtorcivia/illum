@@ -229,7 +229,11 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
     for (const k in S) delete S[k]; Object.assign(S, { rough, ink, paper, rim: 0, density: 1, base: .62, drying: 500 }); wetness(.25);
     makePaper(); clear();
   }
-  return { wetness, gl, get W() { return W; }, get H() { return H; }, dpr, settings: S, sweep, pour: pourImage, step, finish, render, clear, makePaper, resize, commit() {} };
+  // (diagnostics: a layer read back as floats, [x, y, w, h] in device px of the sheet; site/diag.html uses it to see what
+  // a device's GPU actually holds)
+  function peek(name, x, y, w, h) { const t = name === 'paper' ? T.paper : name === 'stroke' ? T.stroke : name === 'dry' ? T.dry[cur] : T.wet[cur], f = fbo(t), o = new Float32Array(w * h * 4);
+    gl.readPixels(x, y, w, h, gl.RGBA, gl.FLOAT, o); gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(f); return o; }
+  return { wetness, gl, get W() { return W; }, get H() { return H; }, dpr, settings: S, sweep, pour: pourImage, step, finish, render, clear, makePaper, resize, peek, commit() {} };
 }
 
 // A pen in a hand. The hand gives targets (page px, pressure, time in ms); the pen follows through a damped spring
