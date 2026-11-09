@@ -16,6 +16,7 @@ export const STYLE = {
   astrology: { lines: null, filler: FILLER, title: 'Anno Dom: 1853' },
   kelmscott: { lines: null, filler: FILLER, lineDrop: 2 },   // (lineDrop: the in-line initial set two lines deep, as tests/kelmscott.html sets the Chaucer's small initials)
   nouveau: { lines: null, filler: FILLER },
+  insular: { lines: null, filler: FILLER },
   draft: { lines: null, filler: '.text > p:not(.sub):not(.pull):not(.bare)' },
 };
 export const RICH = ['plain', 'modest', 'usual', 'fine', 'lavish'];
