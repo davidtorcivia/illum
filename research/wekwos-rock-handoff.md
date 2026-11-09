@@ -43,7 +43,7 @@ for f in cache.js frames.js illum.js initials.js inkletter.js marks.js medium.js
          styles/rock-relief.js styles/rock-traced.js styles/rock-worker.js; do
   curl -fsS "$B/$f?v=$(date +%s)" -o "$f" || echo "FAILED: $f"   # (the query string skips a stale CDN copy)
 done
-cat hash.json   # expect {"hash":"5fae9f2dbf8f6e2c"} or later (5fae9f2dbf8f6e2c fixes zero-height <hr> breaks and fillers in a narrow column)
+cat hash.json   # expect {"hash":"5111f9196425ac6d"} or later (5111f9196425ac6d fixes large initials at high DPI, zero-height <hr> breaks and fillers in a narrow column)
 ```
 
 **Rules for the copy:**
