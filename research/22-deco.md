@@ -304,3 +304,8 @@ colophon (below).
   under ~24 px across are laid flat (the engine shows nothing at that size), the press edge and the coat are one pass over the
   ink's own box, the impression's shoulder is computed over the inks' box only, the shadow is stamped from one raster of its
   letter, and the lavish colophon's wings are pieces of their own.
+  Measured (Chrome, the whole page's ornament, min and median of four or five runs, the machine shared with other agents at a
+  load average of 5–7): light dpr 1 — plain 71/75, modest 75/90, usual 84/85, fine 95/103, lavish 113/123 ms; light dpr 2 — plain
+  109/121, modest 155/160, usual 160/168, fine 196/232, lavish 199/227; dark dpr 2 lavish 184/190. Fine and lavish at dpr 2 sit at
+  the 200 ms line (over it in the median here); the gold laid flat and the split breaks did not move them much, so the next lever is
+  the engine itself (one pour per ink per window, not per piece), which is kit/inkletter.js's and not this style's to change.
