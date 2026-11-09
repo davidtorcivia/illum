@@ -807,8 +807,14 @@ function drawnNear({ M, w, h, x0, y0, res }, seed = 1, amp = .8) {
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; out[k] = ink[k];
     if ((i < w - 1 && ink[k + 1] !== ink[k]) || (j < h - 1 && ink[k + w] !== ink[k])) for (let b = Math.max(0, j - R); b <= Math.min(h - 1, j + R + 1); b++) near.fill(1, b * w + Math.max(0, i - R), b * w + Math.min(w - 1, i + R + 1) + 1); }
   const slow = noise2(seed ^ 0x5d), fine = noise2(seed ^ 0x19), R2 = (R + 1) * (R + 1);
+  // (each near cell's nearest cell of the other kind, ring by ring outward: once a ring is searched and what was found is no
+  // further than the next ring could be, nothing further out can be nearer)
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i; if (!near[k]) continue; const me = ink[k]; let d2 = R2;
-    for (let b = Math.max(0, j - R); b <= Math.min(h - 1, j + R); b++) for (let a = Math.max(0, i - R); a <= Math.min(w - 1, i + R); a++) if (ink[b * w + a] !== me) { const q = (a - i) * (a - i) + (b - j) * (b - j); if (q < d2) d2 = q; }
+    for (let rr = 1; rr <= R && d2 > rr * rr; rr++) { const r2 = rr * rr, al = Math.max(0, i - rr), ah = Math.min(w - 1, i + rr), bl = Math.max(0, j - rr + 1), bh = Math.min(h - 1, j + rr - 1);
+      if (j - rr >= 0) for (let a = al, o = (j - rr) * w; a <= ah; a++) if (ink[o + a] !== me) { const q = (a - i) * (a - i) + r2; if (q < d2) d2 = q; }
+      if (j + rr < h) for (let a = al, o = (j + rr) * w; a <= ah; a++) if (ink[o + a] !== me) { const q = (a - i) * (a - i) + r2; if (q < d2) d2 = q; }
+      if (i - rr >= 0) for (let b = bl; b <= bh; b++) if (ink[b * w + i - rr] !== me) { const q = r2 + (b - j) * (b - j); if (q < d2) d2 = q; }
+      if (i + rr < w) for (let b = bl; b <= bh; b++) if (ink[b * w + i + rr] !== me) { const q = r2 + (b - j) * (b - j); if (q < d2) d2 = q; } }
     if (d2 >= R2) continue; const sd = (me ? -1 : 1) * Math.sqrt(d2) / res, px = x0 + i / res, py = y0 + j / res;
     const bb = amp * (2 * slow(px / 25, py / 25) - 1) + .18 * (2 * fine(px / 5, py / 5) - 1); out[k] = Math.max(0, Math.min(1, .5 + (bb - sd) * res * .5)); }
   return { M: out, w, h, x0, y0, res };
@@ -894,7 +900,7 @@ initial.load = () => typeof document === 'undefined' ? null : loadLetters([...do
 // is blue, as a red letter's is. The budget is the drop's five (BUDGETS: plain, modest, usual, fine, lavish).
 const HS = .5 * 1.15, HL = .276, G = 2.6, lv = rich => Math.max(0, Math.min(4, Math.round(rich * 4)));   // (the staff's pen and the box's, as the drop writes them)
 const jit = (pts, seed, a = .16) => { const n = noise1((seed * 31 + pts.length * 7) | 0); return pts.map((p, i) => [p[0] + (n(i * .09) - .5) * a, p[1] + (n(i * .09 + 50) - .5) * a]); };
-const ph = (pts, col, seed, o = {}) => ({ pts: jit(resample(pts, .45), seed), col, w: HS, start: 'taper', end: 'taper', load: .78, ...o });
+const ph = (pts, col, seed, o = {}) => ({ pts: jit(resample(pts, .75), seed), col, w: HS, start: 'taper', end: 'taper', load: .78, ...o });
 const pt = (p, r, col) => ({ dot: true, p, r, col });
 const unit = (a, b) => { const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; };
 const add = (p, d, k, n = [0, 0], m = 0) => [p[0] + d[0] * k + n[0] * m, p[1] + d[1] * k + n[1] * m];
@@ -1064,8 +1070,9 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8) {
 // ---- frames ----------------------------------------------------------------------------------------------------------------------
 // The quotation and the aside: the column of 466773 (a bundle of hairlines down the gutter, crowned with the dome, its foot
 // hooked, the staff's chain down its outer side). The figure: his box's frame, a double hairline round it, the chain strung
-// outside, eyes out at its corners, his crest over the middle of its head. The code: two of its corners. The pull quote: the
-// part's break above and below. The contents: the staff down its side, a stalk and an eye at each entry.
+// outside (usual), his crest out at its corners (usual), the dome over the middle of its head (fine), crests on that and larger
+// at the corners (lavish). The code: two of its corners. The pull quote: the part's break above and below. The contents: the
+// staff down its side, a stalk and an eye at each entry, the chain between.
 function column(x, y0, y1, n, u, seed, L, { cap = L >= 2, col = 'a', colB = 'b' } = {}) {
   const r = stream(seed, 'column'), out = [], xs = Array.from({ length: n }, (_, k) => x - k * G * 1.05);
   xs.forEach((xk, k) => { const ln = drift([[xk, y0 + (cap ? G * .5 : 0)], [xk + (r() - .5) * .4, y1 - (k ? G * (1 + 5 * (k - 1)) : 0)]], .3, seed + k, 46), ft = k === 0 || k === n - 1 ? hk(ln.at(-1), Math.PI / 2, G * (1.3 + .3 * k), 1) : null;
@@ -1099,8 +1106,7 @@ function boxFrame([X0, Y0, X1, Y1], u, seed, L, { corners = null, foot = true } 
   if (hasCap) { const d = dome(midTop[0] - capW / 2, midTop[0] + capW / 2, midTop[1], 'a', 'b', r, seed + 60); out.push(...d.marks); if (L >= 4) out.push(...crest(d.top, [0, -1], u * 1.8, 'a', r, seed + 61, 'b')); }
   if (L >= 2) for (const [cx, cy, sx, sy, k] of [[X0, Y0, -1, -1, 0], [X1, Y0, 1, -1, 1], [X1, Y1, 1, 1, 2], [X0, Y1, -1, 1, 3]]) { if (corners ? !corners.includes(k) || L < 3 : !foot && sy > 0) continue;
     const p = [cx + sx * gp, cy + sy * gp], d = [sx * .7071, sy * .7071];
-    if (L >= 4 || corners) out.push(...crest(p, d, u * 1.9, 'a', r, seed + 70 + k, 'b'));
-    else { const R = G, Ls = G * 1.3; out.push(ph([p, add(p, d, Ls)], 'a', seed + 70 + k, {}), ...eyeAt(add(p, d, Ls + R), R, 'a', r, seed + 80 + k, true, 'b')); } }
+    out.push(...crest(p, d, u * (L >= 4 ? 2.2 : 1.9), 'a', r, seed + 70 + k, 'b')); }
   return out;
 }
 function figureFrame({ box: [x0, y0, x1, y1], u, seed, rich = .5 }) { const L = lv(rich), d = u * .9; return boxFrame([x0 - d, y0 - d, x1 + d, y1 + d], u, seed, L, { foot: false }); }
