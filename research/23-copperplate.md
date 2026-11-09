@@ -479,7 +479,7 @@ User: "the lines on B are too thin and are aliasing. C looks good and is ready f
 - The drop's capital is larger in its oval (cap .74 H, from .66), so it fills the four lines it stands in.
 - The aside is no longer a bracket. A hairline falls down the margin from a dot and turns once through an oval on the slant at its middle. The oval carries the only shade, and the fall stays a hairline: as one shaded gesture, the long downstroke took the shade and read as a parenthesis.
 
-**C, seeded pages.** These choose only on a page given its own seed. The unseeded page at every level up to usual is pixel-identical to stage 7, light and dark, at dpr 1 and 2.
+**C, seeded pages.** These choose only on a page given its own seed. The unseeded page at usual (the approved page) is pixel-identical to stage 7: light and dark at dpr 1 after all edits, and dpr 2 earlier in the pass. Plain and modest were changed on purpose (five and six ovals, no nesting).
 - The rosette: five to seven ovals; where the ring begins; the nesting (at the foot, none, all round); the side the hand comes in from (mirrored entry and exit).
 - The end rosette chooses the same way.
 - Paraph:
@@ -517,5 +517,5 @@ I tried wings of loops either side of the lavish end and dropped them: the turne
 | C lavish, seeds 1/3/5 | | 117–152 / 187–232 |
 
 **Checks.**
-- `?draw` finished pages equal the still pages, differing only at the fixed theme toggle, for: B; C seeds 1 and 3; C lavish; C fine with seed 5.
+- `?draw` finished pages equal the still pages for the pages below. Each differs by the same 212 px, all at the fixed theme toggle on the right edge: B; C seeds 1 and 3; C lavish; C fine with seed 5.
 - At 390 wide nothing crosses the page edge.

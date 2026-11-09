@@ -185,7 +185,7 @@ function dropPiece(ch, H, seed, d, o = {}) {
   const pv = vary ? stream(vary, 'hand:page') : null, nL = rich >= 1 ? 7 : rich < .25 ? 5 : pv ? 5 + (pv() * 3 | 0) : 6, rot = pv ? (pv() - .5) * 40 : 0, nestMode = pv ? pv() * 3 | 0 : 0, mirror = pv ? pv() < .5 : false;
   const stations = Array.from({ length: nL }, (_, i) => 168 + rot + i * 360 / nL).map(a => deg(a + (r() - .5) * 14));
   const size = a => (1 + .2 * Math.max(0, Math.sin(a)) + .1 * Math.max(0, Math.cos(a)) - .1 * Math.max(0, -Math.sin(a))) * (.95 + .1 * r());
-  const ro = rosettePlan(c, stations, { A: H * .21 * 6 / Math.max(6, nL), B: H * .16, rho: H * .3, size, lean: -.2, nest: a => rich < .5 && rich < .75 ? 0 : (nestMode === 1 && rich < .75) ? 0 : Math.sin(a) > (nestMode === 2 ? -1.1 : rich >= .75 ? -.1 : .4) ? .58 : 0 });
+  const ro = rosettePlan(c, stations, { A: H * .21 * 6 / Math.max(6, nL), B: H * .16, rho: H * .3, size, lean: -.2, nest: a => rich < .5 ? 0 : (nestMode === 1 && rich < .75) ? 0 : Math.sin(a) > (nestMode === 2 ? -1.1 : rich >= .75 ? -.1 : .4) ? .58 : 0 });
   // (mirror: the hand comes in from the right and leaves under the letter to the left)
   const mx = q => mirror ? [2 * c[0] - q[0], q[1]] : q;
   const entry = [[c[0] - H * .5, c[1] + H * .12], [c[0] - H * .38, c[1] + H * .05]].map(mx), tail = [[c[0] + H * .1, c[1] + H * .56], [c[0] + H * .42, c[1] + H * .54], [c[0] + H * .58, c[1] + H * .38]].map(mx);
