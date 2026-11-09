@@ -178,8 +178,8 @@ export function man(x, y, s, lw, rp, r, arms = 'up', dir = 1) { const X = u => x
 export function serpent(x, y, L, amp, dir, lw, rp, r) { const p = pts(t => [x + dir * L * t, y + amp * Math.sin(t * 3.2 * Math.PI) * (.4 + .6 * t)], 48);
   return [...stroke(p, swell(49, lw * .5, lw * .95, lw * 1.25), rp, r)]; }
 // a tree: a trunk with branches lifting off it in pairs (the world-tree; a liberty)
-export function tree(x, y, h, lw, rp, r, n = 4) { const out = stroke([[x, y], [x, y - h]], swell(3, lw * 1.3, lw * 1, lw * .6), rp, r);
-  for (let i = 0; i < n; i++) { const yy = y - h * (.3 + .6 * i / n), L = h * .32 * (1 - .4 * i / n); out.push(...stroke([[x, yy], [x + L, yy - L * .7]], [lw * .8, lw * .55], rp, r), ...stroke([[x, yy], [x - L, yy - L * .7]], [lw * .8, lw * .55], rp, r)); }
+export function tree(x, y, h, lw, rp, r, n = 4, reach = Infinity) { const out = stroke([[x, y], [x, y - h]], swell(3, lw * 1.3, lw * 1, lw * .6), rp, r);
+  for (let i = 0; i < n; i++) { const yy = y - h * (.3 + .6 * i / n), L = Math.min(reach, h * .32) * (1 - .4 * i / n); out.push(...stroke([[x, yy], [x + L, yy - L * .7]], [lw * .8, lw * .55], rp, r), ...stroke([[x, yy], [x - L, yy - L * .7]], [lw * .8, lw * .55], rp, r)); }
   return out; }
 
 // ---- more of the panels' vocabulary (by eye from the Tanum and Bohuslan photographs; proportions, not traces) ----------
@@ -234,8 +234,15 @@ export function cart(x, y, L, lw, rp, r) { const R = L * .075, bx = x, bw = L * 
       ...[-.34, -.24, .22, .32].flatMap(u => stroke([[X(u), yy + .03 * s], [X(u), yy + .36 * s]], [lw * .9, lw * .7], rp, r))); }
   return out; }
 // a piece is carved once: its marks are kept on it, and the pieces themselves are kept by what made them (memo, below)
-const piece = (W, H, lw, f, o = {}) => { let made = null; return { W, H, u: lw / 4.5, g: Math.max(1.1, lw * .12), stri: lw * 1.1, dur: o.dur ?? 2200, slab: null, ground: 'none', seed: o.seed ?? 1,
-  marks: F => made ??= ordered(carve(f(F), W, H, lw / 4.5, rng(31 * (o.seed ?? 1) + W))) }; };
+// (its figures laid out once, items: carved for its marks, and measured for its extent (ext: [x0, y0, x1, y1] in its own px,
+// the grooves' reach, before any carving), which the page needs to place it clear of the words)
+const piece = (W, H, lw, f, o = {}) => { let made = null, items = null, ex = null; const its = () => items ??= f({});
+  return { W, H, u: lw / 4.5, g: Math.max(1.1, lw * .12), stri: lw * 1.1, dur: o.dur ?? 2200, slab: null, ground: 'none', seed: o.seed ?? 1,
+    marks: () => made ??= ordered(carve(its(), W, H, lw / 4.5, rng(31 * (o.seed ?? 1) + W))), ext: () => ex ??= extentOf(its(), lw / 4.5) }; };
+// a figure's extent: its grooves (caps, by their widths), traced outlines and pits, and a pit's reach round them
+export function extentOf(items, rp = 1) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; const g = (x, y, e) => { if (x - e < x0) x0 = x - e; if (y - e < y0) y0 = y - e; if (x + e > x1) x1 = x + e; if (y + e > y1) y1 = y + e; };
+  for (const m of items) { if (m.k === 'cap') m.p.forEach((q, i) => g(q[0], q[1], m.w[i] / 2 + rp)); else if (m.k === 'poly') for (const ring of m.rings) for (const q of ring) g(q[0], q[1], rp); else if (m.k === 'pit') g(m.x, m.y, m.r + rp); }
+  return x0 > x1 ? [0, 0, 0, 0] : [x0, y0, x1, y1]; }
 const PIECES = new Map(), memo = (name, fn) => (...a) => { const k = name + JSON.stringify(a); let v = PIECES.get(k); if (!v) { v = fn(...a); PIECES.set(k, v); } return v; };
 const pick = (seed, k, n) => { const r = rng(seed * 7919 + k * 104729); r(); return Math.floor(r() * n); };
 
@@ -287,7 +294,9 @@ function steps(a, b, n, len, g, rp, r) { const an = Math.atan2(b[1] - a[1], b[0]
   return out; }
 // the compositions, letter by letter: each (c) => marks, c = {P(u, v): a point in the letter's units, at: cap px, g, rp, r};
 // a composition may set c.noCupA / c.noCupB (the letter's cup end becomes the figure's)
-const ring = (c, u, v, R) => rings(c.P(u, v), c.at * R, c.g * .8, c.rp, c.r, 1);   // a cup and ring: where a spoked wheel is too small to keep its spokes open
+// cup marks seeded in a counter or a notch: three, ground at a cup's own size, in a loose triangle (stage 13: the cup and
+// ring that stood here read as an eye)
+const ring = (c, u, v, R) => { const [x, y] = c.P(u, v), d = c.at * R * .62, q = c.at * R * .3; return [[0, -1], [-.87, .5], [.87, .5]].flatMap(([a, b]) => cup(x + a * d + q * .15 * gauss(c.r), y + b * d + q * .15 * gauss(c.r), q * (1 + .1 * gauss(c.r)), c.r)); };
 const COMPOSE = {
   A: [c => crane(...c.P(.41, -.05), c.at * .4, 1, c.g, c.rp, c.r),   // a crane on the apex
     c => [...person(...c.P(.41, .99), c.at * .3, 'hold', 1, c.g, c.rp, c.r), ...cup(...c.P(.41, .45), c.at * .04, c.r)]],   // a man bearing up the bar; a cup in the gable
@@ -347,27 +356,39 @@ const COMPOSE = {
     c => crane(...c.P(.36, -.04), c.at * .4, -1, c.g, c.rp, c.r)],
 };
 export const dropWays = ch => (COMPOSE[ch] ?? []).length;
+// the drop's geometry, shared by the piece and its plan: H the piece's height, the letter's cap .8 of it from .05 down
+const dropGeom = (ch, H, seed) => { const r = rng(seed * 13 + ch.charCodeAt(0)), ix = Math.max(0, ch.charCodeAt(0) - 65), lw = H * .045, rp = lw / 4.5, m = H * .05, cap = H * .8, x0 = m, y0 = m;
+  const L = letterStrokes(ch, x0, y0, cap, r), W = Math.round(x0 + L.W + m * 1.4), ctx = () => ({ P: (u, v) => [x0 + u * cap, y0 + v * cap], at: cap, g: Math.max(rp * 3.4, cap * .045), rp, r: rng(seed * 37 + ix) });
+  return { r, ix, lw, rp, m, cap, x0, y0, L, W, ctx, ways: COMPOSE[ch] ?? [] }; };
+// each composition the letter has, with its extent in the piece's px (the page keeps the ones clear of its words), whether it
+// stands over the letter (top) and whether it is a crane (the page keeps those few)
+export function dropPlan(ch, H, seed) { const G = dropGeom(ch, H, seed);
+  return { W: G.W, H, m: G.m, cap: G.cap, def: G.ways.length ? (seed + G.ix) % G.ways.length : -1,
+    comps: G.ways.map((f, k) => { const items = f(G.ctx()), e = extentOf(items, G.rp); return { k, ext: e, top: e[1] < G.y0 - G.cap * .03, crane: /\bcrane\(/.test(f.toString()), none: !items.length }; }) }; }
+// figs: 1, the seed's composition; 0, the letter alone; or a list of compositions by number (each laid with its own stream,
+// the same one the seed's would have)
 function initial_(ch, H, seed, fs = 20, figs = 1) {
-  const r = rng(seed * 13 + ch.charCodeAt(0)), ix = Math.max(0, ch.charCodeAt(0) - 65), lw = H * .045, rp = lw / 4.5, m = H * .05;
-  const cap = H * .8, x0 = m, y0 = m, L = letterStrokes(ch, x0, y0, cap, r), W = Math.round(x0 + L.W + m * 1.4);
-  const ways = COMPOSE[ch] ?? [], c = { P: (u, v) => [x0 + u * cap, y0 + v * cap], at: cap, g: Math.max(rp * 3.4, cap * .045), rp, r: rng(seed * 37 + ix) };
-  return piece(W, H, lw, F => { const out = [], fig = figs && ways.length ? ways[(seed + ix) % ways.length](c) : [];
-    for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA && !c.noCupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .62, r)); if (s.cupB && !c.noCupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .62, r)); }
+  const { r, ix, lw, rp, L, W, ctx, ways } = dropGeom(ch, H, seed), ks = Array.isArray(figs) ? figs : figs && ways.length ? [(seed + ix) % ways.length] : [];
+  return piece(W, H, lw, () => { const out = [], flags = {}, fig = ks.flatMap(k => { const c = ctx(), it = ways[k](c); Object.assign(flags, { noCupA: c.noCupA || flags.noCupA, noCupB: c.noCupB || flags.noCupB }); return it; });
+    for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA && !flags.noCupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .62, r)); if (s.cupB && !flags.noCupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .62, r)); }
     if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], [lw * .8, lw * .8], rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], [lw * .8, lw * .8], rp, r)); }
     out.push(...fig); return out; }, { seed, dur: 3400 });
 }
-export const DROP_GROUND = { v: 'none' };
 function lineInitial_(ch, fs, seed) { const r = rng(seed * 3 + ch.charCodeAt(0)), H = Math.round(fs * 1.9), cap = H * .86, lw = fs * .3, rp = lw / 4.5, L = letterStrokes(ch, lw * .4, H * .07, cap, r), W = Math.ceil(L.W + lw);
   return piece(W, H, lw, () => { const out = []; for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .6, r)); if (s.cupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .6, r)); }
     if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], lw * .5, rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], lw * .5, rp, r)); } return out; }, { seed, dur: 1600 }); }
 // the paraph: a cup mark, or a little cup with a ring round it, or a footsole (by seed)
-function paraph_(fs, seed) { const r = rng(seed), R = fs * .27, lw = fs * .22, rp = lw / 4.5, k = pick(seed, 3, 3);
-  return piece(fs * .9, fs * .9, lw, () => k === 0 ? cup(fs * .45, fs * .45, R, r) : k === 1 ? rings([fs * .45, fs * .45], R * 1.3, lw * .5, rp, r, 1) : foot(fs * .45, fs * .45, fs * .8, .2, lw * .8, rp, r), { seed, dur: 700 }); }
-// the filler: a ship as long as the gap (plain or double-hulled), kept within its own line: its prows never rise into the
-// line above (stage 12; the serpent and the small rider and deer are gone: at a line's height they read as a wavy rule
-// and a smudge)
-function filler_(w, lh, seed) { const r = rng(seed * 11 + Math.round(w)), h = lh * .62, lw = lh * .1, rp = lw / 4.5, H = Math.round(lh * 1.05), k = pick(seed, Math.round(w), 4);
-  return piece(w, H, lw, () => ship(h * .45, H * .8, w - h * 1.1, h, lw, rp, r, { crew: w > 5 * h, double: k === 0 && w > 4 * h, maxH: H * .9 }), { seed, dur: 1800 }); }
+// the paraph: a cup, two cups side by side, or a footsole, by the seed (form: one chosen); a plain page, the cup alone
+function paraph_(fs, seed, form = null) { const r = rng(seed), R = fs * .27, lw = fs * .22, rp = lw / 4.5, k = form ?? pick(seed, 3, 3);
+  return piece(fs * .9, fs * .9, lw, () => k === 0 ? cup(fs * .45, fs * .45, R, r) : k === 1 ? [...cup(fs * .2, fs * .5, R * .72, r), ...cup(fs * .68, fs * .4, R * .8, r)] : foot(fs * .45, fs * .45, fs * .8, .2, lw * .8, rp, r), { seed, dur: 700 }); }
+// the filler (stage 13): the cup marks a panel has in rows, kept to the line's own height (a ship there was a smear at 1x):
+// form 0, a few cups; 1, a row running out smaller; 2, a row joined by a ground channel. lh: the line's height
+function filler_(w, lh, seed, form = 1) { const r = rng(seed * 11 + Math.round(w)), H = Math.round(lh * .62), lw = H * .3, rp = lw / 4.5, out = [];
+  if (form === 0) { for (let i = 0; i < 3; i++) out.push(...cup(H * (.55 + i * 1.25), H / 2 + H * .06 * gauss(r), H * (.27 - .03 * i), r)); return piece(Math.min(w, H * 3.4), H, lw, () => out, { seed, dur: 900 }); }
+  let x = H * .5, last = null; while (x < w - H * .4) { const f = x / w, R = H * .3 * (1 - .45 * f) * (.85 + .3 * r()), y = H / 2 + H * .06 * gauss(r);
+    if (form === 2 && last) out.push(...stroke([[last[0] + last[2] * 1.1, last[1]], [x - R * 1.1, y]], [lw * .42, lw * .36], rp, r));
+    out.push(...cup(x, y, R, r, .8 + .3 * r())); last = [x, y, R]; x += H * (1.1 + .7 * r()) * (1 - .2 * f); }
+  return piece(w, H, lw, () => out, { seed, dur: 1600 }); }
 // breaks. rank 1: cups (a row, a row joined by a channel, two footsoles); rank 2: a sign between a pair (the sun-wheel
 // between footsoles, the rayed sun between cups, a spiral between hands, rings between cranes); rank 3: a panel
 function brk_(rank, w, h, seed, variant = null) { const r = rng(seed * 17 + rank);
@@ -376,9 +397,9 @@ function brk_(rank, w, h, seed, variant = null) { const r = rng(seed * 17 + rank
       : k === 1 ? [...[.15, .5, .85].flatMap(u => cup(W * u, H / 2, H * .18, r)), ...stroke([[W * .2, H / 2], [W * .45, H / 2]], lw * .4, rp, r), ...stroke([[W * .55, H / 2], [W * .8, H / 2]], lw * .4, rp, r)]
       : [...foot(W * .38, H * .5, H * .9, -.15, lw * .6, rp, r), ...foot(W * .62, H * .5, H * .9, .15, lw * .6, rp, r)], { seed, dur: 1100 }); }
   if (rank === 2) { const W = h * 2.9, H = h * .95, lw = H * .075, rp = lw / 4.5, k = variant ?? pick(seed, 2, 4), c = [W / 2, H * .5];
-    const mid = k === 0 ? wheel(c, H * .32, lw * 1.05, rp, r) : k === 1 ? sun(c, H * .24, lw * .9, rp, r) : k === 2 ? spiral(c, H * .34, lw * .9, rp, r) : rings(c, H * .36, lw * .8, rp, r);
+    const mid = k === 0 ? wheel(c, H * .32, lw * 1.05, rp, r) : k === 1 ? sun(c, H * .24, lw * .9, rp, r) : k === 2 ? spiral(c, H * .34, lw * .9, rp, r) : wheel(c, H * .3, lw * 1.05, rp, r);
     const side = k === 0 ? [foot(W * .14, H * .5, H * .62, -.12, lw, rp, r), foot(W * .86, H * .5, H * .62, .12, lw, rp, r)] : k === 1 ? [cup(W * .18, H * .5, H * .08, r), cup(W * .82, H * .5, H * .08, r)]
-      : k === 2 ? [hand(W * .14, H * .62, H * .7, -.2, lw * .8, rp, r), hand(W * .86, H * .62, H * .7, .2, lw * .8, rp, r)] : [bird(W * .14, H * .62, H * .6, 1, lw * .8, rp, r), bird(W * .86, H * .62, H * .6, -1, lw * .8, rp, r)];
+      : k === 2 ? [hand(W * .14, H * .62, H * .7, -.2, lw * .8, rp, r), hand(W * .86, H * .62, H * .7, .2, lw * .8, rp, r)] : [bird(W * .14, H * .62, H * .6, 1, lw * .8, rp, r), bird(W * .86, H * .62, H * .6, -1, lw * .8, rp, r)];   // (k 3: cranes about a wheel, stage 13; the rings there read as an eye)
     return piece(W, H, lw, () => [...side[0], ...mid, ...side[1]], { seed, dur: 2000 }); }
   // rank 3 (stage 12): one scene each, few figures and large, each legible at a page's 1x: the sun-ship, dawn, a rider under
   // the sun, the ox cart, two lur-blowers (the myth panels, sky-father and serpent-slayer, are cut: they did not read)
@@ -397,7 +418,7 @@ function runout_(w, h, seed) { const r = rng(seed * 19), H = Math.round(h * .62)
   return piece(w, H, lw, () => out, { seed, dur: 1400 }); }
 function frame_(kind, w, h, seed, fs = 20) { const r = rng(seed * 23 + kind.length), lw = fs * .22, rp = lw / 4.5, k = pick(seed, kind.length, 2);
   const rule = (x0, x1, y, wd) => { const ph = r() * 6.28; return stroke(pts(t => [x0 + (x1 - x0) * t, y + wd * .25 * Math.sin(ph + t * 7)], 40), Array.from({ length: 41 }, (_, i) => wd * (.7 + .3 * Math.sin(ph * 2 + i / 40 * 9) + .25 * Math.sin(Math.PI * i / 40))), rp, r); };
-  if (kind === 'quote') { const W = fs * 1.6; return piece(W, h, lw, () => k ? xform(serpent(0, W * .5, h - fs * .4, W * .22, 1, lw * 1.1, rp, r), ([x, y]) => [y, x + fs * .2]) : tree(W * .5, h - fs * .2, h - fs * .4, lw, rp, r, Math.max(2, Math.floor(h / (fs * 1.2)))), { seed, dur: 1800 }); }
+  if (kind === 'quote') { const W = fs * 1.6; return piece(W, h, lw, () => tree(W * .5, h - fs * .2, h - fs * .4, lw, rp, r, Math.max(2, Math.floor(h / (fs * 1.2))), W * .5), { seed, dur: 1800 }); }
   // the pull quote: two cranes facing each other, a sun-wheel or a cup between them (stage 12: the lur-blowers
   // and horses here were too small to read)
   if (kind === 'pull') { const s = fs * 2.6, g = lw * .95, y = s * 1.15; return piece(w, s * 1.3, lw, () => k ? [...crane(w / 2 - s * .6, y, s, 1, g, rp, r), ...cup(w / 2, y - s * .25, s * .09, r), ...crane(w / 2 + s * .6, y, s, -1, g, rp, r)]
