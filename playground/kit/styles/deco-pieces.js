@@ -149,7 +149,7 @@ export function dropInitial(ch, H, seed, rich = .5, W = H) {
       rays.push(...rule([[x, c[1]], [x, c[1] - hgt]], rw, r)); } }
   const sil = silhouette(L, W, H, H * .05, H > 130 ? 2 : 3), channel = g => { g.globalCompositeOperation = 'destination-out'; g.drawImage(sil, 0, 0, W, H); g.drawImage(sil, sd[0], sd[1], W, H); g.globalCompositeOperation = 'source-over'; };
   S.ink('r', g => { if (!fine) lay(g, ox.thin); else lay(g, inner2); if (rays.length) { lay(g, rays); channel(g); } shadowOf(L, sd[0], sd[1], gp)(g); }, { medium: 'press', despeck: 2.5, ang: .7 });
-  S.ink('k', g => { lay(g, ox.thick); L(g); }, { medium: 'press', despeck: 2.5, ang: .7, post: fine ? inlineInLetter(L, H) : null });
+  S.ink('k', g => { lay(g, ox.thick); L(g); }, { medium: 'press', ang: .7, post: fine ? inlineInLetter(L, H) : null });   // (the black forme is whole shapes: nothing in it to leave a fleck)
   if (fine) S.ink('g', g => lay(g, ox.thin), { medium: 'press', ang: .7 });
   return { S, W, H, box: [-2, -2, W + 2, H + 2] };
 }
@@ -327,13 +327,12 @@ export function boxFrame(W, H, u, seed, { oxfordRule = true, steps = 1, rich = .
   // vermilion one set in it, as a comp drops a corner unit into a mitred frame)
   const thin = Math.max(1.3, pt * 1.1), w0 = oxfordRule ? thin * 3.2 : hair, d0 = oxfordRule ? w0 / 2 + thin * 1.6 + thin : hair / 2;
   const in2 = rich >= .75 ? rule(offset(pts, d0 + thin * 1.8 + hair * .4, true), Math.max(1.2, hair * .85), r, { closed: true }) : [];
-  const cq = n && rich >= 1 ? [[0, 0], [W, 0], [W, H], [0, H]].map(([x, y]) => { const q = st * n * .48, cx = x ? x - q : q, cy = y ? y - q : q, a = st * .34, b = st * .14;
+  const cq = n && rich >= 1 ? [[0, 0], [W, 0], [W, H], [0, H]].map(([x, y]) => { const q = st * .4, cx = x ? x - q : q, cy = y ? y - q : q, a = st * .3, b = st * .12;   // (in the outermost notch, clear of the rule)
     return { k: [[cx - a, cy - a], [cx + a, cy - a], [cx + a, cy + a], [cx - a, cy + a]], r: [[cx - b, cy - b], [cx + b, cy - b], [cx + b, cy + b], [cx - b, cy + b]] }; }) : [];
   const corners = (g, key) => { for (const c of cq) g.fill(poly(new Path2D(), c[key])); };
   if (oxfordRule) { const ox = oxford(pts, thin, r, { closed: true });   // (clockwise: the thin inside, as the initial's)
-    S.ink('r', g => { lay(g, ox.thin); lay(g, in2); }, { medium: 'press', ang: .7 }); S.ink('k', g => { lay(g, ox.thick); corners(g, 'k'); g.globalCompositeOperation = 'destination-out'; corners(g, 'r'); g.globalCompositeOperation = 'source-over'; }, { medium: 'press', ang: .7 }); }
-  else { S.ink('r', g => lay(g, in2), { medium: 'press', ang: .7 }); S.ink('k', g => { lay(g, rule(pts, hair, r, { closed: true })); corners(g, 'k'); g.globalCompositeOperation = 'destination-out'; corners(g, 'r'); g.globalCompositeOperation = 'source-over'; }, { medium: 'press', ang: .7 }); }
-  if (cq.length) S.ink('r', g => corners(g, 'r'), { medium: 'press', ang: .7 });
+    S.ink('r', g => { lay(g, ox.thin); lay(g, in2); corners(g, 'r'); }, { medium: 'press', ang: .7 }); S.ink('k', g => { lay(g, ox.thick); corners(g, 'k'); g.globalCompositeOperation = 'destination-out'; corners(g, 'r'); g.globalCompositeOperation = 'source-over'; }, { medium: 'press', ang: .7 }); }
+  else { if (in2.length || cq.length) S.ink('r', g => { lay(g, in2); corners(g, 'r'); }, { medium: 'press', ang: .7 }); S.ink('k', g => { lay(g, rule(pts, hair, r, { closed: true })); corners(g, 'k'); g.globalCompositeOperation = 'destination-out'; corners(g, 'r'); g.globalCompositeOperation = 'source-over'; }, { medium: 'press', ang: .7 }); }
   return { S, W, H, box: [-u, -u, W + u, H + u] };
 }
 // an aside's two corners: brackets of Oxford rule stepped once, at its head on the left and its foot on the right

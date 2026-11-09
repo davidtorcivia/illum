@@ -81,7 +81,7 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
   if (kind === 'none' || (kind === 'rule' && rich < .25)) return none;
   // (restraint: the usual page fills only a line left well open; a short end stays open until the page is richer)
   const u = yBase - yTop, room = x1 - x0 - u * .3, L = Math.min(room, kind === 'rule' ? u * 16 : u * (rich >= 1 ? 34 : 26));
-  if (L < u * (kind === 'rule' ? 5 : rich >= 1 ? 4.5 : rich >= .75 ? 8 : rich >= .5 ? 22 : 30)) return none;
+  if (L < u * (kind === 'rule' ? 5 : rich >= 1 ? 6 : rich >= .75 ? 8 : rich >= .5 ? 22 : 30)) return none;
   const ht = u * 1.4; return { marks: [], letters: [piece(x0 + u * .3, (yTop + yBase) / 2 - ht / 2, L, ht, () => D.filler(L, u, seed, kind, +rich), seed, `filler:${kind}:${rich}`)] };
 }
 // three ranks: a part's (a short lozenge and speed lines), a chapter's (the plinth and its sun), the end's (the lotus over
@@ -95,8 +95,10 @@ function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, index, room) {
   const ht = form === 'end' ? u * 6.4 : form === 'chapter' ? u * 6 : form === 'colophon' ? Math.min(u * 12, deep * .92) : u * 2.2;
   const p = piece(cx - W / 2, y - ht / 2, W, ht, () => D.brk(W, ht, form, seed, u, +rich), seed, `break:${form}:${rich}:${u.toFixed(2)}`);
   // (the lavish colophon's wings are long and low: the cartouche and each wing printed as a piece of its own, one build)
-  if (form === 'colophon' && rich >= 1) { const b = once(p.build), cw = Math.min(W, ht * .78), x0 = W / 2 - cw / 2 - u * .5, x1 = W / 2 + cw / 2 + u * .5;
-    return { marks: [], letters: [[x0, 0, x1, ht], [0, ht - u * 2.6, x0, ht], [x1, ht - u * 2.6, W, ht]].map((box, i) => ({ ...p, build: b, box, bkey: p.bkey + ':' + i, what: p.what + ':' + i })) }; }
+  // (so are the chapter's and the end's: the engine's work is the box's, and a long low wing in a tall box is mostly paper)
+  const split = form === 'colophon' && rich >= 1 ? [Math.min(W, ht * .78) + u, ht - u * 2.6, ht] : form === 'chapter' ? [ht * 1.7 + u * 1.2, ht * .92 - u * 1.6, ht] : form === 'end' ? [ht * 1.1 + u * .5, ht * .93 - u * 2, ht] : null;
+  if (split) { const b = once(p.build), [cw, ya, yb] = split, x0 = W / 2 - cw / 2, x1 = W / 2 + cw / 2;
+    return { marks: [], letters: [[x0, 0, x1, ht], [0, ya, x0, yb], [x1, ya, W, yb]].map((box, i) => ({ ...p, build: b, box, bkey: p.bkey + ':' + i, what: p.what + ':' + i })) }; }
   return { marks: [], letters: [p] };
 }
 
@@ -114,10 +116,10 @@ const frames = {
     return { marks: [], letters: [piece(cx - W / 2, yTop - ht * .55, W, ht, () => D.pullBand(W, ht, u, seed, false, +rich), seed, 'pullH:' + rich), piece(cx - W / 2, yBot - ht * .3, W, ht, () => D.pullBand(W, ht, u, seed + 3, true, +rich), seed + 3, 'pullF:' + rich)] }; },
   // a figure: a box of Oxford rule round the drawing and its caption (plain: square; from usual its corners stepped)
   figure: ({ box, cap, u, seed = 1, rich = .5 }) => { const X0 = box[0] - u * 1.4, Y0 = box[1] - u * 1.4, W = box[2] - box[0] + u * 2.8, H = (cap ?? box[3]) + u * 1.4 - Y0;
-    return { marks: [], letters: sides(X0, Y0, W, H, () => D.boxFrame(W, H, u, seed, { oxfordRule: true, steps: rich >= .5 ? 1 : 0, rich: +rich }), seed, `figure:${rich}`, u * (rich >= 1 ? 3 : 2)) }; },
+    return { marks: [], letters: sides(X0, Y0, W, H, () => D.boxFrame(W, H, u, seed, { oxfordRule: true, steps: rich >= .5 ? 1 : 0, rich: +rich }), seed, `figure:${rich}`, u * (rich >= 1 ? 3.6 : 2.2)) }; },
   // code: a fine single rule round it, every corner stepped
   code: ({ box, u, seed = 1, rich = .5 }) => { if (rich < .5) return none; const X0 = box[0] + u * 1.2, Y0 = box[1] + u * 1.2, W = box[2] - box[0] - u * 2.4, H = box[3] - box[1] - u * 2.4;
-    return { marks: [], letters: sides(X0, Y0, W, H, () => D.boxFrame(W, H, u, seed, { oxfordRule: false, steps: 1, rich: +rich }), seed, `code:${rich}`, u * (rich >= 1 ? 3 : 2)) }; },
+    return { marks: [], letters: sides(X0, Y0, W, H, () => D.boxFrame(W, H, u, seed, { oxfordRule: false, steps: 1, rich: +rich }), seed, `code:${rich}`, u * (rich >= 1 ? 3.6 : 2.2)) }; },
   // (the contents' marks are one piece, a column of them, printed at once: the same marks, a quarter of the pours)
   nav: ({ box, entries, u, seed = 1, rich = .5 }) => { const E = entries.filter(Boolean); if (!E.length) return none; const s = u * 1.6, x = Math.max(4, box[0] - s * 1.6), ys = E.map(e => e.base - u * .5 - s / 2), y0 = Math.min(...ys), H = Math.max(...ys) - y0 + s;
     // (lavish: a stepped index, the marks stepping in from the margin with dotted leaders out to the entries)
@@ -172,9 +174,10 @@ function formes(b, res, dark) {
   if (BITE && !dark) { const all = Object.values(byCol), { w, h, res: rs } = all[0], sh = Math.max(1, Math.round(.7 * res));
     // (over the inks' own box, grown by the shoulder's offset: the rest of the canvas has no ink to cast one)
     let [i0, j0, i1, j1] = [w, h, -1, -1]; for (const c of all) { const B = c.bb ?? [0, 0, w - 1, h - 1]; i0 = Math.min(i0, B[0]); j0 = Math.min(j0, B[1]); i1 = Math.max(i1, B[2]); j1 = Math.max(j1, B[3]); }
-    if (i1 >= 0) { i1 = Math.min(w - 1, i1 + sh); j1 = Math.min(h - 1, j1 + sh); const cw = i1 - i0 + 1, ch = j1 - j0 + 1, at = (i, j) => { let v = 0; for (const c of all) { const m = c.M[j * w + i]; if (m > v) v = m; } return v; };
-      const cv = new OffscreenCanvas(cw, ch), g = cv.getContext('2d'), im = g.createImageData(cw, ch), [R, G, Bl] = palette.light.b;
-      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const v = (i >= sh && j >= sh ? at(i - sh, j - sh) : 0) - at(i, j); if (v <= 0) continue; const q = ((j - j0) * cw + (i - i0)) * 4; im.data[q] = R; im.data[q + 1] = G; im.data[q + 2] = Bl; im.data[q + 3] = Math.round(v * .42 * 255); }
+    if (i1 >= 0) { i1 = Math.min(w - 1, i1 + sh); j1 = Math.min(h - 1, j1 + sh); const cw = i1 - i0 + 1, ch = j1 - j0 + 1, U = new Float32Array(cw * ch);
+      for (const c of all) { const M = c.M; for (let j = j0; j <= j1; j++) { const o = j * w, u0 = (j - j0) * cw - i0; for (let i = i0; i <= i1; i++) { const m = M[o + i]; if (m > U[u0 + i]) U[u0 + i] = m; } } }
+      const cv = new OffscreenCanvas(cw, ch), g = cv.getContext('2d'), im = g.createImageData(cw, ch), [R, G, Bl] = palette.light.b, D = im.data;
+      for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) { const q = j * cw + i, v = (i >= sh && j >= sh ? U[q - sh * cw - sh] : 0) - U[q]; if (v <= 0) continue; D[q * 4] = R; D[q * 4 + 1] = G; D[q * 4 + 2] = Bl; D[q * 4 + 3] = Math.round(v * .42 * 255); }
       g.putImageData(im, 0, 0); bite = { ...all[0], x0: all[0].x0 + i0 / rs, y0: all[0].y0 + j0 / rs, w: cw, h: ch, cv }; } }
   for (const c of Object.keys(byCol)) { byCol[c] = crop(byCol[c]); if (!byCol[c]) delete byCol[c]; }
   f = { byCol, angs, bite }; const dt = performance.now() - t0, wk = b.what.split(':')[0]; TIME.masks += dt; TIME[wk] = (TIME[wk] ?? 0) + dt; TIME.pieces++; if (MADE.size > 300) MADE.clear(); MADE.set(key, f); return f;
@@ -188,7 +191,9 @@ function print(made, { dpr = 1, animate = false, kind } = {}) {
     const add = (p, d) => { pours.push(p); seq.push({ pour: p, d }); };
     if (bite) { const p = at(bite); add({ ...p, col: 'b', paint: g => g.drawImage(bite.cv, p.x0, p.y0, p.w / p.res, p.h / p.res), ...(animate && { press: { ang } }) }, animate ? pace * .5 : 0); }
     for (const col of ['r', 'k', 'g']) { const c = byCol[col]; if (!c) continue; const p = { ...at(c), col, wet: .05, dry: .16, ...(animate && { press: { ang } }) };
-      if (c.w / res < 24 && c.h / res < 24) { const cv = c.flat ??= flatPaint(c, palette[dark ? 'dark' : 'light'][col]); p.paint = g => g.drawImage(cv, p.x0, p.y0, p.w / res, p.h / res); }
+      // (and the gold always: a metallic ink sits on the paper's surface, it does not creep into the fibre or pool at the rim as
+      // the engine's inks do; its coat's slow mottle is in its coverage)
+      if (col === 'g' || (c.w / res < 24 && c.h / res < 24)) { const cv = c.flat ??= flatPaint(c, palette[dark ? 'dark' : 'light'][col]); p.paint = g => g.drawImage(cv, p.x0, p.y0, p.w / res, p.h / res); }
       add(p, animate ? pace : 0); }
   }
   const ys = (made.letters ?? []).map(b => b.y);
