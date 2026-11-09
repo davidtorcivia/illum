@@ -803,3 +803,44 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
   - At full size they keep the traced mass.
 - **Speed (mock).** In view: 67–68 ms (dpr 1), 92–95 ms (dpr 2), 59 ms at 390. Every piece at once: 267 ms (dpr 1),
   460 ms (dpr 2), 318 ms at 390. pie-paint.js is untouched this round, so the 1× rendering is stage 6's (dcc56ef).
+
+## Stage 11: the drop as one composition
+
+- **The note.** The user: "be more creative with drop figure placement and illustration. I don't want to drop them
+  yet". Stage 10's fallback had put the same deer over 20 of 26 letters, so it read as a mascot.
+- **Now each letter is composed by hand** (pie-rock.js COMPOSE), with two or three compositions per letter. The seed
+  picks one. The rule from stage 10 stands: nothing beside the letter in the reading line.
+  - **On the letter.** A horse walks on T's or E's top bar. A horse bridges H's stems, N's or V's tops, and K's stem
+    and arm. A stag stands on F's bar or S's crown. A crane stands on A's apex, B's, G's or R's crown, K's arm, M's
+    peak or X's arm. A man stands on I's or J's stem, on M's peak, or on W's middle peak.
+  - **In its open space.**
+    - A wheel in D's or G's counter.
+    - A cup and ring in P's or R's counter, or in V's, W's or N's notch: at that size a spoked wheel's spokes close
+      up.
+    - A man bearing up A's bar or H's crossbar, raising his arms under P's bow, standing in D, in U's hull, on L's
+      foot, or in N's or Z's triangle.
+    - A horse in C or under P's bowl; a crane in H, in F under the bar, in J's hook, or on Z's foot.
+    - A rayed sun in C or U.
+  - **The letter turned figure.**
+    - O and Q are drawn by the sun-horse standing on them (Trundholm).
+    - O can instead be rayed round its back.
+    - Y becomes the world-tree, with branches and roots.
+    - A serpent climbs I and lifts its head over the top; footsoles walk up beside I.
+- **Drawn for the size shown.** The figures are drawn new for a 25–45 px drop: horse, stag, crane, a man in four poses,
+  serpent, footsoles. Each is a few strokes a groove wide (4.5 % of the cap), with legs and arms apart by more than a
+  groove. They are not panel figures scaled down.
+  - Tried and dropped, because they read as accents or blobs at real size: a crane in flight, a leaping horse, small
+    spoked wheels, an S or J with a serpent's head, a crew in U's hull, a crane in V's notch.
+- **Over the letter.** A figure keeps within about half a cap (a line and a half). The drop assumes a heading or a
+  paragraph's gap over it, as on the mock.
+- **Checks.** The clipping check (tests/pie-rock.check.mjs) passes at dpr 1 and 2. pie-paint.js is untouched, so the
+  edges are stage 6's.
+- **Speed (mock).**
+  - In view: 45–47 ms at dpr 1 and 67 ms at dpr 2.
+  - Every piece: 246 ms at dpr 1, 416 ms at dpr 2 and 278 ms at 390.
+- **Weakest compositions.**
+  - The footsoles beside I read as a dotted line.
+  - The man under A's bar is small (25 px).
+  - The crane in J's hook and on Z's foot partly fuse with the stroke.
+  - The rings in V and W can read as an eye.
+  - Y's branches are stubby.

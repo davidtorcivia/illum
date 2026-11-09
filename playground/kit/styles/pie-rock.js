@@ -16,7 +16,7 @@
 // world-tree, dawn (a sun-wheel rising from a ship), the sky-father (an adorant, arms raised under a wheel), the
 // serpent-slayer (an axe-bearer facing a serpent); and the capital itself, carved and painted.
 import { rng, gauss } from './pie-relief.js';
-import { letterStrokes, letterWidth, SPACE } from './pie-letters.js';
+import { letterStrokes, letterWidth } from './pie-letters.js';
 
 const TAU = Math.PI * 2;
 const pts = (f, n = 24) => Array.from({ length: n + 1 }, (_, i) => f(i / n));
@@ -244,55 +244,128 @@ const piece = (W, H, lw, f, o = {}) => { let made = null; return { W, H, u: lw /
 const PIECES = new Map(), memo = (name, fn) => (...a) => { const k = name + JSON.stringify(a); let v = PIECES.get(k); if (!v) { v = fn(...a); PIECES.set(k, v); } return v; };
 const pick = (seed, k, n) => { const r = rng(seed * 7919 + k * 104729); r(); return Math.floor(r() * n); };
 
-// ---- the drop: the carved capital (kit/styles/pie-letters.js) and a figure composed with it, chosen by the letter and
-// the seed: a ship under it whose crew reach up into the letter; a deer, horse or crane walking along its foot; the sun
-// (wheel or rayed) at its shoulder over a row of cups; a rider or a spiral beside it. O and Q are themselves sun-wheels.
-// The drop (stage 10): the letter alone in the reading line; its partner sits inside the letter's own open space (a
-// counter, the room under an arm, a notch: kit/styles/pie-letters.js SPACE), sized to it with a clear gap from the
-// strokes, so it reads as a figure and never as the next letter. Letters with no usable interior (I J S) carry their
-// partner above the shoulder, out of the reading line (the piece's paint reaches above its box: the printer sizes the
-// canvas from the paint). O and Q are their own sun-wheels. The seed picks the space and the figure that fits it.
-// A figure's thickness follows its size on the page: at small sizes its limbs are slimmer and its openings kept open.
+// ---- the drop (stage 11): the letter and its figures one carved composition, set letter by letter as an illuminator
+// would, never a figure beside the letter in the reading line (where it read as the next letter). A figure stands on
+// the letter (a horse on T's bar, a crane on L's foot or K's arm, a horse bridging H's stems), lives in its open space
+// (a wheel in D's counter or V's notch, a man holding up A's bar, a crew in U's hull), or the letter itself turns
+// figure (S and J serpents, Y the world-tree, O and Q drawn by the sun-horse). Each letter has two or three; the seed
+// picks. Above the letter a figure keeps within about half a cap (a line and a half): the drop assumes a heading or a
+// paragraph's gap over it, as on a page. Figures are drawn for the size they are shown (25-45 px), not panel figures
+// scaled down: few strokes, each a groove wide, legs and arms apart by more than a groove.
 const slimAt = s => .5 + .5 * sm01((s - 24) / 70);
 const sm01 = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
-function extentOf(ms) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; const g = (x, y, e) => { x0 = Math.min(x0, x - e); y0 = Math.min(y0, y - e); x1 = Math.max(x1, x + e); y1 = Math.max(y1, y + e); };
-  for (const m of ms) { if (m.k === 'cap') m.p.forEach((q, i) => g(q[0], q[1], m.w[i] / 2)); else if (m.k === 'poly') for (const ring of m.rings) for (const q of ring) g(q[0], q[1], 0); else if (m.k === 'pit') g(m.x, m.y, m.r); }
-  return [x0, y0, x1, y1]; }
-const FIGS = {
-  round: [(c, s, lw, rp, r) => wheel(c, s * .5, lw, rp, r), (c, s, lw, rp, r) => sun(c, s * .3, lw, rp, r), (c, s, lw, rp, r) => rings(c, s * .48, lw, rp, r, 2), (c, s, lw, rp, r) => spiral(c, s * .46, lw, rp, r, 2)],
-  wide: [(c, s, lw, rp, r) => horse(c[0], c[1], s * .8, 1, lw, rp, r), (c, s, lw, rp, r) => deer(c[0], c[1], s * .9, 1, lw, rp, r), (c, s, lw, rp, r) => rider(c[0], c[1], s * .7, 1, lw, rp, r)],
-  tall: [(c, s, lw, rp, r) => warrior(c[0] - s * .4, c[1] + s * .5, s * .9, 1, rp, r), (c, s, lw, rp, r) => traced('adorant', c[0] - s * .32, c[1] + s * .5, s * .9, 1, r, { axis: 2, bw: Math.max(rp * 2.2, s * .07 * slimAt(s)), erode: tracedErode(s) }), (c, s, lw, rp, r) => bird(c[0], c[1] + s * .1, s * .8, 1, lw, rp, r), (c, s, lw, rp, r) => man(c[0], c[1], s * .7, lw, rp, r, 'axe')],
+const tracedErode = h => (1 - sm01((h - 40) / 90)) * h * .03;   // small traced figures drawn in: ~1.2 px at 40 px tall, none past ~130 px
+// drop-scale figures; (x, y) the ground point (between the feet), dir 1 faces right; g the groove's width
+const drawer = (x, y, s, dir, rp, r) => (pp, w) => stroke(pp.map(([u, v]) => [x + dir * u * s, y - v * s]), w, rp, r);
+// a horse (the Tanum horse at drop scale: a long body, the neck rising to a small head bowed forward, two legs a pair,
+// the pairs well apart); s its body's length. 'leap': legs flung fore and aft. antlers: a stag
+function pony(x, y, s, dir, g, rp, r, pose = 'stand', antlers = false) { const d = drawer(x, y, s, dir, rp, r), j = () => .025 * gauss(r);
+  const out = [...d([[-.5, .56], [0, .58 + j()], [.42, .62]], [g * 1.45, g * 1.25, g * 1.55]), ...d([[.4, .64], [.56, .9], [.64, 1.04]], [g * 1.3, g, g * .9]), ...d([[.62, 1.05], [.84, .9 + j()]], [g * 1.05, g * .8]),
+    ...d([[-.5, .58], [-.62, .42], [-.64, .24]], [g * .85, g * .7, g * .6])];
+  const legs = pose === 'leap' ? [[[.4, .6], [.62, .44], [.84, .4]], [[.32, .58], [.52, .36], [.72, .28]], [[-.38, .54], [-.62, .32], [-.8, .22]], [[-.46, .56], [-.72, .4], [-.92, .36]]]
+    : [[[.42, .58], [.46, .3], [.54, 0]], [[.32, .58], [.3, .3], [.27, 0]], [[-.34, .56], [-.32, .3], [-.29, 0]], [[-.46, .56], [-.5, .3], [-.57, 0]]];
+  for (const l of legs) out.push(...d(l.map(([u, v]) => [u + j(), v]), [g, g * .85, g * .75]));
+  if (antlers) out.push(...d([[.64, 1.06], [.56, 1.3], [.44, 1.42]], [g * .8, g * .7, g * .6]), ...d([[.58, 1.24], [.72, 1.38]], [g * .65, g * .55]));
+  else out.push(...d([[.62, 1.06], [.6, 1.18]], [g * .75, g * .6]));
+  return out; }
+// a crane standing; s its height
+function crane(x, y, s, dir, g, rp, r) { const d = drawer(x, y, s, dir, rp, r);
+  return [...d([[0, 0], [.02, .42]], [g * .75, g * .8]), ...d([[.13, 0], [.09, .42]], [g * .75, g * .8]), ...d([[-.3, .58], [-.02, .48], [.2, .5]], [g * .9, g * 1.75, g * 1.2]),
+    ...d([[.18, .52], [.28, .78], [.24, .98]], [g * .95, g * .8, g * .85]), ...d([[.23, .99], [.47, .93]], [g * .95, g * .55])]; }
+// a man (s his height): 'adore' arms raised and bent, 'hold' hands up as if bearing what is over him, 'axe' one arm up with
+// an axe, 'walk' striding
+function person(x, y, s, pose, dir, g, rp, r) { const d = drawer(x, y, s, dir, rp, r), j = () => .02 * gauss(r), walk = pose === 'walk';
+  const out = [...d([[0, .46], [j(), .64], [0, .78]], [g * 1.5, g * 1.45, g * 1.2]), ...d([[0, .875], [.01, .895]], [g * 1.9, g * 1.9]),
+    ...d([[0, .46], [walk ? -.17 : -.14, .23], [walk ? -.24 : -.13, 0]], [g * 1.1, g * 1.05, g * .85]), ...d([[0, .46], [walk ? .14 : .14, .24], [walk ? .22 : .15, 0]], [g * 1.1, g * 1.05, g * .85])];
+  const arms = { adore: [[[0, .72], [-.2, .66], [-.28, .95]], [[0, .72], [.2, .66], [.28, .95]]], hold: [[[0, .72], [-.17, .84], [-.13, 1.03]], [[0, .72], [.17, .84], [.13, 1.03]]],
+    axe: [[[0, .72], [-.18, .58], [-.24, .45]], [[0, .72], [.2, .84], [.22, 1.04]]], walk: [[[0, .72], [-.18, .6], [-.26, .5]], [[0, .72], [.2, .62], [.3, .66]]] }[pose];
+  for (const a of arms) out.push(...d(a.map(([u, v]) => [u + j(), v + j()]), [g * .95, g * .85, g * .7]));
+  if (pose === 'axe') out.push(...d([[.12, 1.04], [.32, 1.0]], [g * 1.3, g]));
+  return out; }
+// a serpent along a course (points in px): its body in waves, thin at the tail, its head a heavier lozenge at the end
+function snake(path, amp, waves, g, rp, r) { const L = [0]; for (let i = 1; i < path.length; i++) L.push(L[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
+  const at = l => { let i = 1; while (i < path.length - 1 && L[i] < l) i++; const t = (l - L[i - 1]) / (L[i] - L[i - 1] || 1), a = path[i - 1], b = path[i]; return [[a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], Math.atan2(b[1] - a[1], b[0] - a[0])]; };
+  const N = 40, ph = r() * 6.28, p = []; for (let i = 0; i <= N; i++) { const t = i / N, [q, an] = at(t * L.at(-1)), o = amp * Math.sin(t * waves * TAU + ph) * Math.sin(Math.PI * Math.min(1, t * 1.15)); p.push([q[0] - Math.sin(an) * o, q[1] + Math.cos(an) * o]); }
+  const [e, an] = at(L.at(-1)); return [...stroke(p, swell(N + 1, g * .55, g * 1.0, g * 1.15), rp, r), ...stroke([p[N - 1], [e[0] + Math.cos(an) * g * 1.3, e[1] + Math.sin(an) * g * 1.3]], [g * 1.9, g * 1.3], rp, r)]; }
+// footsoles walking from a to b: n steps, left and right, each a short broad sole (Vitlycke's are pecked solid at this size)
+function steps(a, b, n, len, g, rp, r) { const an = Math.atan2(b[1] - a[1], b[0] - a[0]), c = Math.cos(an), sn = Math.sin(an), out = [];
+  for (let i = 0; i < n; i++) { const t = (i + .5) / n, side = (i % 2 ? 1 : -1) * len * .36, x = a[0] + (b[0] - a[0]) * t - sn * side, y = a[1] + (b[1] - a[1]) * t + c * side;
+    out.push(...stroke([[x - c * len * .32, y - sn * len * .32], [x + c * len * .32, y + sn * len * .32]], [len * .36, len * .46], rp, r, { hand: 0 })); }
+  return out; }
+// the compositions, letter by letter: each (c) => marks, c = {P(u, v): a point in the letter's units, at: cap px, g, rp, r};
+// a composition may set c.noCupA / c.noCupB (the letter's cup end becomes the figure's)
+const ring = (c, u, v, R) => rings(c.P(u, v), c.at * R, c.g * .8, c.rp, c.r, 1);   // a cup and ring: where a spoked wheel is too small to keep its spokes open
+const COMPOSE = {
+  A: [c => crane(...c.P(.41, -.05), c.at * .4, 1, c.g, c.rp, c.r),   // a crane on the apex
+    c => [...person(...c.P(.41, .99), c.at * .3, 'hold', 1, c.g, c.rp, c.r), ...cup(...c.P(.41, .45), c.at * .04, c.r)]],
+  B: [c => crane(...c.P(.36, -.06), c.at * .4, 1, c.g, c.rp, c.r),
+    c => pony(...c.P(.34, -.06), c.at * .3, 1, c.g, c.rp, c.r)],
+  C: [c => pony(...c.P(.42, .73), c.at * .3, 1, c.g, c.rp, c.r),
+    c => sun(c.P(.4, .5), c.at * .1, c.g * .75, c.rp, c.r, 9)],
+  D: [c => wheel(c.P(.4, .5), c.at * .16, c.g * .75, c.rp, c.r),
+    c => person(...c.P(.4, .88), c.at * .5, 'adore', 1, c.g, c.rp, c.r)],
+  E: [c => pony(...c.P(.35, -.05), c.at * .3, 1, c.g, c.rp, c.r),
+    c => person(...c.P(.3, -.06), c.at * .38, 'adore', 1, c.g, c.rp, c.r)],
+  F: [c => crane(...c.P(.36, .99), c.at * .4, 1, c.g, c.rp, c.r),
+    c => pony(...c.P(.34, -.05), c.at * .3, 1, c.g, c.rp, c.r, 'stand', true)],
+  G: [c => wheel(c.P(.4, .32), c.at * .12, c.g * .72, c.rp, c.r),
+    c => crane(...c.P(.42, -.05), c.at * .4, 1, c.g, c.rp, c.r)],
+  H: [c => crane(...c.P(.36, .45), c.at * .38, 1, c.g, c.rp, c.r),
+    c => person(...c.P(.38, .99), c.at * .43, 'hold', 1, c.g, c.rp, c.r),
+    c => pony(...c.P(.38, -.06), c.at * .4, 1, c.g, c.rp, c.r)],   // a horse bridging the stems
+  I: [c => (c.noCupA = 1, snake([c.P(-.14, .95), c.P(-.12, .5), c.P(-.1, .12), c.P(.0, -.1), c.P(.24, -.16)], c.at * .04, 2.5, c.g, c.rp, c.r)),   // a serpent climbing beside the stem, its head over the top
+    c => person(...c.P(.15, -.09), c.at * .38, 'adore', 1, c.g, c.rp, c.r),
+    c => steps(c.P(-.14, 1), c.P(-.12, .08), 4, c.at * .14, c.g, c.rp, c.r)],   // footsoles walking up beside it
+  J: [c => crane(...c.P(.16, .76), c.at * .4, -1, c.g, c.rp, c.r),
+    c => person(...c.P(.44, -.09), c.at * .38, 'adore', 1, c.g, c.rp, c.r)],
+  K: [c => crane(...c.P(.62, -.05), c.at * .38, 1, c.g, c.rp, c.r),
+    c => pony(...c.P(.4, -.05), c.at * .42, 1, c.g, c.rp, c.r)],   // a horse from the stem's top to the arm's
+  L: [c => crane(...c.P(.37, .87), c.at * .42, 1, c.g, c.rp, c.r),
+    c => person(...c.P(.38, .87), c.at * .48, 'adore', 1, c.g, c.rp, c.r)],
+  M: [c => crane(...c.P(.11, -.05), c.at * .4, 1, c.g, c.rp, c.r),
+    c => person(...c.P(.82, -.06), c.at * .38, 'adore', 1, c.g, c.rp, c.r)],
+  N: [c => ring(c, .47, .22, .1),
+    c => person(...c.P(.32, .99), c.at * .33, 'adore', 1, c.g, c.rp, c.r),
+    c => pony(...c.P(.38, -.06), c.at * .4, 1, c.g, c.rp, c.r)],
+  O: [c => pony(...c.P(.5, -.08), c.at * .36, 1, c.g, c.rp, c.r),   // the sun-horse over the sun-wheel (Trundholm)
+    c => Array.from({ length: 9 }, (_, k) => { const a = Math.PI * (.55 + 1.0 * k / 8) + .06 * gauss(c.r), [cx, cy] = c.P(.42, .5), R0 = c.at * .54, R1 = c.at * (.66 + .03 * gauss(c.r)); return stroke([[cx + R0 * Math.cos(a), cy - R0 * Math.sin(a)], [cx + R1 * Math.cos(a), cy - R1 * Math.sin(a)]], [c.g * 1.1, c.g * .8], c.rp, c.r); }).flat()],   // rays round its back
+  P: [c => person(...c.P(.42, .99), c.at * .36, 'adore', 1, c.g, c.rp, c.r),
+    c => ring(c, .36, .27, .12),
+    c => pony(...c.P(.45, .99), c.at * .26, 1, c.g, c.rp, c.r)],
+  Q: [c => pony(...c.P(.5, -.08), c.at * .36, 1, c.g, c.rp, c.r),
+    c => crane(...c.P(.42, -.08), c.at * .4, 1, c.g, c.rp, c.r)],
+  R: [c => crane(...c.P(.38, -.05), c.at * .4, 1, c.g, c.rp, c.r),
+    c => ring(c, .36, .26, .11)],
+  S: [c => crane(...c.P(.32, -.05), c.at * .4, 1, c.g, c.rp, c.r),
+    c => pony(...c.P(.34, -.06), c.at * .3, 1, c.g, c.rp, c.r, 'stand', true)],
+  T: [c => pony(...c.P(.37, -.06), c.at * .34, 1, c.g, c.rp, c.r),
+    c => person(...c.P(.08, .99), c.at * .5, 'axe', -1, c.g, c.rp, c.r),
+    c => crane(...c.P(.6, -.06), c.at * .4, 1, c.g, c.rp, c.r)],
+  U: [c => sun(c.P(.39, .36), c.at * .1, c.g * .75, c.rp, c.r, 8),
+    c => person(...c.P(.39, .85), c.at * .48, 'adore', 1, c.g, c.rp, c.r)],   // a man standing in the hull
+  X: [c => pony(...c.P(.37, -.05), c.at * .42, 1, c.g, c.rp, c.r),
+    c => crane(...c.P(.06, -.06), c.at * .4, 1, c.g, c.rp, c.r)],
+  V: [c => ring(c, .39, .17, .11),
+    c => pony(...c.P(.39, -.05), c.at * .44, 1, c.g, c.rp, c.r)],
+  W: [c => ring(c, .75, .2, .1),
+    c => person(...c.P(.52, .15), c.at * .38, 'adore', 1, c.g, c.rp, c.r)],
+  Y: [c => [[.12, .16, -.02, .04], [.24, .33, .1, .27], [.62, .2, .78, .1], [.52, .34, .66, .29]].flatMap(([u0, v0, u1, v1]) => stroke([c.P(u0, v0), c.P(u1, v1)], [c.g * 1.1, c.g * .75], c.rp, c.r))
+      .concat(stroke([c.P(.38, .97), c.P(.24, 1.08)], [c.g * 1.2, c.g * .8], c.rp, c.r), stroke([c.P(.38, .97), c.P(.52, 1.08)], [c.g * 1.2, c.g * .8], c.rp, c.r)),   // the Y the world-tree: branches, roots
+    c => pony(...c.P(.38, -.05), c.at * .42, 1, c.g, c.rp, c.r),
+    c => crane(...c.P(.07, -.09), c.at * .38, 1, c.g, c.rp, c.r)],
+  Z: [c => pony(...c.P(.35, -.04), c.at * .34, 1, c.g, c.rp, c.r),
+    c => crane(...c.P(.5, .88), c.at * .42, 1, c.g, c.rp, c.r),
+    c => person(...c.P(.15, .56), c.at * .4, 'adore', 1, c.g, c.rp, c.r)],
 };
-// a figure of a kind fitted into box: drawn once at a trial size to measure it, then again at the size that fits, centred
-function fitFig(kind, k, box, lw0, rp, seed, clearOf) { const [bx0, by0, bx1, by1] = box, bw = bx1 - bx0, bh = by1 - by0, c = [(bx0 + bx1) / 2, (by0 + by1) / 2], mk = FIGS[kind][k % FIGS[kind].length];
-  for (let f = 1; f > .5; f *= .88) { const s0 = Math.min(bw, bh) * f, lw = Math.max(rp * 3.4, lw0 * slimAt(s0)), t = mk(c, s0, lw, rp, rng(seed)), [ex0, ey0, ex1, ey1] = extentOf(t);
-    const q = Math.min(bw / (ex1 - ex0), bh / (ey1 - ey0), 2.5) * .96 * f, s1 = s0 * q, lw1 = Math.max(rp * 3.4, lw0 * slimAt(s1)), t1 = mk(c, s1, lw1, rp, rng(seed)), [fx0, fy0, fx1, fy1] = extentOf(t1);
-    const dx = c[0] - (fx0 + fx1) / 2, dy = c[1] - (fy0 + fy1) / 2, ms = xform(t1, ([x, y]) => [x + dx, y + dy]);
-    if (!clearOf || clearOf(ms)) return ms; }
-  return []; }
-const tracedErode = h => (1 - sm01((h - 40) / 90)) * h * .03;   // ~1.2 px at 40 px tall, none past ~130 px
+export const dropWays = ch => (COMPOSE[ch] ?? []).length;
 function initial_(ch, H, seed, fs = 20) {
-  const r = rng(seed * 13 + ch.charCodeAt(0)), ix = Math.max(0, ch.charCodeAt(0) - 65), lw = H * .045, rp = lw / 4.5, m = H * .05, lw0 = letterWidth(ch);
+  const r = rng(seed * 13 + ch.charCodeAt(0)), ix = Math.max(0, ch.charCodeAt(0) - 65), lw = H * .045, rp = lw / 4.5, m = H * .05;
   const cap = H * .8, x0 = m, y0 = m, L = letterStrokes(ch, x0, y0, cap, r), W = Math.round(x0 + L.W + m * 1.4);
-  const carveLetter = out => { for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .62, r)); if (s.cupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .62, r)); }
-    if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], [lw * .8, lw * .8], rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], [lw * .8, lw * .8], rp, r)); } };
-  // clear of the letter: every mark a groove's width from every letter stroke
-  const gap = lw * .55, clear = ms => ms.every(q => { const pts2 = q.k === 'pit' ? [[q.x, q.y, q.r]] : q.k === 'cap' ? q.p.map((p, i) => [p[0], p[1], q.w[i] / 2]) : q.k === 'poly' ? q.rings.flat().map(p => [p[0], p[1], 0]) : [];
-    return pts2.every(([x, y, e]) => L.strokes.every(st => st.p.every((pt, i) => Math.hypot(pt[0] - x, pt[1] - y) > st.w[i] / 2 + e + gap))); });
-  const spaces = SPACE[ch];
-  return piece(W, H, lw, F => { const out = []; carveLetter(out);
-    // inside: each of the letter's spaces in turn (from the seed's), kept only if the figure that fits is big enough to
-    // read as a figure (.36 of the cap, ~30 px at a page's drop); else above the shoulder (within about a line of the drop's top, so it stays
-    // clear of anything set above the paragraph)
-    let fig = [];
-    for (let i = 0; i < (spaces?.length ?? 0) && !fig.length; i++) { const sp = spaces[(seed + ix + i) % spaces.length], box = [x0 + sp[0] * cap, y0 + sp[1] * cap, x0 + sp[2] * cap, y0 + sp[3] * cap];
-      const t = fitFig(sp[4], seed + ix, box, lw * 1.1, rp, seed * 37 + ix, clear), [a, b, c, d] = t.length ? extentOf(t) : [0, 0, 0, 0];
-      if (Math.max(c - a, d - b) >= cap * .36) fig = t; }
-    if (!fig.length && ch !== 'O' && ch !== 'Q') { const box = [x0 + L.W * .1, -H * .36, x0 + L.W + H * .5, -m * .3];   // (the traced deer: at this size it is the one figure that still reads as an animal; a dot, a ring or the
-      // horse's thin back this small up there reads as an accent)
-      fig = fitFig('wide', 1, box, lw, rp, seed * 37 + ix, null); }
-    out.push(...fig);
-    return out; }, { seed, dur: 3400 });
+  const ways = COMPOSE[ch] ?? [], c = { P: (u, v) => [x0 + u * cap, y0 + v * cap], at: cap, g: Math.max(rp * 3.4, cap * .045), rp, r: rng(seed * 37 + ix) };
+  return piece(W, H, lw, F => { const out = [], fig = ways.length ? ways[(seed + ix) % ways.length](c) : [];
+    for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA && !c.noCupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .62, r)); if (s.cupB && !c.noCupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .62, r)); }
+    if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], [lw * .8, lw * .8], rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], [lw * .8, lw * .8], rp, r)); }
+    out.push(...fig); return out; }, { seed, dur: 3400 });
 }
 export const DROP_GROUND = { v: 'none' };
 function lineInitial_(ch, fs, seed) { const r = rng(seed * 3 + ch.charCodeAt(0)), H = Math.round(fs * 1.9), cap = H * .86, lw = fs * .3, rp = lw / 4.5, L = letterStrokes(ch, lw * .4, H * .07, cap, r), W = Math.ceil(L.W + lw);
