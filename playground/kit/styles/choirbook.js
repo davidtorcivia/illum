@@ -29,8 +29,7 @@
 import { tendril, resample, stream, noise1, noise2, PIGMENTS } from '../marks.js';
 import { edt, drawn } from '../penwork.js';
 import { poisson } from '../spray.js';
-import { STYLES, wander, arc, hook, hair, bead, paraph as wParaph, filler as wFiller, breakMark as wBreak, FILLERS as wFillers } from '../wayfinding.js';
-import { quoteFrame, figureFrame, codeFrame, asideFrame, navFrame } from '../frames.js';
+import { STYLES, wander, hair } from '../wayfinding.js';
 
 const arclen = p => p.reduce((a, q, i) => i ? a + Math.hypot(q[0] - p[i - 1][0], q[1] - p[i - 1][1]) : 0, 0);
 const tangentAt = (p, i) => { const a = p[Math.max(0, i - 2)], b = p[Math.min(p.length - 1, i + 2)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; };
@@ -259,6 +258,35 @@ export function counterWork(L, seed, g = 2.6, keep = []) {
   return out;
 }
 
+// ---- the hand's vocabulary (lifted from the grown filigree below, so the page's marks are made by the same code) ----------------
+const bez = (A, B, C, D, u) => { const v = 1 - u; return [v * v * v * A[0] + 3 * v * v * u * B[0] + 3 * v * u * u * C[0] + u * u * u * D[0], v * v * v * A[1] + 3 * v * v * u * B[1] + 3 * v * u * u * C[1] + u * u * u * D[1]]; };
+// one scroll from anchor a to curl round c: leave the parent at an easy angle toward c, bend steadily, enter a circle
+// round c along its own direction and wind in a turn, the radius closing as a pen's spiral does
+// (want: the way its curl turns, +1 or -1, when the work asks for it; else the way it bends already)
+// (a: { p, t } the place it leaves its parent and the parent's way there; c the centre it curls round; rho the curl's radius; r
+// the hand's stream; sp his spacing)
+export function scrollPts(a, c, rho, want, r, sp) {
+  const v = [c[0] - a.p[0], c[1] - a.p[1]], dl = Math.hypot(...v), u = [v[0] / dl, v[1] / dl];
+  let t = a.t[0] * u[0] + a.t[1] * u[1] >= 0 ? a.t : [-a.t[0], -a.t[1]];
+  const side = Math.sign(t[0] * u[1] - t[1] * u[0]) || 1, off = .45 + r() * .25;   // (leaves its parent 25-40 degrees out, toward c)
+  const d0 = [t[0] * Math.cos(off * side) - t[1] * Math.sin(off * side), t[0] * Math.sin(off * side) + t[1] * Math.cos(off * side)];
+  const bend = Math.sign(d0[0] * u[1] - d0[1] * u[0]) || side, turn = want || bend, n = [-u[1], u[0]], E = [c[0] - turn * rho * n[0], c[1] - turn * rho * n[1]];
+  const L = Math.hypot(E[0] - a.p[0], E[1] - a.p[1]); if (L < sp * .4) return null;
+  const B = [a.p[0] + d0[0] * L * .4, a.p[1] + d0[1] * L * .4], C = [E[0] - u[0] * L * .35, E[1] - u[1] * L * .35], pts = [];
+  const nb = Math.max(4, Math.ceil(L / .5)); for (let k = 0; k <= nb; k++) pts.push(bez(a.p, B, C, E, k / nb));
+  const th0 = Math.atan2(E[1] - c[1], E[0] - c[0]), sweep = (1.05 + r() * .35) * 2 * Math.PI, ns = Math.ceil(sweep * rho / .45);
+  for (let k = 1; k <= ns; k++) { const f = k / ns, th = th0 + turn * sweep * f, rr = rho * (1 - .62 * f ** 1.2); pts.push([c[0] + Math.cos(th) * rr, c[1] + Math.sin(th) * rr]); }
+  return pts;
+}
+// a fleuron: a spike with a pair of small scrolls springing from its foot and turning back toward where it stands (his finials,
+// and at the corners his diagonal sprays): the spike, then the two scrolls
+export function fleuronPts(p, d, ln, sp) { const tg = [-d[1], d[0]], tip = [p[0] + d[0] * ln, p[1] + d[1] * ln], rr = Math.min(sp * .55, ln * .26), out = [[p, [p[0] + d[0] * ln * .55 + tg[0] * .12, p[1] + d[1] * ln * .55 + tg[1] * .12], tip]];
+  for (const sg of [-1, 1]) { const c2 = [p[0] + d[0] * ln * .3 + tg[0] * sg * rr * 1.05, p[1] + d[1] * ln * .3 + tg[1] * sg * rr * 1.05], a0 = Math.atan2(-tg[1] * sg, -tg[0] * sg), tw = Math.sign(d[0] * tg[1] * sg - d[1] * tg[0] * sg) || 1, pts = [];
+    for (let q = 0; q <= 30; q++) { const f = q / 30, th = a0 + tw * f * Math.PI * 1.55, R = rr * (1 - .5 * f); pts.push([c2[0] + Math.cos(th) * R, c2[1] + Math.sin(th) * R]); }
+    out.push(pts); }
+  return out;
+}
+
 // ---- the filigree, grown (third pass: "paint the ground, apply the letter, grow in the gaps") --------------------------------------
 // Read at 4x in his B and P (Lewis E 73): every bay of the letter's box is first CONTAINED (a double hairline a gap off
 // the paint, running on round the inside of the box, so the frame and the letter's echo are one line), then FILLED by
@@ -434,22 +462,7 @@ function filigrana1(L, seed, keep = [], level = 2, o = {}) {
   const att = poisson(W0, H0, SPAN, r, q => { const p = [q[0] + fb[0], q[1] + fb[1]]; return coreOK(p, deep + RHO * .3) && clear(p, RHO + sp * .34) && !eyes.some(e => Math.hypot(p[0] - e[0], p[1] - e[1]) < e[2] + RHO + sp * .7); })
     .map(q => [q[0] + fb[0], q[1] + fb[1]]);
   const nearAnchor = (p, comp) => { let best = null, bd = 1e9; for (const a of anchors) { if (a.comp !== comp && a.comp) continue; const d = Math.hypot(a.p[0] - p[0], a.p[1] - p[1]); if (d < bd && d > RHO * 1.2) { bd = d; best = a; } } return [best, bd]; };
-  const bez = (A, B, C, D, u) => { const v = 1 - u; return [v * v * v * A[0] + 3 * v * v * u * B[0] + 3 * v * u * u * C[0] + u * u * u * D[0], v * v * v * A[1] + 3 * v * v * u * B[1] + 3 * v * u * u * C[1] + u * u * u * D[1]]; };
-  // one scroll from anchor a to curl round c: leave the parent at an easy angle toward c, bend steadily, enter a circle
-  // round c along its own direction and wind in a turn, the radius closing as a pen's spiral does
-  // (want: the way its curl turns, +1 or -1, when the work asks for it; else the way it bends already)
-  const scroll = (a, c, rho, want = 0) => {
-    const v = [c[0] - a.p[0], c[1] - a.p[1]], dl = Math.hypot(...v), u = [v[0] / dl, v[1] / dl];
-    let t = a.t[0] * u[0] + a.t[1] * u[1] >= 0 ? a.t : [-a.t[0], -a.t[1]];
-    const side = Math.sign(t[0] * u[1] - t[1] * u[0]) || 1, off = .45 + r() * .25;   // (leaves its parent 25-40 degrees out, toward c)
-    const d0 = [t[0] * Math.cos(off * side) - t[1] * Math.sin(off * side), t[0] * Math.sin(off * side) + t[1] * Math.cos(off * side)];
-    const bend = Math.sign(d0[0] * u[1] - d0[1] * u[0]) || side, turn = want || bend, n = [-u[1], u[0]], E = [c[0] - turn * rho * n[0], c[1] - turn * rho * n[1]];
-    const L = Math.hypot(E[0] - a.p[0], E[1] - a.p[1]); if (L < sp * .4) return null;
-    const B = [a.p[0] + d0[0] * L * .4, a.p[1] + d0[1] * L * .4], C = [E[0] - u[0] * L * .35, E[1] - u[1] * L * .35], pts = [];
-    const nb = Math.max(4, Math.ceil(L / .5)); for (let k = 0; k <= nb; k++) pts.push(bez(a.p, B, C, E, k / nb));
-    const th0 = Math.atan2(E[1] - c[1], E[0] - c[0]), sweep = (1.05 + r() * .35) * 2 * Math.PI, ns = Math.ceil(sweep * rho / .45);
-    for (let k = 1; k <= ns; k++) { const f = k / ns, th = th0 + turn * sweep * f, rr = rho * (1 - .62 * f ** 1.2); pts.push([c[0] + Math.cos(th) * rr, c[1] + Math.sin(th) * rr]); }
-    return pts; };
+  const scroll = (a, c, rho, want = 0) => scrollPts(a, c, rho, want, r, sp);
   // (a stroke is accepted only if it keeps his gap from everything else laid, outside its first stretch off its parent,
   // and stays in the core once it has left the contour; its own curl may come close to itself, as a pen's does)
   const fits = (pts, a) => { const skip = new Set([a.id]); let s = 0;
@@ -498,11 +511,7 @@ function filigrana1(L, seed, keep = [], level = 2, o = {}) {
       if (ok) return L3; } return 0; };
   // a fleuron: a spike with a pair of small scrolls springing from its foot and turning back toward the frame (his finials, and
   // at the corners, his diagonal sprays)
-  const fleuron = (p, d, ln) => { const tg = [-d[1], d[0]], tip = [p[0] + d[0] * ln, p[1] + d[1] * ln], rr = Math.min(sp * .55, ln * .26);
-    stroke(out.spikes, [p, [p[0] + d[0] * ln * .55 + tg[0] * .12, p[1] + d[1] * ln * .55 + tg[1] * .12], tip], { end: 'taper' });
-    for (const sg of [-1, 1]) { const c2 = [p[0] + d[0] * ln * .3 + tg[0] * sg * rr * 1.05, p[1] + d[1] * ln * .3 + tg[1] * sg * rr * 1.05], a0 = Math.atan2(-tg[1] * sg, -tg[0] * sg), tw = Math.sign(d[0] * tg[1] * sg - d[1] * tg[0] * sg) || 1, pts = [];
-      for (let q = 0; q <= 30; q++) { const f = q / 30, th = a0 + tw * f * Math.PI * 1.55, R = rr * (1 - .5 * f); pts.push([c2[0] + Math.cos(th) * R, c2[1] + Math.sin(th) * R]); }
-      stroke(out.spikes, pts, { end: 'taper' }); } };
+  const fleuron = (p, d, ln) => { for (const pts of fleuronPts(p, d, ln, sp)) stroke(out.spikes, pts, { end: 'taper' }); };
   const side = (a, b, nrm, finial) => { const L2 = Math.hypot(b[0] - a[0], b[1] - a[1]), step = sp * 1.3, n = Math.max(2, Math.round(L2 / step)), mid = Math.round(n / 2);
     for (let k = 1; k < n; k++) { const t = k / n, p = [a[0] + (b[0] - a[0]) * t + nrm[0] * e, a[1] + (b[1] - a[1]) * t + nrm[1] * e];
       if (inWords(p[0], p[1], 1.2)) continue;
@@ -853,29 +862,132 @@ initial.wider = GEOM.wider;
 // before the page is measured: the Lombards of every initial on it
 initial.load = () => typeof document === 'undefined' ? null : loadLetters([...document.querySelectorAll('.ini')].map(e => letterOf(e.textContent)));
 
-// ---- the wayfinding ------------------------------------------------------------------------------------------------------------
-// The paraph is the Decretals' (kit/wayfinding.js, approved in 06). The fillers are 06's, and the pendant chain: a
-// hairline with small closed loops hung under it, a point in each, as a bundle's edge is strung in 466773.
-const FILLERS = [...wFillers, 'pendants'];
-function filler(x0, x1, yTop, yBase, kind, seed, rich = .5, v) {
-  if (kind !== 'pendants') return wFiller(x0, x1, yTop, yBase, kind, seed, rich, v);
-  const r = stream(seed, 'pend'), h = yBase - yTop, y = yTop + h * .3, n = Math.max(1, Math.round((x1 - x0) / (h * 1.05))), p = (x1 - x0) / n, out = [];
-  out.push(hair(wander([[x0, y], [x1, y + (r() - .5) * .3]], .15, seed + 3, 30), 'a', { end: 'cut' }));
-  for (let k = 0; k < n; k++) { const R = h * .27 * (.92 + r() * .14), c = [x0 + (k + .5) * p + (r() - .5) * .3, y + R * 1.02], a0 = -Math.PI / 2;
-    out.push(hair(arc(c, R, a0, a0 + Math.PI * 2.08, 22), rich >= .75 && k % 2 ? 'b' : 'a', { w: .46, start: 'cut', end: 'cut' }));
-    if (rich >= .25) out.push(bead([c[0], c[1] + R * .12], .62, rich >= .5 ? 'b' : 'a')); }
+// ---- the page in his hand ------------------------------------------------------------------------------------------------------
+// Everything round the text is written by the drop's rubricator, with the drop's pens and inks, from the two vocabularies of
+// its margin: the staff (flourish's chain, 03's approved hand: scallops strung on a hairline in runs, pendants hung on it with
+// a point in each, hooks turned over with a ball, eyes on stalks, the dome of 466773's capitals) and the box's grown work
+// (scrollPts: his crest, two volutes springing from a short stem and rolling outward and down, a spiral rising between them,
+// a point at its eye, as on 467763's small letters). His gap g is the drop's (2.6 px), so a filler, a frame and the drop's staff
+// are written at one size; each piece its own size within his range, the spacing uneven, the scallops in runs, nothing
+// stamped. Colours by role ('a' the mark's own, red and blue in turn down the page; 'b' the other), so a red paraph's penwork
+// is blue, as a red letter's is. The budget is the drop's five (BUDGETS: plain, modest, usual, fine, lavish).
+const HS = .5 * 1.15, HL = .276, G = 2.6, lv = rich => Math.max(0, Math.min(4, Math.round(rich * 4)));   // (the staff's pen and the box's, as the drop writes them)
+const jit = (pts, seed, a = .16) => { const n = noise1((seed * 31 + pts.length * 7) | 0); return pts.map((p, i) => [p[0] + (n(i * .09) - .5) * a, p[1] + (n(i * .09 + 50) - .5) * a]); };
+const ph = (pts, col, seed, o = {}) => ({ pts: jit(resample(pts, .45), seed), col, w: HS, start: 'taper', end: 'taper', load: .78, ...o });
+const pt = (p, r, col) => ({ dot: true, p, r, col });
+const unit = (a, b) => { const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; };
+const add = (p, d, k, n = [0, 0], m = 0) => [p[0] + d[0] * k + n[0] * m, p[1] + d[1] * k + n[1] * m];
+const hk = (p, h, size, sense) => tendril(p, h, size * 2 * Math.PI * .8, 0, sense / size, 1.6, .4);
+// his crest at p, standing out along d, s tall (the box's pen)
+function crest(p, d, s, col, r, seed, eye = 'b') {
+  const n = [-d[1], d[0]], top = add(p, d, s * .34), out = [ph([p, add(p, d, s * .2, n, (r() - .5) * .04 * s), top], col, seed, { w: HS * .8 })];
+  for (const sg of [-1, 1]) { const c = add(p, d, s * .34, n, sg * s * .3), turn = Math.sign(d[0] * n[1] * sg - d[1] * n[0] * sg) || 1;
+    const v = scrollPts({ p: add(p, d, s * .1), t: d }, c, s * .15 * (.92 + r() * .16), -turn, r, s * .3); if (v) out.push(ph(v, col, seed + 1 + sg, { w: HS * .8 })); }
+  const sg = r() < .5 ? -1 : 1, c = add(top, d, s * .3, n, sg * s * .05), f = scrollPts({ p: top, t: d }, c, s * .13, sg * (Math.sign(d[0] * n[1] - d[1] * n[0]) || 1), r, s * .3);
+  if (f) out.push(ph(f, col, seed + 5, { w: HS * .8 })); if (eye) out.push(pt(c, Math.max(.6, s * .05), eye));
+  return out;
+}
+// an eye: a ring, its point, its lobes (flourish's eye)
+function eyeAt(c, R, col, r, seed, lobes = true, ptCol = col) {
+  const out = [ph(ring(c, R, r, .07, r() * 6.28), col, seed, { w: .5 * 1.15 }), pt(c, Math.max(.7, R * .27), ptCol)];
+  if (lobes) { const nl = 4 + ((r() * 2) | 0), a0 = r() * 6.28;
+    for (let k = 0; k < nl; k++) { const a = a0 + k / nl * 2 * Math.PI + (r() - .5) * .25, lr = R * (.36 + r() * .1), d = R + lr * .62, lc = [c[0] + Math.cos(a) * d, c[1] + Math.sin(a) * d], pts = [];
+      for (let i = 0; i <= 14; i++) { const b = a - 1.9 + i / 14 * 3.8; pts.push([lc[0] + Math.cos(b) * lr, lc[1] + Math.sin(b) * lr]); } out.push(ph(pts, col, seed + 1 + k, { w: .45 * 1.15 })); } }
+  return out;
+}
+// the staff's chain (flourish's) along any line, on its side `side` (+1 left of its way): scallops in runs, pendants, hooks, eyes
+// on stalks; pitch 2.25 g
+function strung(line, side, r, seed, { col = 'a', colB = 'b', runs = null, pend = 0, hooks = 0, eyes = 0, lead = 1.5, tail = 4, g = G, skip = null } = {}) {
+  const P = resample(line, 1), gate = noise1(seed ^ 0x3c1), out = [];
+  for (let i = Math.round(g * lead), next = 0; i < P.length - g * tail; i++) {
+    if (i < next) continue; next = i + g * (2.25 + r() * .35);
+    if (runs != null && gate(i / (g * 9)) < runs) continue;
+    const p = P[i]; if (skip?.(p)) continue; const t = tangentAt(P, i), n = [-t[1] * side, t[0] * side], a0 = Math.atan2(n[1], n[0]);
+    if (eyes && r() < eyes) { const R = g, Ls = g * 1.3, ec = add(p, n, Ls + R); out.push(ph([p, add(p, n, Ls)], col, seed + i, { w: .45 * 1.15 }), ...eyeAt(ec, R, col, r, seed + i * 3, true, colB)); next = i + g * 6; continue; }
+    if (pend && r() < pend) { const pr = g * (.68 + r() * .12), pc = add(p, n, pr * 1.02);
+      out.push(ph(ring(pc, pr, r, .12, a0 + Math.PI, 1.06), col, seed + i, { w: .46 * 1.15 }), pt(add(pc, n, pr * .12), .62 + r() * .12, colB)); next = i + g * (3.3 + r() * .4); continue; }
+    if (hooks && r() < hooks) { out.push(ph(hk(p, a0 + (r() < .5 ? .5 : -.5), g * (.85 + r() * .25), r() < .5 ? 1 : -1), col, seed + i, { end: 'ball', w: .46 * 1.15 })); next = i + g * 3; continue; }
+    const sr = g * (.82 + r() * .2), c = add(p, n, sr * .45), pts = [];
+    for (let q = 0; q <= 14; q++) { const b = a0 - 2.1 + q / 14 * 4.2; pts.push([c[0] + Math.cos(b) * sr, c[1] + Math.sin(b) * sr]); }
+    out.push(ph(pts, col, seed + i, { w: .5 * 1.15 })); }
+  return out;
+}
+// 466773's capital: a dome over [x0, x1] standing on base (up: -1; a dome hung under a line, +1), freehand (lopsided, a little
+// lumpy), an eye in it, its feet curling out, the abacus under it
+function dome(x0, x1, base, col, colIn, r, seed, up = -1, g = G) {
+  const span = x1 - x0, mid = (x0 + x1) / 2, rise = Math.min(span * (.4 + r() * .06), g * 6.5), lump = noise1(seed ^ 0x5d), lean = (r() - .5) * .16, P = [];
+  for (let k = 0; k <= 28; k++) { const v = k / 28, su = Math.pow(Math.sin(Math.PI * v), .8), vv = Math.min(1, Math.max(0, v + lean * su)); P.push([x0 + span * vv, base + up * rise * su * (1 + .14 * (lump(v * 3.2) - .5) * 2) - (r() - .5) * .15]); }
+  const out = [ph(P, col, seed, {}), ph(drift([[x0 + g * .25, base - up * .05], [x1 - g * .25, base + (r() - .5) * .3]], .12, seed + 31, 30), col, seed + 1, { w: .46 * 1.15 })];
+  const R = Math.min(rise * .3, span * .2); if (R >= g * .65) out.push(...eyeAt([mid + (r() - .5) * .4, base + up * rise * .44], R, colIn, r, seed + 2, false));
+  for (const [p, h, s] of [[P[0], Math.PI * 1.15, 1], [P.at(-1), -.1, -1]]) out.push(ph(hk(p, up < 0 ? h : -h, g * .85 * (1 + r() * .3), up < 0 ? s : -s), col, seed + 3 + s, { end: 'ball', w: .48 * 1.15 }));
+  return { marks: out, top: P[14] };
+}
+
+// ---- the paraph --------------------------------------------------------------------------------------------------------------------
+// His paraph (c1950.391's blue paraphs at the rubrics; Lewis E 73's cues): a Lombardic C a little taller than the text's
+// capitals, from a little under the line, its back swelled (the broad nib held near level, so the back is laid full and the
+// head and foot thin, and a second stroke down the back), its head ending in a drop. Red and blue in turn. The penwork in the
+// other colour, as round his line initials: modest, a hairline round the bowl a gap off it, scallops strung on it in runs;
+// usual, the scallops full, a pendant, his crest out into the margin from its back; fine, the crest's eye in the paraph's
+// colour; lavish, the crest larger, an eye on a stalk among the scallops.
+function paraph(x, base, u, seed, rich = .5) {
+  const r = stream(seed, 'cbparaph'), L = lv(rich), out = [], D = Math.PI / 180, g = G * .9;
+  const Rx = u * .8, Ry = u * 1.14, c = [x + Rx + u * .05, base - u * .78], at = (th, k = 1, dx = 0) => [c[0] + Math.cos(th) * Rx * k + dx, c[1] + Math.sin(th) * Ry * k];
+  const nib = { col: 'a', broad: .9, nib: .18, load: 1.15, dry: .08, swell: .1, start: 'cut', end: 'cut' };
+  const arcPts = (a0, a1, k, n = 22, dx = 0) => Array.from({ length: n + 1 }, (_, i) => at(a0 + (a1 - a0) * i / n, k, dx));
+  out.push({ ...nib, w: u * .42, pts: arcPts(-42 * D, -310 * D, .9), end: 'taper' });   // the bowl, from its head round to its foot
+  out.push({ ...nib, broad: .7, w: u * .5, pts: arcPts(-136 * D, -224 * D, .72, 12, u * .03) });   // the swell of its back
+  out.push(pt(at(-40 * D, .93, -u * .02), u * .17, 'a'));   // the drop at its head
+  if (L < 1) return out;
+  // the other colour: a hairline round the bowl, a gap off it, from over its head to under its foot, its end hooked
+  const gp = u * .4, cont = Array.from({ length: 33 }, (_, i) => { const th = (-70 - 220 * i / 32) * D; return [c[0] + Math.cos(th) * (Rx * .9 + u * .21 + gp), c[1] + Math.sin(th) * (Ry * .9 + u * .21 + gp)]; });
+  const foot = hk(cont.at(-1), Math.PI / 2 + .6, g, 1);
+  out.push(ph([...cont, ...foot.slice(1)], 'b', seed + 1, { start: 'taper', end: 'ball' }));
+  // scallops down its back (in runs, modest), a pendant here and there (usual), eyes (lavish); (nothing runs down past its
+  // foot: the next line's words stand there)
+  const back = cont.filter(p => p[0] < c[0] - Rx * .35 && (L < 2 || Math.abs(p[1] - c[1]) > u * .55));
+  out.push(...strung(back, 1, r, seed + 2, { col: 'b', colB: 'a', g, runs: L >= 2 ? null : .4, pend: L >= 2 ? .28 : 0, eyes: L >= 4 ? .2 : 0, lead: .5, tail: 1.5 }));
+  // his crest out into the margin from the middle of its back (over its head there is only the line above)
+  if (L >= 2) { const m = cont.reduce((a2, p) => p[0] < a2[0] ? p : a2); out.push(...crest(add(m, [-1, 0], u * .05), [-.995, .1], u * (L >= 4 ? 1.9 : 1.6), 'b', r, seed + 3, L >= 3 ? 'a' : 'b')); }
+  return out;
+}
+
+// ---- the fillers --------------------------------------------------------------------------------------------------------------------
+// A line's free end closed with his staff laid along it (research/17 §3: rare in the choir books, where the chant fills the
+// line; in the rubrics' short lines a hairline run out with scallops or points): one hairline from the last word to the
+// measure, its end hooked over with a ball. The kinds: scallops over it in runs; pendants hung under it here and there;
+// eyes on stalks among the scallops (and, fine up, under it). Plain: the hairline alone; modest: scallops in sparse runs;
+// usual: the copy's kinds; fine: the points in the other colour; lavish: his crest at the end. tight (the guard's second
+// try): the scallops alone, over the line.
+const FILLERS = ['scallops', 'pendants', 'eyes'];
+function filler(x0, x1, yTop, yBase, kind, seed, rich = .5, v = {}) {
+  const r = stream(seed, 'cbfill'), h = yBase - yTop, L = lv(rich), tight = !!v?.tight, out = [], y = yBase - h * .3;
+  // (the end hooked over inside the measure: the hook's reach past where it leaves the line, measured)
+  const crestEnd = L >= 4 && !tight && x1 - x0 > h * 5, hs = G * 1.1, hook = hk([0, 0], 0, hs, -1), reach = Math.max(...hook.map(p => p[0])) + .6, xe = x1 - (crestEnd ? h * 1.9 : reach);
+  if (xe - x0 < h) return out;
+  const line = drift([[x0, y], [xe, y + (r() - .5) * .4]], .14, seed + 3, 30), e = line.at(-1);
+  out.push(ph(crestEnd ? line : [...line, ...hook.slice(1).map(p => [e[0] + p[0], e[1] + p[1]])], 'a', seed, { end: crestEnd ? 'taper' : 'ball' }));
+  if (crestEnd) out.push(...crest(line.at(-1), [1, 0], h * 2, 'a', r, seed + 1, 'b'));
+  if (L < 1 || kind === 'bare') return out;
+  // (the scallops over the line, in runs but on the plainest; pendants or eyes under it, here and there)
+  const B = L >= 3 ? 'b' : 'a';
+  out.push(...strung(line, -1, r, seed + 5, { colB: B, runs: L < 2 ? .5 : L < 3 ? .3 : .2, eyes: !tight && kind === 'eyes' ? .1 : 0, lead: 1, tail: 2.5 }));
+  if (!tight && kind === 'pendants' && L >= 2) out.push(...strung(line, 1, r, seed + 6, { colB: L >= 2 ? 'b' : 'a', pend: 1, runs: .5, lead: 2.5, tail: 3 }));
+  if (!tight && kind === 'eyes' && L >= 3) out.push(...strung(line, 1, r, seed + 7, { colB: 'b', eyes: 1, runs: .62, lead: 3, tail: 4 }));
   return out;
 }
 const pickKinds = (r, all, min) => { const k = [...all].sort(() => r() - .5); return k.slice(0, Math.max(min, Math.round(min + r() * (all.length - min)))); };
 
 // ---- the breaks ------------------------------------------------------------------------------------------------------------------
-// A chapter: the end of a chant on its stave. Four red rules, a C clef and the last notes in black square notation, the
-// finalis (the double bar) across the rules; on a richer page the rules' ends turned over in blue with a bead. The rank
-// is the size of the division: a book takes 06's great device (an eye with scalloped arms).
-const RED = [200, 66, 40], RED_HAIR = [212, 100, 74];
+// Three ranks, the size of the division. A part (rank 1), with the staff (the default): it closes on its stave, four red rules,
+// a C clef, a cadence of square notes falling to the final, the finalis, his crest out from each end; without the staff, his
+// staff laid level: a hairline each side of an eye, scallops strung over and pendants under, its ends hooked. A book (rank 2):
+// his column laid level, two hairlines strung outside with scallops and pendants, the dome of 466773 over the middle with an
+// eye in it, his crests out at the ends. The end (rank 3): the band wider, a dome over and under, eyes on stalks along it.
+const RED_HAIR = [212, 100, 74];
 const note = (x, y, s) => ({ col: 'k', broad: .9, nib: 0, w: s, load: 1.15, dry: .08, swell: .05, start: 'cut', end: 'cut', pts: [[x, y - s * .42], [x, y + s * .42]] });
 function stave(cx, y, measure, seed, rich, u) {
-  const r = stream(seed, 'stave'), sp = u * .74, W = Math.min(measure * .4, u * 19), x0 = cx - W / 2, x1 = cx + W / 2, out = [], ly = k => y + (k - 1.5) * sp;
+  const r = stream(seed, 'stave'), L = lv(rich), sp = u * .74, W = Math.min(measure * .4, u * 19), x0 = cx - W / 2, x1 = cx + W / 2, out = [], ly = k => y + (k - 1.5) * sp;
   for (let k = 0; k < 4; k++) out.push({ ...hair(wander([[x0, ly(k)], [x1, ly(k) + (r() - .5) * .3]], .1, seed + k, 40), 'a', { w: .5, start: 'cut', end: 'cut' }), ink: RED_HAIR });
   const s = sp * .86, at = (x, step) => [x, ly(3) - step * sp / 2];   // step: half-spaces up from the bottom rule
   // the C clef on the second rule from the top: two squares on a short stem
@@ -884,53 +996,121 @@ function stave(cx, y, measure, seed, rich, u) {
   out.push(note(cxL, cy - sp * .5, s * .62), note(cxL, cy + sp * .5, s * .62));
   // the last notes: a short cadence falling to the final, set out along the rules
   const steps = [5, 4, 5, 3, 2, 2], xs = steps.map((_, k) => x0 + u * 2.2 + k * (W - u * 4.6) / (steps.length + .5));
-  steps.forEach((st, k) => { const [x, yy] = at(xs[k], st + (r() < .15 ? 1 : 0) * 0); out.push(note(x, yy, s)); });
+  steps.forEach((st, k) => { const [x, yy] = at(xs[k], st); out.push(note(x, yy, s)); });
   // the finalis: a double bar across the rules, the second heavier
   for (const [dx, w] of [[-u * .5, u * .1], [-u * .22, u * .16]]) out.push({ col: 'k', broad: .9, nib: 0, w, load: 1.1, dry: .08, swell: 0, start: 'cut', end: 'cut', pts: [[x1 + dx, ly(0) - .4], [x1 + dx, ly(3) + .4]] });
-  // the rubricator's points beyond its ends; on a richer page a blue eye at each
-  for (const s0 of [-1, 1]) { const px = (s0 < 0 ? x0 : x1) + s0 * u * .9;
-    if (rich >= .5) out.push(hair(arc([px, y], u * .3, 0, 2 * Math.PI + .15, 18), 'b', { w: .46, start: 'cut', end: 'cut' }), bead([px, y], .9, 'b'));
-    else out.push(bead([px, y], 1.2, 'b')); }
+  // beyond its ends his work in the other colour: an eye (modest), his crest out along the stave (usual up)
+  for (const s0 of [-1, 1]) { const p = [(s0 < 0 ? x0 : x1) + s0 * u * .5, y];
+    if (L >= 2) out.push(...crest(p, [s0, 0], u * (L >= 4 ? 2.4 : 2), 'a', r, seed + 9 + s0, 'b'));
+    else if (L >= 1) out.push(...eyeAt(add(p, [s0, 0], u * .4), u * .32, 'a', r, seed + 9 + s0, false, 'b')); }
+  return out;
+}
+function level(cx, y, W, u, seed, L) {
+  const r = stream(seed, 'level'), out = [], R = G * (L >= 3 ? 1.25 : 1.05);
+  out.push(...eyeAt([cx, y], R, 'b', r, seed, L >= 2, 'a'));
+  for (const s of [-1, 1]) { const xa = cx + s * (R * 1.9 + G * .4), xb = cx + s * W / 2, cr = L >= 4, arm = drift([[xa, y], [cr ? xb - s * u * 2.2 : xb, y + (r() - .5) * .5]], .15, seed + (s > 0 ? 3 : 5), 30);
+    out.push(ph(cr ? arm : [...arm, ...hk(arm.at(-1), s > 0 ? 0 : Math.PI, G * 1.15, -s).slice(1)], 'a', seed + 1 + s, { end: cr ? 'taper' : 'ball' }));
+    if (cr) out.push(...crest(arm.at(-1), [s, 0], u * 2.2, 'a', r, seed + 7 + s, 'b'));
+    const ln = s > 0 ? arm : [...arm].reverse();
+    if (L >= 1) out.push(...strung(ln, -1, r, seed + 11 + s, { runs: L >= 2 ? null : .45, lead: 1, tail: 2.5 }));   // (written left to right: over it, then under)
+    if (L >= 2) out.push(...strung(ln, 1, r, seed + 13 + s, { colB: L >= 3 ? 'b' : 'a', pend: .45, runs: L >= 3 ? null : .3, lead: 1.5, tail: 3 })); }
+  return out;
+}
+function band(cx, y, W, u, seed, L, rank) {
+  // (drawn larger than the text's staff by its rank: his gap a quarter or a half again, the dome as the drop's capital)
+  const r = stream(seed, 'band'), out = [], big = rank > 2, g = G * (big ? 1.5 : 1.25), gp = g * 1.5, x0 = cx - W / 2, x1 = cx + W / 2, half = u * (big ? 3 : 2.5), cl = half * .9;
+  const dw = g * (big ? 11 : 10);
+  for (const s of [-1, 1]) for (const [dy, side, k] of [[-gp / 2, -1, 1], [gp / 2, 1, 2]]) {   // (each rule written left to right: the work over the upper, under the lower)
+    const a = [cx + s * dw * .5, y + dy], b = [s < 0 ? x0 + cl : x1 - cl, y + dy + (r() - .5) * .3], ln = drift(s > 0 ? [a, b] : [b, a], .14, seed + k + s * 3, 40);
+    out.push(ph(ln, 'a', seed + k + s * 3, { w: k === 1 ? .58 * 1.15 : .5 * 1.15 }));
+    if (L >= 1) out.push(...strung(ln, side, r, seed + 20 + k + s * 3, { g, colB: L >= 3 ? 'b' : 'a', runs: L >= 2 ? null : .45, pend: k === 2 && L >= 2 ? .3 : 0, eyes: k === 1 && (big || L >= 4) ? .08 : 0, lead: 1.5, tail: 2 })); }
+  for (const s of [-1, 1]) out.push(...crest([s < 0 ? x0 + cl : x1 - cl, y], [s, 0], half * (L >= 2 ? 1 : .8), 'a', r, seed + 5 + s, 'b'));
+  // the middle: his capital over the band (and, at the end of the work or on a fine page, hung under it too), an eye in each,
+  // its abacus closing the band's rule; else the lower rule run on under it
+  { const d = dome(cx - dw / 2, cx + dw / 2, y - gp / 2, 'a', 'b', r, seed + 30, -1, g); out.push(...d.marks); if (big || L >= 3) out.push(...crest(d.top, [0, -1], u * (big ? 2.4 : 1.9), 'a', r, seed + 32, 'b')); }
+  if (big || L >= 3) { const d = dome(cx - dw / 2 + g, cx + dw / 2 - g, y + gp / 2, 'a', 'b', r, seed + 40, 1, g); out.push(...d.marks);
+    if (big) out.push(...crest(d.top, [0, 1], u * 2, 'a', r, seed + 42, 'b')); }
+  else out.push(ph(drift([[cx - dw * .5, y + gp / 2], [cx + dw * .5, y + gp / 2]], .12, seed + 10, 30), 'a', seed + 10, { w: .5 * 1.15 }));
   return out;
 }
 const staffOn = () => (new URLSearchParams(globalThis.location?.search ?? '').get('staff') ?? choirbook.staff ?? 'on') !== 'off';   // (the stave goes with the staff)
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8) {
-  return rank < 2 && staffOn() ? stave(cx, y, measure, seed, rich, u) : wBreak(cx, y, measure, rank, seed, rich, u, true);
+  const L = lv(rich);
+  if (rank < 2) return staffOn() ? stave(cx, y, measure, seed, rich, u) : level(cx, y, Math.min(measure * .4, u * 19) * (L < 1 ? .8 : 1), u, seed, L);
+  return band(cx, y, rank > 2 ? Math.min(measure * .84, u * 48) : Math.min(measure * .6, u * 32), u, seed, L, rank);
 }
 
 // ---- frames ----------------------------------------------------------------------------------------------------------------------
-// 07's (approved), and for a quotation the column of 466773: a bundle of hairlines down its gutter, capped by a dome with
-// an eye in it whose feet curl out, its foot turned over, pendants and scallops down its outer side.
-function columnFrame({ x, lines, u, g = 2.4, seed, rich = .5 }) {
-  const r = stream(seed, 'column'), out = [], y0 = lines[0].top + u * .2, y1 = lines.at(-1).base + u * .35, n = rich >= .5 ? 3 : 2, xs = Array.from({ length: n }, (_, k) => x - k * g * 1.05);
-  xs.forEach((xk, k) => out.push(hair(wander([[xk, y0 + g * .6], [xk + (r() - .5) * .4, y1 - (k ? g * (1 + r()) : 0)]], .22, seed + k, 40), 'a', { w: k ? .48 : .56, start: 'cut', end: k ? 'taper' : 'cut' })));
-  out.push(hair(hook([x, y1], Math.PI / 2, u * .42, 1), 'a', { end: 'ball' }));
-  // the capital
-  const cx0 = xs.at(-1) - g * 1.1, cx1 = x + g * 1.1, span = cx1 - cx0, mid = (cx0 + cx1) / 2, rise = span * .48, base = y0;
-  out.push(hair(Array.from({ length: 25 }, (_, k) => [cx0 + span * k / 24, base - rise * Math.pow(Math.sin(Math.PI * k / 24), .8)]), 'a', { w: .5, start: 'cut', end: 'cut' }));
-  out.push(hair([[cx0 + g * .2, base], [cx1 - g * .2, base]], 'a', { w: .45, start: 'cut', end: 'cut' }));
-  const R = Math.min(rise * .3, span * .2); out.push(hair(arc([mid, base - rise * .44], R, 0, 2 * Math.PI + .2, 24), 'b', { w: .46, start: 'cut', end: 'cut' }), bead([mid, base - rise * .44], Math.max(.7, R * .3), 'b'));
-  out.push(hair(hook([cx0, base], Math.PI * 1.15, g * .9, 1), 'a', { end: 'ball' }), hair(hook([cx1, base], -.1, g * .9, -1), 'a', { end: 'ball' }));
-  // pendants and scallops down the outer side
-  if (rich >= .25) { const xo = xs.at(-1), step = g * 3.2;
-    for (let yy = y0 + g * 3, k = 0; yy < y1 - g * 3; yy += step, k++) { const pr = g * .7;
-      if (k % 2 === 0 || rich < .5) out.push(hair(arc([xo - pr * 1.02, yy], pr, 0, Math.PI * 2.08, 20), k % 4 === 0 && rich >= .75 ? 'b' : 'a', { w: .44, start: 'cut', end: 'cut' }), bead([xo - pr * 1.1, yy], .6, 'b'));
-      else out.push(hair(arc([xo - g * .38, yy], g * .85, Math.PI - 2.05, Math.PI + 2.05, 12), 'a', { w: .46, end: 'cut' })); } }
+// The quotation and the aside: the column of 466773 (a bundle of hairlines down the gutter, crowned with the dome, its foot
+// hooked, the staff's chain down its outer side). The figure: his box's frame, a double hairline round it, the chain strung
+// outside, eyes out at its corners, his crest over the middle of its head. The code: two of its corners. The pull quote: the
+// part's break above and below. The contents: the staff down its side, a stalk and an eye at each entry.
+function column(x, y0, y1, n, u, seed, L, { cap = L >= 2, col = 'a', colB = 'b' } = {}) {
+  const r = stream(seed, 'column'), out = [], xs = Array.from({ length: n }, (_, k) => x - k * G * 1.05);
+  xs.forEach((xk, k) => { const ln = drift([[xk, y0 + (cap ? G * .5 : 0)], [xk + (r() - .5) * .4, y1 - (k ? G * (1 + 5 * (k - 1)) : 0)]], .3, seed + k, 46), ft = k === 0 || k === n - 1 ? hk(ln.at(-1), Math.PI / 2, G * (1.3 + .3 * k), 1) : null;
+    out.push(ph([...ln, ...(ft?.slice(1) ?? [])], col, seed + k, { end: ft ? 'ball' : 'taper', w: k ? .48 * 1.15 : .58 * 1.15 })); });
+  if (cap) { const d = dome(xs.at(-1) - G * 1.1, x + G * 1.1, y0 + G * .5, col, colB, r, seed + 11); out.push(...d.marks); if (L >= 4) out.push(...crest(d.top, [0, -1], u * 1.7, col, r, seed + 12, colB)); }
+  else out.push(ph(hk([x, y0], -Math.PI / 2, G * 1.1, -1), col, seed + 10, { end: 'ball' }));
+  if (L >= 1) out.push(...strung([[xs.at(-1), y0 + G * 3], [xs.at(-1), y1 - (n > 1 ? G * (1 + 5 * (n - 2)) : 0)]], 1, r, seed + 20, { col, colB, runs: L >= 2 ? (L >= 3 ? null : .3) : .55, pend: L >= 2 ? .34 : 0, eyes: L >= 3 ? .12 : 0, hooks: L >= 4 ? .15 : 0, tail: 3 }));
   return out;
 }
-const pullFrame = ({ cx, yTop, yBot, measure, u, seed, rich = .5 }) => [...breakMark(cx, yTop, measure, 1, seed, rich, u), ...breakMark(cx, yBot, measure, 1, seed + 7, rich, u)];
-const frames = { quote: columnFrame, figure: figureFrame, code: codeFrame, pull: pullFrame, aside: asideFrame, nav: navFrame };
+function quoteFrame({ x, lines, u, seed, rich = .5 }) { const L = lv(rich); return column(x, lines[0].top + u * .2, lines.at(-1).base + u * .35, [1, 2, 3, 3, 4][L], u, seed, L); }
+function asideFrame({ box: [x0, y0, x1, y1], u, seed, rich = .5 }) {
+  const L = lv(rich), r = stream(seed, 'aside'), x = x0 + u * .25, yt = y0 + u * .45, out = column(x, yt, y1 - u * .2, L >= 3 ? 2 : 1, u, seed, L, { cap: false });
+  if (L >= 1) { const xe = x0 + (x1 - x0) * (L >= 3 ? .5 : .32), top = drift([[x, yt], [xe, yt + (r() - .5) * .4]], .14, seed + 2, 30), cr = L >= 3;
+    out.push(ph(cr ? top : [...top, ...hk(top.at(-1), 0, G * 1.15, -1).slice(1)], 'a', seed + 3, { end: cr ? 'taper' : 'ball' }));
+    out.push(...strung(top, -1, r, seed + 4, { runs: L >= 2 ? null : .5, pend: 0, eyes: L >= 4 ? .1 : 0, lead: 2, tail: 2 }));
+    if (cr) out.push(...crest(top.at(-1), [1, 0], u * 2, 'a', r, seed + 5, 'b')); }
+  return out;
+}
+function boxFrame([X0, Y0, X1, Y1], u, seed, L, { corners = null, foot = true } = {}) {
+  const r = stream(seed, 'boxframe'), out = [], gp = G * 1.05;
+  const sides = [[[X0, Y0], [X1, Y0], [0, -1]], [[X1, Y0], [X1, Y1], [1, 0]], [[X1, Y1], [X0, Y1], [0, 1]], [[X0, Y1], [X0, Y0], [-1, 0]]];
+  // (corners: the two of four a code frame keeps, each side then run a third of the way from its corner)
+  const seg = (a, b, k) => { if (!corners) return [[a, b]]; const Ls = Math.hypot(b[0] - a[0], b[1] - a[1]), t = Math.min(.34, u * 8 / Ls), o = [];
+    if (corners.includes(k)) o.push([a, add(a, unit(a, b), Ls * t)]); if (corners.includes((k + 1) % 4)) o.push([add(b, unit(b, a), Ls * t), b]); return o; };
+  const midTop = [(X0 + X1) / 2, Y0 - gp], capW = G * 8, hasCap = !corners && L >= 3;
+  sides.forEach(([a, b, n], k) => { for (const [p, q] of seg(a, b, k)) {
+    for (const d of L >= 1 ? [0, gp] : [0]) out.push(ph(drift([add(p, n, d), add(q, n, d)], .14, seed + k * 7 + d, 40), 'a', seed + k * 3 + d, { w: d ? .48 * 1.15 : .56 * 1.15 }));
+    const sideFree = k !== 2 || foot;
+    if (L >= 2 && sideFree) { const P0 = add(p, n, gp), Q0 = add(q, n, gp), side = Math.sign(-(Q0[1] - P0[1]) * n[0] + (Q0[0] - P0[0]) * n[1]) || 1;
+      out.push(...strung([P0, Q0], side, r, seed + 40 + k, { runs: L >= 3 ? null : .35, pend: L >= 3 ? .25 : 0, lead: 2.5, tail: 2.5, skip: hasCap && k === 0 ? pp => Math.abs(pp[0] - midTop[0]) < capW * .7 : null })); } } });
+  if (hasCap) { const d = dome(midTop[0] - capW / 2, midTop[0] + capW / 2, midTop[1], 'a', 'b', r, seed + 60); out.push(...d.marks); if (L >= 4) out.push(...crest(d.top, [0, -1], u * 1.8, 'a', r, seed + 61, 'b')); }
+  if (L >= 2) for (const [cx, cy, sx, sy, k] of [[X0, Y0, -1, -1, 0], [X1, Y0, 1, -1, 1], [X1, Y1, 1, 1, 2], [X0, Y1, -1, 1, 3]]) { if (corners ? !corners.includes(k) || L < 3 : !foot && sy > 0) continue;
+    const p = [cx + sx * gp, cy + sy * gp], d = [sx * .7071, sy * .7071];
+    if (L >= 4 || corners) out.push(...crest(p, d, u * 1.9, 'a', r, seed + 70 + k, 'b'));
+    else { const R = G, Ls = G * 1.3; out.push(ph([p, add(p, d, Ls)], 'a', seed + 70 + k, {}), ...eyeAt(add(p, d, Ls + R), R, 'a', r, seed + 80 + k, true, 'b')); } }
+  return out;
+}
+function figureFrame({ box: [x0, y0, x1, y1], u, seed, rich = .5 }) { const L = lv(rich), d = u * .9; return boxFrame([x0 - d, y0 - d, x1 + d, y1 + d], u, seed, L, { foot: false }); }
+function codeFrame({ box: [x0, y0, x1, y1], u, seed, rich = .5 }) { const L = lv(rich), d = u * .35; return boxFrame([x0 + d, y0 + d, x1 - d, y1 - d], u, seed, Math.min(L, 3), { corners: [0, 2] }); }
+const pullFrame = ({ cx, yTop, yBot, measure, u, seed, rich = .5 }) => lv(rich) < 1 ? [] : [...breakMark(cx, yTop, measure, 1, seed, rich, u), ...breakMark(cx, yBot, measure, 1, seed + 7, rich, u)];
+function navFrame({ box: [x0, y0, x1, y1], entries, x, u, seed, rich = .5 }) {
+  const L = lv(rich), r = stream(seed, 'nav'), out = [], ya = y0 - u * .6, yb = y1 + u * .5, st = drift([[x, ya], [x + (r() - .5) * .4, yb]], .3, seed + 1, 46), ft = hk(st.at(-1), Math.PI / 2, G * 1.4, 1);
+  const head = L >= 2 ? [] : hk(st[0], -Math.PI / 2, G * 1.1, -1).reverse();
+  out.push(ph([...head.slice(0, -1), ...st, ...ft.slice(1)], 'a', seed, { start: head.length ? 'ball' : 'taper', end: 'ball', w: .58 * 1.15 }));
+  if (L >= 2) out.push(...crest(st[0], [0, -1], u * 1.7, 'a', r, seed + 2, 'b'));
+  const ys = entries.filter(Boolean).map(e => e.base - u * .45);
+  ys.forEach((yy, k) => { const R = G * .95, xe = x + G * 1.5 + R, col = k % 2 ? 'b' : 'a';
+    out.push(ph([[x, yy], [xe - R, yy + (r() - .5) * .2]], 'a', seed + 10 + k, { w: .45 * 1.15 }), ...eyeAt([xe, yy], R, col, r, seed + 20 + k, L >= 3, col)); });
+  if (L >= 1) out.push(...strung(st, 1, r, seed + 30, { runs: L >= 2 ? null : .4, pend: L >= 2 ? .3 : 0, lead: 2, tail: 3, skip: p => ys.some(yy => Math.abs(p[1] - yy) < G * 1.6) }));
+  return out;
+}
+const frames = { quote: quoteFrame, figure: figureFrame, code: codeFrame, pull: pullFrame, aside: asideFrame, nav: navFrame };
 
 // ---- the style -------------------------------------------------------------------------------------------------------------------
-export const choirbook = { staff: 'on', label: 'Choir book', pair: ['red', 'blue'], alternate: true, minGap: 1.4,
-  // vermilion and azurite as 03 had them; the notes in the book's brown-black
-  ink: { red: { solid: [200, 66, 40], hair: RED_HAIR }, blue: { solid: [40, 70, 160], hair: [56, 84, 166] }, black: { solid: [44, 34, 27], hair: [58, 46, 36] }, flesh: { solid: [120, 52, 40], hair: [120, 52, 40] } },
+export const choirbook = { staff: 'on', label: 'Choir book', pair: ['red', 'blue'], alternate: true, minGap: 1.4, terms: [1, 0, 0, 0, 0],
+  // the paint as the drop's (minium, azurite), the hairline the drop's penwork ink (a fine pen's line reads lighter than the
+  // paint); the notes in the book's brown-black
+  ink: { red: { solid: PIGMENTS.minium.rgb, hair: INKS.azurite }, blue: { solid: PIGMENTS.azurite.rgb, hair: INKS.minium }, black: { solid: [44, 34, 27], hair: [58, 46, 36] }, flesh: { solid: [120, 52, 40], hair: [120, 52, 40] } },
   // dark (designed, not lifted): the pigments as they read on a stained or black leaf, brighter and more saturated than on
-  // parchment, vermilion toward the page's own rubric, azurite lifted to a clear ultramarine; 'f' the letters' deep ground coat
-  inkDark: { red: { solid: [232, 98, 62], hair: [238, 128, 98] }, blue: { solid: [78, 118, 238], hair: [140, 166, 238] }, black: { solid: [222, 212, 196], hair: [214, 204, 188] }, flesh: { solid: [74, 40, 74], hair: [74, 40, 74] } },
-  setup: seed => { const r = stream(seed, 'choirbook'); return { kinds: pickKinds(r, FILLERS, 3) }; },
-  kinds: (v, rich) => rich < .25 ? ['beads'] : rich < .5 ? ['beads', 'pendants'] : v.kinds,
-  paraph: (x, base, u, seed, rich) => wParaph(x, base, u, seed, rich),
-  filler, breakMark, initial, frames };
+  // parchment, vermilion toward the page's own rubric, azurite lifted to a clear ultramarine; the hairlines the drop's dark
+  // penwork; 'f' the letters' deep ground coat
+  inkDark: { red: { solid: [232, 98, 62], hair: INKS_DARK.azurite }, blue: { solid: [78, 118, 238], hair: INKS_DARK.minium }, black: { solid: [222, 212, 196], hair: [214, 204, 188] }, flesh: { solid: [74, 40, 74], hair: [74, 40, 74] } },
+  setup: seed => { const r = stream(seed, 'choirbook'); return { kinds: pickKinds(r, FILLERS, 2) }; },
+  kinds: (v, rich) => rich < .125 ? ['bare'] : rich < .375 ? ['pearls', 'pendants'] : v.kinds,
+  paraph, filler, breakMark, initial, frames,
+  // (the site's Adjust sets `staff` on the module, { mod: true }; the store keeps a drawing a setting)
+  get variant() { return 'staff=' + (choirbook.staff ?? 'on'); } };
 STYLES.choirbook = choirbook;
 export default choirbook;

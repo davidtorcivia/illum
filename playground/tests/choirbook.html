@@ -35,6 +35,7 @@
   p.par { text-indent: 1.6em; }
   hr { border: 0; height: 3.2em; margin: .4em 0; }
   hr[data-rank="2"] { height: 4.6em; }
+  hr[data-rank="3"] { height: 6em; }
   a { color: inherit; text-decoration-thickness: .5px; text-underline-offset: .18em; }
   nav.toc { margin: 0 0 4.2em; font-style: italic; }
   nav.toc ol { list-style: none; margin: 0; padding: 0; }
@@ -122,6 +123,7 @@
     <aside class="note">
       <p><b>The pilcrow.</b> The scribe left a gap at the head of a paragraph for the rubricator to paint a ¶ in red. When the rubricator ran out of time the gap stayed empty, and the empty gap became the paragraph indent.</p>
     </aside>
+    <hr data-rank="2">
 
     <h2 id="rank">Rank, not decoration</h2>
     <p>Ornament that marks everything marks nothing. In the book the ladder was strict: a painted initial opened a book, a penwork initial a chapter, a paraph a paragraph.</p>
@@ -134,7 +136,7 @@
 for (const el of boxes(document))
   draw(frameFor(el, measure(el), { rich, seed }));</code></pre>
     <p class="par">Nothing here covers or crowds a word. Take the frames away and the page is complete; put them back and it is a place.</p>
-    <hr data-rank="2">
+    <hr data-rank="3">
   </article>
 </main>
 <p class="colophon">Rubricated by illum, choir book, seed <span id="seed"></span>. <a href="?draw" id="redraw">Watch it written</a>.
