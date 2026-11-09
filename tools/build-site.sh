@@ -21,8 +21,9 @@ src=$here/playground site=$here/site
 rm -rf "$site/kit/styles" "$site/fonts"; rm -f "$site"/kit/*.js "$site/kit/hash.json"
 mkdir -p "$site/kit/styles" "$site/fonts"
 for m in illum registry all marks wayfinding initials frames penwork writer medium inkletter cache spray; do cp "$src/kit/$m.js" "$site/kit/"; done
-# (only the styles' committed modules: a style still being drawn in the tree is not shipped, nor in the library's hash)
-(cd "$here" && git ls-files -z 'playground/kit/styles/*.js' | xargs -0 cp -t "$site/kit/styles/")
+# (only the styles' committed modules, as committed: a style still being drawn in the tree is not shipped, nor work in
+# progress on one already in, nor in the library's hash)
+(cd "$here" && git ls-files -z 'playground/kit/styles/*.js' | while IFS= read -r -d '' f; do git show "HEAD:$f" > "$site/kit/styles/${f##*/}"; done)
 cp "$src"/fonts/*.woff2 "$src"/fonts/*.txt "$site/fonts/"
 mkdir -p "$site/fonts/kelmscott"; cp "$src"/fonts/kelmscott/*.woff2 "$src"/fonts/kelmscott/*.json "$src"/fonts/kelmscott/*.txt "$site/fonts/kelmscott/"
 # (Nouveau's letters are outlines read at run time; its .ttf files are the sources they were exported from, not shipped)
