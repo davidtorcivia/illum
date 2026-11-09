@@ -13,7 +13,7 @@
 // A stroke: {p: points, w: widths (one per point), c: true for a curve through the points (Catmull-Rom), cupA/cupB: a
 // cup mark at that end}; a letter may add {wheel: [cx, cy, R]} (its counter a sun-wheel's spokes).
 
-const S = .22, M = .14, T = .075;   // stem, middle, thin
+const S = .2, M = .15, T = .1;   // stem, middle, thin (stage 12: the contrast narrowed, 2:1, so the family keeps one weight and its joins stay full)
 export const ALPHA = {
   A: { w: .82, s: [{ p: [[.04, 1], [.41, 0]], w: [S, T + .02] }, { p: [[.41, 0], [.78, 1]], w: [T + .02, S + .02] }, { p: [[.2, .64], [.62, .64]], w: [T, T + .02] }] },
   B: { w: .7, s: [{ p: [[.1, 0], [.1, .5], [.1, 1]], w: [S - .02, S - .05, S] }, { p: [[.1, .02], [.42, 0], [.58, .2], [.42, .45], [.1, .48]], w: [T, M, M + .03, M - .02, T], c: 1 }, { p: [[.1, .5], [.48, .52], [.66, .75], [.48, .98], [.1, 1]], w: [T, M, S - .01, M, T], c: 1 }] },
@@ -44,7 +44,7 @@ export const ALPHA = {
 };
 
 // a curve through points (Catmull-Rom, n samples a span), widths following
-function curve(p, w, closed, n = 10) { const P = [], Wd = [], m = p.length, at = i => closed ? p[((i % (m - 1)) + (m - 1)) % (m - 1)] : p[Math.max(0, Math.min(m - 1, i))];
+function curve(p, w, closed, n = 16) { const P = [], Wd = [], m = p.length, at = i => closed ? p[((i % (m - 1)) + (m - 1)) % (m - 1)] : p[Math.max(0, Math.min(m - 1, i))];
   for (let i = 0; i < m - 1; i++) { const p0 = at(i - 1), p1 = p[i], p2 = p[i + 1], p3 = at(i + 2);
     for (let k = 0; k < n; k++) { const t = k / n, t2 = t * t, t3 = t2 * t;
       P.push([0, 1].map(j => .5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)));
@@ -58,9 +58,10 @@ function straight(p, w, n = 8) { const P = [], Wd = []; for (let i = 0; i < p.le
 export function letterStrokes(ch, x0, y0, H, r) { const L = ALPHA[ch] ?? ALPHA.I, out = [];
   for (const s of L.s) { let [P, Wd] = s.c ? curve(s.p, s.w, s.closed) : straight(s.p, s.w);
     const ph = r() * 6.28, n = P.length;
-    P = P.map(([x, y], i) => { const a = P[Math.max(0, i - 1)], b = P[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, o = .03 * Wd[i] * Math.sin(ph + i / n * 6);
+    P = P.map(([x, y], i) => { const a = P[Math.max(0, i - 1)], b = P[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, o = .015 * Wd[i] * Math.sin(ph + i / n * 4);
       return [x0 + (x - dy / l * o) * H, y0 + (y + dx / l * o) * H]; });
-    Wd = Wd.map((v, i) => v * H * (1 + .06 * Math.sin(ph * 1.7 + i / n * 5)));
+    Wd = Wd.map((_, i) => { let a = 0, k = 0; for (let j = Math.max(0, i - 4); j <= Math.min(n - 1, i + 4); j++) { a += Wd[j]; k++; } return a / k; })   // (the width eased along the stroke: no knots where two spans meet)
+      .map((v, i) => v * H * (1 + .04 * Math.sin(ph * 1.7 + i / n * 4)));
     out.push({ p: P, w: Wd, cupA: s.cupA, cupB: s.cupB }); }
   return { strokes: out, wheel: L.wheel ? [x0 + L.wheel[0] * H, y0 + L.wheel[1] * H, L.wheel[2] * H] : null, W: L.w * H };
 }

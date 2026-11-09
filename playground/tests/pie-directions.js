@@ -36,13 +36,25 @@ function painted(piece) { let v = SHIFTED.get(piece); if (v) return v;
   const ox = Math.ceil(Math.max(0, -x0 + pad)), oy = Math.ceil(Math.max(0, -y0 + pad)), W = Math.ceil(Math.max(piece.W, x1 + pad) + ox), H = Math.ceil(Math.max(piece.H, y1 + pad) + oy);
   const sh = ms.map(m => m.k === 'pit' ? { ...m, x: m.x + ox, y: m.y + oy } : m.p ? { ...m, p: m.p.map(([x, y]) => [x + ox, y + oy]) } : m);
   v = { ...piece, W, H, ox, oy, marks: () => sh }; SHIFTED.set(piece, v); return v; }
+// average SS x SS blocks of a supersampled ImageData down to w x h (colour weighted by its alpha)
+function down(img, w, h, SS) { const { width: W, data: A } = img, Hh = img.height, out = new ImageData(w, h), O = out.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let r = 0, gg = 0, b = 0, a = 0, n = 0;
+    for (let j = 0; j < SS; j++) { const yy = y * SS + j; if (yy >= Hh) continue; for (let i = 0; i < SS; i++) { const xx = x * SS + i; if (xx >= W) continue; const k = (yy * W + xx) * 4, al = A[k + 3]; r += A[k] * al; gg += A[k + 1] * al; b += A[k + 2] * al; a += al; n++; } }
+    const o = (y * w + x) * 4; if (a) { O[o] = r / a; O[o + 1] = gg / a; O[o + 2] = b / a; } O[o + 3] = n ? a / n : 0; }
+  return out; }
 export function print(key, theme, piece0, { zoom = 1, dpr = Math.min(2, devicePixelRatio || 1), live = false } = {}) {
   const piece = key === 'rock' ? painted(piece0) : piece0;
   const d = dpr * zoom, F = field(piece.W, piece.H, d), cv = document.createElement('canvas');
   cv.width = F.cw; cv.height = F.ch; cv.style.width = piece.W * zoom + 'px'; cv.style.height = piece.H * zoom + 'px';
   if (piece.ox || piece.oy) { cv.style.transform = `translate(${-piece.ox * zoom}px, ${-piece.oy * zoom}px)`; cv.dataset.ox = piece.ox; cv.dataset.oy = piece.oy; }
   const g = cv.getContext('2d'), look = LOOKS[key][theme](piece.u ?? 4);
-  if (key === 'rock') { if (live) return { cv, w: rockWriter(F, piece, look, g, { dur: piece.dur ?? 2400 }) }; g.putImageData(renderRock(F, piece, look), 0, 0); return cv; }
+  if (key === 'rock') { if (live) return { cv, w: rockWriter(F, piece, look, g, { dur: piece.dur ?? 2400 }) };
+    // (stage 12) on a 1x screen, printed at twice the device's resolution and averaged down, so a painted edge is antialiased: the paint's
+    // own edge is a threshold of the pecked hollow, a hard step in a single pixel otherwise. The edge zone still opens by
+    // the screen's own size (zdpr), so a 1x page stays as crisp as stage 6.
+    // (only below 1.5 device px a CSS px: at 2x a step is half a CSS px, and supersampling there would double the cost)
+    const SS = d < 1.5 ? 2 : 1; if (SS === 1) { g.putImageData(renderRock(F, piece, look), 0, 0); return cv; }
+    const S2 = field(piece.W, piece.H, d * SS), img = (S2.zdpr = d, renderRock(S2, piece, look)); g.putImageData(down(img, F.cw, F.ch, SS), 0, 0); return cv; }
   const marks = piece.marks(F);
   if (live) return { cv, w: writer(F, marks, look, g, { dur: piece.dur ?? 1800 }) };
   g.putImageData(render(F, marks, look), 0, 0); return cv;

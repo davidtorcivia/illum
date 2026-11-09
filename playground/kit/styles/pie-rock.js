@@ -53,7 +53,11 @@ export function stroke(p, w, rp, r, { brush = true, load = 1, hand: hd = 1 } = {
   else { const n = Math.ceil(W / (bw * .85)); for (let j = 0; j < n; j++) { const o = (j / (n - 1) - .5);
     const q = p.map((pt, i) => { const a = p[Math.max(0, i - 1)], b = p[Math.min(p.length - 1, i + 1)], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, wi = Array.isArray(w) ? w[i] : w;
       return [pt[0] - dy / l * o * (wi - bw * .7), pt[1] + dx / l * o * (wi - bw * .7)]; });
-    out.push({ k: 'brush', p: j % 2 ? q.slice().reverse() : q, w: bw, load }); } }
+    // (each lane runs on past the stroke's ends to the round cap's edge: the paint, kept to the pecked hollow, fills the
+    // whole round end instead of stopping square where the lane stopped)
+    const ext = (i, j2) => { const [x, y] = q[i], [x2, y2] = q[j2], l = Math.hypot(x - x2, y - y2) || 1, wi = Array.isArray(w) ? w[i] : w; return [x + (x - x2) / l * wi * .5, y + (y - y2) / l * wi * .5]; };
+    const qe = q.length > 1 ? [ext(0, 1), ...q, ext(q.length - 1, q.length - 2)] : q;
+    out.push({ k: 'brush', p: j % 2 ? qe.slice().reverse() : qe, w: bw, load }); } }
   return out; }
 
 // ---- the carver: every figure's grooves (caps: a path and its widths; polys: a traced outline) are laid as one area,
@@ -145,9 +149,9 @@ export function wheel(c, R, lw, rp, r) { const rim = loop(c, R, r), mx = c[0] + 
   return out; }
 // a ship (Tanumshede 7): the keel, heavy in the middle, running on past the bow into an up-curled prow; the gunwale over
 // it, joined to the keel at the stern; struts between them; the crew a comb of short strokes on the gunwale
-export function ship(x, y, L, h, lw, rp, r, { high = 1, double = false, sun = false } = {}) {
+export function ship(x, y, L, h, lw, rp, r, { high = 1, double = false, sun = false, maxH = Infinity } = {}) {
   // (its proportions kept: the traced aspect, stretched at most ±15 %; a short slot gets a smaller ship, centred, not a squashed one)
-  const Tw = tracedW('ship', 1), span = L + h * .4, Ht = Math.min(h * 2.1 * high * 1.3, span / Tw * high), wd = Math.min(span, Ht / high * Tw * 1.15), out = traced('ship', x - h * .2 + (span - wd) / 2, y + h * .12, Ht, 1, r, { wd, axis: 2, bw: Math.max(rp * 3, Ht * .07) });
+  const Tw = tracedW('ship', 1), span = L + h * .4, Ht = Math.min(h * 2.1 * high * 1.3, span / Tw * high, maxH), wd = Math.min(span, Ht / high * Tw * 1.15), out = traced('ship', x - h * .2 + (span - wd) / 2, y + h * .12, Ht, 1, r, { wd, axis: 2, bw: Math.max(rp * 3, Ht * .07) });
   if (double) out.push(...stroke(pts(t => [x + L * (.06 + .86 * t), y + h * .28 + h * .14 * Math.sin(Math.PI * t) ** .5], 30), swell(31, lw * .7, lw * 1.2, lw * .7), rp, r));   // a second keel line under the first
   if (sun) { const cx = x + L * (.45 + .1 * r()); out.push(...stroke([[cx, y - h * .5], [cx + h * .05 * gauss(r), y - h * 1.5]], [lw * 1.1, lw * .8], rp, r), ...wheel([cx, y - h * 1.9], h * .38, lw, rp, r)); }
   return out; }
@@ -247,20 +251,20 @@ const sm01 = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t);
 // drop-scale figures; (x, y) the ground point (between the feet), dir 1 faces right; g the groove's width
 const drawer = (x, y, s, dir, rp, r) => (pp, w) => stroke(pp.map(([u, v]) => [x + dir * u * s, y - v * s]), w, rp, r);
 // a horse (the Tanum horse at drop scale: a long body, the neck rising to a small head bowed forward, two legs a pair,
-// the pairs well apart); s its body's length. 'leap': legs flung fore and aft. antlers: a stag
-function pony(x, y, s, dir, g, rp, r, pose = 'stand', antlers = false) { const d = drawer(x, y, s, dir, rp, r), j = () => .025 * gauss(r);
+// the pairs well apart); s its body's length
+function pony(x, y, s, dir, g, rp, r) { const d = drawer(x, y, s, dir, rp, r), j = () => .025 * gauss(r);
   const out = [...d([[-.5, .56], [0, .58 + j()], [.42, .62]], [g * 1.45, g * 1.25, g * 1.55]), ...d([[.4, .64], [.56, .9], [.64, 1.04]], [g * 1.3, g, g * .9]), ...d([[.62, 1.05], [.84, .9 + j()]], [g * 1.05, g * .8]),
     ...d([[-.5, .58], [-.62, .42], [-.64, .24]], [g * .85, g * .7, g * .6])];
-  const legs = pose === 'leap' ? [[[.4, .6], [.62, .44], [.84, .4]], [[.32, .58], [.52, .36], [.72, .28]], [[-.38, .54], [-.62, .32], [-.8, .22]], [[-.46, .56], [-.72, .4], [-.92, .36]]]
-    : [[[.42, .58], [.46, .3], [.54, 0]], [[.32, .58], [.3, .3], [.27, 0]], [[-.34, .56], [-.32, .3], [-.29, 0]], [[-.46, .56], [-.5, .3], [-.57, 0]]];
+  const legs = [[[.42, .58], [.46, .3], [.54, 0]], [[.32, .58], [.3, .3], [.27, 0]], [[-.34, .56], [-.32, .3], [-.29, 0]], [[-.46, .56], [-.5, .3], [-.57, 0]]];
   for (const l of legs) out.push(...d(l.map(([u, v]) => [u + j(), v]), [g, g * .85, g * .75]));
-  if (antlers) out.push(...d([[.64, 1.06], [.56, 1.3], [.44, 1.42]], [g * .8, g * .7, g * .6]), ...d([[.58, 1.24], [.72, 1.38]], [g * .65, g * .55]));
-  else out.push(...d([[.62, 1.06], [.6, 1.18]], [g * .75, g * .6]));
+  out.push(...d([[.62, 1.06], [.6, 1.18]], [g * .75, g * .6]));
   return out; }
-// a crane standing; s its height
-function crane(x, y, s, dir, g, rp, r) { const d = drawer(x, y, s, dir, rp, r);
-  return [...d([[0, 0], [.02, .42]], [g * .75, g * .8]), ...d([[.13, 0], [.09, .42]], [g * .75, g * .8]), ...d([[-.3, .58], [-.02, .48], [.2, .5]], [g * .9, g * 1.75, g * 1.2]),
-    ...d([[.18, .52], [.28, .78], [.24, .98]], [g * .95, g * .8, g * .85]), ...d([[.23, .99], [.47, .93]], [g * .95, g * .55])]; }
+// a crane (s its height): 'stand', or 'dance' (wings raised)
+function crane(x, y, s, dir, g, rp, r, pose = 'stand') { const d = drawer(x, y, s, dir, rp, r);
+  const out = [...d([[0, 0], [.02, .42]], [g * .75, g * .8]), ...d([[.13, 0], [.09, .42]], [g * .75, g * .8]), ...d([[-.3, .58], [-.02, .48], [.2, .5]], [g * .9, g * 1.75, g * 1.2])];
+  out.push(...d([[.18, .52], [.28, .78], [.24, .98]], [g * .95, g * .8, g * .85]), ...d([[.23, .99], [.47, .93]], [g * .95, g * .55]));
+  if (pose === 'dance') out.push(...d([[-.04, .56], [-.2, .84], [-.4, .96]], [g * 1.1, g * .9, g * .7]), ...d([[.04, .56], [0, .86], [-.14, 1.02]], [g * 1.0, g * .85, g * .65]));
+  return out; }
 // a man (s his height): 'adore' arms raised and bent, 'hold' hands up as if bearing what is over him, 'axe' one arm up with
 // an axe, 'walk' striding
 function person(x, y, s, pose, dir, g, rp, r) { const d = drawer(x, y, s, dir, rp, r), j = () => .02 * gauss(r), walk = pose === 'walk';
@@ -286,72 +290,68 @@ function steps(a, b, n, len, g, rp, r) { const an = Math.atan2(b[1] - a[1], b[0]
 const ring = (c, u, v, R) => rings(c.P(u, v), c.at * R, c.g * .8, c.rp, c.r, 1);   // a cup and ring: where a spoked wheel is too small to keep its spokes open
 const COMPOSE = {
   A: [c => crane(...c.P(.41, -.05), c.at * .4, 1, c.g, c.rp, c.r),   // a crane on the apex
-    c => [...person(...c.P(.41, .99), c.at * .3, 'hold', 1, c.g, c.rp, c.r), ...cup(...c.P(.41, .45), c.at * .04, c.r)]],
-  B: [c => crane(...c.P(.36, -.06), c.at * .4, 1, c.g, c.rp, c.r),
-    c => pony(...c.P(.34, -.06), c.at * .3, 1, c.g, c.rp, c.r)],
-  C: [c => pony(...c.P(.42, .73), c.at * .3, 1, c.g, c.rp, c.r),
+    c => [...person(...c.P(.41, .99), c.at * .3, 'hold', 1, c.g, c.rp, c.r), ...cup(...c.P(.41, .45), c.at * .04, c.r)]],   // a man bearing up the bar; a cup in the gable
+  B: [c => crane(...c.P(.36, -.06), c.at * .4, -1, c.g, c.rp, c.r),
+    c => [...ring(c, .37, .75, .1), ...cup(...c.P(.32, .25), c.at * .045, c.r)]],
+  C: [c => pony(...c.P(.42, .73), c.at * .3, 1, c.g, c.rp, c.r),   // a horse in the C
     c => sun(c.P(.4, .5), c.at * .1, c.g * .75, c.rp, c.r, 9)],
   D: [c => wheel(c.P(.4, .5), c.at * .16, c.g * .75, c.rp, c.r),
     c => person(...c.P(.4, .88), c.at * .5, 'adore', 1, c.g, c.rp, c.r)],
-  E: [c => pony(...c.P(.35, -.05), c.at * .3, 1, c.g, c.rp, c.r),
-    c => person(...c.P(.3, -.06), c.at * .38, 'adore', 1, c.g, c.rp, c.r)],
-  F: [c => crane(...c.P(.36, .99), c.at * .4, 1, c.g, c.rp, c.r),
-    c => pony(...c.P(.34, -.05), c.at * .3, 1, c.g, c.rp, c.r, 'stand', true)],
+  E: [c => crane(...c.P(.42, -.06), c.at * .4, 1, c.g, c.rp, c.r),
+    c => crane(...c.P(.3, -.06), c.at * .4, -1, c.g, c.rp, c.r)],
+  F: [c => crane(...c.P(.36, .99), c.at * .4, 1, c.g, c.rp, c.r),   // a crane under the bar
+    c => crane(...c.P(.4, -.06), c.at * .4, 1, c.g, c.rp, c.r, 'dance')],
   G: [c => wheel(c.P(.4, .32), c.at * .12, c.g * .72, c.rp, c.r),
-    c => crane(...c.P(.42, -.05), c.at * .4, 1, c.g, c.rp, c.r)],
-  H: [c => crane(...c.P(.36, .45), c.at * .38, 1, c.g, c.rp, c.r),
-    c => person(...c.P(.38, .99), c.at * .43, 'hold', 1, c.g, c.rp, c.r),
-    c => pony(...c.P(.38, -.06), c.at * .4, 1, c.g, c.rp, c.r)],   // a horse bridging the stems
-  I: [c => (c.noCupA = 1, snake([c.P(-.14, .95), c.P(-.12, .5), c.P(-.1, .12), c.P(.0, -.1), c.P(.24, -.16)], c.at * .04, 2.5, c.g, c.rp, c.r)),   // a serpent climbing beside the stem, its head over the top
-    c => person(...c.P(.15, -.09), c.at * .38, 'adore', 1, c.g, c.rp, c.r),
-    c => steps(c.P(-.14, 1), c.P(-.12, .08), 4, c.at * .14, c.g, c.rp, c.r)],   // footsoles walking up beside it
-  J: [c => crane(...c.P(.16, .76), c.at * .4, -1, c.g, c.rp, c.r),
+    c => crane(...c.P(.42, -.05), c.at * .4, -1, c.g, c.rp, c.r)],
+  H: [c => crane(...c.P(.36, .45), c.at * .38, 1, c.g, c.rp, c.r),   // a crane on the crossbar
+    c => person(...c.P(.38, .99), c.at * .43, 'hold', 1, c.g, c.rp, c.r)],   // a man bearing it up
+  I: [c => snake([c.P(-.14, .95), c.P(-.12, .5), c.P(-.1, .12), c.P(.0, -.1), c.P(.24, -.16)], c.at * .04, 2.5, c.g, c.rp, c.r),   // a serpent climbing beside the stem
+    c => person(...c.P(.15, -.09), c.at * .38, 'adore', 1, c.g, c.rp, c.r)],
+  J: [c => crane(...c.P(.16, .76), c.at * .4, -1, c.g, c.rp, c.r),   // a crane standing in the hook
     c => person(...c.P(.44, -.09), c.at * .38, 'adore', 1, c.g, c.rp, c.r)],
   K: [c => crane(...c.P(.62, -.05), c.at * .38, 1, c.g, c.rp, c.r),
-    c => pony(...c.P(.4, -.05), c.at * .42, 1, c.g, c.rp, c.r)],   // a horse from the stem's top to the arm's
-  L: [c => crane(...c.P(.37, .87), c.at * .42, 1, c.g, c.rp, c.r),
+    c => crane(...c.P(.6, -.05), c.at * .4, 1, c.g, c.rp, c.r, 'dance')],
+  L: [c => crane(...c.P(.37, .87), c.at * .42, 1, c.g, c.rp, c.r),   // a crane on the foot
     c => person(...c.P(.38, .87), c.at * .48, 'adore', 1, c.g, c.rp, c.r)],
   M: [c => crane(...c.P(.11, -.05), c.at * .4, 1, c.g, c.rp, c.r),
     c => person(...c.P(.82, -.06), c.at * .38, 'adore', 1, c.g, c.rp, c.r)],
   N: [c => ring(c, .47, .22, .1),
-    c => person(...c.P(.32, .99), c.at * .33, 'adore', 1, c.g, c.rp, c.r),
-    c => pony(...c.P(.38, -.06), c.at * .4, 1, c.g, c.rp, c.r)],
-  O: [c => pony(...c.P(.5, -.08), c.at * .36, 1, c.g, c.rp, c.r),   // the sun-horse over the sun-wheel (Trundholm)
-    c => Array.from({ length: 9 }, (_, k) => { const a = Math.PI * (.55 + 1.0 * k / 8) + .06 * gauss(c.r), [cx, cy] = c.P(.42, .5), R0 = c.at * .54, R1 = c.at * (.66 + .03 * gauss(c.r)); return stroke([[cx + R0 * Math.cos(a), cy - R0 * Math.sin(a)], [cx + R1 * Math.cos(a), cy - R1 * Math.sin(a)]], [c.g * 1.1, c.g * .8], c.rp, c.r); }).flat()],   // rays round its back
-  P: [c => person(...c.P(.42, .99), c.at * .36, 'adore', 1, c.g, c.rp, c.r),
+    c => person(...c.P(.32, .99), c.at * .33, 'adore', 1, c.g, c.rp, c.r)],
+  O: [c => Array.from({ length: 9 }, (_, k) => { const a = Math.PI * (.55 + 1.0 * k / 8) + .06 * gauss(c.r), [cx, cy] = c.P(.42, .5), R0 = c.at * .54, R1 = c.at * (.66 + .03 * gauss(c.r)); return stroke([[cx + R0 * Math.cos(a), cy - R0 * Math.sin(a)], [cx + R1 * Math.cos(a), cy - R1 * Math.sin(a)]], [c.g * 1.1, c.g * .8], c.rp, c.r); }).flat(),   // rays round its back
+    c => crane(...c.P(.42, -.06), c.at * .4, -1, c.g, c.rp, c.r)],
+  P: [c => person(...c.P(.42, .99), c.at * .36, 'adore', 1, c.g, c.rp, c.r),   // a man raising his arms under the bowl
     c => ring(c, .36, .27, .12),
-    c => pony(...c.P(.45, .99), c.at * .26, 1, c.g, c.rp, c.r)],
-  Q: [c => pony(...c.P(.5, -.08), c.at * .36, 1, c.g, c.rp, c.r),
-    c => crane(...c.P(.42, -.08), c.at * .4, 1, c.g, c.rp, c.r)],
+    c => pony(...c.P(.45, .99), c.at * .26, 1, c.g, c.rp, c.r)],   // a horse under the bowl
+  Q: [c => crane(...c.P(.42, -.06), c.at * .4, 1, c.g, c.rp, c.r),
+    c => []],
   R: [c => crane(...c.P(.38, -.05), c.at * .4, 1, c.g, c.rp, c.r),
     c => ring(c, .36, .26, .11)],
-  S: [c => crane(...c.P(.32, -.05), c.at * .4, 1, c.g, c.rp, c.r),
-    c => pony(...c.P(.34, -.06), c.at * .3, 1, c.g, c.rp, c.r, 'stand', true)],
-  T: [c => pony(...c.P(.37, -.06), c.at * .34, 1, c.g, c.rp, c.r),
-    c => person(...c.P(.08, .99), c.at * .5, 'axe', -1, c.g, c.rp, c.r),
-    c => crane(...c.P(.6, -.06), c.at * .4, 1, c.g, c.rp, c.r)],
+  S: [c => crane(...c.P(.32, -.05), c.at * .4, -1, c.g, c.rp, c.r),
+    c => ring(c, .28, .74, .1)],
+  T: [c => crane(...c.P(.6, -.06), c.at * .4, 1, c.g, c.rp, c.r),
+    c => person(...c.P(.08, .99), c.at * .5, 'axe', -1, c.g, c.rp, c.r),   // a man under the arm
+    c => crane(...c.P(.16, -.06), c.at * .4, -1, c.g, c.rp, c.r)],
   U: [c => sun(c.P(.39, .36), c.at * .1, c.g * .75, c.rp, c.r, 8),
     c => person(...c.P(.39, .85), c.at * .48, 'adore', 1, c.g, c.rp, c.r)],   // a man standing in the hull
-  X: [c => pony(...c.P(.37, -.05), c.at * .42, 1, c.g, c.rp, c.r),
-    c => crane(...c.P(.06, -.06), c.at * .4, 1, c.g, c.rp, c.r)],
   V: [c => ring(c, .39, .17, .11),
-    c => pony(...c.P(.39, -.05), c.at * .44, 1, c.g, c.rp, c.r)],
+    c => crane(...c.P(.05, -.05), c.at * .4, -1, c.g, c.rp, c.r)],
   W: [c => ring(c, .75, .2, .1),
-    c => person(...c.P(.52, .15), c.at * .38, 'adore', 1, c.g, c.rp, c.r)],
+    c => person(...c.P(.52, .15), c.at * .38, 'adore', 1, c.g, c.rp, c.r)],   // a man on the middle peak
+  X: [c => crane(...c.P(.06, -.06), c.at * .4, 1, c.g, c.rp, c.r),
+    c => crane(...c.P(.68, -.06), c.at * .4, 1, c.g, c.rp, c.r, 'dance')],
   Y: [c => [[.12, .16, -.02, .04], [.24, .33, .1, .27], [.62, .2, .78, .1], [.52, .34, .66, .29]].flatMap(([u0, v0, u1, v1]) => stroke([c.P(u0, v0), c.P(u1, v1)], [c.g * 1.1, c.g * .75], c.rp, c.r))
-      .concat(stroke([c.P(.38, .97), c.P(.24, 1.08)], [c.g * 1.2, c.g * .8], c.rp, c.r), stroke([c.P(.38, .97), c.P(.52, 1.08)], [c.g * 1.2, c.g * .8], c.rp, c.r)),   // the Y the world-tree: branches, roots
-    c => pony(...c.P(.38, -.05), c.at * .42, 1, c.g, c.rp, c.r),
+      .concat(stroke([c.P(.38, .97), c.P(.24, 1.08)], [c.g * 1.2, c.g * .8], c.rp, c.r), stroke([c.P(.38, .97), c.P(.52, 1.08)], [c.g * 1.2, c.g * .8], c.rp, c.r)),   // the world-tree: branches, roots
     c => crane(...c.P(.07, -.09), c.at * .38, 1, c.g, c.rp, c.r)],
-  Z: [c => pony(...c.P(.35, -.04), c.at * .34, 1, c.g, c.rp, c.r),
-    c => crane(...c.P(.5, .88), c.at * .42, 1, c.g, c.rp, c.r),
-    c => person(...c.P(.15, .56), c.at * .4, 'adore', 1, c.g, c.rp, c.r)],
+  Z: [c => crane(...c.P(.5, .88), c.at * .42, 1, c.g, c.rp, c.r),   // a crane on the foot
+    c => person(...c.P(.15, .56), c.at * .4, 'adore', 1, c.g, c.rp, c.r),
+    c => crane(...c.P(.36, -.04), c.at * .4, -1, c.g, c.rp, c.r)],
 };
 export const dropWays = ch => (COMPOSE[ch] ?? []).length;
-function initial_(ch, H, seed, fs = 20) {
+function initial_(ch, H, seed, fs = 20, figs = 1) {
   const r = rng(seed * 13 + ch.charCodeAt(0)), ix = Math.max(0, ch.charCodeAt(0) - 65), lw = H * .045, rp = lw / 4.5, m = H * .05;
   const cap = H * .8, x0 = m, y0 = m, L = letterStrokes(ch, x0, y0, cap, r), W = Math.round(x0 + L.W + m * 1.4);
   const ways = COMPOSE[ch] ?? [], c = { P: (u, v) => [x0 + u * cap, y0 + v * cap], at: cap, g: Math.max(rp * 3.4, cap * .045), rp, r: rng(seed * 37 + ix) };
-  return piece(W, H, lw, F => { const out = [], fig = ways.length ? ways[(seed + ix) % ways.length](c) : [];
+  return piece(W, H, lw, F => { const out = [], fig = figs && ways.length ? ways[(seed + ix) % ways.length](c) : [];
     for (const s of L.strokes) { out.push(...stroke(s.p, s.w, rp, r, { hand: 0 })); if (s.cupA && !c.noCupA) out.push(...cup(s.p[0][0], s.p[0][1], s.w[0] * .62, r)); if (s.cupB && !c.noCupB) out.push(...cup(s.p.at(-1)[0], s.p.at(-1)[1], s.w.at(-1) * .62, r)); }
     if (L.wheel) { const [cx, cy, R] = L.wheel; out.push(...stroke([[cx - R, cy], [cx + R, cy]], [lw * .8, lw * .8], rp, r), ...stroke([[cx, cy - R], [cx, cy + R]], [lw * .8, lw * .8], rp, r)); }
     out.push(...fig); return out; }, { seed, dur: 3400 });
@@ -363,10 +363,11 @@ function lineInitial_(ch, fs, seed) { const r = rng(seed * 3 + ch.charCodeAt(0))
 // the paraph: a cup mark, or a little cup with a ring round it, or a footsole (by seed)
 function paraph_(fs, seed) { const r = rng(seed), R = fs * .27, lw = fs * .22, rp = lw / 4.5, k = pick(seed, 3, 3);
   return piece(fs * .9, fs * .9, lw, () => k === 0 ? cup(fs * .45, fs * .45, R, r) : k === 1 ? rings([fs * .45, fs * .45], R * 1.3, lw * .5, rp, r, 1) : foot(fs * .45, fs * .45, fs * .8, .2, lw * .8, rp, r), { seed, dur: 700 }); }
-// the filler: a ship as long as the gap (plain, high-prowed or double-hulled), or a serpent, or a rider and a deer
+// the filler: a ship as long as the gap (plain or double-hulled), kept within its own line: its prows never rise into the
+// line above (stage 12; the serpent and the small rider and deer are gone: at a line's height they read as a wavy rule
+// and a smudge)
 function filler_(w, lh, seed) { const r = rng(seed * 11 + Math.round(w)), h = lh * .62, lw = lh * .1, rp = lw / 4.5, H = Math.round(lh * 1.05), k = pick(seed, Math.round(w), 4);
-  return piece(w, H, lw, () => k === 1 ? serpent(h * .2, H * .6, w - h * .4, H * .14, 1, lw * 1.2, rp, r) : k === 2 && w > lh * 5 ? [...rider(lh * .8, H * .55, lh * .9, 1, lw * .8, rp, r), ...deer(w - lh * .8, H * .55, lh * .9, -1, lw * .8, rp, r)]
-    : ship(h * .45, H * .8, w - h * 1.1, h, lw, rp, r, { crew: w > 5 * h, high: k === 3 ? 1.6 : 1, double: k === 0 && w > 4 * h }), { seed, dur: 1800 }); }
+  return piece(w, H, lw, () => ship(h * .45, H * .8, w - h * 1.1, h, lw, rp, r, { crew: w > 5 * h, double: k === 0 && w > 4 * h, maxH: H * .9 }), { seed, dur: 1800 }); }
 // breaks. rank 1: cups (a row, a row joined by a channel, two footsoles); rank 2: a sign between a pair (the sun-wheel
 // between footsoles, the rayed sun between cups, a spiral between hands, rings between cranes); rank 3: a panel
 function brk_(rank, w, h, seed, variant = null) { const r = rng(seed * 17 + rank);
@@ -379,19 +380,17 @@ function brk_(rank, w, h, seed, variant = null) { const r = rng(seed * 17 + rank
     const side = k === 0 ? [foot(W * .14, H * .5, H * .62, -.12, lw, rp, r), foot(W * .86, H * .5, H * .62, .12, lw, rp, r)] : k === 1 ? [cup(W * .18, H * .5, H * .08, r), cup(W * .82, H * .5, H * .08, r)]
       : k === 2 ? [hand(W * .14, H * .62, H * .7, -.2, lw * .8, rp, r), hand(W * .86, H * .62, H * .7, .2, lw * .8, rp, r)] : [bird(W * .14, H * .62, H * .6, 1, lw * .8, rp, r), bird(W * .86, H * .62, H * .6, -1, lw * .8, rp, r)];
     return piece(W, H, lw, () => [...side[0], ...mid, ...side[1]], { seed, dur: 2000 }); }
-  const v = variant ?? pick(seed, 3, 7), W = Math.min(w, h * 4.4), H = h, lw = H * .042, rp = lw / 4.5, P = { seed, dur: 4200 };
+  // rank 3 (stage 12): one scene each, few figures and large, each legible at a page's 1x: the sun-ship, dawn, a rider under
+  // the sun, the ox cart, two lur-blowers (the myth panels, sky-father and serpent-slayer, are cut: they did not read)
+  const v = variant ?? pick(seed, 3, 5), W = Math.min(w, h * 4.4), H = h, lw = H * .042, rp = lw / 4.5, P = { seed, dur: 4200 };
+  if (v === 0) return piece(W, H, lw, () => [...ship(W * .2, H * .82, W * .58, H * .26, lw, rp, r, { maxH: H * .5 }), ...wheel([W * .5, H * .2], H * .15, lw, rp, r), ...stroke([[W * .5, H * .36], [W * .5 + H * .02 * gauss(r), H * .52]], [lw * 1.1, lw * .8], rp, r)], P);
   if (v === 1) return piece(W, H, lw, () => [...ship(W * .2, H * .78, W * .55, H * .26, lw, rp, r), ...stroke(arc([W * .47, H * .48], H * .2, Math.PI * 1.02, Math.PI * 1.98, 30), lw, rp, r),
-    ...[0, 1, 2, 3, 4].flatMap(k => { const a = Math.PI * (1.12 + .19 * k); return stroke([[W * .47 + H * .25 * Math.cos(a), H * .48 + H * .25 * Math.sin(a)], [W * .47 + H * .36 * Math.cos(a), H * .48 + H * .36 * Math.sin(a)]], [lw * .8, lw * .5], rp, r); }),
-    ...cup(W * .1, H * .3, H * .045, r), ...cup(W * .88, H * .34, H * .045, r)], P);
-  if (v === 2) return piece(W, H, lw, () => [...man(W * .3, H * .6, H * .6, lw * 1.1, rp, r, 'axe'), ...serpent(W * .45, H * .8, W * .48, H * .07, 1, lw * 1.1, rp, r), ...cup(W * .9, H * .25, H * .05, r)], P);
-  if (v === 3) return piece(W, H, lw, () => [...wheel([W / 2, H * .17], H * .12, lw, rp, r), ...traced('adorant', W / 2 - H * .25, H * .97, H * .64, 1, r, { axis: 2, bw: Math.max(rp * 3, H * .04) }), ...horse(W * .2, H * .6, H * .42, 1, lw, rp, r), ...horse(W * .8, H * .6, H * .42, -1, lw, rp, r)], P);
-  if (v === 4) return piece(W, H, lw, () => [...chariot(W * .12, H * .5, H * .95, lw, rp, r), ...rider(W * .72, H * .55, H * .38, -1, lw, rp, r), ...cup(W * .92, H * .2, H * .04, r)], P);
-  if (v === 5) return piece(W, H, lw, () => [...cart(W * .1, H * .6, W * .7, lw, rp, r), ...sun([W * .86, H * .3], H * .1, lw * .8, rp, r)], P);
-  if (v === 6) return piece(W, H, lw, () => [...lur(W * .3, H * .58, H * .55, 1, lw * 1.05, rp, r), ...lur(W * .7, H * .58, H * .55, -1, lw * 1.05, rp, r), ...sun([W / 2, H * .22], H * .09, lw * .8, rp, r)], P);
-  return piece(W, H, lw, () => [...ship(W * .06, H * .86, W * .4, H * .22, lw, rp, r, { double: true }), ...ship(W * .52, H * .62, W * .4, H * .22, lw, rp, r, { high: 1.6 }),
-    ...wheel([W * .72, H * .2], H * .13, lw, rp, r), ...stroke([[W * .72, H * .33], [W * .72, H * .44]], lw * .8, rp, r), ...horse(W * .25, H * .42, H * .34, 1, lw, rp, r), ...cup(W * .45, H * .18, H * .04, r), ...cup(W * .9, H * .9, H * .05, r)], P);
+    ...[0, 1, 2, 3, 4].flatMap(k => { const a = Math.PI * (1.12 + .19 * k); return stroke([[W * .47 + H * .25 * Math.cos(a), H * .48 + H * .25 * Math.sin(a)], [W * .47 + H * .36 * Math.cos(a), H * .48 + H * .36 * Math.sin(a)]], [lw * .8, lw * .5], rp, r); })], P);
+  if (v === 2) return piece(W, H, lw, () => [...pony(W * .4, H * .96, H * .55, 1, lw * 1.25, rp, r), ...((d, g) => [...d([[-.04, .6], [0, .82], [.02, 1.02]], [g * 1.5, g * 1.4, g * 1.2]), ...d([[.02, 1.12], [.03, 1.14]], [g * 2, g * 2]), ...d([[-.24, .9], [0, .96], [.26, .92]], [g * .9, g * 1.1, g * .9]), ...d([[0, .64], [.12, .46], [.1, .32]], [g * 1.1, g, g * .85])])(drawer(W * .4, H * .96, H * .55, 1, rp, r), lw * 1.25), ...wheel([W * .74, H * .28], H * .17, lw, rp, r)], P);
+  if (v === 3) return piece(W, H, lw, () => [...cart(W * .1, H * .6, W * .7, lw, rp, r), ...sun([W * .86, H * .3], H * .1, lw * .8, rp, r)], P);
+  return piece(W, H, lw, () => [...lur(W * .32, H * .58, H * .6, 1, lw * 1.1, rp, r), ...lur(W * .68, H * .58, H * .6, -1, lw * 1.1, rp, r), ...wheel([W / 2, H * .2], H * .15, lw, rp, r)], P);
 }
-export const BRK3 = ['a fleet under the sun', 'dawn (*h₂éwsōs): a rayed sun rising from a ship; a liberty', 'the serpent-slayer: an axe-bearer facing a serpent; a liberty', 'the sky-father (*dyēus ph₂tēr): an adorant under the wheel, the Twins as horses; a liberty', 'a Tanum chariot and a rider (Bronze Age Scandinavia)', 'an ox cart with solid wheels (the PIE-era layer: the Yamnaya wagons)', 'two lur-blowers under the sun'];
+export const BRK3 = ['the sun-ship: a ship under the sun-wheel on its pole', 'dawn (*h₂éwsōs): a rayed sun rising from a ship; a liberty', 'a rider under the sun', 'an ox cart with solid wheels (the PIE-era layer: the Yamnaya wagons)', 'two lur-blowers under the sun'];
 // the heading's run-out: a row of cup marks as they sit on the panels: spacing, size and depth uneven, running out smaller
 function runout_(w, h, seed) { const r = rng(seed * 19), H = Math.round(h * .62), lw = H * .3, out = []; let x = H * .5;
   while (x < w - H * .4) { const f = x / w, R = H * .3 * (1 - .5 * f) * (.8 + .4 * r()); out.push(...cup(x, H / 2 + H * .07 * gauss(r), R, r, .75 + .35 * r())); x += H * (.9 + .9 * r()) * (1 - .25 * f); }
@@ -399,7 +398,10 @@ function runout_(w, h, seed) { const r = rng(seed * 19), H = Math.round(h * .62)
 function frame_(kind, w, h, seed, fs = 20) { const r = rng(seed * 23 + kind.length), lw = fs * .22, rp = lw / 4.5, k = pick(seed, kind.length, 2);
   const rule = (x0, x1, y, wd) => { const ph = r() * 6.28; return stroke(pts(t => [x0 + (x1 - x0) * t, y + wd * .25 * Math.sin(ph + t * 7)], 40), Array.from({ length: 41 }, (_, i) => wd * (.7 + .3 * Math.sin(ph * 2 + i / 40 * 9) + .25 * Math.sin(Math.PI * i / 40))), rp, r); };
   if (kind === 'quote') { const W = fs * 1.6; return piece(W, h, lw, () => k ? xform(serpent(0, W * .5, h - fs * .4, W * .22, 1, lw * 1.1, rp, r), ([x, y]) => [y, x + fs * .2]) : tree(W * .5, h - fs * .2, h - fs * .4, lw, rp, r, Math.max(2, Math.floor(h / (fs * 1.2)))), { seed, dur: 1800 }); }
-  if (kind === 'pull') { const s = fs * 2.3; return piece(w, s * 1.3, lw, () => k ? [...lur(w / 2 - s * 1.1, s * .78, s * .9, 1, lw, rp, r), ...lur(w / 2 + s * 1.1, s * .78, s * .9, -1, lw, rp, r)] : [...horse(w / 2 - s * 1.1, s * .42, s, 1, lw * 1.1, rp, r), ...horse(w / 2 + s * 1.1, s * .42, s, -1, lw * 1.1, rp, r), ...wheel([w / 2, s * .32], s * .22, lw, rp, r)], { seed, dur: 2600 }); }
+  // the pull quote: two cranes facing each other, a sun-wheel or a cup between them (stage 12: the lur-blowers
+  // and horses here were too small to read)
+  if (kind === 'pull') { const s = fs * 2.6, g = lw * .95, y = s * 1.15; return piece(w, s * 1.3, lw, () => k ? [...crane(w / 2 - s * .6, y, s, 1, g, rp, r), ...cup(w / 2, y - s * .25, s * .09, r), ...crane(w / 2 + s * .6, y, s, -1, g, rp, r)]
+    : [...crane(w / 2 - s * 1.05, y, s, 1, g, rp, r), ...wheel([w / 2, s * .6], s * .26, lw * .9, rp, r), ...crane(w / 2 + s * 1.05, y, s, -1, g, rp, r)], { seed, dur: 2600 }); }
   if (kind === 'aside') return piece(w, h, lw, () => [[1, 1], [w - 1, 1], [1, h - 1], [w - 1, h - 1]].flatMap(([x, y]) => { const c = [x + Math.sign(w / 2 - x) * fs * .45, y + Math.sign(h / 2 - y) * fs * .45]; return k ? spiral(c, fs * .32, lw * .5, rp, r) : cup(c[0], c[1], fs * .17, r); }), { seed, dur: 1000 });
   if (kind === 'figure') return piece(w, h, lw, () => [...rule(fs * .3, w - fs * .3, fs * .3, lw * .85), ...rule(fs * .3, w - fs * .3, h - fs * .3, lw * .85)], { seed, dur: 1600 });
   if (kind === 'code') return piece(w, h, lw, () => [...rule(lw, w - lw, lw, lw * .5), ...rule(lw, w - lw, lw * 2.4, lw * .5)], { seed, dur: 1400 });

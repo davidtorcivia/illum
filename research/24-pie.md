@@ -844,3 +844,51 @@ Mock timings: 52–78 ms in view at dpr 1, 85–88 ms at dpr 2. Every piece at o
   - The crane in J's hook and on Z's foot partly fuse with the stroke.
   - The rings in V and W can read as an eye.
   - Y's branches are stubby.
+
+## Stage 12: the regression found; smooth lines; letters refined; clear scenes
+
+- **The note.** The user: "the letters feel scraggly … all the lines feel scraggly and aliased … the boat is cutting into
+  text … the small deer and hunter and sun are fucked up looking … I don't even know what the things on the model page
+  footer are … we regressed somewhere".
+- **The bisect** compared seven commits (00746af, dcc56ef, 9972b29, 68d69d5, 9b72a09, 8dd13d6, 7df05e3). Each rendered
+  the same drops, line initials, filler, breaks and panels at dpr 1 and 2, measured and looked at side by side.
+  - Canvas sizes always match their CSS size times dpr, and nothing resamples. Stage 10's resize to the paint's extent
+    changed no figure's pixels.
+  - The paint's edge was a near-binary step at every commit: 2–4 % of a piece's painted pixels are partial, from stage 6
+    on. So the aliasing is old, not a regression.
+  - **The regression is 9b72a09 / 8dd13d6 (stage 10).** Its size-based slimming eroded small traced figures and thinned
+    the horse and the man. The end panel's adorant lost his spear to fragments, and the horses' legs thinned.
+  - The fix (b486997, committed alone) removes it. Break and figure pieces again render pixel-identical to stage 9
+    (68d69d5) at dpr 1 and 2.
+  - Pieces that reach their box's edge differ by 0.05–2 % of pixels. That comes from stage 10's unclamped carving (the
+    clipping fix) and is kept.
+- **Smooth lines.**
+  - On a 1x screen a rock piece is now printed at twice the device resolution and averaged down. Partial edge pixels go
+    from 2–4 % to 10–30 %, so the edge is antialiased. The edge zone still opens by the screen's own size.
+  - At 2x a step is half a CSS pixel, and supersampling there would double the cost, so 2x is unchanged.
+  - A wider settle (1.8 pits) was tried and dropped: it thinned small figures to skeletons.
+  - A wide stroke's paint lanes now run on to the round cap's edge, so letters' ends are round and deliberate instead of
+    cut square where the lane stopped.
+- **The letters.**
+  - Contrast narrowed to 2:1 (stem .2, middle .15, thin .1 of the cap), so the family keeps one weight and its joins stay
+    full.
+  - Curves are sampled at 16 a span. The width is eased along the stroke, with no knots where spans meet.
+  - The hand's wander and breathing are halved (.015 and 4 %).
+- **The drops.**
+  - No horse, deer or stag perched on a letter.
+  - Cranes on letters, the user's favourite: standing, facing either way, or dancing with wings raised. Tried and dropped
+    at 1x: calling (neck up; it read as a twig) and feeding (it read as a lump).
+  - Inside figures stay: the horse in C and under P's bowl, men, wheels, rings and suns in counters. So do the
+    letters-turned-figure (the serpent by I, Y the tree, O rayed).
+  - The sun-horse on O and Q is gone with the other perched animals.
+- **Small pieces.**
+  - The filler is a ship only, held within its own line. Its prows rose into the line above at 390; the check caught
+    seeds 1, 5, 6 and 11. The serpent and the small rider and deer, which read as a wavy rule and a smudge, are gone.
+  - The pull quote's lur-blowers and horses are two cranes facing each other.
+  - The end panels are one scene each: the sun-ship, dawn, a rider under the sun, the ox cart, two lur-blowers. The
+    fleet, the serpent-slayer and the sky-father did not read, and are cut.
+- **Checks.** tests/pie-rock.check.mjs now also prints the mock with every piece at 1440 and 390, several seeds, and fails
+  if any painted pixel lies on a line of text. It passes, as does the clipping check at dpr 1 and 2.
+- **Speed (mock).**
+  - In view: 71–82 ms at dpr 1 (supersampled), 67–83 ms at dpr 2.
+  - Every piece: 412–428 ms at dpr 1, 383–432 ms at dpr 2, 297–314 ms at 390.
