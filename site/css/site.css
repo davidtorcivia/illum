@@ -35,7 +35,8 @@ code, pre { font-family: var(--mono); font-variant-ligatures: none; }
 .mast ul { display: flex; gap: 1.3rem; margin: 0; padding: 0; list-style: none; }
 .mast nav a { font: 1.2rem/1 var(--display); text-decoration: none; color: var(--quiet); }
 .mast nav a:hover, .mast nav a[aria-current] { color: var(--ink); }
-.mast .theme { font: italic 1.2rem/1 var(--display); text-transform: lowercase; color: var(--quiet); background: none; border: 0; padding: .3em 0; cursor: pointer; }
+/* the light and dark switch: a small word, not a third place */
+.mast .theme { font: italic var(--s-1)/1 var(--text); text-transform: lowercase; color: var(--quiet); background: none; border: 0; padding: .5em 0 .5em .2rem; min-height: 32px; cursor: pointer; }
 .mast .theme:hover { color: var(--ink); }
 
 /* a rubricated text, centred; its links (the contents list) are ornament, not underlined */
@@ -58,7 +59,7 @@ code, pre { font-family: var(--mono); font-variant-ligatures: none; }
 .sheet p code, .sheet td code { font-size: .82em; overflow-wrap: anywhere; }
 
 /* a plain list page (Sources) */
-.list { max-width: 900px; box-sizing: border-box; margin: 0 auto; padding: 90px 100px 0 200px; }
+.list { max-width: 900px; box-sizing: border-box; margin: 0 auto; padding: 84px 100px 0 200px; }
 .list h1 { font: 400 var(--s4)/1.05 var(--display); margin: 0 0 .4em; }
 .list h2 { font: 400 var(--s2)/1.2 var(--display); margin: 1.6em 0 .4em; }
 .list h2 a { text-decoration: none; }
@@ -95,15 +96,27 @@ code, pre { font-family: var(--mono); font-variant-ligatures: none; }
 .seg input:checked + span { color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .3em; }
 .seg input:focus-visible + span { outline: 2px solid currentColor; outline-offset: -4px; }
 .seg input:disabled + span { opacity: .4; cursor: not-allowed; }
-/* Adjust */
-.panel { flex-basis: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, max-content)); gap: 0 2.4rem; padding: .4rem 0 .6rem; font-size: var(--s-1); }
+/* Adjust: one column of rows on the text's own column, a label and then its choices; the page's settings, the
+   style's own, then the seed and the ground, each group parted by a little space */
+.panel { flex-basis: 100%; max-width: 600px; box-sizing: border-box; padding: .2rem 0 .9rem 8px; margin-bottom: .2rem; font-size: var(--s-1); border-bottom: 1px solid var(--rule); --lab: 6.6rem; }
 .panel[hidden] { display: none; }
-.panel .size, .panel .text, .panel .line { display: flex; align-items: center; gap: .6rem; min-height: 44px; }
-.panel .size label, .panel .text label, .panel .lab { font-style: italic; color: var(--quiet); }
-.panel .size input { width: 9rem; accent-color: var(--ink); }
-.panel .text input { font: inherit; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--rule); padding: .2em 0; width: 14rem; }
-.panel #seed { color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
-.panel button { font-style: italic; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: .2em; }
+.panel .group + .group { margin-top: .55rem; }
+.panel .group:empty { display: none; }
+.panel .seg { display: block; }
+.panel .seg legend, .panel .size label, .panel .text label, .panel .lab { float: left; width: var(--lab); margin: 0; padding: 0; font-style: italic; color: var(--quiet); line-height: 34px; }
+.panel .opts { display: flex; flex-wrap: wrap; overflow: hidden; }
+.panel .seg span { min-height: 34px; padding: 0 1rem 0 0; }
+.panel .size, .panel .text, .panel .line { display: flex; align-items: center; min-height: 34px; }
+.panel .size label, .panel .text label, .panel .lab { flex: none; }
+.panel .size input { width: 11rem; accent-color: var(--ink); margin: 0 .8rem 0 0; }
+.panel .size output { font-variant-numeric: lining-nums tabular-nums; }
+.panel .text input { font: inherit; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--rule); padding: .2em 0; width: 18rem; min-width: 0; }
+.panel .text input:focus { outline: none; border-bottom-color: currentColor; }
+.panel #seed { color: var(--ink); font-variant-numeric: lining-nums tabular-nums; margin-right: .9rem; }
+.panel button { min-height: 34px; min-width: 0; padding: 0; font-style: italic; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: .2em; }
+.panel button:hover { text-decoration-color: currentColor; }
+@media (pointer: coarse) { .panel .seg span, .panel .size, .panel .text, .panel .line, .panel button { min-height: 44px; }
+  .panel .seg legend, .panel .size label, .panel .text label, .panel .lab { line-height: 44px; } }
 
 /* the running head: a line over the specimen, set on the text's column, that stays at the top while the reader scrolls,
    with one rule under it, as a book's running head has */
@@ -140,9 +153,10 @@ code, pre { font-family: var(--mono); font-variant-ligatures: none; }
   .viewer { margin-top: .4rem; padding: 0 8px 0 12px; column-gap: 0; justify-content: space-between; }
   .viewer .current { font-size: 1.15rem; padding: 0 .15rem; }
   .viewer .step { min-width: 30px; padding: 0; }
-  .viewer .seg span { padding: 0 .3rem; }
+  .viewer .show span { padding: 0 .3rem; }
   .viewer .more { padding: 0 .2rem 0 .3rem; min-width: 0; }
-  .panel { grid-template-columns: 1fr; max-height: 60vh; overflow-y: auto; }
+  .panel { max-width: none; max-height: 62vh; overflow-y: auto; padding-left: 8px; --lab: 5.8rem; }
+  .panel .seg span { padding-right: .75rem; }
   .panel .size input, .panel .text input { flex: 1; width: auto; }
   .catalogue { width: 100vw; max-width: none; max-height: 86vh; margin: auto 0 0; }
   .catalogue form { padding: .6rem 16px 1.4rem; }

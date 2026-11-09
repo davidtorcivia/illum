@@ -18,7 +18,7 @@
 .sheet hr { border: 0; height: 3.4em; margin: .4em 0; }
 .sheet hr[data-rank="2"] { height: 9em; margin: 1em 0 0; }
 .sheet a { text-decoration-color: currentColor; text-decoration-thickness: .5px; text-underline-offset: .18em; }
-.sheet nav.toc { margin: 0 0 2.4em; font-style: italic; }
+.sheet nav.toc { margin: 0 0 2.4em; font-style: italic; text-align: left; hyphens: manual; }
 .sheet nav.toc ol { list-style: none; margin: 0; padding: 0; }
 .sheet blockquote { margin: 3em 0 1.6em; padding: 0 1.3em 0 1.4em; }
 .sheet blockquote p { margin: 0 0 .3em; }

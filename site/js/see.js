@@ -7,6 +7,8 @@ const $ = id => document.getElementById(id), esc = s => String(s).replace(/[&<>"
 const viewer = $('viewer'), dlg = $('catalogue'), panel = $('adjust'), more = $('more');
 const q = new URLSearchParams(location.search), asked = q.get('style');
 const seg = (name, opts, cur) => opts.map(([v, t]) => `<label><input type="radio" name="${name}" value="${esc(v)}"${v === cur ? ' checked' : ''}><span>${esc(t)}</span></label>`).join('');
+// a row of Adjust: its label, then its choices (wrapping under one another, never under the label)
+const row = (name, label, opts, cur) => `<legend>${label}</legend><div class="opts">${seg(name, opts, cur)}</div>`;
 
 // the catalogue: every style as its swatch, its name and a line of provenance, by family; one radio group, so the
 // arrow keys walk it and the choice shows behind the dialog at once
@@ -22,10 +24,10 @@ function dress(st) {
   const S = byKey[st.style];
   $('current-name').textContent = S.name; document.title = `${S.name} · See · illum`;
   $('credit').innerHTML = `${S.credit} <a href="sources.html#${S.key}">Sources</a>`;
-  $('rich').innerHTML = '<legend>Richness</legend>' + seg('rich', RICH.slice(0, S.rich + 1).map((t, i) => [String(i), t]), String(Math.min(S.rich, Math.round(st.rich * 4))));
-  $('scale').innerHTML = '<legend>Ornament</legend>' + seg('scale', SCALE.map(([v, t]) => [String(v), t]), String(st.scale));
+  $('rich').innerHTML = row('rich', 'Richness', RICH.slice(0, S.rich + 1).map((t, i) => [String(i), t]), String(Math.min(S.rich, Math.round(st.rich * 4))));
+  $('scale').innerHTML = row('scale', 'Ornament size', SCALE.map(([v, t]) => [String(v), t]), String(st.scale));
   $('own').innerHTML = (S.own ?? []).map(([k, label, o]) => Array.isArray(o)
-    ? `<fieldset class="seg"><legend>${label}</legend>${seg(k, o, st[k] ?? o[0][0])}</fieldset>`
+    ? `<fieldset class="seg">${row(k, label, o, st[k] ?? o[0][0])}</fieldset>`
     : `<div class="text"><label for="o-${k}">${label}</label><input type="text" id="o-${k}" name="${k}" value="${esc(st[k] ?? o)}" autocomplete="off" spellcheck="false"></div>`).join('');
   viewer.querySelectorAll('input[name=draw]').forEach(i => i.checked = i.value === st.draw);
   dlg.querySelectorAll('input[name=pick]').forEach(i => i.checked = i.value === st.style);
