@@ -54,5 +54,26 @@ try {
     const t0 = Date.now(); while (Date.now() - t0 < 2000) seen.push(await ink());   // (as often as a capture allows: a blank lasts tens of ms)
     const still = cached0 ? await again : true, ok = still && Math.min(...seen) >= Math.max(...seen) * .5 && Math.max(...seen) > 0; if (!ok) bad++;
     console.log(`cold ${style} ${width} ${theme} ${kind} run ${run}: ${ok ? 'ok' + (cached0 ? '' : ' (not baked: drawn live)') : !still ? 'a redraw went live: the cache key moved' : 'ink over 2 s ' + seen.join(' ')}`); await ctx.close(); }
+  // drawn (?draw, the pages plotted as you read): every piece must come in as the pen lays it. The page scrolled through a
+  // step at a time; in the page, each frame, the ink on the page's canvas and on each piece's own window while it grows. A
+  // piece laid on the page with no window grown first, or whose window had less than 80% of the ink it then lays, came in
+  // whole: a pop. (DRAW=0 skips; DRAWS=kind:rich:theme,... chooses.)
+  if (process.env.DRAW !== '0') for (const spec of env('DRAWS', 'section:.5:light,office:.5:light,section:1:dark,office:1:dark,section:.25:light')) {
+    const [kind, rich, theme] = spec.split(':'), p = await open(b, { width: 1440, height: 900, dpr: 1, dark: theme === 'dark' });
+    await p.evaluateOnNewDocument(() => { const log = window.__pops = [], grows = new Map(); let base = null, last = 0;
+      const inkOf = c => { if (!c.width || !c.height) return 0; let n = 0, g; try { g = c.getContext('2d'); } catch {} if (!g) return 0; const d = g.getImageData(0, 0, c.width, c.height).data; for (let k = 3; k < d.length; k += 12) if (d[k] > 40) n++; return n; };
+      const tick = () => { const cs = [...document.querySelectorAll('canvas')]; base ??= cs.find(c => !c.dataset.grow && c.width > 300 && c.height > 300 && (() => { try { return !!c.getContext('2d'); } catch { return false; } })());
+        const now = new Set(cs.filter(c => c.dataset.grow));
+        let gone = 0, at = ''; for (const [c, g] of grows) if (!now.has(c)) { gone += g.max; at += ` ${c.style.left},${c.style.top}`; grows.delete(c); }
+        for (const c of now) { const v = inkOf(c), g = grows.get(c) ?? { max: 0, steps: 0 }; if (g.max && v - g.max > g.max * 0 && v > g.max) g.jump = Math.max(g.jump ?? 0, v - g.max); g.max = Math.max(g.max, v); grows.set(c, g); }
+        if (base) { const v = inkOf(base); if (v - last > 40 && v - last > gone * 1.25 + 40) log.push({ t: Math.round(performance.now()), laid: v - last, grown: gone, at }); last = v; }
+        requestAnimationFrame(tick); };
+      addEventListener('load', () => requestAnimationFrame(tick)); });
+    await load(p, `${base}/playground/tests/plotter.html?kind=${kind}&rich=${rich}&theme=${theme}&draw#seed=3`, { reading: true, timeout: 240000 });
+    const H = await p.evaluate(() => document.documentElement.scrollHeight);
+    for (let y = 0; y <= H; y += 300) { await p.evaluate(y => scrollTo(0, y), y); await new Promise(r => setTimeout(r, 2200)); }
+    await new Promise(r => setTimeout(r, 6000));
+    const pops = await p.evaluate(() => window.__pops), seenAny = await p.evaluate(() => !!document.querySelector('canvas')); if (pops.length || !seenAny) bad++;
+    console.log(`drawn ${kind} rich ${rich} ${theme}: ${pops.length ? pops.length + ' pieces came in whole: ' + pops.slice(0, 5).map(q => `${q.laid} px laid, ${q.grown} grown${q.at ? ' at' + q.at : ''}`).join('; ') : 'ok'}`); await p.close(); }
 } finally { await b.close(); }
 if (bad) { console.log(`${bad} pages with paint on words`); process.exitCode = 1; }

@@ -12,7 +12,7 @@
 // and the fuller swatch, nothing busier. Every mark is placed clear of the words it stands beside.
 // Printed as rock is (kit/styles/rock.js): each piece its own canvas, kept by what it is; drawn (?draw), plotted as the
 // machine would, pen by pen, the nearest stroke next.
-import { printMany, writer, MM } from './plotter-pen.js';
+import { printMany, plan, MM, MACHINES } from './plotter-pen.js';
 import * as SEC from './plotter-section.js';
 import * as OFF from './plotter-office.js';
 import { make, hatch, hershey, hersheyBox, outline, line, shape, closed, rng, dashes } from './plotter-draw.js';
@@ -198,7 +198,7 @@ const frames = {
 // budget, the page's hand), wherever it stands, a page's together; drawn, plotted on its own canvas as the machine would,
 // then the still's.
 export const TIME = { build: 0, pieces: 0 };
-const MADE = new Map(), LIVE = new Set();
+const MADE = new Map();
 const PAD = 3;   // (the canvas's margin round the ink: plotter-pen.js print's pad)
 function keep(k, cv) { const m = { canvas: cv, w: cv.width, h: cv.height }; if (MADE.size > 400) MADE.clear(); MADE.set(k, m); return m; }
 function still(b, d, theme) { const k = [theme, d, b.bkey].join('|'); let m = MADE.get(k);
@@ -218,14 +218,25 @@ function print(made, { dpr = 1, animate = false, wait = false } = {}) {
   for (const b of made.letters ?? []) { if (b.shape !== 'plotter') continue;
     const X = b.x - PAD, Y = b.y - PAD, pour = { res: d, col: 'k', x0: X, y0: Y };
     if (animate) {
-      // (one of three plotters' sheets, taken while it draws: a page read quickly may have two pieces moving at once)
-      let w = null, slot = null; const fin = g => { const m = still(b, d, theme); g.drawImage(m.canvas, X, Y, m.w / d, m.h / d); };
-      const dur = Math.min(b.what === 'drop' ? 6 : 3, Math.max(.6, (writer(b.pc, theme, { dpr: d, max: 6 }).dur) / 1000));
+      // Drawn: the piece printed whole (its still, the very ink it will have) and shown through the path the pen has run so
+      // far, pen by pen, stroke by stroke in plot order, each at the machine's own time (kit/inkletter.js sweepIn, 'reveal':
+      // grow.fn draws the mask in page px). The path is the plan's own (kit/styles/plotter-pen.js plan): each sweep's centre
+      // and moment, so the ink comes in where and when the tip lays it, never a whole layer at once.
+      const fin = g => { const m = still(b, d, theme); g.drawImage(m.canvas, X, Y, m.w / d, m.h / d); };
+      const prog = plan({ ...b.pc, ox: b.pc.ox + PAD, oy: b.pc.oy + PAD }, theme, d, {}, true), lines = [];
+      const M = MACHINES[b.pc.machine ?? 'hp7475a'];
+      for (const L of prog.layers) { const lw = L.pen.w * MM * 1.5 * Math.max(1, M.beadW) + 2 / d;   // (the tip, its fringe, a bead, a gel pass's spread)
+        for (const S of L.strokes) { const o = S.ops, pts = []; for (let k = 0; k < o.length; k += 16) pts.push([X + o[k + 8] / d, Y + o[k + 9] / d, o[k + 15]], [X + o[k + 10] / d, Y + o[k + 11] / d, o[k + 15]]);
+          lines.push({ pts, w: lw, t0: pts[0]?.[2] ?? 0 }); } }
+      const total = Math.max(1, prog.dur), dur = Math.min(b.what === 'drop' ? 6 : 3, Math.max(.6, total / 1000));
       Object.assign(pour, { w: (b.w + 2 * PAD) * d, h: (b.h + 2 * PAD) * d, paint: fin,
-        grow: { mode: 'reveal', fn: (g, f) => {
-          if (f >= 1) { if (slot) { LIVE.delete(slot); slot = null; } return fin(g); }
-          if (!w) { slot = ['live-0', 'live-1', 'live-2'].find(k => !LIVE.has(k)); if (!slot) return; LIVE.add(slot); w = writer(b.pc, theme, { dpr: d, max: 6, slot }); }
-          w.at(f); g.drawImage(w.cv, X, Y, w.cv.width / d, w.cv.height / d); } } });
+        grow: { mode: 'reveal', fn: (g, f) => { if (f >= 1) return fin(g); const T = f * total;
+          g.save(); g.lineCap = g.lineJoin = 'round'; g.strokeStyle = '#000';
+          for (const l of lines) { if (l.t0 > T) break; g.lineWidth = l.w; g.beginPath(); let n = 0;
+            for (const [x, y, t] of l.pts) { if (t > T) break; n++ ? g.lineTo(x, y) : g.moveTo(x, y); }
+            if (n === 1) g.lineTo(l.pts[0][0] + .01, l.pts[0][1]);   // (the pen just down: its dot)
+            if (n) g.stroke(); }
+          g.restore(); } } });
       seq.push({ pour, d: dur });
     } else {
       const m = wait ? later(b, d, theme) : still(b, d, theme), place = m => Object.assign(pour, { w: m.w, h: m.h, paint: g => g.drawImage(m.canvas, X, Y, m.w / d, m.h / d) });
