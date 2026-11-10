@@ -49,5 +49,8 @@ export const CATALOGUE = [
   { key: 'draft', name: 'Draft', family: 'technical', line: 'Apollo drawings, MIT, 1963–66', rich: 4,
     credit: 'After the Apollo guidance drawings of the MIT Instrumentation Laboratory, 1963–66. National Archives.',
     own: [['set', 'Initial', [['part', 'In section'], ['views', 'Two views'], ['leroy', 'Lettering']]]] },
+  { key: 'plotter', name: 'Plotter', family: 'technical', line: 'Pen plotters, 1965 to now: the AxiDraw’s section lines, the HP 7475A’s drawing office', rich: 4,
+    credit: 'After pen-plotter drawings, the line measured on Calcomp plots by Judson Rosebush (<i>Letter Field</i>, 1978) and Digital Effects (1977), CC BY-SA 3.0, Wikimedia Commons. The letters in Hershey Roman (A. V. Hershey, U.S. National Bureau of Standards, 1967) and Jost (SIL Open Font License).',
+    own: [['kind', 'Machine', [['section', 'Section lines'], ['office', 'The drawing office']], { mod: true }]] },
 ];
 export const byKey = Object.fromEntries(CATALOGUE.map(s => [s.key, s]));
