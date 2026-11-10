@@ -17,6 +17,7 @@ import './styles/deco.js';
 import './styles/choirbook.js';
 import './styles/copperplate.js';
 import './styles/rock.js';
+import './styles/plotter.js';
 import { loadAll } from './illum.js';
 await loadAll();   // (all here already: this only puts them in the registry, in its order)
 export * from './illum.js';
