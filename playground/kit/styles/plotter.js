@@ -247,7 +247,9 @@ export const plotter = { label: 'Plotter', minGap: 2, theme: { rubric: 'rgb(187 
   setup: SEED => { PAGE = SEED >>> 0 || 1; return {}; }, kinds: (v, rich) => rich < .25 ? ['none'] : ['row'],
   fillAt: { gap: .6, head: 3, rise: 1 }, steady: ['drop'],
   paraph, filler, breakMark, initial, frames, palette, print, timeline,
-  // kind: 'section' (B, the default) | 'office' (A)
-  set kind(v) { KIND = v === 'office' ? 'office' : 'section'; }, get kind() { return KIND; },
-  get variant() { return KIND; } };
+  // kind: 'section' (B, the default) | 'office' (A). No `variant` getter: rubricate's cache key would gain the kind only
+  // once the module is in the registry, so a page's first render (a baked page) and its next (a redraw) would ask for
+  // two keys, and the second, finding nothing, would clear the baked ornament and draw it again (a pop). A host that
+  // switches kinds names the kind in its `variant` option, as the site does ('kind=section').
+  set kind(v) { KIND = v === 'office' ? 'office' : 'section'; }, get kind() { return KIND; } };
 export default plotter;

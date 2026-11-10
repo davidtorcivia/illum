@@ -3,7 +3,8 @@
 // dark, the page drawn still; every text line on the page (its body, headings, contents, quotation, caption, pull quote,
 // aside, code; the drop's own letter excepted) against every inked pixel of the ornament's canvases, and the canvases' own
 // edges (ink there was cut off). Fails on any. Needs the playground served (default http://localhost:8000).
-// env: RICH=0,.25,.5,.75,1  SEEDS=1,2,3,7  W=1440,390  THEMES=light,dark  KINDS=section,office  SITE=http://127.0.0.1:port (a built site)
+// env: RICH=0,.25,.5,.75,1  SEEDS=1,2,3,7  W=1440,390  THEMES=light,dark  KINDS=section,office  SITE=http://127.0.0.1:port (a built
+// site: its see page as well, and cold loads of it, which must have their ornament from the moment they say they have drawn)
 import { launch, open, load } from '../../tools/chrome.mjs';
 const base = process.argv[2] ?? 'http://localhost:8000', b = await launch(), env = (k, d) => (process.env[k] ?? d).split(',');
 let bad = 0;
@@ -31,5 +32,19 @@ try {
     if (hits.length) bad++;
     console.log(`${width} ${theme} ${tag}: ${hits.length ? hits.slice(0, 6).join('; ') + (hits.length > 6 ? ` (+${hits.length - 6})` : '') : 'ok'}`); await p.close();
   }
+  // a cold load of the built site's see page (SITE=url, a baked build): in a fresh context (no store, no cache), the
+  // ornament must be there when the page says it has drawn, and stay: sampled from then for 2 s, no sample may fall below
+  // half the most ink seen (a redraw that clears the baked ornament and draws it again is a pop)
+  if (process.env.SITE) for (const width of env('W', '1440,390').map(Number)) for (const kind of env('KINDS', 'section,office')) for (const theme of env('THEMES', 'light,dark')) for (let run = 0; run < 3; run++) {
+    const ctx = await b.createBrowserContext(), p = await open(ctx, { width, height: 900, dpr: 1, dark: theme === 'dark' });
+    await load(p, `${process.env.SITE}/see.html?style=plotter${kind === 'office' ? '&kind=office' : ''}&x=${Math.random()}`, { timeout: 120000 });
+    // (what the reader sees: the drop's float, its own letter transparent, screenshotted and its ink counted in the page)
+    const R = await p.evaluate(() => { const r = document.querySelector('.ini.drop').getBoundingClientRect(); return { x: r.left + scrollX, y: r.top + scrollY, width: r.width, height: r.height }; });
+    const ink = async () => { const png = await p.screenshot({ clip: R, encoding: 'base64' });
+      return p.evaluate(async src => { const im = new Image(); im.src = 'data:image/png;base64,' + src; await im.decode(); const c = new OffscreenCanvas(im.width, im.height), g = c.getContext('2d'); g.drawImage(im, 0, 0);
+        const d = g.getImageData(0, 0, im.width, im.height).data, P = [d[0], d[1], d[2]]; let n = 0; for (let k = 0; k < d.length; k += 4) if (Math.abs(d[k] - P[0]) + Math.abs(d[k + 1] - P[1]) + Math.abs(d[k + 2] - P[2]) > 90) n++; return n; }, png); };
+    const t0 = Date.now(), seen = []; for (const t of [0, 150, 300, 600, 1200, 2000]) { await new Promise(r => setTimeout(r, Math.max(0, t - (Date.now() - t0)))); seen.push(await ink()); }
+    const ok = Math.min(...seen) >= Math.max(...seen) * .5 && Math.max(...seen) > 0; if (!ok) bad++;
+    console.log(`cold ${width} ${theme} ${kind} run ${run}: ${ok ? 'ok' : 'ink over 2 s ' + seen.join(' ')}`); await ctx.close(); }
 } finally { await b.close(); }
 if (bad) { console.log(`${bad} pages with paint on words`); process.exitCode = 1; }
