@@ -71,12 +71,12 @@ export function manifest(baked) {
   return manifests.get(url);
 }
 
+// (every band decoded first, then the canvas cleared and all of them laid in one task: the reader never sees it empty
+// between, as a page drawn again from the store, on a redraw, would otherwise flash)
 export async function paint(rec, c, host) {
+  const bms = await Promise.all(rec.bands.map(b => createImageBitmap(b.blob)));
   c.width = rec.W; c.height = rec.H; Object.assign(c.style, { width: rec.w + 'px', height: rec.h + 'px' });
-  const g = c.getContext('2d'), fold = (innerHeight - host.getBoundingClientRect().top) * rec.W / rec.w;
-  const order = [...rec.bands].sort((a, b) => (a.y > fold) - (b.y > fold));
-  const bms = order.map(b => createImageBitmap(b.blob));
-  for (let i = 0; i < order.length; i++) { const bm = await bms[i]; g.drawImage(bm, 0, order[i].y); bm.close(); }
+  const g = c.getContext('2d'); rec.bands.forEach((b, i) => { g.drawImage(bms[i], 0, b.y); bms[i].close(); });
 }
 
 export async function remember(key, rec, c) {

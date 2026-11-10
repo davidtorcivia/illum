@@ -635,8 +635,14 @@ export function rubricate(root, opts = {}) {
   const keyOf = () => { const { on, host: _h, cache, baked, ...rest } = o, cs = getComputedStyle(root), dpr = Math.min(2, devicePixelRatio || 1);
     return [hashText(text), Math.round(host.getBoundingClientRect().width), JSON.stringify(rest, (k, v) => typeof v === 'function' ? String(v) : v), themeMode(), dpr,
       ...['--paper', '--ink', '--rubric'].map(v => cs.getPropertyValue(v).trim()),
-      // (a style with settings of its own, its `variant`: a getter on it that names them, so the store keeps one drawing per setting)
-      ...(STYLES[o.style]?.variant != null ? [STYLES[o.style].variant] : [])].join('|'); };
+      // (a style with settings of its own, its `variant`: a getter on it that names them, so the store keeps one drawing per
+      // setting; unless the host names them itself, in its own `variant` option, which is then the whole of it: the key is
+      // the same before the style's module is loaded and after)
+      ...(o.variant == null && (WRITTEN[o.style] ? own[o.style] : STYLES[o.style])?.variant != null ? [(WRITTEN[o.style] ? own[o.style] : STYLES[o.style]).variant] : [])].join('|'); };
+  // (a host that names no variant, with a written style not yet in the registry: its getter's part of the key is not known
+  // until its module is, so the key waits for it, or a page drawn from the store would ask again under another key once
+  // the module came, find nothing and draw it all again)
+  const known = () => o.variant != null || !WRITTEN[o.style] || !!own[o.style];
   const inis = () => [...root.querySelectorAll({ ...SELECT, ...o.select }.initial)];
   const setStyles = (els, list) => els.forEach((e, i) => list[i] == null ? e.removeAttribute('style') : e.setAttribute('style', list[i]));
   // a record laid if the text falls where it fell (its initials set first, as they were when it was drawn); else nothing changed
@@ -650,7 +656,8 @@ export function rubricate(root, opts = {}) {
   const ready = () => Promise.all(keys().map(k => STYLES[k]?.initial?.load?.(o.initial ?? {}))).catch(e => console.warn('illum:', e));
   // The store is asked at once, before the fonts are in; and the page's styles and the engine start loading at once too,
   // beside it (a page drawn from the store never waits for them; a page drawn live never waits on the store)
-  const k0 = cacheOn() && (still.matches || o.draw === 'still') ? keyOf() : null, early = k0 ? lookup(k0, lib, baked()) : null;
+  const k0 = cacheOn() && (still.matches || o.draw === 'still') && known() ? keyOf() : null, early = k0 ? lookup(k0, lib, baked()) : null;
+  let shown = null;   // (the stored record the canvas holds now)
   load().catch(() => {});
 
   // the cases measured and the registry's marks made and scored (a written style's are made when their turn comes)
@@ -687,13 +694,15 @@ export function rubricate(root, opts = {}) {
   async function render(m) {
     cancelAnimationFrame(raf); io?.disconnect(); sentinels.forEach(n => n.remove()); sentinels = []; settle(); const tok = ++gen;
     const t00 = performance.now(), cacheable = cacheOn() && (still.matches || m === 'still');
+    if (cacheable && !known()) { await loadStyles([o.style]).catch(() => {}); if (!alive || tok !== gen) return; }
     const key = cacheable ? keyOf() : null, rec = key ? await (key === k0 ? early : lookup(key, lib, baked())) : null;
     if (!alive || tok !== gen) return;
     if (rec && fits(rec)) { first = false; mode = 'still'; W?.destroy(); W = null; pre?.destroy(); pre = null; live.width = live.height = 0;
-      await paint(rec, base, host); if (!alive || tok !== gen) return;
+      // (the record already on the canvas, asked for again by a redraw: left as it is)
+      if (rec !== shown || base.width !== rec.W || base.height !== rec.H) await paint(rec, base, host); if (!alive || tok !== gen) return; shown = rec;
       const ms = Math.round(performance.now() - t00); state = { seed: rec.seed, cached: true, items: [], sr: host.getBoundingClientRect() };
       done('drawn', { grow: 0, draw: ms, view: ms, all: ms, parts: 0, cached: true }); return; }
-    await load(); if (!alive || tok !== gen) return;
+    shown = null; await load(); if (!alive || tok !== gen) return;
     warm();
     await ready();
     if (first) { first = false; await new Promise(r => requestAnimationFrame(() => setTimeout(r))); }   // the text is painted before any ornament
