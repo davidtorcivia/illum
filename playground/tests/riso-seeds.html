@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duplicator seeds</title>
+<!-- Duplicator (kit/styles/riso.js) on its specimen (tests/riso.html) at six seeds, side by side: each page's own three printer's
+     marks and their rhythm, the hand only where it points (the contents' first entry, the first paraph, the first part's
+     break). ?rich=0..1 (default .75)  ?theme=light|dark -->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); }
+  html { background: #E6E1D6; } body { margin: 0; padding: 20px; font: 17px/1.4 "EB Garamond", serif; color: #27241F; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, 460px); gap: 16px; }
+  figure { margin: 0; } figcaption { margin: 4px 0 0; font-style: italic; }
+  .frame { width: 460px; height: 1150px; overflow: hidden; } iframe { width: 920px; height: 2300px; border: 0; transform: scale(.5); transform-origin: 0 0; }
+</style>
+</head>
+<body>
+<p>Duplicator at six seeds (<a href="riso.html">the specimen</a>): each page picks three of the printer’s marks (asterisk, lozenge, square on its corner, arrowhead, aldus leaf, double bar) for its paraphs, fillers and run-outs, in turn; the hand points at the contents’ first entry, the first paraph and the first part’s break.</p>
+<div class="grid" id="g"></div>
+<script>
+  // (the query's values never reach markup: rich a number in [0, 1], theme one of two words, the frames built as elements)
+  const q = new URLSearchParams(location.search), r = parseFloat(q.get('rich')), rich = String(Number.isFinite(r) ? Math.min(1, Math.max(0, r)) : .75);
+  const theme = q.get('theme') === 'dark' ? 'dark' : 'light', g = document.getElementById('g');
+  for (const s of [1, 2, 3, 7, 11, 42]) {
+    const fig = document.createElement('figure'), box = document.createElement('div'), fr = document.createElement('iframe'), cap = document.createElement('figcaption');
+    box.className = 'frame'; fr.src = 'riso.html?' + new URLSearchParams({ rich, theme }) + '#seed=' + s; fr.title = 'seed ' + s; fr.loading = 'lazy'; cap.textContent = 'seed ' + s;
+    box.append(fr); fig.append(box, cap); g.append(fig); }
+  document.body.dataset.timing = 'ok';
+</script>
+</body>
+</html>

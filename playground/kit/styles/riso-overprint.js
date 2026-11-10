@@ -112,18 +112,37 @@ export function initial(ch, H, seed, fs, o = {}) {
 }
 
 // a paraph: the hand, pointing into the paragraph
-export function paraph(fs, seed) { const W = 1.45 * fs, H = 1.1 * fs; return { W, H, draw: { a: g => manicule(g, seed * 7 + 1, W / 2, H / 2, 1.15 * fs, 1) } }; }
+// ---- the printer's marks: the hand's company, one cut shape each, one ink, clear at 19 px ----------------------------------------
+// asterisk (six knife-cut points), lozenge (four knife cuts), a square on its corner with a square cut out, an arrowhead (barbed),
+// the aldus leaf (a heart of four scissor cuts on a short cut stem), a double bar. Centred on (cx, cy), about s across.
+export const MARKS = ['asterisk', 'lozenge', 'square', 'arrowhead', 'leaf', 'bars'];
+function cutMark(g, base, kind, cx, cy, s) {
+  const rnd = own(base, cx, cy, s, MARKS.indexOf(kind)), P = (pts, sag) => cutShape(g, pts.map(([x, y]) => [cx + x * s, cy + y * s]), sag, rnd);
+  if (kind === 'hand') return manicule(g, base, cx, cy, s * 1.15, 1);
+  if (kind === 'asterisk') { const pts = []; for (let i = 0; i < 12; i++) { const a = -Math.PI / 2 + i * Math.PI / 6 + (rnd() - .5) * .05, r = i % 2 ? .1 : .4 * (1 + (rnd() - .5) * .1); pts.push([Math.cos(a) * r, Math.sin(a) * r]); } return P(pts, pts.map(() => 0)); }
+  if (kind === 'lozenge') return P([[0, -.34], [.3, 0], [0, .34], [-.3, 0]], [0, 0, 0, 0]);
+  if (kind === 'square') { P([[0, -.3], [.3, 0], [0, .3], [-.3, 0]], [0, 0, 0, 0]); g.globalCompositeOperation = 'destination-out'; P([[0, -.09], [.09, 0], [0, .09], [-.09, 0]], [0, 0, 0, 0]); g.globalCompositeOperation = 'source-over'; return; }
+  if (kind === 'arrowhead') return P([[.32, 0], [-.22, -.26], [-.1, 0], [-.22, .26]], [.02, 0, 0, .02]);
+  if (kind === 'leaf') { P([[.38, 0], [.02, -.26], [-.26, -.17], [-.13, 0], [-.26, .17], [.02, .26]], [.1, .24, .14, .14, .24, .1]);   // (a heart: two lobes, the notch at its stalk)
+    // (its stem: a short strip cut along a curve from the notch, back and up, curling)
+    const st = []; for (let i = 0; i <= 6; i++) { const t = i / 6, x = -.13 - .3 * t, y = -.26 * t * t; st.push([x, y]); }
+    const w = .035, up = st.map(([x, y], i) => { const q = st[Math.min(i + 1, 6)], p = st[Math.max(i - 1, 0)], dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy) || 1; return [x - dy / L * w, y + dx / L * w]; });
+    const dn = st.map(([x, y], i) => { const q = st[Math.min(i + 1, 6)], p = st[Math.max(i - 1, 0)], dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy) || 1; return [x + dy / L * w, y - dx / L * w]; });
+    const poly = up.concat(dn.reverse()); return P(poly, poly.map(() => 0)); }
+  P([[-.3, -.15], [.3, -.15], [.3, -.04], [-.3, -.04]], [0, 0, 0, 0]); P([[-.3, .04], [.3, .04], [.3, .15], [-.3, .15]], [0, 0, 0, 0]);   // (bars)
+}
+export function paraph(fs, seed, mark = 'hand') { const W = 1.45 * fs, H = 1.1 * fs; return { W, H, draw: { a: g => mark === 'hand' ? manicule(g, seed * 7 + 1, W / 2, H / 2, 1.15 * fs, 1) : cutMark(g, seed * 7 + 1, mark, W / 2, H / 2, 1.3 * fs) } }; }
 
 // a filler: a blue strip run out to the margin, the hand after it pointing on
-export function filler(w, lh, seed, fs = lh / 1.58) {
-  const h = hand(seed), base = seed * 7 + 2, H = .9 * fs, c = H / 2 + .03 * fs, mw = 1.3 * fs, e = w - mw - .25 * fs;
-  return { W: w, H, draw: { a: g => { strip(g, base, [0, c], [e, c], .18 * fs * h.weight, h.ends); manicule(g, base + 5, w - mw / 2, c, 1.05 * fs, 1); } } };
+export function filler(w, lh, seed, fs = lh / 1.58, mark = 'hand') {
+  const h = hand(seed), base = seed * 7 + 2, H = .9 * fs, c = H / 2 + .03 * fs, mw = (mark === 'hand' ? 1.3 : 1) * fs, e = w - mw - .25 * fs;
+  return { W: w, H, draw: { a: g => { strip(g, base, [0, c], [e, c], .18 * fs * h.weight, h.ends); mark === 'hand' ? manicule(g, base + 5, w - mw / 2, c, 1.05 * fs, 1) : cutMark(g, base + 5, mark, w - mw / 2, c, 1.15 * fs); } } };
 }
 
 // a heading's run-out: a wide pink strip with a blue one laid over its upper edge (their long overlap violet), the hand after
-export function runout(w, h0, seed, fs = h0 / 1.3) {
-  const h = hand(seed), base = seed * 7 + 3, H = h0, c = H / 2, mw = 1.45 * fs, e = w - mw - .3 * fs;
-  return { W: w, H, draw: { a: g => { strip(g, base, [0, c - .1 * fs], [e, c - .1 * fs], .16 * fs * h.weight, h.ends); manicule(g, base + 9, w - mw / 2, c, 1.1 * fs, 1); },
+export function runout(w, h0, seed, fs = h0 / 1.3, mark = 'hand') {
+  const h = hand(seed), base = seed * 7 + 3, H = h0, c = H / 2, mw = (mark === 'hand' ? 1.45 : 1.1) * fs, e = w - mw - .3 * fs;
+  return { W: w, H, draw: { a: g => { strip(g, base, [0, c - .1 * fs], [e, c - .1 * fs], .16 * fs * h.weight, h.ends); mark === 'hand' ? manicule(g, base + 9, w - mw / 2, c, 1.1 * fs, 1) : cutMark(g, base + 9, mark, w - mw / 2, c, 1.25 * fs); },
     b: g => { if (e - .4 * fs > 1.6 * fs) strip(g, base + 4, [.8 * fs, c + .06 * fs], [e - .4 * fs, c + .06 * fs], .3 * fs, h.ends); } } };
 }
 
@@ -134,9 +153,11 @@ function register(g, base, cx, cy, R) {
 }
 
 // breaks, by rank and form (v; default the page's): see BREAKS. n: the part's number (rank 3's numeral)
-export function brk(k, measure, h0, seed, fs = 19, v = null, n = 2) {
+export function brk(k, measure, h0, seed, fs = 19, v = null, n = 2, mark = 'asterisk') {
   const h = hand(seed), base = seed * 7 + 10 + k, H = h0, c = H / 2; v ??= h.brk[k];
   if (k === 1) {
+    // (m: a printer's mark, larger, a short strip each side)
+    if (v === 'm') { const W = 5 * fs; return { W, H, draw: { a: g => { cutMark(g, base, mark, W / 2, c, 1.35 * fs); strip(g, base + 1, [0, c], [W / 2 - 1.1 * fs, c], .12 * fs * h.weight, h.ends); strip(g, base + 2, [W, c], [W / 2 + 1.1 * fs, c], .12 * fs * h.weight, h.ends); } } }; }
     if (v === 'a') { const W = 2.4 * fs; return { W, H, draw: { a: g => manicule(g, base, W / 2, c, 1.35 * fs, 1) } }; }
     if (v === 'b') { const W = 4.4 * fs; return { W, H, draw: { a: g => { manicule(g, base, 1.05 * fs, c, 1.25 * fs, 1); manicule(g, base + 1, W - 1.05 * fs, c, 1.25 * fs, -1); } } }; }
     const W = 5.4 * fs; return { W, H, draw: { a: g => { strip(g, base, [0, c], [W - 1.75 * fs, c], .16 * fs * h.weight, h.ends); manicule(g, base + 1, W - .7 * fs, c, 1.2 * fs, 1); } } };

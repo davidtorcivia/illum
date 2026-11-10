@@ -625,3 +625,14 @@ a straight front moving down the piece (the nip), drum 2 starting a beat behind;
 
 **Check** (tests/riso.check.mjs): every level × seeds 1, 2, 3, 7 × 1440 and 390 × light and dark, the full line boxes
 against every inked pixel and the page's edges: 160 pages pass.
+
+## Stage 6: fewer fingers (the owner: "can we add some variety, there are too many fingers")
+
+The hand points only where pointing means something: the contents' first entry (the selector), the page's first paraph,
+its first part's break. The other paraphs, fillers' and run-outs' ends and later part breaks take the page's printer's
+marks: three of a family of six cut shapes (riso-overprint.js MARKS, each one shape in one ink, knife runs and scissor
+arcs): a six-point asterisk, a lozenge, a square on its corner with a square cut from it, a barbed arrowhead, the aldus
+leaf (a heart of six cuts, two lobes and the notch at its stalk, on a short curled stem), a double bar. The page's seed
+chooses the three and their order; a mark's turn comes from where it stands on the page, so marks down a page vary and
+are the same every time the page is drawn. tests/riso-seeds.html shows six seeds side by side. The drop, the rank 2 and 3
+breaks and the frames are unchanged.

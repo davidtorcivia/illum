@@ -6,7 +6,7 @@
 // (large pieces) or given the same drum streaks and tooth on the CPU (small ones), composited by the film law. In the
 // dark: the opaque pair on black stock (Bubblegum, then Cornflower).
 // The budget, as a small press goes from a one-colour flyer to a deluxe edition:
-//   plain   one drum (blue): the letter alone, the hand for a paraph, a run-out's strip, the breaks in blue; no frames
+//   plain   one drum (blue): the letter alone, the paraphs' marks, a run-out's strip, the breaks in blue; no frames
 //   modest  both drums: the drop's cut mass, the hand at a filler's and a run-out's end (only on a well-open line), the
 //           quotation's rule, the contents' ticks
 //   usual   the run-out's pink band, the quotation's two strips, crossing bands over a pull quote, a banded rule at the head
@@ -14,13 +14,16 @@
 //   fine    variety in the breaks (two hands facing; blocks overlapping; a numbered part's numeral on a cut block), all
 //           four of a figure's marks
 //   lavish  the pull quote's bands below it too, the aside's and code's rules at their foot, the hand on its strip
-// Breaks: a part's (rank 1) the hand; a chapter's (rank 3) bands crossing in violet; the end (rank 2) a long overprinted
+// The hand points where pointing means something (the contents' first entry, the page's first paraph, its first part's
+// break); the other paraphs, fillers and run-outs take the page's three printer's marks, by its seed, in turn (asterisk,
+// lozenge, square on its corner, arrowhead, aldus leaf, double bar: riso-overprint.js MARKS).
+// Breaks: a part's (rank 1) the hand (later parts a printer's mark); a chapter's (rank 3) bands crossing in violet; the end (rank 2) a long overprinted
 // bar between registration marks printed by both drums.
 // Drawn (?draw), each piece is laid drum by drum: drum 1's ink comes down the piece behind a straight front, then drum 2's.
 //   initial(o) -> { letters, width }   paraph(x, base, u, seed, rich)   filler(x0, x1, yTop, yBase, kind, seed, rich)
 //   breakMark(cx, y, measure, rank, seed, rich, u, index, room)   frames.{ quote, aside, pull, figure, code, nav }
 //   palette.{ light, dark }   print(made, { dpr, kind, animate }) -> { pours, letters, seq, runs, y0 }   timeline(printed, kind, animate)
-import { press, pressSplit, drumSet } from './riso-press.js';
+import { press, pressSplit, drumSet, rng } from './riso-press.js';
 import * as O from './riso-overprint.js';
 
 export const palette = { light: { k: [61, 85, 136] }, dark: { k: [98, 168, 229] } };
@@ -29,6 +32,14 @@ const lvOf = rich => Math.max(0, Math.min(4, Math.round(+rich * 4)));
 // the page's seed (the host's, when it gave one: S.seeded), for its hand: strip ends, weights, the drums' miss
 const PS = () => (riso.seeded | 0) || 7;
 const none = { marks: [], letters: [] };
+// the page's printer's marks: three of the family, in an order, by the page's seed (the hand kept for what points: the
+// first paraph, the first part's break, the contents' first entry)
+const FAM = new Map();
+const family = () => { const s = PS(); let f = FAM.get(s); if (!f) { const r = rng(s * 977 + 5), m = [...O.MARKS]; for (let i = m.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [m[i], m[j]] = [m[j], m[i]]; } f = m.slice(0, 3); FAM.set(s, f); } return f; };
+const markOf = i => family()[((i | 0) % 3 + 3) % 3];
+// (a mark's turn in the page's rhythm: from where it stands on the page, so marks down a page take the page's three in a
+// varying order, the same every time the page is drawn)
+const turn = (y, u) => { const k = Math.floor(y / (u * 2.5)); return (Math.imul(k ^ PS(), 2654435761) >>> 0) % 3; };
 const FS = u => u * 2.4;   // (the text's size from its x-height: EB Garamond's x is ~0.42 em)
 
 // ---- placing pieces -------------------------------------------------------------------------------------------------------------
@@ -62,11 +73,12 @@ initial.load = () => O.loadFace();
 
 // ---- the paraph, fillers, breaks ---------------------------------------------------------------------------------------------------
 // the paraph: the hand, in the indent's gap, on the x-height's middle
-function paraph(x, base, u, seed, rich = .5) {
+function paraph(x, base, u, seed, rich = .5, chapter = 0, k = 1) {
   // (x: the left of the 1.65 u the host centres in the indent; the hand, ~2.1 u, a little wider than that, is set .2 u to the left of
-  // centre, into the indent's spare room, its finger kept clear of the first word)
-  const fs = +(FS(u) * .75).toFixed(2), p = make(['paraph', fs, PS()]);
-  return { marks: [], letters: [piece(x + u * .825 - u * .2 - p.W / 2, base - u * .5 - p.H / 2, ['paraph', fs, PS()], 'paraph', lvOf(rich) < 1)] };
+  // centre, into the indent's spare room, its finger kept clear of the first word. The page's first paraph the hand; the rest
+  // the page's marks in turn)
+  const first = (k | 0) <= 1 && (chapter | 0) <= 1, fs = +(FS(u) * .75).toFixed(2), job = first ? ['paraph', fs, PS()] : ['paraph', fs, PS(), markOf(turn(base, u))], p = make(job);
+  return { marks: [], letters: [piece(x + u * .825 - u * .2 - p.W / 2, base - u * .5 - p.H / 2, job, 'paraph', lvOf(rich) < 1)] };
 }
 // a paragraph's free end: a blue strip and the hand after it (from modest, and only on a line left well open); a heading's
 // run-out: a blue strip (plain), the hand after it (modest), a pink band under it (usual)
@@ -75,12 +87,13 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
   const u = yBase - yTop, lv = lvOf(rich), room = x1 - x0 - u * .4, fs = +FS(u).toFixed(2);
   if (kind === 'rule') { if (room < u * 4) return none;
     // (a short run-out: the hand alone, just after the heading)
-    if (room < u * 14) { const job = ['paraph', fs, PS()], p = make(job); return p.W > room ? none : { marks: [], letters: [piece(x0 + u * .4, yBase - u * .5 - p.H / 2, job, 'runout', lv < 1)] }; }
+    const mk = markOf(turn(yBase, u));
+    if (room < u * 14) { const job = ['paraph', fs, PS(), mk], p = make(job); return p.W > room ? none : { marks: [], letters: [piece(x0 + u * .4, yBase - u * .5 - p.H / 2, job, 'runout', lv < 1)] }; }
     const w = +Math.min(room, u * 28).toFixed(1), h = +(fs * 1.3).toFixed(2);
-    const job = lv === 0 ? ['filler', w, h / 1.3 * 1.58, PS(), fs] : ['runout', w, h, PS(), fs], plain = lv < 2, p = make(job, plain);
+    const job = lv === 0 ? ['filler', w, h / 1.3 * 1.58, PS(), fs, mk] : ['runout', w, h, PS(), fs, mk], plain = lv < 2, p = make(job, plain);
     return { marks: [], letters: [piece(x0 + u * .4, yBase - u * .5 - p.H / 2, job, 'runout', plain)] }; }
   if (lv === 0 || room < u * [0, 30, 22, 17, 13][lv]) return none;
-  const w = +Math.min(room, u * 34).toFixed(1), job = ['filler', w, +(fs * 1.58).toFixed(2), PS(), fs], p = make(job);
+  const w = +Math.min(room, u * 34).toFixed(1), job = ['filler', w, +(fs * 1.58).toFixed(2), PS(), fs, markOf(turn(yBase, u))], p = make(job);
   return { marks: [], letters: [piece(x0 + u * .4, yBase - u * .5 - p.H / 2, job, 'filler')] };
 }
 // three ranks, as Rock maps them: a part's (rank 1) the hand; a chapter's (rank 3) bands crossing; the end (rank 2) the bar
@@ -88,9 +101,10 @@ function filler(x0, x1, yTop, yBase, kind, seed, rich = .5) {
 // prints them in blue alone. Each kept in the room the page leaves it.
 function breakMark(cx, y, measure, rank, seed, rich = .5, u = 8, index = 1, room = null) {
   const lv = lvOf(rich), fs = +FS(u).toFixed(2), deep = room && room[1] - room[0] > 0 ? room[1] - room[0] : u * 14, r = rank === 2 ? 3 : rank >= 3 ? 2 : 1, n = index | 0;
-  const v = r === 1 ? (lv >= 4 ? ['a', 'b', 'c'][n % 3] : lv >= 3 && n % 2 ? 'b' : 'a') : r === 2 ? (lv >= 3 && n % 2 ? 'b' : 'a') : (lv >= 3 && n >= 1 ? 'b' : 'c');
+  // (a part's: the first the hand; later ones the page's marks, a short strip each side)
+  const v = r === 1 ? (n <= 1 ? 'a' : 'm') : r === 2 ? (lv >= 3 && n % 2 ? 'b' : 'a') : (lv >= 3 && n >= 1 ? 'b' : 'c');
   const h = +Math.min(deep * .92, u * (r === 1 ? 4 : r === 2 ? 5.6 : 14)).toFixed(1); if (!(h > u * 1.6)) return none;
-  const job = ['brk', r, +Math.min(measure, u * 70).toFixed(1), h, PS(), fs, v, Math.max(1, n)], p = make(job);
+  const job = ['brk', r, +Math.min(measure, u * 70).toFixed(1), h, PS(), fs, v, Math.max(1, n), ...(v === 'm' ? [markOf(turn(y, u))] : [])], p = make(job);
   return { marks: [], letters: [piece(cx - p.W / 2, y - p.H / 2, job, 'break' + r + v, lv < 1)] };
 }
 
@@ -122,7 +136,8 @@ const frames = {
     return { marks: [], letters: out }; },
   // the contents: a blue tick before each entry (modest)
   nav: ({ box, entries, u, rich = .5 }) => { if (lvOf(rich) < 1) return none; const E = entries.filter(Boolean); if (!E.length) return none; const fs = +FS(u).toFixed(2);
-    return { marks: [], letters: E.map((e, i) => { const job = ['tick', fs, PS(), i], p = make(job); return piece(Math.max(2, box[0] - u * 1.6 - p.W), e.base - u * .5 - p.H / 2, job, 'nav'); }) }; },
+    // (the first entry pointed at by the hand, the selector; the rest a tick)
+    return { marks: [], letters: E.map((e, i) => { const job = i ? ['tick', fs, PS(), i] : ['paraph', +(fs * .75).toFixed(2), PS()], p = make(job); return piece(Math.max(2, box[0] - u * (i ? 1.6 : .9) - p.W), e.base - u * .5 - p.H / 2, job, 'nav'); }) }; },
 };
 
 // ---- printing ----------------------------------------------------------------------------------------------------------------------
