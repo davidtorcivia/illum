@@ -46,9 +46,12 @@ const letterOf = ch => { const c = String(ch).normalize('NFD')[0].toUpperCase();
 const ROOM = .95;   // (the drop's box: never narrower than .95 of its height, so a narrow letter's mass has room beside it)
 const inkW = ch => { const g = O.glyphW(letterOf(ch)); return g; };
 // the drop: the letter's cap on the first line's cap height, its foot on the last baseline; its cut mass in its own box
-function initial({ ch = 'B', G, big = true, seed = 1, rich = .5, u = 8 }) {
-  const c = letterOf(ch), [x0, y0, , y1] = G.box, capH = +(y1 - y0).toFixed(2), lv = lvOf(rich), fs = +FS(u).toFixed(2);
-  if (!big) { const job = ['drop', c, capH, seed, fs, { line: lv >= 1, plain: lv < 1 }]; return { marks: [], letters: [piece(x0, y0, job, 'line:' + c)], width: inkW(c) + .06 }; }
+function initial({ ch = 'B', G, big = true, seed = 1, rich = .5, u = 8, keep = [] }) {
+  const c = letterOf(ch), [x0, , x1, y1] = G.box, lv = lvOf(rich), fs = +FS(u).toFixed(2); let y0 = G.box[1];
+  // (the line's: its top kept under the line box above it, where the host sets it taller than its own line)
+  if (!big) { for (const r of keep) if (r[0] < x1 + u && r[2] > x0 && r[1] < y0 && r[3] > y0 - 1) y0 = Math.max(y0, r[3] + 1);
+    const capH = +(y1 - y0).toFixed(2), job = ['drop', c, capH, seed, fs, { line: lv >= 1, plain: lv < 1 }]; return { marks: [], letters: [piece(x0, y0, job, 'line:' + c)], width: inkW(c) + .06 }; }
+  const capH = +(y1 - y0).toFixed(2);
   const wb = +(Math.max(inkW(c), ROOM) * capH).toFixed(2), job = ['drop', c, capH, seed, fs, { wb, plain: lv < 1 }];
   return { marks: [], letters: [piece(x0, y0, job, 'drop:' + c)], width: Math.max(inkW(c), ROOM) + .06 };
 }
@@ -60,10 +63,10 @@ initial.load = () => O.loadFace();
 // ---- the paraph, fillers, breaks ---------------------------------------------------------------------------------------------------
 // the paraph: the hand, in the indent's gap, on the x-height's middle
 function paraph(x, base, u, seed, rich = .5) {
-  // (x: the left of the 1.65 u the host centres in the indent; the hand is wider than that, so it is set .35 u to the left of
+  // (x: the left of the 1.65 u the host centres in the indent; the hand, ~2.1 u, a little wider than that, is set .2 u to the left of
   // centre, into the indent's spare room, its finger kept clear of the first word)
-  const fs = +(FS(u) * .9).toFixed(2), p = make(['paraph', fs, PS()]);
-  return { marks: [], letters: [piece(x + u * .825 - u * .35 - p.W / 2, base - u * .5 - p.H / 2, ['paraph', fs, PS()], 'paraph', lvOf(rich) < 1)] };
+  const fs = +(FS(u) * .75).toFixed(2), p = make(['paraph', fs, PS()]);
+  return { marks: [], letters: [piece(x + u * .825 - u * .2 - p.W / 2, base - u * .5 - p.H / 2, ['paraph', fs, PS()], 'paraph', lvOf(rich) < 1)] };
 }
 // a paragraph's free end: a blue strip and the hand after it (from modest, and only on a line left well open); a heading's
 // run-out: a blue strip (plain), the hand after it (modest), a pink band under it (usual)
