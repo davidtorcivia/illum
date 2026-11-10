@@ -1,0 +1,4 @@
+Reference crops for tests/riso-medium.html (compared, never used as texture or output). From Wikimedia Commons:
+felipe-chair.jpg   crop of "Impressão em risografia em dua cores, 2014.jpg", Mario Felipe, CC BY 2.0
+daedal-sheet.jpg   crop of "Risograph printing.jpg", Quinn Daedal (Flickr), CC BY-SA 2.0 (this crop is shared under the same licence)
+cetrl-macro.jpg    crop of "Garden Party, close.jpg", Cetrl, CC0

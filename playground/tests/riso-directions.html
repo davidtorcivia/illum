@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duplicator overprint</title>
+<!--
+  Duplicator (the stencil-duplicator, "riso", style), stage 2 (research/26-riso.md): the overprint, its every shape cut by
+  hand, printed by kit/styles/riso-press.js with the ink poured through the ink engine. A specimen page in light (cream
+  stock) and dark (black stock), its pieces enlarged, beside real prints, and the page's hand at six seeds.
+  ?draw (the press runs: drum 1's nip down the sheet, drum 2's behind it)  ?bare (one panel, for a phone)  ?theme=light|dark
+  (default: <html data-theme>, else the reader's system; kit/theme-toggle.js switches it)  ?grain=none  #seed=n
+  The text is John Ruskin's, The Stones of Venice (1853), as tests/tarot.html quotes it.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "EB Garamond"; font-style: italic; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-display: block; }
+  :root { --cream: #F3EEE3; --black: #18171B; --ink: #27241F; --chalk: #E8E3D8; }
+  html { background: #E6E1D6; } html[data-theme=dark] { background: #0F0E11; color: var(--chalk); }
+  html[data-theme=dark] body { color: var(--chalk); } html[data-theme=dark] a { color: #9EC3F0; }
+  html[data-theme=dark] .controls input, html[data-theme=dark] .controls button { background: #232127; border-color: #4a4650; }
+  body { margin: 0; color: var(--ink); font: 400 19px/1.58 "EB Garamond", Georgia, serif; -webkit-font-smoothing: antialiased; }
+  header.top { max-width: 1400px; margin: 0 auto; padding: 36px 24px 8px; }
+  header.top h1 { font: 400 clamp(36px, 5vw, 64px)/1 "EB Garamond", serif; margin: 0 0 .25em; }
+  header.top p { max-width: 74ch; margin: .3em 0; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 14px 0 6px; font-size: 16px; }
+  .controls a, .controls button, .controls input { font: inherit; color: inherit; }
+  .controls input { width: 6em; padding: 2px 6px; border: 1px solid #b9b2a4; background: var(--cream); }
+  .controls button { border: 1px solid #b9b2a4; background: var(--cream); padding: 3px 12px; cursor: pointer; }
+  #timing { font-size: 15px; opacity: .8; display: block; width: 100%; }
+  section.dir { max-width: 1400px; margin: 0 auto; padding: 30px 24px 12px; }
+  section.dir > h2 { font: 400 clamp(28px, 3.4vw, 44px)/1 "EB Garamond", serif; margin: 0 0 .3em; }
+  section.dir > p.note { margin: 0 0 1em; max-width: 80ch; }
+  h3.row { font: italic 400 18px/1.3 "EB Garamond", serif; margin: 18px 0 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel { position: relative; padding: 44px 40px 36px; overflow: hidden; }
+  .panel > .lab { position: absolute; top: 12px; left: 16px; font: italic 14px "EB Garamond", serif; opacity: .65; }
+  .panel[data-theme=light] { background: var(--cream); color: var(--ink); } .panel[data-theme=dark] { background: var(--black); color: var(--chalk); }
+  .text { position: relative; max-width: 620px; margin: 0 auto; hyphens: auto; }
+  .text p { margin: 0; text-align: justify; }
+  .text h3 { font: 400 30px/1.2 "EB Garamond", serif; margin: 1em 0 .4em; position: relative; }
+  .text .ro, .text .bl, .text .end { display: inline-block; height: 0; width: 0; }
+  .text hr { border: 0; margin: .9em 0; } hr.r1 { height: 1.4em; } hr.r2 { height: 2.4em; } hr.r3 { height: 7em; }
+  .text blockquote { margin: 1.2em 0; padding-left: 2.4em; font-style: italic; }
+  .ini { float: left; } .pf { display: inline-block; height: 0; }
+  .zoom { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; align-items: flex-start; }
+  .zoom figure { margin: 0; padding: 14px; max-width: 100%; box-sizing: border-box; }
+  .zoom figure[data-theme=light] { background: var(--cream); color: var(--ink); } .zoom figure[data-theme=dark] { background: var(--black); color: var(--chalk); }
+  .zoom figcaption { font-size: 15px; opacity: .8; margin-top: 6px; }
+  .zoom canvas { display: block; max-width: 100%; height: auto; }
+  .seeds { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+  .seeds figure { margin: 0; padding: 14px 16px; background: var(--cream); position: relative; color: var(--ink); }
+  html[data-theme=dark] .seeds figure { background: var(--black); color: var(--chalk); }
+  .marks { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .marks .panel { padding: 30px 22px 18px; } .marks .text { max-width: none; }
+  .seeds figure .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 6px 0; }
+  body.bare { background: var(--cream); } body.bare.dark { background: var(--black); } body.bare .panel { padding: 28px 16px; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } .panel { padding: 32px 16px 28px; } section.dir { padding: 26px 0 8px; } header.top, section.dir > h2, section.dir > p.note, h3.row { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header class="top"><h1>Duplicator · the overprint</h1>
+<p>Stencil-duplicator printing: two drums, one pass. Federal Blue carries the letter and the strips, Fluorescent Pink its cut masses over them, and where they cross the inks make violet. Every shape is cut, as a separation is: knife runs and scissor arcs meeting at corners; no compass. The ink is poured through the ink engine: it creeps a little into the fibre, carries the drum’s streaks along the feed and a slow mottle, and its film’s density varies continuously at the paper fibre’s scale (no dots, no pinholes). The seed sets the page’s hand, which every mark follows. Letter: Gloock (Duarte Pinto, OFL); text in EB Garamond. Ink colours after stencil.wiki (CC BY-NC-SA 4.0). <a href="riso-medium.html">The press, on a bench.</a></p>
+<div class="controls">
+  <label>seed <input id="seed" type="number" min="1" step="1"></label>
+  <button id="reseed" type="button">another sheet</button>
+  <button id="run" type="button">run the press</button>
+  <span id="timing"></span>
+</div></header>
+<template id="txt">
+  <p class="lead"><span class="ini" data-ch="B"></span><span class="bl"></span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture.</p>
+  <p class="par fill"><span class="pf"></span>Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art, for the production of which either rules or models can be given.<span class="end"></span></p>
+  <hr class="r1">
+  <h3>The page as a map<span class="ro"></span></h3>
+  <p>A medieval book had no page numbers, no index and no search. Its readers found their way by its ornament: the large initial that opened a book, the smaller one at a chapter, the paraph at a paragraph, the filler that closed a short line.</p>
+  <blockquote>You must either make a tool of the creature, or a man of him. You cannot make both. Men were not intended to work with the accuracy of tools, to be precise and perfect in all their actions.</blockquote>
+  <hr class="r2">
+  <p>A program cannot be a man, but it can refuse to be a cog-wheel: it can let every line it draws keep a little of the hand’s irregularity.</p>
+  <hr class="r3">
+</template>
+<template id="mini">
+  <p class="par fill"><span class="pf"></span>Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching.<span class="end"></span></p>
+  <hr class="r1">
+  <h3>The page as a map<span class="ro"></span></h3>
+  <hr class="r2">
+</template>
+<main id="out"></main>
+<script type="module" src="../kit/theme-toggle.js"></script>
+<script type="module">
+import { press, writer, drumSet } from '../kit/styles/riso-press.js';
+import * as overprint from '../kit/styles/riso-overprint.js';
+const DIRS = { overprint };
+const NAMES = { overprint: 'The overprint, cut' };
+const NOTES = { overprint: 'The page’s hand (from the seed): the drop’s mass (a cut sun, a sunrise, a leaf with its vein cut out, a hill), how every strip ends, the breaks’ forms, a lean, a weight, a side. Drop: the blue capital crossing the pink mass. The small mark is the printer’s pointing hand, cut from one sheet, one ink: the paraph, and the close of the filler and the run-out. Breaks are print furniture: rank 1 the hand; rank 2 bands or blocks crossing in violet; rank 3 a bold overprinted composition. Quotation: two strips. The ink is poured: the drum’s streaks along the feed, a slow mottle, the film’s density varying at the paper fibre’s scale (continuous: no dots), the edge where the ink thins (?grain=none: without the fibre). In the dark, the opaque inks on black stock, Bubblegum first and Cornflower over it.' };
+await Promise.all([overprint.loadFace(), ...['19px "EB Garamond"', 'italic 19px "EB Garamond"'].map(f => document.fonts.load(f))]);
+const q = new URLSearchParams(location.search), BARE = q.has('bare'), ONLY = q.get('only'), dpr = Math.min(2, devicePixelRatio || 1);
+// the theme: ?theme (kit/theme-toggle.js sets it), else <html data-theme>, else the reader's system; followed live
+const sysDark = matchMedia('(prefers-color-scheme: dark)'), themeNow = () => ['light', 'dark'].includes(q.get('theme')) ? q.get('theme') : document.documentElement.dataset.themeFixed ?? (sysDark.matches ? 'dark' : 'light');
+if (document.documentElement.dataset.theme) document.documentElement.dataset.themeFixed = document.documentElement.dataset.theme;
+const GRAIN = q.get('grain') === 'none' ? 0 : 1;
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let DRAW = q.has('draw') && !REDUCED;
+const seedOf = () => +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+const seedIn = document.getElementById('seed');
+if (BARE) { document.body.classList.add('bare'); document.querySelector('header.top').remove(); }
+
+// a piece onto its own canvas at its place on the sheet (at, in the text's CSS px); live: laid by the pass, later
+function put(host, piece, look, at, o) {
+  const cv = document.createElement('canvas'), opts = { d: o.d, at, pageW: o.pageW, drums: o.drums, ink: o.ink, seed: o.seed }; look = { ...look, grain: GRAIN };
+  let cw, ch, pad, w = null;
+  if (o.live) { w = writer(piece, look, opts, cv); ({ cw, ch, pad } = w); }
+  else { const r = press(piece, look, opts); ({ cw, ch, pad } = r); cv.width = cw; cv.height = ch; cv.getContext('2d').putImageData(r.img, 0, 0); }
+  Object.assign(cv.style, { width: cw / o.d * (o.zoom ?? 1) + 'px', height: ch / o.d * (o.zoom ?? 1) + 'px' });
+  if (host) Object.assign(cv.style, { position: 'absolute', left: at[0] - pad + 'px', top: at[1] - pad + 'px', pointerEvents: 'none' }), cv.setAttribute('aria-hidden', 'true'), host.append(cv);
+  return { cv, w };
+}
+
+const PERF = [];
+function page(key, theme, host, seed, ink = 'poured', label = '', tpl = 'txt') {
+  const D = DIRS[key], look = D.LOOK[theme], panel = document.createElement('div'); panel.className = 'panel'; panel.dataset.theme = theme;
+  if (label) panel.insertAdjacentHTML('beforeend', `<span class="lab">${label}</span>`);
+  const text = document.createElement('div'); text.className = 'text'; text.append(document.getElementById(tpl).content.cloneNode(true)); panel.append(text); host.append(panel);
+  const cs = getComputedStyle(text), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = innerWidth < 600 ? 3 : 4;
+  const m = document.createElement('canvas').getContext('2d'); m.font = `${fs}px "EB Garamond"`; const cap = m.measureText('H').actualBoundingBoxAscent, xh = m.measureText('x').actualBoundingBoxAscent;
+  const ini = text.querySelector('.ini'), H = (n - 1) * lh + cap, ip = ini && D.initial(ini.dataset.ch, H, seed, fs);
+  if (ini) Object.assign(ini.style, { width: ip.W + fs * .5 + 'px', height: (n * lh - 2) + 'px' });
+  const pp = D.paraph(fs, seed); text.querySelector('.pf').style.width = pp.W + fs * .35 + 'px';
+  const R = text.getBoundingClientRect(), rel = el => { const b = el.getBoundingClientRect(); return { x: b.left - R.left, y: b.top - R.top, w: b.width, h: b.height, b: b.bottom - R.top, r: b.right - R.left }; };
+  const o = { d: dpr, pageW: R.width, drums: drumSet(seed), live: DRAW, ink, seed }, ws = [], t0 = performance.now();
+  const place = (pc, x, y) => { const { w } = put(text, pc, look, [x, y], o); if (w) ws.push(w); };
+  if (ini) { const bl = rel(text.querySelector('.bl')).b, b = rel(ini); place(ip, b.x, bl - cap); }
+  { const b = rel(text.querySelector('.pf')); place(pp, b.x, b.b - xh / 2 - pp.H / 2); }
+  { const e = rel(text.querySelector('.end')), x0 = e.r + fs * .35, gw = R.width - x0;
+    if (gw > fs * 2) { const fp = D.filler(gw, lh, seed, fs); place(fp, x0, e.b - xh / 2 - fp.H / 2); } }
+  { const h = text.querySelector('h3'), hf = parseFloat(getComputedStyle(h).fontSize), e = rel(h.querySelector('.ro')), x0 = e.r + fs * .5, w = R.width - x0;
+    if (w > fs * 2) { const rp = D.runout(w, hf * 1.3, seed, fs); place(rp, x0, e.b - hf * .3 - rp.H / 2); } }
+  for (const hr of text.querySelectorAll('hr')) { const b = rel(hr), k = +hr.className.slice(1), bp = D.brk(k, R.width, Math.max(b.h, lh * 1.4), seed, fs); place(bp, (R.width - bp.W) / 2, b.y + (b.h - bp.H) / 2); }
+  if (text.querySelector('blockquote')) { const b = rel(text.querySelector('blockquote')), fp = D.frame('quote', b.w, b.h, seed, fs); place(fp, b.x + fs * .2, b.y + 3); }
+  PERF.push([key + (label ? ' ' + label : ''), theme, performance.now() - t0]);
+  if (DRAW) { panel._w = ws; panel._h = R.height; seen.observe(panel); }
+  return { fs, lh, H, panel };
+}
+
+// the pass, per sheet: drum 1's nip goes down the sheet; drum 2's nip is the drums' spacing behind it
+const SPACING = 320, SPEED = .55;
+function pass(panel) {
+  const ws = panel._w, end = panel._h + SPACING + 40; let t0 = 0;
+  const step = now => { t0 ||= now; const y = (now - t0) * SPEED - 20; for (const w of ws) w.front([y, y - SPACING]); if (y < end) requestAnimationFrame(step); else for (const w of ws) w.done(); };
+  requestAnimationFrame(step);
+}
+const seen = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { seen.unobserve(e.target); pass(e.target); } }, { threshold: .15 });
+
+function build() {
+  const seed = seedOf(); seedIn.value = seed; PERF.length = 0; const out = document.getElementById('out'); out.textContent = '';
+  const TH = themeNow(), OTHER = TH === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = TH;
+  for (const key of Object.keys(DIRS).filter(k => !ONLY || ONLY === k)) {
+    const D = DIRS[key];
+    if (BARE) { page(key, TH, out, seed, 'poured'); continue; }
+    const sec = document.createElement('section'); sec.className = 'dir'; sec.id = key;
+    sec.innerHTML = `<h2>${NAMES[key]}</h2><p class="note">${NOTES[key]} <i>${D.FACE.credit}.</i></p>`; out.append(sec);
+    const pr = document.createElement('div'); pr.className = 'pair'; sec.append(pr);
+    let mm; for (const theme of [TH, OTHER]) { const m = page(key, theme, pr, seed, 'poured', theme === TH ? `${theme} (this page’s theme)` : theme); if (theme === TH) mm = m; }
+    // the breaks, to choose: three forms a rank, each at the page's size and enlarged
+    sec.insertAdjacentHTML('beforeend', `<h3 class="row">the breaks, to choose (seed ${seed}, ${TH}): each rank in three forms, at page size, then enlarged</h3>`);
+    const bk = document.createElement('div'); bk.className = 'zoom'; sec.append(bk);
+    const bfig = (pc, cap, zoom) => { const f = document.createElement('figure'); f.dataset.theme = TH; f.append(put(null, pc, D.LOOK[TH], [80, 80], { d: dpr * zoom, zoom, pageW: 620, drums: drumSet(seed), ink: 'poured', seed }).cv); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); bk.append(f); };
+    for (const k of [1, 2, 3]) for (const v of ['a', 'b', 'c']) { const hh = k === 1 ? mm.lh * 1.4 : k === 2 ? mm.lh * 2.4 : 133; bfig(D.brk(k, 620, hh, seed, mm.fs, v, 2), `${k}${v} · ${D.BREAKS[k][v]}${overprint.hand(seed).brk[k] === v ? ' (this page’s)' : ''}`, 1); }
+    for (const k of [1, 2, 3]) for (const v of ['a', 'b', 'c']) { const hh = k === 1 ? mm.lh * 1.4 : k === 2 ? mm.lh * 2.4 : 133; bfig(D.brk(k, 620, hh, seed, mm.fs, v, 2), `${k}${v}, ${k === 3 ? 2 : 3}×`, k === 3 ? 2 : 3); }
+    const fig = (z, pc, cap, theme, zoom, s = seed) => { const f = document.createElement('figure'); f.dataset.theme = theme;
+      f.append(put(null, pc, D.LOOK[theme], [80, 80], { d: dpr * zoom, zoom, pageW: 620, drums: drumSet(s), ink: 'poured', seed: s }).cv); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); z.append(f); return f; };
+    // beside real prints, at about their scale
+    sec.insertAdjacentHTML('beforeend', '<h3 class="row">beside real prints (Wikimedia Commons, credited; reference only)</h3>'); let z = document.createElement('div'); z.className = 'zoom'; sec.append(z);
+    const ref = (src, cap, h) => { const f = document.createElement('figure'); f.dataset.theme = 'light'; const im = new Image(); im.src = 'riso-refs/' + src; im.style.height = h + 'px'; f.append(im); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); z.append(f); };
+    ref('daedal-sheet.jpg', 'a studio sheet (Quinn Daedal, CC BY-SA 2.0)', 240); fig(z, D.brk(3, 620, 133, seed, mm.fs, 'a'), 'break 3a, 1.6×', 'light', 1.6);
+    ref('felipe-chair.jpg', 'two-colour print (Mario Felipe, 2014, CC BY 2.0)', 240); fig(z, D.initial('R', mm.H, seed, mm.fs), 'drop R, 2×', 'light', 2);
+    // every piece enlarged
+    for (const theme of [TH, OTHER]) { sec.insertAdjacentHTML('beforeend', `<h3 class="row">the pieces enlarged (${theme})</h3>`); z = document.createElement('div'); z.className = 'zoom'; sec.append(z);
+      for (const ch of 'BRSW') fig(z, D.initial(ch, mm.H, seed + ch.charCodeAt(0), mm.fs), `drop ${ch}, 2× (seed ${seed + ch.charCodeAt(0)})`, theme, 2, seed + ch.charCodeAt(0));
+      fig(z, D.paraph(mm.fs, seed), 'paraph, 4×', theme, 4); fig(z, D.filler(200, mm.lh, seed, mm.fs), 'filler, 3×', theme, 3); fig(z, D.runout(240, 39, seed, mm.fs), 'run-out, 3×', theme, 3);
+      fig(z, D.brk(1, 620, 30, seed, mm.fs), 'break 1, 4×', theme, 4); fig(z, D.brk(2, 620, 46, seed, mm.fs), 'break 2, 3×', theme, 3); fig(z, D.brk(3, 620, 133, seed, mm.fs), 'break 3, 2×', theme, 2);
+      fig(z, D.frame('quote', 400, 110, seed, mm.fs), 'quotation, 3×', theme, 3); }
+    // the page's hand at six seeds: every mark
+    sec.insertAdjacentHTML('beforeend', `<h3 class="row">the page’s hand at six seeds (${TH}): drop, paraph, break 1, filler, run-out, breaks 2 and 3</h3>`);
+    const sd = document.createElement('div'); sd.className = 'seeds'; sec.append(sd);
+    for (let i = 0; i < 6; i++) { const s = seed + 101 * (i + 1), f = document.createElement('figure'), one = (pc, z = 1) => put(null, pc, D.LOOK[TH], [80, 80], { d: dpr * z, zoom: z, pageW: 620, drums: drumSet(s), ink: 'poured', seed: s }).cv;
+      const r1 = document.createElement('div'), r2 = document.createElement('div'), r3 = document.createElement('div'); r1.className = r2.className = r3.className = 'row';
+      r1.append(one(D.initial('B', mm.H * .8, s, mm.fs)), one(D.paraph(mm.fs, s), 1.5), one(D.brk(1, 620, 30, s, mm.fs), 1.2));
+      r2.append(one(D.filler(150, mm.lh, s, mm.fs)), one(D.runout(140, 39, s, mm.fs)));
+      r3.append(one(D.brk(2, 620, 40, s, mm.fs), .8), one(D.brk(3, 620, 100, s, mm.fs), .5));
+      f.append(r1, r2, r3); f.insertAdjacentHTML('afterbegin', `<span class="lab" style="font-size:13px;opacity:.6">seed ${s}</span>`); sd.append(f); }
+  }
+  const msg = PERF.map(([k, t, ms]) => `${t} ${ms.toFixed(0)} ms`).join('; ');
+  document.body.dataset.timing = msg || 'none'; const tEl = document.getElementById('timing'); if (tEl) tEl.textContent = 'a sheet’s ornament, poured: ' + msg;
+}
+build();
+seedIn?.addEventListener('change', () => { location.hash = 'seed=' + Math.max(1, seedIn.value | 0); });
+document.getElementById('reseed')?.addEventListener('click', () => { location.hash = 'seed=' + (1 + Math.floor(Math.random() * 9999)); });
+document.getElementById('run')?.addEventListener('click', () => { if (REDUCED) return; DRAW = true; build(); });
+addEventListener('hashchange', build);
+sysDark.addEventListener('change', () => { if (!q.get('theme')) build(); });
+</script>
+</body>
+</html>

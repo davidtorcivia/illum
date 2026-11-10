@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duplicator press bench</title>
+<!--
+  The duplicator's press on a bench (kit/styles/riso-press.js; research/26-riso.md stage 1b): real prints beside ours, the ink
+  pairs and their overprint, the drums' miss on a whole sheet, how a solid takes the ink (flat beside poured), light and dark
+  stock.  #seed=n  ?miss=k (the miss scaled, default 1)  ?ink=poured|flat (default poured)
+  Reference crops: tests/riso-refs/CREDITS.txt.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-display: block; }
+  :root { --cream: #F3EEE3; --black: #18171B; }
+  html { background: #E6E1D6; } body { margin: 0; color: #27241F; font: 400 17px/1.5 "EB Garamond", Georgia, serif; }
+  main { max-width: 1300px; margin: 0 auto; padding: 30px 20px 60px; }
+  h1 { font-weight: 400; font-size: 44px; margin: 0 0 .2em; } h2 { font-weight: 400; font-size: 28px; margin: 1.4em 0 .3em; }
+  p { max-width: 82ch; margin: .3em 0 .8em; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+  .sheet { position: relative; padding: 16px; } .sheet[data-theme=light] { background: var(--cream); } .sheet[data-theme=white] { background: #F4F4F2; } .sheet[data-theme=dark] { background: var(--black); color: #E8E3D8; }
+  .sheet canvas, .sheet img { display: block; } .cap { font-size: 14px; opacity: .8; margin-top: 6px; max-width: 30em; }
+  .controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; } .controls input[type=number] { width: 6em; font: inherit; }
+</style>
+</head>
+<body><main>
+<h1>The press, on a bench</h1>
+<p>Each patch is printed by kit/styles/riso-press.js exactly as the directions are: stencils per drum, drum 2 through the sheet’s one miss, each drum’s stencil poured into the ink engine (kit/medium.js: the soy ink creeps a fraction of a pixel into the fibre at its edge, levels and dries; a thin film catches only the paper tooth’s peaks; the drum lays its own streaks along the feed and a slow mottle), its film read back and composited by the film law (translucent inks filter, opaque inks hide; the second drum takes 80 % on the first’s wet film). <code>?ink=flat</code> shows the stage-1 compositor. Ink colours after stencil.wiki (CC BY-NC-SA 4.0).</p>
+<div class="controls"><label>seed <input id="seed" type="number" min="1"></label><label>miss × <input id="miss" type="range" min="0" max="3" step=".25"> <span id="missv"></span></label>
+  <span>ink: <a href="?ink=poured">poured</a> · <a href="?ink=flat">flat</a></span><span id="timing"></span></div>
+<div id="out"></div>
+<script type="module">
+import { press, drumSet, INKS, MM } from '../kit/styles/riso-press.js';
+const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), mag = +(q.get('miss') ?? 1), dpr = Math.min(2, devicePixelRatio || 1), INK = q.get('ink') === 'flat' ? 'flat' : 'poured';
+document.getElementById('seed').value = seed; const mi = document.getElementById('miss'); mi.value = mag; document.getElementById('missv').textContent = mag;
+document.getElementById('seed').onchange = e => { location.hash = 'seed=' + (e.target.value | 0); location.reload(); };
+mi.onchange = () => { q.set('miss', mi.value); location.search = q.toString(); };
+const STOCK = { light: '#F3EEE3', white: '#F4F4F2', dark: '#18171B' }, out = document.getElementById('out'), t0 = performance.now();
+const sec = (title, note) => { out.insertAdjacentHTML('beforeend', `<h2>${title}</h2><p>${note}</p>`); const r = document.createElement('div'); r.className = 'row'; out.append(r); return r; };
+// a patch: a piece printed on its own sheet; at: its place on that sheet (for the miss and the drum's streaks), pageW the sheet's width
+function patch(row, theme, piece, look, cap, { at = [40, 40], pageW = 600, drums = drumSet(seed, mag), ink = INK, zoom = 1 } = {}) {
+  const f = document.createElement('div'); f.className = 'sheet'; f.dataset.theme = theme;
+  const d = dpr * zoom, r = press(piece, { stock: STOCK[theme], ...look }, { d, at, pageW, drums, ink, seed }), cv = document.createElement('canvas');
+  cv.width = r.cw; cv.height = r.ch; Object.assign(cv.style, { width: r.cw / dpr + 'px', height: r.ch / dpr + 'px' }); cv.getContext('2d').putImageData(r.img, 0, 0);
+  f.append(cv); if (cap) f.insertAdjacentHTML('beforeend', `<div class="cap">${cap}</div>`); row.append(f); return f;
+}
+const ref = (row, src, cap, h) => { const f = document.createElement('div'); f.className = 'sheet'; f.dataset.theme = 'white'; const im = new Image(); im.src = 'riso-refs/' + src; im.style.height = h + 'px'; f.append(im); f.insertAdjacentHTML('beforeend', `<div class="cap">${cap}</div>`); row.append(f); };
+const poly = P => g => { g.beginPath(); P.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); };
+const sq = (x, y, s) => g => g.fillRect(x, y, s, s), both = (a, b) => ({ a, b }), NONE = [null, null];
+
+// 0. beside real prints
+let row = sec('0 · Beside real prints', 'Left of each pair, a real duplicator print (photographs from Wikimedia Commons, credited under each; reference only). Right, ours, the same inks at about the same size. Measured on the two-colour print (Felipe, 2014; white-balanced, ~2.1 px/mm): the red’s edge goes from paper to full in under a pixel (≤ 0.5 mm, the photograph’s own limit), the black’s slow variation ~1.7 L; the studio sheet (Daedal) shows each solid streaked along the feed and softly mottled, every edge crisp, the overprints mixed; the macro (Cetrl) shows the paper’s tooth all through a red solid. Not measured, for want of a flat high-resolution scan: a solid’s variation in numbers, and an overprint’s colour.');
+ref(row, 'felipe-chair.jpg', 'Two-colour risograph, A3 (Mario Felipe, 2014; CC BY 2.0)', 260);
+{ const red = poly([[122, 95], [208, 95], [182, 187], [82, 187]]), blk = g => { g.fillRect(86, 33, 86, 24); poly([[80, 187], [167, 187], [202, 215], [112, 215]])(g); g.globalCompositeOperation = 'destination-out'; poly([[112, 193], [150, 193], [168, 207], [128, 207]])(g); g.globalCompositeOperation = 'source-over'; };
+  patch(row, 'white', { W: 250, H: 250, draw: both(red, blk) }, { order: ['a', 'b'], ink: { a: 'red', b: 'black' } }, 'ours, poured: Bright Red, then Black over it'); }
+ref(row, 'daedal-sheet.jpg', 'A studio sheet fresh off the drum (Quinn Daedal; CC BY-SA 2.0)', 260);
+{ const pink = g => { g.fillRect(150, 60, 110, 130); g.beginPath(); g.arc(70, 80, 34, 0, 7); g.fill(); }, blue = poly([[40, 230], [330, 120], [345, 140], [60, 245]]), sun = g => { g.beginPath(); g.arc(110, 95, 40, 0, 7); g.fill(); };
+  patch(row, 'white', { W: 380, H: 260, draw: { s: sun, a: pink, b: blue } }, { order: ['s', 'a', 'b'], ink: { s: 'sunflower', a: 'pink', b: 'mblue' } }, 'ours, poured: Sunflower, Fluorescent Pink, Medium Blue (three drums)'); }
+row = sec('', '');
+ref(row, 'cetrl-macro.jpg', 'Macro of a red solid (Cetrl, Garden Party; CC0); its grain ~0.05–0.1 mm, from the zine’s own bitmap pixels [U]. Ours keeps its continuous part, not its specks.', 300);
+for (const [gr, nm] of [[0, 'none'], [1, 'continuous tooth']]) patch(row, 'white', { W: 75, H: 75, draw: { a: g => { g.fillRect(0, 0, 75, 75); g.globalCompositeOperation = 'destination-out'; g.fillRect(20, 20, 18, 30); g.globalCompositeOperation = 'source-over'; } } }, { order: ['a'], ink: { a: 'red' }, grain: gr }, `ours, grain: ${nm}, at 4×`, { zoom: 4, drums: NONE });
+row = sec('', 'The same two levels at page size (1×), Federal Blue then Fluorescent Pink: the film’s density varies continuously at the fibre’s scale; there are no dots, no pinholes, nothing taken out of the film.');
+for (const [gr, nm] of [[0, 'none'], [1, 'continuous tooth']]) patch(row, 'light', { W: 260, H: 150, draw: both(g => { g.fillRect(0, 0, 170, 110); }, g => { g.fillRect(90, 40, 170, 110); }) }, { order: ['a', 'b'], ink: { a: 'federal', b: 'pink' }, grain: gr }, `grain: ${nm}, 1×`);
+for (const [gr, nm] of [[0, 'none'], [1, 'continuous tooth']]) patch(row, 'dark', { W: 260, H: 150, draw: both(g => { g.fillRect(0, 0, 170, 110); }, g => { g.fillRect(90, 40, 170, 110); }) }, { order: ['b', 'a'], ink: { a: 'cornflower', b: 'bubblegum' }, grain: gr }, `dark, grain: ${nm}, 1×`);
+
+// 1. the inks and their overprint
+row = sec('1 · The ink pairs and their overprint', 'Drum 1 the upper-left square, drum 2 the lower-right; the overlap is the overprint, in register here (the miss is shown below). The right-hand patch of each pair is the same two inks in the other order; the last is Federal Blue then Pink with no trap (a plain multiply), too dark.');
+const swatch = () => ({ W: 150, H: 110, draw: both(sq(0, 0, 90), sq(50, 30, 81)) });
+for (const [a, b] of [['federal', 'pink'], ['teal', 'red'], ['federal', 'red']]) for (const [x, y] of [[a, b], [b, a]]) patch(row, 'light', swatch(), { order: ['a', 'b'], ink: { a: x, b: y } }, `${INKS[x].name} ${INKS[x].hex}, then ${INKS[y].name} ${INKS[y].hex}`, { drums: NONE });
+patch(row, 'light', swatch(), { order: ['a', 'b'], ink: { a: 'federal', b: 'pink' }, trap: 1 }, 'Federal Blue then Pink, no trap', { drums: NONE });
+
+// 2. the miss
+const D2 = drumSet(seed, mag)[1];
+row = sec('2 · The drums’ miss, on a whole sheet', `One transform per drum for the sheet: drum 2 shifted ${(Math.hypot(D2.dx, D2.dy) / MM).toFixed(2)} mm, turned ${(D2.th * 180 / Math.PI).toFixed(3)}°, stretched ${(D2.e * 100).toFixed(2)} % along the feed (down). The same marks in both drums (blue, then pink over it): where they agree the overprint is violet, where they miss a fringe shows, growing down the sheet. 1 mm is ${MM.toFixed(2)} CSS px. The slider exaggerates.`);
+{ const W = 560, H = 760, marks = g => { for (const [x, y] of [[24, 24], [W - 24, 24], [24, H - 24], [W - 24, H - 24], [W / 2, H / 2]]) { g.beginPath(); g.arc(x, y, 9, 0, 7); g.lineWidth = 1.5; g.stroke(); g.fillRect(x - 16, y - .75, 32, 1.5); g.fillRect(x - .75, y - 16, 1.5, 32); }
+    for (let k = 0; k < 6; k++) { const y = 90 + k * 110; g.fillRect(60, y, W - 120, 4); for (let i = 0; i < 5; i++) { g.beginPath(); g.arc(90 + i * 95, y + 45, 16, 0, 7); g.fill(); } } };
+  patch(row, 'light', { W, H, draw: both(marks, marks) }, { order: ['a', 'b'], ink: { a: 'federal', b: 'pink' } }, 'A sheet: registration marks, rules and discs, both drums.', { pageW: W, at: [0, 0] });
+  patch(row, 'dark', { W, H, draw: both(marks, marks) }, { order: ['a', 'b'], ink: { a: 'cornflower', b: 'bubblegum' } }, 'The same on black stock, the opaque pair.', { pageW: W, at: [0, 0] }); }
+
+// 3. solids, flat beside poured
+row = sec('3 · How a solid takes the ink: flat | poured', 'The same solids printed both ways. A heavy solid draws the drum’s supply down along the feed (the lead edge fullest), and a drawn-down film is thin enough for the tooth to show through, low in the solid. Poured, the drum’s streaks along the feed and a slow mottle show too, and every edge has the ink’s small creep. Densities 95 % and 85 % (a studio’s setting for big solids).');
+for (const ink of ['flat', 'poured']) for (const [s, dn] of [[120, .95], [260, .95], [260, .85]]) patch(row, 'light', { W: s, H: s * .8, draw: { a: g => g.fillRect(0, 0, s, s * .8) } }, { order: ['a'], ink: { a: 'teal' }, density: { a: dn } }, `Teal ${s} px, ${dn * 100} % (${ink})`, { drums: NONE, ink });
+{ const s = 260, cutl = g => { g.fillRect(0, 0, s, s * .8); g.globalCompositeOperation = 'destination-out'; g.font = '150px "EB Garamond"'; g.fillText('Rg', 30, 150); g.globalCompositeOperation = 'source-over'; };
+  for (const ink of ['flat', 'poured']) { patch(row, 'light', { W: s, H: s * .8, draw: { a: cutl } }, { order: ['a'], ink: { a: 'federal' } }, `Federal Blue flood, letters cut from it (${ink})`, { drums: NONE, ink });
+    patch(row, 'dark', { W: s, H: s * .8, draw: { a: cutl } }, { order: ['a'], ink: { a: 'mint' }, density: { a: .85 } }, `Mint (opaque) on black: where the film thins, the stock shows (${ink})`, { drums: NONE, ink }); } }
+
+// 4. stock
+row = sec('4 · Light and dark stock', 'The same patches on cream and on black. Translucent inks (left four) all but vanish on black: they can only filter what is under them. The opaque inks hide the stock by their film, 1 − exp(−σ τ), the film here the engine’s: Deco’s dark path (an opaque ink laid over the ground, its alpha from the film), not a separate law. Bright Red over an opaque Mint shows red again.');
+for (const theme of ['light', 'dark']) { const r = document.createElement('div'); r.className = 'row'; out.append(r);
+  for (const ink of ['federal', 'pink', 'teal', 'red', 'cornflower', 'bubblegum', 'mint', 'white']) patch(r, theme, { W: 90, H: 70, draw: { a: g => g.fillRect(0, 0, 90, 70) } }, { order: ['a'], ink: { a: ink } }, INKS[ink].name, { drums: NONE });
+  patch(r, theme, swatch(), { order: ['a', 'b'], ink: { a: 'mint', b: 'red' } }, 'Mint, then Bright Red', { drums: NONE });
+  patch(r, theme, swatch(), { order: ['a', 'b'], ink: { a: 'bubblegum', b: 'cornflower' } }, 'Bubblegum, then Cornflower', { drums: NONE }); }
+const msg = `printed in ${Math.round(performance.now() - t0)} ms (${INK})`; document.getElementById('timing').textContent = msg; document.body.dataset.timing = msg;
+</script>
+</main></body>
+</html>
