@@ -545,7 +545,7 @@ cut to its ink, so a page costs one pour and one read-back per colour.
 |---|---|
 | drop (five lines; four on a narrow measure) | the capital reserved as paper in a typed field under a card: words, graded or tone, as the page's machine chooses (`dropOf`: a rich page favours words; lavish is always words; plain is tone in black) |
 | line initial | the capital struck from a display slug, red, its top kept under the line box above |
-| paraph | the pilcrow in red, struck once or twice, underscored or not (the seed's), on the indent's baseline |
+| paraph | the pilcrow in red, struck once or twice (the seed’s), on the indent’s baseline |
 | filler | a paragraph's open end: the leader on the machine's columns (usual and up, on lines left well open) |
 | run-out | the heading's underscore to the margin in red (once, doubled, or an `=` rule: the seed's) |
 | breaks | a part (rank 1): three or five stars, the middle red; a chapter (rank 3): the dash rule with a red star; the end (rank 2): a double rule with a red row between, and from fine up, nested squares typed from the title's longest word (Sonic Water) |

@@ -4,7 +4,7 @@
 // for the end of a part, nested squares typed from the heading's word (Houédard's Sonic Water, 1964). Every mark is
 // typed on the machine's lattice: a cell 0.6 em wide, the half-space key, the platen's half and quarter rows.
 //   initial  the capital reserved as paper in a typed field, three ways (c.drop, else the seed's; see DROPS below)
-//   paraph   the pilcrow in red, struck once or twice, underscored or not
+//   paraph   the pilcrow in red, struck once or twice
 //   filler   the leader to the margin (the page's: . - or -.)
 //   run-out  the heading's underscore carried to the margin in red, once or twice, or an = rule
 //   breaks   1 three or five stars, the middle red; 2 the dash rule with a red star; 3 nested squares typed from the
@@ -48,7 +48,8 @@ function capOf(family, ch, cap) {
 // (Tried and dropped: the contour typed in keys that run its way, a scatter of bars at drop size; underscores on
 // sixth-line feeds, rules the owner did not want.)
 export const DROPS = { words: 'the paragraph’s words typed as a field, the capital reserved', graded: 'a quiet field darkened toward the foot by extra passes', tone: 'quiet keys a row each, an even tone' };
-export function dropOf(seed, rich = .5) { const r = rngOf(seed, 'drop')(), w = 1 + 2 * rich; return r < w / (w + 2) ? 'words' : r < (w + 1) / (w + 2) ? 'graded' : 'tone'; }
+export function dropOf(seed, rich = .5) { const R = rngOf(seed, 'drop'); R(); R(); const r = R(), w = 1 + 2 * rich;   // (the third draw: the first of a stream follows its seed too closely)
+  return r < w / (w + 2) ? 'words' : r < (w + 1) / (w + 2) ? 'graded' : 'tone'; }
 // the capital as the card covers it: coverage summed over areas (a summed-area table at 2 px a CSS px)
 function cardOf(family, ch, cap, cx, by, W, H) {
   const R = 2, w = Math.ceil(W * R) + 1, h = Math.ceil(H * R) + 1, g = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
@@ -85,7 +86,6 @@ export function initial(ch, H, c) {
 }
 
 export function paraph(c) { const { em, lh, seed } = c, h = hand(seed), s = Array.from({ length: h.bold }, () => at('¶', 0, em * .95, 'r'));
-  if (h.pu) s.push(at('_', 0, em * .95, 'r'));   // (underscored, as the ladder underscores what it raises)
   return { W: cellW(em), H: lh * .8, em, lh, strikes: s, base: em * .95 }; }
 
 export function filler(gw, c) {

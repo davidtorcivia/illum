@@ -124,7 +124,9 @@ function slug(M, ch, bold, em, res, key = ch, size = 1) {
   if (k.tilt && n) { const cx = sx / n, cy = sy / n, R = Math.max(x1 - x0, y1 - y0) / 2 || 1, ux = Math.cos(k.tilt.ang), uy = Math.sin(k.tilt.ang);
     for (let q = 0; q < w * h; q++) if (C[q]) { const s = ((q % w - cx) * ux + ((q / w | 0) - cy) * uy) / R; T[q] = 1 - k.tilt.amt * clamp(s * .6 + .4); } }
   let A = 0; for (let q = 0; q < w * h; q++) A += C[q];
-  a = { C, T, w, h, ox, oy, area: A / (S * S) }; M.atlas.set(id, a); PROF.slug += performance.now() - tp; return a;
+  // (the rows and columns that hold ink, so a strike is stamped over its glyph and not its whole slug's cell)
+  let bx0 = w, bx1 = -1, by0 = h, by1 = -1; for (let q = 0; q < w * h; q++) if (C[q] > 0) { const x = q % w, y = q / w | 0; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+  a = { C, T, w, h, ox, oy, bb: [bx0, by0, bx1, by1], area: A / (S * S) }; M.atlas.set(id, a); PROF.slug += performance.now() - tp; return a;
 }
 
 // a box blur of radius r along x (horiz 1) or y
@@ -207,8 +209,8 @@ function deposit(M, piece, o, cw, ch, pad) {
     const X0 = Math.round((pad + s.x + sx) * d) - a.ox, Y0 = Math.round((pad + s.y + sy) * d) - a.oy;
     // (the bichrome seam: a mis-set vibrator lifts the ribbon short, and the glyph's top strikes the black half)
     const seamY = col === 'r' && M.seam > 0 ? a.oy - em * d * (.62 - 2 * M.seam) : -1e9;
-    for (let j = 0; j < a.h; j++) { const y = Y0 + j; if (y < 0 || y >= ch) continue;
-      for (let i = 0; i < a.w; i++) { const c0 = a.C[j * a.w + i]; if (!c0) continue; const x = X0 + i; if (x < 0 || x >= cw) continue; const q = y * cw + x;
+    for (let j = a.bb[1]; j <= a.bb[3]; j++) { const y = Y0 + j; if (y < 0 || y >= ch) continue;
+      for (let i = a.bb[0]; i <= a.bb[2]; i++) { const c0 = a.C[j * a.w + i]; if (!c0) continue; const x = X0 + i; if (x < 0 || x >= cw) continue; const q = y * cw + x;
         let c = c0; if (mask) c *= 1 - mask[q]; if (sten) c *= sten[q]; if (c <= .002) continue;
         const ink = s.dens * a.T[j * a.w + i] * weaveAt((i - a.ox) / pxmm, (j - a.oy) / pxmm, s, M, att, dry) * (FB[q] ||= fibreAt((PX + x) / pxmm, (PY + y) / pxmm, M, famp));
         let B = L[col]; if (j < seamY) B = L.k;
@@ -255,8 +257,9 @@ export function composite(P, img, show = null) {
   const { cw, ch, look } = P, D = img.data, S = hexRGB(look.stock), Sl = S.map(v => S2L[v]), dark = look.theme === 'dark', I = INKS[dark ? 'dark' : 'light'];
   const Fk = P.F.k, Fr = P.F.r, Q = 512, FM = 2, tab = C => { const T = new Float32Array((Q + 1) * 3);   // per film step: light, the transmittance; dark, the cover
     for (let i = 0; i <= Q; i++) { const f = i / Q * FM; for (let j = 0; j < 3; j++) T[i * 3 + j] = dark ? 1 - Math.exp(-2.4 * f) : C.t[j] ** f; } return T; };
-  const TK = tab(I.k), TR = tab(I.r), fk0 = Fk && Fk[P.lv.k], fr0 = Fr && Fr[P.lv.r], c = [0, 0, 0];
-  for (let q = 0; q < cw * ch; q++) {
+  const TK = tab(I.k), TR = tab(I.r), fk0 = Fk && Fk[P.lv.k], fr0 = Fr && Fr[P.lv.r], c = [0, 0, 0], B = P.bb ?? [0, 0, cw - 1, ch - 1];
+  // (only the rows and columns ink reaches, P.bb: a new ImageData is clear elsewhere)
+  for (let yy = B[1]; yy <= B[3]; yy++) for (let q = yy * cw + B[0], qe = yy * cw + B[2]; q <= qe; q++) {
     const fk = !Fk ? 0 : show ? show(Fk, 'k', q) : fk0[q], fr = !Fr ? 0 : show ? show(Fr, 'r', q) : fr0[q], o = q * 4; if (fk <= .003 && fr <= .003) { D[o + 3] = 0; continue; }
     let r = Sl[0], g = Sl[1], b = Sl[2];
     for (let pass = 0; pass < 2; pass++) { const f = pass ? fr : fk; if (f <= 0) continue; const T = pass ? TR : TK, C = pass ? I.r : I.k, x = Math.min(Q, Math.round(f / FM * Q)) * 3;
@@ -308,9 +311,10 @@ export function pressMany(M, items, look, o) {
     const SH = y + rowH, n = SW * SH, Cv = new Float32Array(n), I = new Float32Array(n);
     for (const u of use) for (let j = 0; j < u.h; j++) { const r0 = (u.j0 + j) * u.c.cw + u.i0, r1 = (u.y + j) * SW + u.x; Cv.set(u.A.C.subarray(r0, r0 + u.w), r1); I.set(u.A.I.subarray(r0, r0 + u.w), r1); }
     const tp = performance.now(), F = engine ? film(Cv, I, SW, SH, { ...o, papers: use.map(u => [u.x, u.y, u.w, u.h, Math.round((u.c.at[0] - u.c.pad) * d) + u.i0, Math.round((u.c.at[1] - u.c.pad) * d) + u.j0]) }, 0) : flat(Cv, I); PROF.film += performance.now() - tp;
+    for (const u of use) { const b = u.c.bb ??= [u.i0, u.j0, u.i0 + u.w - 1, u.j0 + u.h - 1]; b[0] = Math.min(b[0], u.i0); b[1] = Math.min(b[1], u.j0); b[2] = Math.max(b[2], u.i0 + u.w - 1); b[3] = Math.max(b[3], u.j0 + u.h - 1); }
     if (F) for (const u of use) { const f = u.c.F[col][0]; for (let j = 0; j < u.h; j++) f.set(F.subarray((u.y + j) * SW + u.x, (u.y + j) * SW + u.x + u.w), (u.j0 + j) * u.c.cw + u.i0); }
   }
-  return cells.map(c => { const P = { cw: c.cw, ch: c.ch, pad: c.pad, look, F: c.F ?? {}, lv: { k: 0, r: 0 } }, img = new ImageData(c.cw, c.ch), tp = performance.now(); composite(P, img); PROF.composite += performance.now() - tp; return { img, cw: c.cw, ch: c.ch, pad: c.pad }; });
+  return cells.map(c => { const P = { cw: c.cw, ch: c.ch, pad: c.pad, look, F: c.F ?? {}, lv: { k: 0, r: 0 }, bb: c.bb ?? [0, 0, -1, -1] }, img = new ImageData(c.cw, c.ch), tp = performance.now(); composite(P, img); PROF.composite += performance.now() - tp; return { img, cw: c.cw, ch: c.ch, pad: c.pad }; });
 }
 // the engine made ahead (its context and its programs), while the page's fonts are on their way
 export function warm(d = Math.min(2, globalThis.devicePixelRatio || 1)) { try { mediumFor(1, 1, d); } catch {} }

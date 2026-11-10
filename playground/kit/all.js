@@ -19,6 +19,7 @@ import './styles/copperplate.js';
 import './styles/rock.js';
 import './styles/plotter.js';
 import './styles/riso.js';
+import './styles/typewriter.js';
 import { loadAll } from './illum.js';
 await loadAll();   // (all here already: this only puts them in the registry, in its order)
 export * from './illum.js';
