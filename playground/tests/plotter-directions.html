@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plotter directions</title>
+<!--
+  Plotter, stage 2 (research/25-plotter.md): two directions, each a page grammar drawn by a pen on a carriage through
+  the ink engine (kit/styles/plotter-pen.js). A the drawing office (HP 7475A, fibre tips, Hershey Triplex, HP-GL line
+  types and fills), B section lines (an AxiDraw, liners, Jost outlined and hatched). Each: a drop, a paraph, a filler, a heading's
+  run-out, breaks of rank 1, 2 and 3 and a quotation's frame, on light stock and dark, still; "plot" draws a panel as
+  the machine would (pen by pen, nearest stroke next); then the pieces enlarged; then a phone width.
+  ?only=office|section  ?draw (every panel plotted as it comes into view)  ?bare (one panel, for the phone frames)
+  #seed=n
+  The specimen's text is Ada Lovelace's, from her Notes to Menabrea's Sketch of the Analytical Engine (1843).
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  html { background: #e2e1dc; }
+  body { margin: 0; color: #1c1c1f; font: 400 19px/1.55 "EB Garamond", Georgia, serif; -webkit-font-smoothing: antialiased; }
+  header.top { max-width: 1400px; margin: 0 auto; padding: 36px 24px 6px; }
+  header.top h1 { font-weight: 500; font-size: 15px; letter-spacing: .16em; text-transform: uppercase; margin: 0; }
+  header.top p { font-style: italic; margin: .3em 0; max-width: 64em; font-size: .9em; }
+  header.top nav { font-size: .85em; display: flex; flex-wrap: wrap; gap: .4em 1.2em; align-items: center; }
+  header.top nav a { color: inherit; }
+  header.top input { width: 5.5em; font: inherit; padding: 1px 4px; }
+  header.top button, .panel button { font: italic 14px "EB Garamond", serif; background: none; border: 1px solid currentColor; color: inherit; padding: 1px 10px; cursor: pointer; opacity: .7; }
+  section.dir { max-width: 1400px; margin: 0 auto; padding: 30px 24px 10px; }
+  section.dir > h2 { font-weight: 500; font-size: 15px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 .2em; }
+  section.dir > p.note { margin: 0 0 1em; font-style: italic; font-size: .9em; max-width: 64em; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel { position: relative; padding: 46px 48px 40px; overflow: hidden; background: var(--paper); color: var(--ink); }
+  .panel[data-theme=dark] { --ink: #e9e8e2; }
+  .panel[data-theme=light] { --ink: #1c1c1f; }
+  .panel > button { position: absolute; top: 12px; right: 14px; }
+  .text { position: relative; max-width: 600px; margin: 0 auto; hyphens: auto; }
+  .text p { margin: 0 0 .9em; } .text p.par { margin-top: -.3em; }
+  .text h3 { font-weight: 500; font-size: 1.5em; line-height: 1.1; margin: 1em 0 .45em; letter-spacing: .01em; }
+  .text h3 .ro { display: inline-block; height: 1px; }
+  .text hr { border: 0; margin: .9em 0; } hr.r1 { height: 1.2em; } hr.r2 { height: 2em; } hr.r3 { height: 3.2em; }
+  .text blockquote { margin: 1.3em 0; padding: 0 1.6em 0 2.2em; font-style: italic; }
+  .ini { float: left; } .pf { display: inline-block; height: 1px; }
+  .zoom { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; align-items: flex-start; }
+  .zoom figure { margin: 0; padding: 18px; max-width: 100%; box-sizing: border-box; background: var(--paper); color: var(--ink); }
+  .zoom figure[data-theme=dark] { --ink: #e9e8e2; } .zoom figure[data-theme=light] { --ink: #1c1c1f; }
+  .zoom figcaption { font: italic 14px/1.3 "EB Garamond", serif; opacity: .75; margin-top: 8px; max-width: 40em; }
+  .zoom .stage { position: relative; } .zoom .stage canvas { position: absolute; }
+  .phones { display: flex; gap: 16px; flex-wrap: wrap; } .phones iframe { width: 390px; height: 1250px; border: 0; }
+  body.bare { background: var(--paper); } body.bare .panel { padding: 28px 16px; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } .panel { padding: 34px 16px 28px; } section.dir { padding: 26px 0 8px; } header.top, section.dir > h2, section.dir > p.note { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header class="top"><h1>Plotter · two directions</h1>
+<p>A pen on a carriage: exact paths, one width, and only what the machine and the pen do to the ink (speed, dwell, ink on ink, the pen change, the same pen's return). <span id="timing"></span></p>
+<nav><a href="?only=office">A · the drawing office</a><a href="?only=section">B · section lines</a><a href="?">all</a><a href="?draw">all, plotted</a><a href="plotter-medium.html">the medium</a>
+<label>seed <input id="seed" type="number" min="1"></label><button id="reseed" type="button">another</button></nav></header>
+<template id="txt">
+  <p class="lead"><span class="ini" data-ch="T"></span>he Analytical Engine has no pretensions whatever to originate any thing. It can do whatever we know how to order it to perform. It can follow analysis; but it has no power of anticipating any analytical relations or truths.</p>
+  <p class="par fill"><span class="pf"></span>Again, it might act upon other things besides number, were objects found whose mutual fundamental relations could be expressed by those of the abstract science of operations.</p>
+  <hr class="r1" data-rank="1">
+  <p>Supposing, for instance, that the fundamental relations of pitched sounds in the science of harmony and of musical composition were susceptible of such expression and adaptations, the engine might compose elaborate and scientific pieces of music of any degree of complexity or extent.</p>
+  <blockquote>We may say most aptly that the Analytical Engine weaves algebraical patterns just as the Jacquard-loom weaves flowers and leaves.</blockquote>
+  <hr class="r2" data-rank="2">
+  <h3>Note G<span class="ro"></span></h3>
+  <p>Its province is to assist us in making available what we are already acquainted with. This it is calculated to effect primarily and chiefly of course, through its executive faculties.</p>
+  <hr class="r3" data-rank="3">
+</template>
+<main id="out"></main>
+<script type="module">
+import { print, writer } from '../kit/styles/plotter-pen.js';
+import * as office from '../kit/styles/plotter-office.js';
+import * as section from '../kit/styles/plotter-section.js';
+const DIRS = { office, section };
+await Promise.all(['19px "EB Garamond"', 'italic 19px "EB Garamond"'].map(f => document.fonts.load(f)));
+const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), BARE = q.has('bare'), ONLY = q.get('only');
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches, DRAW = q.has('draw') && !RM;
+const dpr = Math.min(2, devicePixelRatio || 1), PERF = [];
+{ const s = document.getElementById('seed'); s.value = seed; s.onchange = () => { location.hash = 'seed=' + Math.max(1, +s.value | 0); };
+  document.getElementById('reseed').onclick = () => { location.hash = 'seed=' + (1 + Math.floor(Math.random() * 99999)); };   // (a new seed asked for; the page itself is seeded)
+  addEventListener('hashchange', () => location.reload()); }
+if (BARE) { document.body.classList.add('bare'); document.querySelector('header.top').remove(); }
+const NOTES = {
+  office: 'An HP 7475A on plotter bond with the pens HP supplied: 0.3 mm fibre tips, black and red, and the 0.7 mm black. It draws what HP-GL draws, and each page is set up once, as an operator sets a sheet: a line type and its pattern, a fill type (solid, hatched, crossed) and its angle, the mark the fills take, the rule, the corner marks, how the drop is set (alone, over a filled panel, in a ruled box). The drop is Hershey’s Roman Triplex (1967) in the rubric pen. Paraph: the page’s mark, filled solid. Filler: the page’s line type, every dash a pen-down and a pen-up. Run-out: a drafting rule. Breaks: points of dwell; the line type round a filled mark; the plot’s legend between registration marks, dated and numbered as Nake numbered his sheets. Quotation: the page’s corner marks.',
+  section: 'A modern plotter (an AxiDraw, its servo slower to lift, so its dots are fuller) on Bristol, a 0.35 mm pigment liner and a red one. The engineer’s section: a contour, then parallel lines drawn back and forth with the pen down, turning on the contour. Each page sets the section’s angle and spacing, whether the drop is crossed, the shape of its small marks, how the filler and run-out fall away. The hatch is as regular as the program; it departs only where the machine does: a short row never reaches speed and runs heavier, every row returns within 0.1 mm, the red layer sits up to 0.2 mm off the black. The drop is Jost (OFL) outlined and sectioned. From the drawing office: points of dwell as the smallest break, and Hershey’s numerals under the pen-test swatch.',
+};
+// the plots being watched: one plotter for the light sheets and one for the dark, each drawing its pieces one at a time
+const queues = { light: [], dark: [] }; let running = false;
+function run(now) { let any = false;
+  for (const Q of Object.values(queues)) { const w = Q[0]; if (!w) continue; any = true; w.st ??= now; const f = (now - w.st) / Math.max(1, w.dur); if (f >= 1) { w.done(); Q.shift(); } else w.at(f); }
+  if (any) requestAnimationFrame(run); else running = false; }
+const go = () => { if (!running) { running = true; requestAnimationFrame(run); } };
+const seen = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { seen.unobserve(e.target); e.target._plot(); } }, { threshold: .15 });
+
+function page(key, theme, host) {
+  const D = DIRS[key], panel = document.createElement('div'); panel.className = 'panel'; panel.dataset.theme = theme; panel.style.setProperty('--paper', D.STOCK[theme]);
+  const text = document.createElement('div'); text.className = 'text'; text.append(document.getElementById('txt').content.cloneNode(true)); panel.append(text); host.append(panel);
+  const cs = getComputedStyle(text), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = innerWidth < 600 ? 3 : 4;
+  const g = document.createElement('canvas').getContext('2d'); g.font = `${fs}px "EB Garamond"`; const m = g.measureText('H'), asc = m.fontBoundingBoxAscent, capH = m.actualBoundingBoxAscent, xh = g.measureText('x').actualBoundingBoxAscent;
+  // the pieces, made (geometry only) and where their anchors go
+  const H = (n - 1) * lh + capH, ini = text.querySelector('.ini'), hd = D.hand(seed), ip = D.initial(ini.dataset.ch, H, seed, fs, hd);
+  Object.assign(ini.style, { width: ip.W + ip.at[0] + fs * .5 + 'px', height: (n * lh - 4) + 'px' });
+  const pf = text.querySelector('.pf'), pp = D.paraph(fs, seed + 1, hd); pf.style.width = pp.W + fs * .35 + 'px';
+  const R = text.getBoundingClientRect(), rel = el => { const b = el.getBoundingClientRect(); return { x: b.left - R.left, y: b.top - R.top, w: b.width, h: b.height }; };
+  const line1 = (el) => { const rg = document.createRange(); rg.selectNodeContents(el); return [...rg.getClientRects()]; };
+  const jobs = [];
+  // (a text rect is the font's content area: its top plus the font's ascent is the baseline)
+  { const rg = document.createRange(), tn = ini.nextSibling; rg.setStart(tn, 0); rg.setEnd(tn, 1); const r0 = rg.getClientRects()[0]; jobs.push([ip, rel(ini).x, r0.top - R.top + asc - capH]); }
+  { const b = rel(pf); jobs.push([pp, b.x - pp.at[0], b.y + b.h - pp.H - pp.at[1]]); }   // (the paraph's box: an inline-block 1 px tall, its foot on the baseline)
+  { const p = text.querySelector('p.fill'), last = line1(p).at(-1), x0 = last.right - R.left + fs * .4, gw = R.width - x0;
+    if (gw > fs * 2) jobs.push([D.filler(gw, lh, seed + 2, hd), x0, last.top - R.top + asc - xh / 2]); }
+  { const h = text.querySelector('h3'), hfs = parseFloat(getComputedStyle(h).fontSize), ro = rel(h.querySelector('.ro')), hr = line1(h)[0], x0 = ro.x + fs * .6, w = R.width - x0;
+    g.font = `500 ${hfs}px "EB Garamond"`; const ha = g.measureText('H').fontBoundingBoxAscent, hx = g.measureText('x').actualBoundingBoxAscent;
+    if (w > fs * 2) jobs.push([D.runout(w, hfs, seed + 3, hd), x0, hr.top - R.top + ha - hx / 2]); }
+  for (const hr of text.querySelectorAll('hr')) { const b = rel(hr), k = +hr.dataset.rank; jobs.push([D.brk(k, R.width, b.h, seed + 3 + k, fs, hd), R.width / 2, b.y + b.h / 2]); }
+  { const b = rel(text.querySelector('blockquote')); jobs.push([D.frame('quote', b.w, b.h, seed + 8, fs, hd), b.x, b.y]); }
+  const els = [];
+  const place = (cv, pc, x, y) => { Object.assign(cv.style, { position: 'absolute', left: x + pc.at[0] + 'px', top: y + pc.at[1] + 'px', pointerEvents: 'none' }); cv.setAttribute('aria-hidden', 'true'); text.append(cv); els.push(cv); };
+  // still: every piece printed now, in reading order, one pen ledger for the page (the tips wear down it)
+  const still = () => { els.splice(0).forEach(e => e.remove()); const ledger = {}, t0 = performance.now();
+    for (const [pc, x, y] of jobs) place(print(pc, theme, { dpr, ledger }), pc, x, y); sync(els); return performance.now() - t0; };
+  // plotted: the same, each piece drawn as the machine draws it, one after another
+  const plot = () => { els.splice(0).forEach(e => e.remove()); const ledger = {};
+    const Q = queues[theme]; for (let i = Q.length - 1; i >= 0; i--) if (Q[i].panel === panel) Q.splice(i, 1);   // (a plot asked for again starts over)
+    for (const [pc, x, y] of jobs) { const w = writer(pc, theme, { dpr, ledger, slot: 'live-' + theme }); w.panel = panel; place(w.cv, pc, x, y); Q.push(w); } go(); };
+  panel._plot = plot;
+  if (!BARE) { const b = document.createElement('button'); b.type = 'button'; b.textContent = 'plot'; b.onclick = plot; panel.append(b); }
+  if (DRAW) seen.observe(panel); else PERF.push(`${key} ${theme} ${Math.round(still())} ms`);
+  return { fs, lh, H };
+}
+
+// (the timer waits for the GPU: a pixel read back from each canvas makes the queued work finish)
+const sync = cvs => { for (const c of cvs) c.getContext('2d').getImageData(0, 0, 1, 1); };
+function fig(z, el, cap, theme, D) { const f = document.createElement('figure'); f.dataset.theme = theme; f.style.setProperty('--paper', D.STOCK[theme]); f.append(el); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); z.append(f); }
+// a piece enlarged, its anchor at the figure's origin plus a margin
+function big(pc, theme, zoom, m = 10) { const st = document.createElement('div'); st.className = 'stage'; st.style.width = (pc.W + 2 * m) * zoom + 'px'; st.style.height = (pc.H + 2 * m) * zoom + 'px';
+  const cv = print(pc, theme, { dpr, zoom }); sync([cv]); Object.assign(cv.style, { left: m * zoom + 'px', top: m * zoom + 'px' }); st.append(cv); return st; }
+
+const keys = Object.keys(DIRS).filter(k => !ONLY || ONLY === k);
+for (const key of keys) {
+  const D = DIRS[key];
+  if (BARE) { const pr = document.createElement('div'); document.getElementById('out').append(pr); page(key, q.get('theme') === 'dark' ? 'dark' : 'light', pr); continue; }
+  const sec = document.createElement('section'); sec.className = 'dir'; sec.id = key;
+  sec.innerHTML = `<h2>${D.NAME}</h2><p class="note">${NOTES[key]}</p><div class="pair"></div><div class="zoom"></div>`;
+  document.getElementById('out').append(sec);
+  let m; for (const theme of ['light', 'dark']) m = page(key, theme, sec.querySelector('.pair'));
+  const z = sec.querySelector('.zoom');
+  for (const theme of ['light', 'dark']) {
+    const hd = D.hand(seed), t0 = performance.now(), dp = D.initial('R', m.H, seed, m.fs, hd), el = big(dp, theme, 4), dt = performance.now() - t0;
+    fig(z, el, `the drop, 4× (${theme}; printed in ${Math.round(dt)} ms at this size)`, theme, D);
+    if (key === 'section') { const t1 = performance.now(), cp = D.initial('A', m.H, seed, m.fs, hd, { cross: true }), e2 = big(cp, theme, 1), d1 = performance.now() - t1;
+      PERF.push(`section crossed drop ${theme} ${Math.round(d1)} ms`); fig(z, e2, `the drop crossed, at page size (${Math.round(d1)} ms)`, theme, D); }
+    fig(z, big(D.paraph(m.fs, seed + 1, hd), theme, 4), 'paraph, 4×', theme, D);
+    fig(z, big(D.filler(200, m.lh, seed + 2, hd), theme, 3), 'filler, 3×', theme, D);
+    fig(z, big(D.runout(220, m.fs * 1.5, seed + 3, hd), theme, 3), 'heading run-out, 3×', theme, D);
+    for (const k of [1, 2, 3]) fig(z, big(D.brk(k, 560, 40, seed + 3 + k, m.fs, hd), theme, k === 3 ? 1.5 : 2), `break ${k}, ${k === 3 ? 1.5 : 2}×`, theme, D);
+    fig(z, big(D.frame('quote', 200, 60, seed + 8, m.fs, hd), theme, 2), 'the quotation’s frame (a short one), 2×', theme, D);
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end';
+    for (const ch of 'ABEGMOSW') row.append(big(D.initial(ch, m.H, seed + ch.charCodeAt(0), m.fs, hd), theme, 1, 2));
+    fig(z, row, `drops at page size (${theme})`, theme, D);
+  }
+  const ph = document.createElement('div'); ph.className = 'phones'; ph.innerHTML = `<iframe src="plotter-directions.html?only=${key}&bare#seed=${seed}" title="phone"></iframe><iframe src="plotter-directions.html?only=${key}&bare&theme=dark#seed=${seed}" title="phone, dark"></iframe>`;
+  fig(z, ph, 'a phone, 390 px wide (light, dark)', 'light', D);
+}
+const msg = DRAW ? 'plotted as each panel comes into view' : `A page’s ornament (8 pieces), printed still: ${PERF.join('; ')}.`;
+const tEl = document.getElementById('timing'); if (tEl) tEl.textContent = msg; document.body.dataset.timing = PERF.join('; ') || 'draw';
+</script>
+</body>
+</html>

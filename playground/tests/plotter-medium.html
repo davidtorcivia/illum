@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plotter medium</title>
+<!--
+  The plotter's medium first (research/25-plotter.md §2): the rigid pen on its carriage, through the ink engine
+  (kit/styles/plotter-pen.js). Lines of every length (the speed profile: short strokes never reach speed and run
+  heavier), corners, dwell beads at pen-down and pen-up on three machines, overdraw, the 0.2 mm between pens, hatching
+  (spacing, one way and boustrophedon, crossed, tone by spacing), the stepper's staircase, the Hershey letters and a
+  hatched outline capital; light stock (plotter bond) and dark (black card, gel twice). First, the masters: real plots
+  (tests/plotter-refs/, CREDITS.md) beside ours at the same size on the sheet, 1× and 4×, measured on both.
+  ?zoom=n (all at n×)  ?set=tip.field:value,... (a figure tried before it is written down)  #seed=n
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-display: block; }
+  :root { --bond: #f5f5f1; --card: #141417; }
+  html { background: #e4e3de; } body { margin: 0; font: 15px/1.4 "EB Garamond", Georgia, serif; color: #1c1c1f; }
+  header { padding: 20px 16px 4px; max-width: 1400px; margin: 0 auto; } header h1 { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; margin: 0; } header p { margin: .3em 0; font-style: italic; max-width: 70em; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; padding: 6px 16px; max-width: 1400px; margin: 0 auto; }
+  figure { margin: 0; padding: 12px; background: var(--paper); color: var(--ink); max-width: 100%; box-sizing: border-box; }
+  figcaption { font-size: 13px; opacity: .75; margin-top: 6px; max-width: 42em; }
+  [data-theme=light] { --paper: var(--bond); --ink: #1c1c1f; } [data-theme=dark] { --paper: var(--card); --ink: #e9e8e2; }
+  .stage { position: relative; } canvas { display: block; } .stage canvas { position: absolute; }
+  h2 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; margin: 18px auto 2px; padding: 0 16px; max-width: 1400px; }
+</style>
+</head>
+<body>
+<header><h1>Plotter · the medium</h1><p>Every variation below is one of: the carriage's speed (a fibre tip lays ink per unit of time), the dwell at pen-down and pen-up, ink laid on settled ink, the pen change (0.2 mm), the same pen's return (0.1 mm), the stepper's staircase, the gel's two passes; nothing here is noise. <span id="timing"></span></p></header>
+<main id="out"></main>
+<script type="module">
+import { print, MACHINES, TIPS } from '../kit/styles/plotter-pen.js';
+import { hershey, outline, hatch, dashes, rect, bold, chaikin, line, square } from '../kit/styles/plotter-draw.js';
+await document.fonts.load('15px "EB Garamond"');
+const q = new URLSearchParams(location.search), Z = +(q.get('zoom') ?? 1), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7);
+const dpr = Math.min(2, devicePixelRatio || 1), out = document.getElementById('out'), t0 = performance.now();
+// ?set=liquid.coreK:.5,calcomp.beadV:1.8 (a tip's or machine's figure tried on the bench before it is written down)
+for (const kv of (q.get('set') ?? '').split(',').filter(Boolean)) { const [k, v] = kv.split(':'), [o, f] = k.split('.'); (TIPS[o] ?? MACHINES[o])[f] = +v; }
+const BLACK = { tip: 'fibre', w: .3, rgb: '#1c1c1f', dark: { tip: 'gel', w: .4, rgb: '#f1f0ea' } };
+const RED = { tip: 'fibre', w: .3, rgb: '#c4302b', dark: { tip: 'gel', w: .4, rgb: '#e86a5c' } };
+const HEAVY = { tip: 'fibre', w: .7, rgb: '#1c1c1f', dark: { tip: 'gel', w: .8, rgb: '#f1f0ea' } };
+const TECH = { tip: 'tech', w: .25, rgb: '#141416', dark: { tip: 'gel', w: .4, rgb: '#c3c7ce' } };
+const MM = 96 / 25.4;
+let row = null; const section = t => { const h = document.createElement('h2'); h.textContent = t; out.append(h); row = document.createElement('div'); row.className = 'row'; out.append(row); };
+function show(piece, cap, { zoom = Z, themes = ['light', 'dark'] } = {}) {
+  for (const theme of themes) { const f = document.createElement('figure'); f.dataset.theme = theme;
+    const st = document.createElement('div'); st.className = 'stage'; st.style.width = piece.W * zoom + 'px'; st.style.height = piece.H * zoom + 'px';
+    const cv = print(piece, theme, { dpr, zoom }); st.append(cv); f.append(st); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}${theme === 'dark' ? ' (dark: gel, twice)' : ''}</figcaption>`); row.append(f); }
+}
+
+// ---- the masters: real plots beside ours, at the same size on the sheet, and measured -----------------------------------
+// (tests/plotter-refs/CREDITS.md: scale is the crop's px per mm; win: the 4× window, mm)
+const MASTERS = [
+  { img: 'rosebush-1978-rows.jpg', px: [400, 300], scale: 11.72, win: [6, 8, 12, 9], cap: 'Judson Rosebush, “Letter Field”, 1978: Calcomp, liquid inks on rag paper (CC BY-SA 3.0). Rows 1.02 mm apart, one pen-down each: a darker dot at both ends of every row.',
+    paper: '#fafae7', theme: 'light', piece: () => { const W = 400 / 11.72, H = 300 / 11.72, m = v => v * MM, OR = { tip: 'liquid', w: .9, rgb: '#f2662a' }, BK = { tip: 'liquid', w: .9, rgb: '#1e1e16' };
+      const blob = [[0, 9.5], [6, 9.6], [8.2, 11], [8.8, 14], [8.4, 17], [7, 19.5], [4.8, 21], [3.9, 23], [4.2, 25.6], [0, 25.6]].map(([x, y]) => [m(x), m(y)]);
+      const right = [[W, 11], [17.4, 11], [15.6, 12.4], [15.2, 15], [16.2, 17.6], [18.3, 19.6], [19.8, 22.5], [20.4, 25.6], [W, 25.6]].map(([x, y]) => [m(x), m(y)]);
+      const black = [[16.6, 0], [W, 0], [W, 10.6], [17.6, 10.6], [16.9, 7]].map(([x, y]) => [m(x), m(y)]);
+      const rows = c => hatch([c], 0, 1.02 * MM, { boustro: false, phase: .4 });
+      return { W: m(W), H: m(H), seed, machine: 'calcomp', layers: [{ pen: OR, paths: [...rows(blob), ...rows(right)] }, { pen: BK, paths: rows(black) }] }; } },
+  { img: 'dei-1977-rows.jpg', px: [300, 200], scale: 15.7, win: [3, 3, 9, 6], cap: 'Digital Effects Inc., “Cards, Cube, Bottle”, 1977: Calcomp, pen and ink (CC BY-SA 3.0). Each row darker at its two edges than in its middle; a thin fringe beyond, broken by the paper’s tooth.',
+    paper: '#f2ece6', theme: 'light', piece: () => { const W = 300 / 15.7, H = 200 / 15.7, m = v => v * MM, RD = { tip: 'liquid', w: .78, rgb: '#d20a24' }, BK = { tip: 'liquid', w: .78, rgb: '#2a2244' };
+      const all = [[0, 0], [W, 0], [W, H], [0, H]].map(([x, y]) => [m(x), m(y)]), blk = [[0, 9.6], [2.6, 9.6], [2.6, 12.7], [0, 12.7]].map(([x, y]) => [m(x), m(y)]);
+      return { W: m(W), H: m(H), seed, machine: 'calcomp', layers: [{ pen: RD, paths: hatch([all], 0, 1.02 * MM, { boustro: false, phase: .2 }) }, { pen: BK, paths: hatch([blk], 0, 1.02 * MM, { boustro: false, phase: .2 }) }] }; } },
+  { img: 'oliphant-bead.jpg', px: [260, 240], scale: 18, win: [3, 2, 7, 5], cap: 'fo.ol, a hobby pen plotter, a felt pen (CC BY-SA 2.0). Where the pen came down and waited for its servo: a dot 2.6 times the line’s width, 2.2 times its density.',
+    paper: '#a9a9ab', theme: 'light', piece: () => { const m = v => v * MM, FP = { tip: 'fibre', w: .5, rgb: '#3a2238' }, six = [];
+      for (let i = 0; i <= 40; i++) { const t = i / 40, a = Math.PI * (.62 + 1.9 * t); const r = 3.1 - .5 * t; six.push([m(6.2 + r * Math.cos(a) * (t < .25 ? 1.6 - 2.4 * t : 1)), m(9.6 + r * 1.3 * Math.sin(a) - (t < .25 ? (1 - t * 4) * 1.5 : 0))]); }
+      return { W: m(260 / 18), H: m(240 / 18), seed, machine: 'hobby', layers: [{ pen: FP, paths: [Object.assign([[m(6.4), m(5)], ...six.slice(1)], { fixed: true }), Object.assign([[m(1), m(3.4)], [m(10.5), m(0)]], { fixed: true })], order: 'given' }] }; } },
+  { img: 'levin-axidraw-white.jpg', px: [600, 450], scale: 22, win: [8, 5, 9, 7], cap: 'Golan Levin’s class, 2018: an AxiDraw, a white pen on black paper (CC BY 2.0). Opaque to its edge; a soft edge a tenth of the width.',
+    paper: '#16161a', theme: 'dark', piece: () => { const W = 600 / 22, H = 450 / 22, m = v => v * MM, WG = { tip: 'gel', w: 1, rgb: '#f2f2f2' }, P = []; const r = (i => () => (i = (i * 16807) % 2147483647) / 2147483647)(seed);
+      for (let x = .4; x < W; x += 2.36) { P.push(Object.assign([[m(x), 0], [m(x), m(H)]], { fixed: true }));
+        for (let y = 1 + r() * 3; y < H - 1; y += 3 + r() * 4) { const s = r() < .5 ? -1 : 1, a = (.3 + r() * .6) * s, L = 1.3 + r(); P.push([[m(x), m(y)], [m(x + Math.cos(a) * L * (r() < .5 ? -1 : 1)), m(y + Math.sin(a) * L)]]); } }
+      return { W: m(W), H: m(H), seed, machine: 'axidraw', layers: [{ pen: WG, paths: P }] }; } },
+];
+// measured on the masters (research/25-plotter.md, Stage 2) and on ours, at 4× (device px; densities as optical density)
+const TARGET = { 'row-end dot / row (density)': 1.5, 'row-end dot / row (width)': .78, 'core / rim (density)': .77, 'fringe: paper showing': .5, 'pen-down dot / line (density)': 2.2, 'pen-down dot / line (width)': 2.6, 'white pen opacity': .99 };
+const OURS = {};
+function sampler(cv, paper) { const g = cv.getContext('2d'), W = cv.width, H = cv.height, D = g.getImageData(0, 0, W, H).data, P = [1, 3, 5].map(i => parseInt(paper.slice(i, i + 2), 16));
+  return (x, y, ch = 1) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return 0; const k = (y * W + x) * 4, a = D[k + 3] / 255, c = P[ch] * (1 - a) + D[k + ch] * a; return Math.log10(Math.max(1, P[ch]) / Math.max(1, c)); }; }
+function measure(i, cv, zoom) {
+  const d = dpr * zoom, X = v => (v + 3) * d, M = MASTERS[i], S = sampler(cv, M.paper), m = v => v * MM;
+  if (i === 0) { // a black row in the middle of its run, and its two ends
+    const pitch = 1.02 * MM, y0 = .4 * pitch; let best = null;
+    for (let k = 0; k < 10; k++) { const y = y0 + k * pitch; if (y > m(10.2)) break; best = y; }
+    const prof = []; for (let j = -20; j <= 20; j++) prof.push(S(X(m(28)), X(best) + j, 1)); const mid = Math.max(...prof), wMid = prof.filter(v => v > mid / 2).length;
+    let endOD = 0, ex = X(m(W0 = 400 / 11.72)) - 1; for (let x = ex - 3 * d * 3; x <= ex; x++) for (let j = -3; j <= 3; j++) endOD = Math.max(endOD, S(x, X(best) + j, 1));
+    const ep = []; for (let j = -20; j <= 20; j++) { let v = 0; for (let x = ex - 3 * d * 3; x <= ex; x++) v = Math.max(v, S(x, X(best) + j, 1)); ep.push(v); }
+    OURS['row-end dot / row (density)'] = endOD / mid; OURS['row-end dot / row (width)'] = ep.filter(v => v > mid + (endOD - mid) / 2).length / wMid; }   // (the dot: where it is darker than the row by half its excess)
+  if (i === 1) { const pitch = 1.02 * MM, y = .2 * pitch + 4 * pitch, prof = []; for (let j = -24; j <= 24; j++) { let v = 0; for (let x = 0; x < 40; x++) v += S(X(m(10)) + x * 3, X(y) + j, 1); prof.push(v / 40); }
+    const c = prof[24], rim = Math.max(...prof); OURS['core / rim (density)'] = c / rim;
+    const r = .78 / 2 * MM * d; let n = 0, br = 0; for (let x = 0; x < 300; x++) for (const sg of [-1, 1]) for (let j = r; j < r * 1.2; j++) { n++; if (S(X(m(9)) + x, X(y) + sg * j, 1) < rim * .3) br++; }
+    OURS['fringe: paper showing'] = br / n; }
+  if (i === 2) { const lp = []; let line = 0; for (let j = -20; j <= 20; j++) lp.push(S(X(m(5.75)), X(m(3.4 - 4.75 * .355)) + j, 0)); // (the straight line, at x 5.75 mm)
+    line = Math.max(...lp); const lw = lp.filter(v => v > line / 2).length; let pk = 0, area = 0; const cx = X(m(6.4)), cy = X(m(5));
+    for (let y = -40; y <= 40; y++) for (let x = -40; x <= 40; x++) { const v = S(cx + x, cy + y, 0); pk = Math.max(pk, v); }
+    for (let y = -40; y <= 40; y++) for (let x = -40; x <= 40; x++) if (S(cx + x, cy + y, 0) > pk / 2) area++;
+    OURS['pen-down dot / line (density)'] = pk / line; OURS['pen-down dot / line (width)'] = 2 * Math.sqrt(area / Math.PI) / lw; }
+  if (i === 3) { const g = cv.getContext('2d').getImageData(Math.round(X(m(.4))) - 1, Math.round(X(m(10))), 3, 1).data; OURS['white pen opacity'] = g[7] / 255; }
+}
+let W0;
+section('the masters: a real plot beside ours, the same size on the sheet (1×, then 4×)');
+{ const z = document.createElement('div'); z.className = 'row'; out.append(z);
+  MASTERS.forEach((M, i) => { const pc = M.piece(), wmm = M.px[0] / M.scale, hmm = M.px[1] / M.scale;
+    for (const zoom of [1, 4]) { const f = document.createElement('figure'); f.dataset.theme = M.theme; f.style.setProperty('--paper', M.paper);
+      const [wx, wy, ww, wh] = zoom === 1 ? [0, 0, wmm, hmm] : M.win, box = (el, x, y) => { const b = document.createElement('div'); b.style.cssText = `position:relative;overflow:hidden;width:${ww * MM * zoom}px;height:${wh * MM * zoom}px;display:inline-block;vertical-align:top;margin-right:10px`; Object.assign(el.style, { position: 'absolute', left: -x + 'px', top: -y + 'px' }); b.append(el); return b; };
+      const im = new Image(); im.src = 'plotter-refs/' + M.img; im.style.width = wmm * MM * zoom + 'px'; im.style.height = hmm * MM * zoom + 'px';
+      const cv = print(pc, M.theme, { dpr, zoom }); cv.style.margin = '0';
+      f.append(box(im, wx * MM * zoom, wy * MM * zoom), box(cv, (wx * MM + 3) * zoom, (wy * MM + 3) * zoom));
+      if (zoom === 4) measure(i, cv, 4);
+      f.insertAdjacentHTML('beforeend', `<figcaption>${zoom === 1 ? M.cap : 'the same, 4×: the master left, ours right'}</figcaption>`); z.append(f); } });
+  const t = document.createElement('figure'); t.dataset.theme = 'light'; t.innerHTML = '<table style="font-size:13px;border-collapse:collapse">' + '<tr><th style="text-align:left;padding-right:1.5em">measured</th><th>master</th><th>ours</th></tr>' +
+    Object.keys(TARGET).map(k => `<tr><td style="padding-right:1.5em">${k}</td><td>${TARGET[k]}</td><td>${(OURS[k] ?? NaN).toFixed(2)}</td></tr>`).join('') + '</table><figcaption>the masters measured (research/25-plotter.md, Stage 2); ours measured on the 4× prints above</figcaption>';
+  z.append(t); document.body.dataset.cal = JSON.stringify(OURS); }
+
+section('the line: speed profile, corners, beads');
+{ // lines of every length (mm), each from rest to rest: under ~7.4 mm the HP never reaches speed
+  const L = [1.5, 3, 6, 12, 25, 50, 100], paths = L.map((l, i) => line(10, 14 + i * 16, 10 + l * MM, 14 + i * 16)).map(p => Object.assign(p, { fixed: true }));
+  show({ W: 400, H: 130, seed, machine: 'hp7475a', layers: [{ pen: BLACK, paths, order: 'given' }] }, 'HP 7475A, 0.3 mm fibre tip: lines of 1.5, 3, 6, 12, 25, 50, 100 mm, each from rest to rest. The short ones never reach 38 cm/s and lay more ink per mm.');
+  show({ W: 400, H: 130, seed, machine: 'hp7475a', layers: [{ pen: HEAVY, paths, order: 'given' }] }, 'the same, 0.7 mm black.');
+  // corners: a zigzag (sharp: the carriage stops), a polygon (blunt: it only slows), a circle of 72 chords
+  const zig = [], pol = [], cir = []; for (let i = 0; i <= 10; i++) zig.push([12 + i * 18, i % 2 ? 20 : 60]);
+  for (let i = 0; i <= 8; i++) { const a = i / 8 * 2 * Math.PI; pol.push([250 + 38 * Math.cos(a), 75 + 38 * Math.sin(a)]); }
+  for (let i = 0; i <= 72; i++) { const a = i / 72 * 2 * Math.PI; cir.push([345 + 38 * Math.cos(a), 75 + 38 * Math.sin(a)]); }
+  show({ W: 400, H: 125, seed, machine: 'hp7475a', layers: [{ pen: BLACK, paths: [zig, pol, cir], order: 'given' }] }, 'corners: a zigzag (each turn a stop, a dot of slow ink), an octagon (slows at each), a circle of 72 chords (barely).');
+  // beads, three machines: a dashed line, every dash its own pen cycle
+  const P = [[10, 0], [390, 0]], mk = (m, y) => ({ m, paths: dashes(P.map(([x]) => [x, y]), [3 * MM, 2 * MM]) });
+  for (const [m, pen, cap] of [['hp7475a', BLACK, 'HP 7475A: a solenoid, quick'], ['axidraw', { tip: 'micron', w: .35, rgb: '#1c1c1f', dark: BLACK.dark }, 'AxiDraw, a 0.35 mm pigment liner: a servo, slower to lift'], ['calcomp', TECH, 'Calcomp 565, a 0.25 mm technical pen at 25 mm/s: wet ink, pooling']])
+    show({ W: 400, H: 26, seed, machine: m, layers: [{ pen, paths: dashes([[10, 13], [390, 13]], [3 * MM, 2 * MM]), order: 'given' }] }, `dashes of 3 mm, gaps of 2 mm, each dash a pen-down and a pen-up. ${cap}.`, { themes: ['light', 'dark'] });
+}
+
+section('the line at 4×: a bead, a corner, a ramp');
+{ const zig = [[8, 40], [40, 8], [72, 40]], d = dashes([[8, 54], [92, 54]], [4 * MM, 1.5 * MM]);
+  show({ W: 100, H: 64, seed, machine: 'hp7475a', layers: [{ pen: BLACK, paths: [zig, ...d], order: 'given' }] }, 'HP, 0.3 mm, 4×: a stop at the apex; dashes, a dot at each end.', { zoom: 4 });
+  show({ W: 100, H: 64, seed, machine: 'calcomp', layers: [{ pen: TECH, paths: [[[8, 40], [40, 8], [72, 40]], [[8, 54], [92, 50]]], order: 'given' }] }, 'Calcomp, 0.25 mm technical pen, 4×: the 0.1 mm staircase; the diagonal steps move both motors (√2 faster: lighter).', { zoom: 4 });
+}
+
+section('overdraw and the pen change');
+{ // a line drawn again and again (each pass after the last has settled); a grid crossing settled lines
+  const re = []; for (let k = 1; k <= 4; k++) for (let j = 0; j < k; j++) re.push(Object.assign([[10, 12 + (k - 1) * 14], [190, 12 + (k - 1) * 14]], { fixed: true }));
+  const grid = []; for (let i = 0; i < 7; i++) grid.push(line(215 + i * 25, 6, 215 + i * 25, 62)); for (let i = 0; i < 3; i++) grid.push(line(205, 14 + i * 20, 385, 14 + i * 20));
+  show({ W: 400, H: 70, seed, machine: 'hp7475a', layers: [{ pen: BLACK, paths: re, order: 'given' }, { pen: RED, paths: grid, order: 'given' }] }, 'left: one line plotted 1, 2, 3, 4 times. right: red over black, a second pen, its layer off by up to 0.2 mm; where it crosses settled ink, darker.');
+  // misregistration: a square drawn in black, its hatch in red after the pen change, three seeds
+  const sq = (x, y, s) => { const c = [[x, y], [x + 50, y], [x + 50, y + 50], [x, y + 50]]; return { line: [[...c, c[0]]], fill: hatch([c], Math.PI / 4, .8 * MM, { inset: .15 * MM }) }; };
+  for (const s of [seed, seed + 1, seed + 2]) { const a = sq(8, 8, 50);
+    show({ W: 66, H: 66, seed: s, machine: 'hp7475a', layers: [{ pen: BLACK, paths: a.line }, { pen: RED, paths: a.fill }] }, `seed ${s}, 3×: the red pen's layer sits where the carousel put it.`, { zoom: 3 }); }
+}
+
+section('hatching');
+{ const box = (x, w) => [[x, 8], [x + w, 8], [x + w, 72], [x, 72]];
+  const sp = [1.6, 2.5, 4, 6, 9].map(k => k * .3 * MM), H1 = []; sp.forEach((s, i) => H1.push(...hatch([box(8 + i * 76, 66)], Math.PI / 4, s)));
+  show({ W: 400, H: 80, seed, machine: 'hp7475a', layers: [{ pen: BLACK, paths: H1 }] }, 'spacing 1.6, 2.5, 4, 6, 9 pen widths, boustrophedon: one pen-down for a run of rows, a dark turn at each end.');
+  const one = hatch([box(8, 120)], Math.PI / 4, 1.2 * MM, { boustro: false }), two = hatch([box(140, 120)], Math.PI / 4, 1.2 * MM);
+  const cr = [...hatch([box(272, 120)], Math.PI / 4, 1.2 * MM)], cr2 = hatch([box(272, 120)], -Math.PI / 4, 1.2 * MM);
+  show({ W: 400, H: 80, seed, machine: 'hp7475a', layers: [{ pen: BLACK, paths: [...one, ...two, ...cr] }, { pen: BLACK, paths: cr2 }] }, 'one way (every row a pen cycle: a dot at each end); back and forth; crossed, the second family after the first has dried.');
+  const tone = hatch([[[8, 8], [392, 8], [392, 52], [8, 52]]], Math.PI / 2 * .999, t => (1.4 + 8 * t * t) * .3 * MM);
+  show({ W: 400, H: 60, seed, machine: 'hp7475a', layers: [{ pen: RED, paths: tone }] }, 'tone by spacing alone: the rows open on a gradient.');
+}
+
+section('letters');
+{ const a = hershey('PLOTTED 10.11.26 NR. 7', 10, 26, 14, 'simplex'), b = hershey('ROMAN DUPLEX', 10, 52, 14, 'duplex'), c = hershey('ROMAN TRIPLEX', 10, 78, 14, 'triplex');
+  show({ W: 400, H: 88, seed, machine: 'hp7475a', layers: [{ pen: BLACK, paths: [...a.paths, ...b.paths, ...c.paths] }] }, 'Hershey Roman Simplex, Duplex, Triplex at 3.7 mm (Dr. A. V. Hershey, U.S. National Bureau of Standards, 1967).');
+  const cap = 96, L = hershey('R', 14, 112, cap, 'simplex').paths.map(p => bold(chaikin(p), 6, .26 * MM));
+  const T = hershey('R', 120, 112, cap, 'triplex').paths;
+  const J = outline('R', 220, 112, cap), Jh = hatch(J.contours, Math.PI / 4, .75 * MM, { inset: .2 * MM });
+  show({ W: 330, H: 124, seed, machine: 'hp7475a', layers: [{ pen: RED, paths: L }, { pen: BLACK, paths: T }, { pen: BLACK, paths: J.contours.map(c => [...c, c[0]]) }, { pen: RED, paths: Jh }] }, 'a drop, three ways: Simplex made bold by six passes of one 0.3 mm pen; Triplex as Hershey drew it; Jost 800 (OFL) outlined and hatched at 45° in the second pen.');
+  show({ W: 330, H: 124, seed, machine: 'hp7475a', layers: [{ pen: RED, paths: L }, { pen: BLACK, paths: T }, { pen: BLACK, paths: J.contours.map(c => [...c, c[0]]) }, { pen: RED, paths: Jh }] }, 'the same at 3×.', { zoom: 3 });
+}
+const msg = `printed in ${Math.round(performance.now() - t0)} ms (every panel, both stocks)`; document.getElementById('timing').textContent = msg; document.body.dataset.timing = msg;
+</script>
+</body>
+</html>
