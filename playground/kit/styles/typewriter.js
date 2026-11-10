@@ -18,6 +18,7 @@
 //   lavish  (a typestract) the drop's field typed from the paragraph's own words, rules at the foot of an aside, of code
 //           and of a pull quote too, the pilcrow struck twice
 // Drawn (?draw), each piece is typed as you watch: strike by strike in the typist's rhythm, the carriage returning.
+//   (the line's initial: the capital typed at the text's size, struck twice and underscored, in red)
 //   initial(o) -> { letters, width }   paraph(x, base, u, seed, rich)   filler(x0, x1, yTop, yBase, kind, seed, rich)
 //   breakMark(cx, y, measure, rank, seed, rich, u, index, room)   frames.{ quote, aside, pull, figure, code, nav }
 //   palette.{ light, dark }   print(made, { dpr, kind, animate, wait }) -> { pours, letters, seq, runs, y0, ready }   timeline(printed, kind, animate)
@@ -34,7 +35,7 @@ const FS = u => u * 2.4;   // (the text's size from its x-height: EB Garamond's 
 const LH = em => em * 1.5;  // (the machine's own line: one and a half spacing; its half and quarter lines are the platen's feeds)
 const cellW = em => .6 * em, snap = (x, em) => Math.ceil(x / cellW(em) - 1e-6) * cellW(em);   // (the machine's columns)
 const at = (ch, x, y, col = 'k', o = {}) => ({ ch, x, y, col, ...o });
-const ctx = (fs, rich) => ({ em: fs, lh: LH(fs), seed: PS(), family: FACE.family, rich, words: { text: words(), head: head() } });
+const ctx = (fs, rich) => ({ em: fs, lh: LH(fs), seed: PS(), family: FACE.family, rich, lv: lvOf(rich), words: { text: words(), head: head() } });
 // the page's own words (the drop's field, the end's squares), read from the page
 const words = () => { try { return document.querySelector('.ini.drop')?.closest('p')?.textContent.slice(0, 160) ?? 'type'; } catch { return 'type'; } };
 const head = () => { try { return (document.querySelector('h1')?.textContent ?? 'type').split(/\s+/).sort((a, b) => b.length - a.length)[0]; } catch { return 'type'; } };
@@ -55,19 +56,16 @@ const dropW = ch => .84 * capW(letterOf(ch)) + .26;
 function initial({ ch = 'B', G, big = true, rich = .5, u = 8, keep = [] }) {
   const c = letterOf(ch), [x0, , x1, y1] = G.box, lv = lvOf(rich), fs = +FS(u).toFixed(2); let y0 = G.box[1];
   if (!big) {
-    // the line's initial: the capital struck from a display slug (Courier Prime Bold cut to its cap height), red, its top
-    // kept under the line box above it
-    for (const r of keep) if (r[0] < x1 + u && r[2] > x0 && r[1] < y0 && r[3] > y0 - 3) y0 = Math.max(y0, r[3] + 2.5);
-    y0 += u * .3;   // (the slug's spread and its key's fault reach a px or two past the face: kept clear of the line above)
-    const capH = y1 - y0, g = new OffscreenCanvas(4, 4).getContext('2d'); g.font = `700 100px "${FACE.family}"`; const Hc = g.measureText('H').actualBoundingBoxAscent, m = g.measureText(c), px = 100 * capH / Hc, k = px / 100;
-    const pc = { W: (m.actualBoundingBoxLeft + m.actualBoundingBoxRight) * k, H: capH, em: fs, lh: LH(fs), strikes: [at(c, m.actualBoundingBoxLeft * k, capH, ink(lv), { bold: true, size: px / fs, key: 'display:' + c })] };
-    return { marks: [], letters: [piece(x0, y0, pc, 'line:' + c)], width: capW(c) + .06 };
+    // the line's initial: the capital typed at the text's own size in red, struck twice, a typed underscore beneath it
+    // (as the ladder raises a word); at a line's height a field could not hold its letter
+    const pc = { W: cellW(fs), H: fs * 1.1, em: fs, lh: LH(fs), strikes: [at(c, 0, fs * .8, ink(lv)), at(c, 0, fs * .8, ink(lv)), at('_', 0, fs * .8, ink(lv))] };
+    return { marks: [], letters: [piece(x0, y1 - fs * .8, pc, 'line:' + c)], width: .53 };
   }
   const H = y1 - y0, W = x1 - x0, pc = A.initial(c, H, { ...ctx(fs, rich), W, H, ink: ink(lv), drop: lv >= 4 ? 'words' : lv < 1 ? 'tone' : undefined });
   return { marks: [], letters: [piece(x0 + (W - pc.W) / 2, y0, pc, 'drop:' + c)], width: dropW(c) };
 }
 initial.width = ch => dropW(ch);
-initial.line = ch => capW(letterOf(ch)) + .06;
+initial.line = () => .53;   // (a typed cell and a little room, in the span's cap heights at its 1.8 em)
 initial.lines = 5; initial.phone = 4; initial.margin = .38;
 initial.load = () => loadFace();
 

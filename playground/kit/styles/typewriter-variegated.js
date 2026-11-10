@@ -5,11 +5,11 @@
 // typed on the machine's lattice: a cell 0.6 em wide, the half-space key, the platen's half and quarter rows.
 //   initial  the capital reserved as paper in a typed field, three ways (c.drop, else the seed's; see DROPS below)
 //   paraph   the pilcrow in red, struck once or twice
-//   filler   the leader to the margin (the page's: . - or -.)
+//   filler   the leader to the margin, a typed line (- = _ or -=: the machine's, by the budget; never points)
 //   run-out  the heading's underscore carried to the margin in red, once or twice, or an = rule
 //   breaks   1 three or five stars, the middle red; 2 the dash rule with a red star; 3 nested squares typed from the
 //            heading's word, red and black rings about a red cross-in-circle
-//   quote    the caption: a colon (or a bar) a line in red, a black star at the middle line
+//   quote    the caption: a bar a line in red, a black star at the middle line
 // Each returns a piece for typewriter-machine.js: { W, H, em, lh, strikes, mask?, stencil? } in its own CSS px.
 import { rngOf } from './typewriter-machine.js';
 
@@ -20,9 +20,9 @@ export const NOTE = 'The office typist’s two-colour ribbon as rubrication: bla
 
 // the page's hand (the typist's choices, from the seed): one draw for every mark, so each seed changes each of them
 export function hand(seed) { const r = rngOf(seed, 'variegated'), pick = a => a[r() * a.length | 0];
-  return { quiet: pick(['=', '=', '-']), mix: pick([['=', '-'], ['-', '='], ['=', '=', '-'], ['=', '-', '-']]), lead: pick(['. ', '- ', '-.', '.  ']), bold: r() < .6 ? 2 : 1,
-    run: pick(['_', '__', '=']), star: pick(['*', '*', 'x', '+']), stars: r() < .65 ? 3 : 5, dash: pick(['-', '-', '=', '.']), mid: pick(['*', 'x', '+']),
-    rings: pick([5, 7, 9]), pu: r() < .45, outer: r() < .5 ? 'r' : 'k', col: r() < .75 ? ':' : '|', mark: pick(['*', '*', 'x']), under: pick(['_', '_', '=', '-']) }; }
+  return { quiet: pick(['=', '=', '-']), mix: pick([['=', '-'], ['-', '='], ['=', '=', '-'], ['=', '-', '-']]), lead: r(), bold: r() < .6 ? 2 : 1,
+    run: pick(['_', '__', '=']), star: pick(['*', '*', 'x', '+']), stars: r() < .65 ? 3 : 5, dash: pick(['-', '-', '=', '_']), mid: pick(['*', 'x', '+']),
+    rings: pick([5, 7, 9]), pu: r() < .45, outer: r() < .5 ? 'r' : 'k', col: (r(), '|'), mark: pick(['*', '*', 'x']), under: pick(['_', '_', '=', '-']) }; }
 
 // a capital of the face (bold) sized so its cap height is cap px: its box at that size
 const MC = {};
@@ -38,7 +38,8 @@ function capOf(family, ch, cap) {
 // keeps no slivers of half-cut glyphs. One family, three fields; the page's machine (the seed) picks one, the richer
 // page favouring the words:
 //   words   the paragraph's own words typed on in red capitals, run together (as Sonic Water runs its letters), line
-//           after line, the platen turned just less than a capital's height so the lines close into an even field
+//           after line on even feeds just over a capital's height (no glyph overlaps the next), so the field is dense and
+//           still reads as typing; a capital the card would mostly cover is not struck, so its edge keeps no fragments
 //           (Houédard and Finlay reserved shapes in fields of text)
 //   graded  a quiet key on the pitch grid over the field; the carriage returned for a second pass over its lower two
 //           thirds a half space over (between the first pass's strikes), and a third on the grid over its lowest
@@ -66,11 +67,11 @@ export function initial(ch, H, c) {
   const { em, lh, seed, family } = c, cw = cellW(em), hs = cw / 2, h = hand(seed), kind = DROPS[c.drop] ? c.drop : dropOf(seed, c.rich), ink = c.ink ?? 'r', strikes = [];
   H = c.H ?? H; const cap = capOf(family, ch, H * .84), cols = c.W ? Math.max(4, Math.floor(c.W / cw + .02)) : Math.max(5, Math.ceil((cap.w + 1.4 * cw) / cw)), W = cols * cw;
   // the rows: the first's glyph tops on the box's top, the last's feet on its foot
-  const feed = kind === 'words' ? .56 * em : lh / 4, top = kind === 'words' ? .58 * em : .42 * em, rows = Math.max(5, Math.floor((H - top) / feed + .001) + 1);
+  const feed = kind === 'words' ? .66 * em : lh / 4, top = kind === 'words' ? .58 * em : .42 * em, rows = Math.max(5, Math.floor((H - top) / feed + .001) + 1);
   const Hf = Math.max(H, top + (rows - 1) * feed), cx = (W - cap.w) / 2 + cap.l, by = (H + cap.asc) / 2, card = cardOf(family, ch, cap, cx, by, W, Hf + em);
   // a key is struck unless the card covers nearly all of its glyph's place (it would leave only a sliver; the keys the
   // card cuts part way are what draw the letter's clean edge) (its cell, x-height to baseline for a quiet key)
-  const strike = (k, x, y) => { const top = k >= 'A' && k <= 'Z' ? .58 * em : k >= 'a' && k <= 'z' ? .45 * em : .4 * em; if (card(x + .08 * cw, y - top, x + .92 * cw, y) < .8) strikes.push(at(k, x, y, ink)); };
+  const strike = (k, x, y) => { const top = k >= 'A' && k <= 'Z' ? .58 * em : k >= 'a' && k <= 'z' ? .45 * em : .4 * em; if (card(x + .08 * cw, y - top, x + .92 * cw, y) < cut) strikes.push(at(k, x, y, ink)); }, cut = kind === 'words' ? .7 : .8;   // (a capital the card would mostly cover is left out: its fragment would read as a broken letter)
   if (kind === 'words') {
     const text = (c.words?.text ?? 'but our higher instincts are not deceived').toUpperCase().replace(/[^A-Z]/g, '') || 'TYPE';
     let k = 0; for (let r = 0; r < rows; r++) for (let i = 0; i < cols; i++) strike(text[k++ % text.length], i * cw, top + r * feed);
@@ -88,8 +89,10 @@ export function initial(ch, H, c) {
 export function paraph(c) { const { em, lh, seed } = c, h = hand(seed), s = Array.from({ length: h.bold }, () => at('¶', 0, em * .95, 'r'));
   return { W: cellW(em), H: lh * .8, em, lh, strikes: s, base: em * .95 }; }
 
+const LEADS = { 2: ['- ', '-', '_'], 3: ['-', '=', '_', '-='], 4: ['=', '-=', '_'] };
 export function filler(gw, c) {
-  const { em, lh, seed } = c, cw = cellW(em), n = Math.floor(gw / cw), h = hand(seed), strikes = [], L = h.lead;
+  // the leader reads as a line, never as a row of points: the machine's choice among the budget's keys (c.lv)
+  const { em, lh, seed } = c, cw = cellW(em), n = Math.floor(gw / cw), h = hand(seed), strikes = [], set = LEADS[Math.max(2, Math.min(4, c.lv ?? 2))], L = set[Math.floor(h.lead * set.length)];
   for (let i = 0; i < n - 1; i++) { const k = L[(i + 1) % L.length]; if (k !== ' ') strikes.push(at(k, (i + 1) * cw, em * .8)); }
   return { W: n * cw, H: em, em, lh, strikes, base: em * .8 };
 }

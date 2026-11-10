@@ -592,3 +592,16 @@ At load ~15, the same pages ran 1.3–1.6× slower.
 **Checks.** tests/typewriter.check.mjs ran every budget × seeds 1, 2, 3, 7 × 1440 and 390 × light and dark. All 80
 pages pass, with no ink on a line box and none at the page's edge. With `SITE=`, the built see page passes at every
 budget (seeds 1 and 7, 40 pages). There is no `variant` getter, so the cold-load case is unchanged.
+
+### Stage 3b: refined (the owner: "optimize, refine, seed, add richness")
+
+- **Fillers read as lines, never as points.** The leader is a typed line: spaced hyphens, hyphens, underscores, `=`, or
+  `-=` alternating. The machine chooses it from the budget's set (usual: `- `, `-`, `_`; fine: `-`, `=`, `_`, `-=`;
+  lavish: `=`, `-=`, `_`). Periods and colons are gone from every leader, break and frame: the dash rule keys
+  `- = _`, and the quotation's column is a typed bar `|` a line.
+- **The line's initial** is now the capital typed at the text's own size in red, struck twice, with a typed underscore
+  beneath (the ladder's raised word). It replaces the large struck capital, the treatment the owner rejected for the drop.
+  A card-reserved field at a line's height (3 quarter-lines by 2 cells) could not hold its letter.
+- **The words drop** has even feeds a little over a capital's height (.66 em), so no glyph overlaps the next. A capital
+  the card would cover by more than .7 is not struck, so the card's edge keeps no fragments. It is still a dense field of
+  the page's words, and the letter reads at 1×, 2× and on a phone.
