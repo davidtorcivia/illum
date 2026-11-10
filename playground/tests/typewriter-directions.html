@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Typewriter: variegated</title>
+<!--
+  The typewriter, stage 2 (research/27-typewriter.md): the owner's direction, A, variegated typewriting, typed by
+  kit/styles/typewriter-machine.js (one machine per page, its strikes poured through the ink engine as one sheet) and
+  composed by kit/styles/typewriter-variegated.js. (B, the typestract, was dropped; its nested squares are A's break 3.)
+  ?drop=words|graded|tone (default: the seed picks one, the family rotating with the machine). A specimen page in light (bond) and dark (black card), every piece enlarged, the
+  page's hand at six seeds.  ?draw (typed as you watch, in reading order)  ?face=cutive
+  ?theme=light|dark (default: <html data-theme>, else the reader's system, followed live)  ?bare (one panel, for a phone)  #seed=n
+  The text is John Ruskin's, The Stones of Venice (1853), as tests/tarot.html quotes it.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "EB Garamond"; font-style: italic; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "Courier Prime"; src: url(../fonts/typewriter/CourierPrime-Regular.woff2) format("woff2"); font-weight: 400; font-display: block; }
+  @font-face { font-family: "Courier Prime"; src: url(../fonts/typewriter/CourierPrime-Bold.woff2) format("woff2"); font-weight: 700; font-display: block; }
+  @font-face { font-family: "Cutive Mono"; src: url(../fonts/typewriter/CutiveMono-Regular.woff2) format("woff2"); font-display: block; }
+  :root { --bg: #E7E3DA; --fg: #27241F; --bond: #F2EEE4; --card: #17161A; --ink: #27241F; --chalk: #E6E0D4; --link: #8a2f22; --rule: #b9b2a4; --ctl: #F2EEE4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg: #0F0E11; --fg: #E2DCD0; --link: #EC937F; --rule: #4a4650; --ctl: #232127; } }
+  :root[data-theme=dark] { --bg: #0F0E11; --fg: #E2DCD0; --link: #EC937F; --rule: #4a4650; --ctl: #232127; }
+  html { background: var(--bg); } body { margin: 0; background: var(--bg); color: var(--fg); font: 400 19px/1.58 "EB Garamond", Georgia, serif; -webkit-font-smoothing: antialiased; }
+  a { color: var(--link); }
+  header.top { max-width: 1400px; margin: 0 auto; padding: 36px 24px 8px; box-sizing: border-box; }
+  header.top h1 { font-weight: 400; font-size: clamp(34px, 5vw, 58px); line-height: 1.05; margin: 0 0 .25em; }
+  header.top p { max-width: 76ch; margin: .3em 0; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 14px 0 6px; font-size: 16px; }
+  .controls button, .controls input { font: inherit; color: inherit; background: var(--ctl); border: 1px solid var(--rule); padding: 3px 12px; }
+  .controls input { width: 6em; padding: 2px 6px; } .controls button { cursor: pointer; }
+  #timing { font-size: 15px; opacity: .8; display: block; width: 100%; }
+  section.dir { max-width: 1400px; margin: 0 auto; padding: 30px 24px 12px; box-sizing: border-box; }
+  section.dir > h2 { font-weight: 400; font-size: clamp(28px, 3.4vw, 42px); line-height: 1.05; margin: 0 0 .3em; }
+  section.dir > p.note { margin: 0 0 1em; max-width: 82ch; font-size: 17px; }
+  h3.row { font: italic 400 17px/1.3 "EB Garamond", serif; margin: 22px 0 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel { position: relative; padding: 44px 40px 36px; overflow: hidden; }
+  .panel > .lab { position: absolute; top: 12px; left: 16px; font: italic 14px "EB Garamond", serif; opacity: .65; }
+  .panel[data-theme=light] { background: var(--bond); color: var(--ink); } .panel[data-theme=dark] { background: var(--card); color: var(--chalk); }
+  .text { position: relative; max-width: 620px; margin: 0 auto; hyphens: auto; }
+  .text p { margin: 0; text-align: justify; } .text p + p { text-indent: 0; }
+  .text h3 { font: 400 30px/1.2 "EB Garamond", serif; margin: 1em 0 .4em; position: relative; }
+  .text .ro, .text .end, .text .bl { display: inline-block; height: 0; width: 0; }
+  .text hr { border: 0; margin: .9em 0; } hr.r1 { height: 2.2em; } hr.r2 { height: 2.4em; } hr.r3 { height: 6.6em; }
+  .text blockquote { margin: 1.2em 0; padding-left: 2.4em; font-style: italic; }
+  .ini { float: left; } .pf { display: inline-block; height: 0; }
+  .text canvas { pointer-events: none; }
+  .zoom { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; align-items: flex-start; }
+  .zoom figure { margin: 0; padding: 14px; max-width: 100%; box-sizing: border-box; overflow: hidden; }
+  .zoom figure[data-theme=light] { background: var(--bond); color: var(--ink); } .zoom figure[data-theme=dark] { background: var(--card); color: var(--chalk); }
+  .zoom figcaption { font-size: 14px; opacity: .8; margin-top: 6px; max-width: 40em; }
+  .zoom canvas, .zoom img { display: block; max-width: 100%; height: auto; }
+  .seeds { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+  .seeds figure { margin: 0; padding: 14px 16px; position: relative; }
+  .seeds figure[data-theme=light] { background: var(--bond); color: var(--ink); } .seeds figure[data-theme=dark] { background: var(--card); color: var(--chalk); }
+  .drops { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-bottom: 12px; } .drops .panel { padding: 40px 20px 20px; } .drops .text { font-size: 19px; }
+  .seeds .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 6px 0; }
+  body.bare .panel { padding: 28px 16px; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } .panel { padding: 32px 16px 28px; } section.dir { padding: 26px 0 8px; } header.top { padding: 28px 16px 8px; } section.dir > h2, section.dir > p.note, h3.row, .zoom, .seeds { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header class="top"><h1>The typewriter · variegated typewriting</h1>
+<p>Typewriter art and the office typist’s craft as a rubrication. One machine types the page: its every key has its own faults, the same on every strike; the typist’s force drifts slowly and is spread over each glyph’s area; the ribbon is drawn down by a run of strikes and wicks back in the pauses; the weave of the cloth and the fibre of the sheet take the ink unevenly; overstrikes add. Each colour is poured through the ink engine and laid on the stock: ribbon inks on bond in light, a cover-up film on black card in dark. Letters: Courier Prime (Alan Dague-Greene, OFL); text in EB Garamond. <a href="typewriter-medium.html">The strike, on a bench.</a></p>
+<div class="controls">
+  <label>seed <input id="seed" type="number" min="1" step="1"></label>
+  <button id="reseed" type="button">another machine</button>
+  <button id="run" type="button">type it</button>
+  <span id="timing"></span>
+</div></header>
+<template id="txt">
+  <p class="lead"><span class="ini" data-ch="B"></span><span class="bl"></span>ut our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. We may be proud of its size, complacent in its correctness, and happy in its convenience. We may take the same pleasure in its symmetry and workmanship as in a well-ordered room, or a skilful piece of manufacture.</p>
+  <p class="par"><span class="pf"></span>Yet all this is true, and self-evident; only hidden from us, as many other self-evident things are, by false teaching. Nothing is a great work of art, for the production of which either rules or models can be given.<span class="end"></span></p>
+  <hr class="r1">
+  <h3>The page as a map<span class="ro"></span></h3>
+  <p>A medieval book had no page numbers, no index and no search. Its readers found their way by its ornament: the large initial that opened a book, the smaller one at a chapter, the paraph at a paragraph, the filler that closed a short line.</p>
+  <blockquote>You must either make a tool of the creature, or a man of him. You cannot make both. Men were not intended to work with the accuracy of tools, to be precise and perfect in all their actions.</blockquote>
+  <hr class="r2">
+  <p>A program cannot be a man, but it can refuse to be a cog-wheel: it can let every line it draws keep a little of the hand’s irregularity.</p>
+  <hr class="r3">
+</template>
+<main id="out"></main>
+<script type="module" src="../kit/theme-toggle.js"></script>
+<script type="module">
+import { machine, press, pressMany, writer, warm, FACES, PROF } from '../kit/styles/typewriter-machine.js';
+import * as D from '../kit/styles/typewriter-variegated.js';
+const REFS = [['utah-1886-caption.jpg', 'Salt Lake City, 1886: the caption’s colon column and star, the dash rule (public domain)', 1500, .3], ['wichary-red-overstrike.jpg', 'a red ribbon at its heaviest (Marcin Wichary, CC BY-SA 4.0): the red’s calibration', 400, .8]];
+const q = new URLSearchParams(location.search), BARE = q.has('bare'), dpr = Math.min(2, devicePixelRatio || 1), face = FACES[q.get('face')] ?? FACES.prime;
+const DROP = Object.keys(D.DROPS).includes(q.get('drop')) ? q.get('drop') : null;   // (none given: the seed's)
+const root = document.documentElement, sysDark = matchMedia('(prefers-color-scheme: dark)');
+if (['light', 'dark'].includes(q.get('theme'))) root.dataset.theme = q.get('theme');
+const themeNow = () => root.dataset.theme === 'dark' || root.dataset.theme === 'light' ? root.dataset.theme : sysDark.matches ? 'dark' : 'light';
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let DRAW = q.has('draw') && !REDUCED;
+// the engine made while the fonts are on their way (its context and programs: the one cost a page pays once)
+const fonts = Promise.all(['19px "EB Garamond"', 'italic 19px "EB Garamond"', `19px "${face.family}"`, `700 19px "${face.family}"`].map(f => document.fonts.load(f)));
+warm(dpr); await fonts;
+const seedOf = () => +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), seedIn = document.getElementById('seed');
+if (BARE) { document.body.classList.add('bare'); document.querySelector('header.top').remove(); }
+const STOCK = { light: '#F2EEE4', dark: '#17161A' };
+const WORDS = { first: 'But', last: 'teaching', head: 'map', quote: 'You', text: 'But our higher instincts are not deceived. We take no pleasure in the building provided for us, resembling that which we take in a new book or a new picture. ' };
+
+// a canvas for a typed piece (r: from press or pressMany); at: CSS px in the text box
+function canvasOf(r, d = dpr, host = null, at = null) {
+  const cv = document.createElement('canvas'); cv.width = r.cw; cv.height = r.ch; if (r.img) cv.getContext('2d').putImageData(r.img, 0, 0);
+  Object.assign(cv.style, { width: r.cw / d + 'px', height: r.ch / d + 'px' }); cv.setAttribute('aria-hidden', 'true');
+  if (host) { Object.assign(cv.style, { position: 'absolute', left: at[0] - r.pad + 'px', top: at[1] - r.pad + 'px' }); host.append(cv); }
+  return cv;
+}
+const fig = (z, M, pc, cap, theme, zoom) => { const f = document.createElement('figure'); f.dataset.theme = theme;
+  f.append(canvasOf(press(M, pc, { theme, stock: STOCK[theme] }, { d: dpr * zoom, at: [80, 80] }))); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); z.append(f); return f; };
+
+const PERF = [];
+// a specimen page: the text, and every case typed on one machine (the still: all pieces poured as one sheet)
+function page(theme, host, seed, { label = '', drop = DROP, lead = false } = {}) {
+  const panel = document.createElement('div'); panel.className = 'panel'; panel.dataset.theme = theme;
+  if (label) panel.insertAdjacentHTML('beforeend', `<span class="lab">${label}</span>`);
+  const text = document.createElement('div'); text.className = 'text'; text.append(document.getElementById('txt').content.cloneNode(true)); panel.append(text); host.append(panel);
+  if (lead) for (const el of [...text.children].slice(1)) el.remove();
+  const cs = getComputedStyle(text), em = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = 4, cw = .6 * em;   // (four lines on a phone too: a typed field needs the room for its letter to read)
+  const m = document.createElement('canvas').getContext('2d'); m.font = `${em}px "EB Garamond"`; const cap = m.measureText('H').actualBoundingBoxAscent;
+  const c = { em, lh, seed, family: face.family, words: WORDS, drop }, M = machine(seed, { family: face.family });
+  const t0 = performance.now(), ini = text.querySelector('.ini'), ip = D.initial(ini.dataset.ch, (n - 1) * lh + cap, c);
+  Object.assign(ini.style, { width: ip.W + em * .55 + 'px', height: (n * lh - 2) + 'px' });
+  const pf = text.querySelector('.pf'), pp = D.paraph(c); if (pf) pf.style.width = pp.W + em * .4 + 'px';
+  const R = text.getBoundingClientRect(), rel = el => { const b = el.getBoundingClientRect(); return { x: b.left - R.left, y: b.top - R.top, w: b.width, h: b.height, b: b.bottom - R.top, r: b.right - R.left }; };
+  const snap = x => Math.ceil(x / cw - 1e-6) * cw;   // (the typed marks sit on the machine's columns, counted from the text's left edge)
+  const items = [], add = (piece, x, y, cap) => items.push({ piece, at: [x, y], cap });
+  { const bl = rel(text.querySelector('.bl')).b, b = rel(ini); add(ip, b.x, bl - cap, 3); }
+  if (pf) { const b = rel(pf); add(pp, b.x, b.b - pp.base, .6); }
+  const end = text.querySelector('.end'); if (end) { const e = rel(end), x0 = snap(e.r + em * .5), gw = R.width - x0; if (gw > cw * 3) { const fp = D.filler(gw, c); add(fp, x0, e.b - fp.base, 1.2); } }
+  const ro = text.querySelector('h3 .ro'); if (ro) { const e = rel(ro), x0 = snap(e.r + em * .6), w = R.width - x0; if (w > cw * 3) { const rp = D.runout(w, c); add(rp, x0, e.b - rp.base, 1); } }
+  const qb = text.querySelector('blockquote');
+  for (const hr of text.querySelectorAll('hr')) { if (hr.classList.contains('r2') && qb) { const b = rel(qb), fp = D.frame(b.w, b.h, c); add(fp, b.x + em * .35, b.y + (lh - em) * .5, 1.5); }
+    const b = rel(hr), k = +hr.className.slice(1), bp = D.brk(k, R.width, c); add(bp, snap((R.width - bp.W) / 2), b.y + (b.h - bp.H) / 2, k === 3 ? 3 : 1.2); }
+  const look = { theme, stock: STOCK[theme] };
+  if (DRAW) { const jobs = items.map(it => { const cv = document.createElement('canvas'), w = writer(M, it.piece, look, { d: dpr, at: it.at, cap: it.cap }, cv);
+      Object.assign(cv.style, { position: 'absolute', left: it.at[0] - w.pad + 'px', top: it.at[1] - w.pad + 'px', width: w.cw / dpr + 'px', height: w.ch / dpr + 'px' }); cv.setAttribute('aria-hidden', 'true'); text.append(cv); return w; });
+    panel._jobs = jobs; seen.observe(panel); }
+  else pressMany(M, items, look, { d: dpr }).forEach((r, i) => canvasOf(r, dpr, text, items[i].at));
+  const ms = performance.now() - t0; if (!lead) PERF.push([theme, ms]);
+  if (q.has('prof')) console.log(theme, drop, ms.toFixed(0), JSON.stringify(Object.fromEntries(Object.entries(PROF).map(([k, v]) => [k, +v.toFixed(1)]))));
+  return { em, lh, cap, n, c, M };
+}
+
+// typed as you watch: one carriage, the pieces in reading order, each in its typist's rhythm
+function type(panel) { const J = panel._jobs; let i = 0, s0 = 0;
+  const step = now => { if (i >= J.length) return; s0 ||= now; const t = (now - s0) / 1000; J[i].at(t); if (t >= J[i].dur) { J[i].done(); i++; s0 = now + 250; } requestAnimationFrame(step); };
+  requestAnimationFrame(step); }
+const seen = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { seen.unobserve(e.target); type(e.target); } }, { threshold: .1 });
+
+function build() {
+  const seed = seedOf(); if (seedIn) seedIn.value = seed; PERF.length = 0; const out = document.getElementById('out'); out.textContent = '';
+  const TH = themeNow(), OTHER = TH === 'dark' ? 'light' : 'dark';
+  if (BARE) { page(TH, out, seed); finish(); return; }
+  const sec = document.createElement('section'); sec.className = 'dir'; sec.id = 'variegated';
+  sec.innerHTML = `<h2>${D.NAME}</h2><p class="note">${D.NOTE} This page’s drop (${DROP ? 'chosen' : 'the seed’s'}): <i>${DROP ?? D.dropOf(seed)}</i>, ${D.DROPS[DROP ?? D.dropOf(seed)]}.</p>`; out.append(sec);
+  const pr = document.createElement('div'); pr.className = 'pair'; sec.append(pr);
+  let mm; for (const theme of [TH, OTHER]) { const r = page(theme, pr, seed, { label: theme === TH ? `${theme} (this page’s theme)` : theme }); mm ??= r; }
+  const { c, M } = mm, H = (mm.n - 1) * mm.lh + mm.cap;
+  // the drop, three ways, at page size in its paragraph, both themes
+  const KINDS = Object.keys(D.DROPS);
+  sec.insertAdjacentHTML('beforeend', `<h3 class="row">the drop, ${KINDS.length} ways, at page size in its paragraph (fix one for this page: ${KINDS.map(k => `<a href="?drop=${k}${location.hash}">${k}</a>`).join(' · ')}; <a href="?${location.hash}">the seed’s</a>)</h3>`);
+  for (const theme of [TH, OTHER]) { const g = document.createElement('div'); g.className = 'drops'; sec.append(g);
+    for (const k of KINDS) page(theme, g, seed, { label: `${k}: ${D.DROPS[k]}`, drop: k, lead: true }); }
+  let z;
+  for (const [zoom, themes] of [[1, [TH, OTHER]], [2, [TH, OTHER]]]) for (const theme of themes) {
+    sec.insertAdjacentHTML('beforeend', `<h3 class="row">each way with B, A, W, O, S at ${zoom}× (${theme})</h3>`); z = document.createElement('div'); z.className = 'zoom'; sec.append(z);
+    for (const k of KINDS) { const f = document.createElement('figure'); f.dataset.theme = theme; const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:10px;align-items:flex-end';
+      for (const ch of 'BAWOS') row.append(canvasOf(press(M, D.initial(ch, H, { ...c, drop: k }), { theme, stock: STOCK[theme] }, { d: dpr * zoom, at: [80, 80] })));
+      f.append(row); f.insertAdjacentHTML('beforeend', `<figcaption>${k}</figcaption>`); z.append(f); } }
+  // beside the masters
+  sec.insertAdjacentHTML('beforeend', '<h3 class="row">beside the masters (tests/typewriter-refs, credited; reference only)</h3>'); z = document.createElement('div'); z.className = 'zoom'; sec.append(z);
+  for (const [src, cap, w, sc] of REFS) { const f = document.createElement('figure'); f.dataset.theme = 'light'; const im = new Image(); im.src = 'typewriter-refs/' + src; im.style.width = w * sc + 'px'; f.append(im); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); z.append(f); }
+  fig(z, M, D.frame(400, 4 * mm.lh, c), 'quotation, 2×', 'light', 2); fig(z, M, D.brk(2, 620, c), 'break 2, 1.5×', 'light', 1.5); fig(z, M, D.initial('R', H, c), 'drop R, 1.5×', 'light', 1.5);
+  // every piece enlarged
+  for (const theme of [TH, OTHER]) { sec.insertAdjacentHTML('beforeend', `<h3 class="row">the pieces enlarged (${theme})</h3>`); z = document.createElement('div'); z.className = 'zoom'; sec.append(z);
+    fig(z, M, D.initial('B', H, c), 'drop B, 2×', theme, 2); fig(z, M, D.paraph(c), 'paraph, 4×', theme, 4); fig(z, M, D.filler(200, c), 'filler, 3×', theme, 3); fig(z, M, D.runout(240, c), 'run-out, 3×', theme, 3);
+    fig(z, M, D.brk(1, 620, c), 'break 1, 4×', theme, 4); fig(z, M, D.brk(2, 620, c), 'break 2, 2×', theme, 2); fig(z, M, D.brk(3, 620, c), 'break 3, 2×', theme, 2);
+    fig(z, M, D.frame(400, 4 * mm.lh, c), 'quotation, 3×', theme, 3); }
+  // six seeds: one machine each, every mark
+  for (const theme of [TH, OTHER]) {
+    sec.insertAdjacentHTML('beforeend', `<h3 class="row">six seeds (${theme}): each seed is another machine and another typist’s choices. Drop, paraph (2×), break 1; filler, run-out; break 2, quotation; break 3</h3>`);
+    const sd = document.createElement('div'); sd.className = 'seeds'; sec.append(sd);
+    for (let i = 0; i < 6; i++) { const s = seed + 101 * (i + 1), cs = { ...c, seed: s }, Ms = machine(s, { family: face.family }), f = document.createElement('figure'); f.dataset.theme = theme;
+      const one = (pc, z = 1) => canvasOf(press(Ms, pc, { theme, stock: STOCK[theme] }, { d: dpr * z, at: [80, 80] }));
+      const rows = [[one(D.initial('B', H, cs)), one(D.paraph(cs), 2), one(D.brk(1, 620, cs))], [one(D.filler(150, cs)), one(D.runout(140, cs))], [one(D.brk(2, 620, cs), .8), one(D.frame(300, 3 * mm.lh, cs))], [one(D.brk(3, 620, cs), .6)]];
+      f.insertAdjacentHTML('afterbegin', `<span style="font-size:13px;opacity:.6">seed ${s} · drop: ${D.dropOf(s)}</span>`);
+      for (const r of rows) { const d = document.createElement('div'); d.className = 'row'; d.append(...r); f.append(d); } sd.append(f); } }
+  finish();
+}
+function finish() { const msg = PERF.map(([t, ms]) => `${t} ${ms.toFixed(0)} ms`).join('; ');
+  document.body.dataset.timing = msg || 'none'; const tEl = document.getElementById('timing'); if (tEl) tEl.textContent = 'a page’s ornament, typed and poured: ' + msg + (DRAW ? ' (typing as it scrolls in)' : ''); }
+build();
+seedIn?.addEventListener('change', () => { location.hash = 'seed=' + Math.max(1, seedIn.value | 0); });
+document.getElementById('reseed')?.addEventListener('click', () => { location.hash = 'seed=' + (1 + Math.floor(Math.random() * 9999)); });
+document.getElementById('run')?.addEventListener('click', () => { if (REDUCED) return; DRAW = true; build(); });
+addEventListener('hashchange', build);
+// the theme followed live: the reader's system, and the page's own switch (data-theme on <html>)
+sysDark.addEventListener('change', () => { if (!root.dataset.theme) build(); });
+new MutationObserver(build).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+</script>
+</body>
+</html>

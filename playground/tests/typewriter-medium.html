@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Typewriter bench</title>
+<!--
+  The typewriter's strike on a bench (kit/styles/typewriter-machine.js; research/27-typewriter.md stage 1): one impression's
+  causes one at a time, the ribbon running and recovering, the two-colour ribbon, overstrikes, real typed sheets beside ours
+  at 1x and 4x, light and dark.  #seed=n  ?face=cutive  ?theme=light|dark (default: <html data-theme>, else the system)
+  Reference crops: tests/typewriter-refs/CREDITS.md.
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "Courier Prime"; src: url(../fonts/typewriter/CourierPrime-Regular.woff2) format("woff2"); font-weight: 400; font-display: block; }
+  @font-face { font-family: "Courier Prime"; src: url(../fonts/typewriter/CourierPrime-Bold.woff2) format("woff2"); font-weight: 700; font-display: block; }
+  @font-face { font-family: "Cutive Mono"; src: url(../fonts/typewriter/CutiveMono-Regular.woff2) format("woff2"); font-display: block; }
+  :root { --bg: #E7E3DA; --fg: #27241F; --bond: #F2EEE4; --card: #17161A; --chalk: #E8E3D8; --link: #7a2d20; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg: #0F0E11; --fg: #E2DCD0; --link: #E9907D; } }
+  :root[data-theme=dark] { --bg: #0F0E11; --fg: #E2DCD0; --link: #E9907D; }
+  html { background: var(--bg); } body { margin: 0; background: var(--bg); color: var(--fg); font: 400 17px/1.5 "EB Garamond", Georgia, serif; }
+  a { color: var(--link); }
+  main { max-width: 1320px; margin: 0 auto; padding: 30px 20px 60px; }
+  h1 { font-weight: 400; font-size: 44px; margin: 0 0 .2em; } h2 { font-weight: 400; font-size: 28px; margin: 1.4em 0 .3em; }
+  p { max-width: 84ch; margin: .3em 0 .8em; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+  .sheet { position: relative; padding: 16px; max-width: 100%; box-sizing: border-box; overflow: hidden; }
+  .sheet[data-theme=light] { background: var(--bond); color: #27241F; } .sheet[data-theme=dark] { background: var(--card); color: var(--chalk); }
+  .sheet canvas, .sheet img { display: block; } .cap { font-size: 14px; opacity: .8; margin-top: 6px; max-width: 34em; }
+  .crop { overflow: hidden; } .controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; } .controls input { width: 6em; font: inherit; }
+  .controls button { font: inherit; padding: 2px 12px; cursor: pointer; }
+  svg.plot { display: block; } svg.plot polyline { fill: none; stroke: currentColor; stroke-width: 1.2; } svg.plot line { stroke: currentColor; opacity: .25; }
+</style>
+</head>
+<body><main>
+<h1>The strike, on a bench</h1>
+<p>Each patch is typed by kit/styles/typewriter-machine.js exactly as the directions are: one machine per page (the seed), every key with its own faults; each strike’s ink set by the typist’s force over the glyph’s area and by what the ribbon has left; the weave of the cloth under it; overstrikes added in the deposit; each colour’s deposit poured into the ink engine (kit/medium.js) and its film laid on the stock (filtering the paper in light; an opaque cover-up film on black card in dark). Letters: Courier Prime (Alan Dague-Greene, OFL). <a href="typewriter-directions.html">The directions.</a></p>
+<div class="controls"><label>seed <input id="seed" type="number" min="1"></label><button id="type" type="button">type the animated patches</button><span id="timing"></span></div>
+<div id="out"></div>
+<script type="module" src="../kit/theme-toggle.js"></script>
+<script type="module">
+import { machine, press, writer, typed, FACES, clock } from '../kit/styles/typewriter-machine.js';
+const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), dpr = Math.min(2, devicePixelRatio || 1);
+const face = FACES[q.get('face')] ?? FACES.prime;
+const sysDark = matchMedia('(prefers-color-scheme: dark)'), TH = ['light', 'dark'].includes(q.get('theme')) ? q.get('theme') : document.documentElement.dataset.theme ?? (sysDark.matches ? 'dark' : 'light');
+document.documentElement.dataset.theme = TH;
+await Promise.all([`19px "${face.family}"`, `700 19px "${face.family}"`, '17px "EB Garamond"'].map(f => document.fonts.load(f)));
+document.getElementById('seed').value = seed; document.getElementById('seed').onchange = e => { location.hash = 'seed=' + (e.target.value | 0); location.reload(); };
+const STOCK = { light: '#F2EEE4', dark: '#17161A' }, EM = 19, LH = 30, out = document.getElementById('out'), t0 = performance.now(), anims = [];
+const sec = (title, note) => { out.insertAdjacentHTML('beforeend', `<h2>${title}</h2><p>${note}</p>`); const r = document.createElement('div'); r.className = 'row'; out.append(r); return r; };
+const M = (o = {}) => machine(o.seed ?? seed, { family: face.family, ...o });
+// a patch: strikes on their own sheet; zoom: device px per CSS px × zoom
+function patch(row, theme, mac, piece, cap, { zoom = 1, ink, live = false } = {}) {
+  const f = document.createElement('div'); f.className = 'sheet'; f.dataset.theme = theme; const d = dpr * zoom, cv = document.createElement('canvas');
+  const o = { d, at: [40, 40], ink, cap: 6 }, look = { theme, stock: STOCK[theme] }; let r;
+  if (live) { const w = writer(mac, piece, look, o, cv); w.done(); anims.push(w); r = w; }
+  else { r = press(mac, piece, look, o); cv.width = r.cw; cv.height = r.ch; cv.getContext('2d').putImageData(r.img, 0, 0); }
+  Object.assign(cv.style, { width: r.cw / dpr + 'px', height: r.ch / dpr + 'px' }); f.append(cv);
+  if (cap) f.insertAdjacentHTML('beforeend', `<div class="cap">${cap}</div>`); row.append(f); return f;
+}
+const line = (str, col = 'k', W) => ({ W: W ?? str.length * .6 * EM, H: LH * .9, em: EM, lh: LH, strikes: typed(str, 0, EM, EM, col) });
+const ref = (row, src, cap, w, h, x = 0, y = 0, sc = 1) => { const f = document.createElement('div'); f.className = 'sheet'; f.dataset.theme = 'light';
+  const c = document.createElement('div'); c.className = 'crop'; Object.assign(c.style, { width: w + 'px', height: h + 'px' }); const im = new Image(); im.src = 'typewriter-refs/' + src;
+  Object.assign(im.style, { transformOrigin: '0 0', transform: `translate(${-x}px, ${-y}px) scale(${sc})` }); c.append(im); f.append(c); f.insertAdjacentHTML('beforeend', `<div class="cap">${cap}</div>`); row.append(f); };
+
+// ?measure: only the two masters' lines, ours at 4x (17.96 px/mm at DPR 1: the scans' scale), for research/27's meas.py
+if (q.has('measure')) { const r = document.createElement('div'); out.append(r);
+  patch(r, 'light', M({ ribbon: 'fresh', dirt: .3 }), line('It will be necessary for  a parcel of a'), '', { zoom: 4 });
+  patch(r, 'light', M({ ribbon: 'worn', dirt: .95 }), line('Jehanne, my beautiful, thy lips again!'), '', { zoom: 4 });
+  document.body.dataset.timing = 'measure'; }
+else {
+// 0. beside real sheets. The scans are 17.7–18.1 px/mm; our page sets the pica em at 19 CSS px = 4.49 px/mm, so a scan
+// at 0.254 is our 1×, and at about 1.0 our 4×.
+const S1 = 4.49 / 17.7, S2 = 4.49 / 18.1;
+let row = sec('0 · Beside real sheets, at 1× and 4×', 'Left of each pair a real typed sheet (Wikimedia Commons, credited in typewriter-refs/CREDITS.md; reference only), right ours, the same words at the same physical size: a pica cell is 2.54 mm. Measured on the masters (darkness = 1 − reflectance/paper, inside strokes): Teesdale’s fresh ribbon 0.72 ± 0.12, each glyph’s mean within 0.76–1.25 of the line’s (cv 0.08), its edge 20–80 % in ~40 µm; Sterling’s worn ribbon 0.40 ± 0.10, glyphs cv 0.11, counters of e, a, o filled. Our numbers on the same measure are in research/27-typewriter.md, Stage 1.');
+ref(row, 'teesdale-1910-line.jpg', 'Teesdale, c. 1910 (fresh black ribbon), at 1×', 1400 * S1, 200 * S1, 0, 0, S1);
+patch(row, 'light', M({ ribbon: 'fresh', dirt: .3 }), line('It will be necessary for  a parcel of a'), 'ours, a fresh ribbon, 1×');
+row = sec('', '');
+ref(row, 'teesdale-1910-line.jpg', 'Teesdale at 4× (the scan’s own pixels)', 520, 200, 520, 0, 1);
+patch(row, 'light', M({ ribbon: 'fresh', dirt: .3 }), line('necessary for  '), 'ours at 4×', { zoom: 4 });
+row = sec('', '');
+ref(row, 'sterling-1918-worn.jpg', 'Sterling, 1918 (a worn ribbon, clogged counters), at 1×', 1400 * S2, 440 * S2, 0, 0, S2);
+patch(row, 'light', M({ ribbon: 'worn', dirt: .95 }), line('Jehanne, my beautiful, thy lips again!'), 'ours, a worn ribbon, a dirty machine, 1×');
+row = sec('', '');
+ref(row, 'sterling-1918-worn.jpg', 'Sterling at 4×', 560, 170, 0, 150, 1);
+patch(row, 'light', M({ ribbon: 'worn', dirt: .95 }), line('Jehanne, my'), 'ours at 4×', { zoom: 4 });
+
+// 1. the causes, one at a time
+const ALL = ['keys', 'squash', 'tilt', 'clog', 'force', 'ribbon', 'paper', 'weave'];
+row = sec('1 · One impression’s causes, one at a time', 'The same words at 4×, each patch adding one cause to the last. The first is the face alone, laid flat; the last is poured through the ink engine. Every variation has its cause; nothing is random per strike or per pixel.');
+const steps = [['the face alone (Courier Prime), laid flat', ALL, 'flat'], ['+ the keys: each slug high, low, off-centre, leaning, its spring (fixed per key: every e is this machine’s e)', ALL.slice(1), 'flat'],
+  ['+ the platen: slug, ribbon and paper pressed together, the ink spreads a little past the face', ALL.slice(2), 'flat'],
+  ['+ the faint side: a slug meeting the platen out of true', ALL.slice(3), 'flat'], ['+ clogged counters (e, a, o …): ink and lint packed in the slug', ALL.slice(4), 'flat'],
+  ['+ force over area: the touch drifts slowly; a small glyph prints denser', ALL.slice(5), 'flat'], ['+ the ribbon: each strike draws its patch down, the cloth wicks back', ALL.slice(6), 'flat'],
+  ['+ the paper: fibres standing high take more ink than the hollows (a continuous field, the sheet’s own)', ALL.slice(7), 'flat'],
+  ['+ the weave: ink heavier on the threads (area-filtered: at 4× a soft modulation)', [], 'flat'], ['poured through the ink engine: the ink levels and creeps into the fibre, then dries', [], undefined]];
+for (const [cap, off, ink] of steps) patch(row, 'light', M({ off, dirt: .8, ribbon: .9 }), line('necessary eon'), cap, { zoom: 4, ink });
+
+// 2. the ribbon running and recovering
+row = sec('2 · The ribbon running and recovering', 'A long run of one heavy key, a carriage return (half a second’s rest), and the run again; then full stops against capital Ms. Each strike lands on the patch of ribbon the last one used, less one feed step: a fast run of heavy keys draws it down and the print fades; resting, the cloth wicks ink back. The plot is each strike’s ink. A small glyph (the full stop) gives the same force to less area and prints denser.');
+{ const mac = M({ ribbon: .95 }), piece = { W: 44 * .6 * EM, H: LH * 2, em: EM, lh: LH, strikes: [...typed('#'.repeat(44), 0, EM, EM), ...typed('#'.repeat(44), 0, EM + LH, EM)] };
+  patch(row, 'light', mac, piece, 'a run of #, then a carriage return and the run again (2×)', { zoom: 2 });
+  const ink = piece.strikes.map(s => s.ink), w = 520, h = 70, pts = ink.map((v, i) => `${(i / (ink.length - 1) * w).toFixed(1)},${(h - v / 1.2 * h).toFixed(1)}`).join(' ');
+  row.insertAdjacentHTML('beforeend', `<div class="sheet" data-theme="${TH}"><svg class="plot" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-label="ink per strike"><line x1="0" x2="${w}" y1="${h - mac.load / 1.2 * h}" y2="${h - mac.load / 1.2 * h}"/><polyline points="${pts}"/></svg><div class="cap">ink per strike (the faint line: the ribbon’s load at rest). Down along each run, back up over the carriage return.</div></div>`);
+  patch(row, 'light', M(), line('. . . . . . MMMMMM . . . . . .'), 'full stops and capital Ms, the same force (2×)', { zoom: 2 }); }
+
+// 3. the two-colour ribbon
+row = sec('3 · The two-colour ribbon', 'A bichrome ribbon is black above and red below; the selector lifts one half or the other in front of the type (Pitman, 1897: “variegated typewriting”). The paper position does not change. The red half is its own band, with its own load, drawn down by its own strikes. Last, a machine whose vibrator is set short: the tops of the red glyphs strike the black half.');
+{ const mk = (seam = 0) => { const mac = M({ seam }); const p = { W: 34 * .6 * EM, H: LH * .9, em: EM, lh: LH, strikes: [...typed('Variegated', 0, EM, EM), ...typed('typewriting:', 11 * .6 * EM, EM, EM, 'r'), ...typed('red', 24 * .6 * EM, EM, EM), ...typed('for emphasis', 28 * .6 * EM, EM, EM, 'r').slice(0, 6)] }; return [mac, p]; };
+  { const [m, p] = mk(); patch(row, 'light', m, p, 'black and red, 1×'); }
+  { const [m, p] = mk(); patch(row, 'light', m, p, 'the same at 3×', { zoom: 3 }); }
+  { const [m, p] = mk(.16); patch(row, 'light', m, p, 'the vibrator set short (a seam .16 of the glyph down), 3×', { zoom: 3 }); } }
+
+// 4. overstrikes
+row = sec('4 · Overstrikes', 'The carriage backspaced and the key struck again: the ink adds, and each pass lands a little off by the rack’s slop at that column (the same every time it is passed). Tone by passes, as Houédard and the typed portraits made it. The animated patches type in the typist’s order (button above).');
+{ const cells = []; ['o', '#', 'x'].forEach((c, r) => { for (let n = 1; n <= 4; n++) for (let k = 0; k < n; k++) cells.push({ ch: c, x: (n - 1) * 2.4 * EM, y: EM + r * LH, col: 'k' }); });
+  patch(row, 'light', M(), { W: 9 * EM, H: 3 * LH, em: EM, lh: LH, strikes: cells }, 'o, # and x struck 1, 2, 3, 4 times (3×)', { zoom: 3 });
+  const xo = [{ ch: 'o', x: 0, y: EM, col: 'r' }, { ch: 'x', x: 0, y: EM, col: 'r' }, { ch: 'o', x: 2 * .6 * EM, y: EM, col: 'k' }, { ch: '/', x: 2 * .6 * EM, y: EM, col: 'k' }, { ch: '=', x: 4 * .6 * EM, y: EM, col: 'k' }, { ch: '_', x: 4 * .6 * EM, y: EM, col: 'r' }];
+  patch(row, 'light', M(), { W: 5 * .6 * EM, H: LH, em: EM, lh: LH, strikes: xo }, 'x on o (red), / on o, _ under = (4×)', { zoom: 4 });
+  // a field typed in passes: row by row, each row struck, the carriage returned, struck again over its left part
+  const fld = []; for (let r = 0; r < 6; r++) { const y = EM * .8 + r * LH / 2; for (let p = 1; p <= 3; p++) for (let c = 0; c < 24; c++) if (c < 24 - (p - 1) * 8) fld.push({ ch: 'x', x: c * .6 * EM, y, col: 'k' }); }
+  patch(row, 'light', M(), { W: 24 * .6 * EM, H: 3.4 * LH, em: EM, lh: LH, strikes: fld }, 'a field of x on half-row feeds, 1, 2 and 3 passes, typed (2×)', { zoom: 2, live: true }); }
+
+// 5. light and dark
+row = sec('5 · Light and dark', 'Dark is not an inversion: on black card the strike lays an opaque film, as the Correcting Selectric’s white cover-up tape did, and the red half a vermilion film; the ink’s density is the film’s opacity, so a light strike shows the card through and a dry ribbon thins rather than turning grey.');
+for (const theme of ['light', 'dark']) { const r = document.createElement('div'); r.className = 'row'; out.append(r);
+  const mac = M(); patch(r, theme, mac, { W: 30 * .6 * EM, H: LH * 2, em: EM, lh: LH, strikes: [...typed('The page as a map', 0, EM, EM), ...typed('¶', 18 * .6 * EM, EM, EM, 'r'), ...typed('_'.repeat(30), 0, EM + LH * .2, EM, 'r'), ...typed('. . . . . . . . . . . . . . .', 0, EM + LH, EM)] }, theme + ', 1×');
+  patch(r, theme, M(), { W: 14 * .6 * EM, H: LH * 2, em: EM, lh: LH, strikes: [...typed('xxxxxxxxxxxxxx', 0, EM, EM, 'r'), ...typed('xxxxxxxxxxxxxx', 0, EM, EM, 'r'), ...typed('ox:*=/o#M', 0, EM + LH, EM)] }, theme + ', 3×', { zoom: 3 });
+  patch(r, theme, M({ ribbon: 'worn' }), line('a worn ribbon: necessary'), theme + ', worn, 3×', { zoom: 3 }); }
+
+// 6. the machine is the seed
+row = sec('6 · The machine is the seed', `The same line on six machines (seeds ${seed + 1}–${seed + 6}): each has its own keys, its own ribbon load and dirt. Within a page every e is that page’s e.`);
+for (let i = 1; i <= 6; i++) patch(row, TH, M({ seed: seed + i }), line('the eagle has landed: aeo'), `seed ${seed + i}, 2×`, { zoom: 2 });
+
+}
+if (!q.has('measure')) { const msg = `typed in ${Math.round(performance.now() - t0)} ms (bench, all patches)`; document.getElementById('timing').textContent = msg; document.body.dataset.timing = msg; }
+document.getElementById('type').onclick = () => { if (matchMedia('(prefers-reduced-motion: reduce)').matches) return; for (const w of anims) { let s0 = 0; const step = now => { s0 ||= now; const t = (now - s0) / 1000; w.at(t); if (t < w.dur) requestAnimationFrame(step); else w.done(); }; w.reset?.(); requestAnimationFrame(step); } };
+</script>
+</main></body>
+</html>
