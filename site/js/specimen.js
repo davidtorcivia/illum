@@ -22,6 +22,7 @@ export const STYLE = {
   copperplate: { lines: null, filler: FILLER },
   rock: { lines: null, filler: FILLER },
   plotter: { lines: null, filler: FILLER },
+  riso: { lines: null, filler: FILLER },
   draft: { lines: null, filler: '.text > p:not(.sub):not(.pull):not(.bare)' },
 };
 export const RICH = ['plain', 'modest', 'usual', 'fine', 'lavish'];

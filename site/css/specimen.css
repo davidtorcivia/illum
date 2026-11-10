@@ -37,6 +37,9 @@
 .sheet .ini.line { display: inline-block; font-size: 1.8em; line-height: 0; margin-right: .12em; }
 
 /* Blackletter */
+.sheet[data-style="riso"] { --rubric: rgb(61 85 136); }
+:root[data-theme="dark"] .sheet[data-style="riso"] { --rubric: rgb(98 168 229); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sheet[data-style="riso"] { --rubric: rgb(98 168 229); } }
 .sheet[data-style="blackletter"] { --rubric: rgb(170 44 28); }
 :root[data-theme="dark"] .sheet[data-style="blackletter"] { --rubric: rgb(232 110 86); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sheet[data-style="blackletter"] { --rubric: rgb(232 110 86); } }

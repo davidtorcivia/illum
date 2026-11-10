@@ -10,6 +10,7 @@
 #     are carved strokes. The rock's parked direction studies, kit/pie/, are not under kit/styles/ and are not shipped.)
 #     (Plotter's own: plotter.js, plotter-pen, -draw, -office, -section, and plotter-letters.js: its letters as path data,
 #     Hershey Roman with the acknowledgements its licence asks to travel with the data, and Jost's capitals as outlines.)
+#     (Duplicator's own: riso.js, riso-overprint, riso-press; its face in fonts/riso/.)
 #   playground/fonts/, fonts/kelmscott/, fonts/nouveau/, fonts/insular/, fonts/deco/, fonts/choirbook/hand3/ and fonts/copperplate/ (faces, letter outlines and licences) -> site/fonts/
 # The styles find their faces at new URL('../../fonts/', import.meta.url), so kit/ and fonts/ must stay siblings.
 #
@@ -45,10 +46,12 @@ mkdir -p "$site/fonts/choirbook/hand3"; cp "$src"/fonts/choirbook/hand3/choir-lo
 # UnifrakturMaguntia, already among fonts/*.woff2. The Pinyon subset beside them in the source is not loaded, so not shipped)
 # (Plotter's letters are path data in kit/styles/plotter-letters.js; their licences and note beside the fonts)
 mkdir -p "$site/fonts/plotter"; cp "$src"/fonts/plotter/Jost-OFL.txt "$src"/fonts/plotter/README.txt "$site/fonts/plotter/"
+# (Duplicator's capitals: Gloock subset to capitals and figures and renamed, with its note and licence)
+mkdir -p "$site/fonts/riso"; cp "$src"/fonts/riso/illum-riso-gloock-caps.woff2 "$src"/fonts/riso/illum-riso-gloock-caps-README.txt "$src"/fonts/riso/Gloock-OFL.txt "$site/fonts/riso/"
 mkdir -p "$site/fonts/copperplate"; cp "$src"/fonts/copperplate/illum-copper-imperial-caps.woff2 "$src"/fonts/copperplate/illum-copper-imperial-caps-README.txt "$src"/fonts/copperplate/ImperialScript-OFL.txt "$site/fonts/copperplate/"
 # the library's hash (kit/cache.js keys every remembered or baked ornament by it): every module and face as shipped, so a
 # reader's browser need not read them all to know whether what it remembers is still current
-echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 "$site"/fonts/kelmscott/* "$site"/fonts/nouveau/* "$site"/fonts/insular/* "$site"/fonts/deco/* "$site"/fonts/choirbook/hand3/* "$site"/fonts/copperplate/* "$site"/fonts/plotter/* | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
+echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 "$site"/fonts/kelmscott/* "$site"/fonts/nouveau/* "$site"/fonts/insular/* "$site"/fonts/deco/* "$site"/fonts/choirbook/hand3/* "$site"/fonts/copperplate/* "$site"/fonts/plotter/* "$site"/fonts/riso/* | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
 
 # the ornament baked (tools/bake.mjs), so a first visit is drawn from it rather than by the ink engine: every page at 1440
 # and 390, light and dark, dpr 1 and 2, served from site/ itself on a spare port; into site/kit/bake.json and site/kit/bake/,

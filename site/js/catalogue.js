@@ -52,5 +52,7 @@ export const CATALOGUE = [
   { key: 'plotter', name: 'Plotter', family: 'technical', line: 'Pen plotters, 1965 to now: the AxiDraw’s section lines, the HP 7475A’s drawing office', rich: 4,
     credit: 'After pen-plotter drawings, the line measured on Calcomp plots by Judson Rosebush (<i>Letter Field</i>, 1978) and Digital Effects (1977), CC BY-SA 3.0, Wikimedia Commons. The letters in Hershey Roman (A. V. Hershey, U.S. National Bureau of Standards, 1967) and Jost (SIL Open Font License).',
     own: [['kind', 'Machine', [['section', 'Section lines'], ['office', 'The drawing office']], { mod: true }]] },
+  { key: 'riso', name: 'Duplicator', family: 'modern', line: 'Stencil duplicators, 1980s to now: two drums, one pass', rich: 4,
+    credit: 'After small-press work printed on stencil duplicators. The ink colours after stencil.wiki’s ink pages (CC BY-NC-SA 4.0); the ink calibrated on photographs by Mario Felipe (CC BY 2.0), Quinn Daedal (CC BY-SA 2.0) and Cetrl (CC0), Wikimedia Commons. The capitals in Gloock, by Duarte Pinto (SIL Open Font License).' },
 ];
 export const byKey = Object.fromEntries(CATALOGUE.map(s => [s.key, s]));
