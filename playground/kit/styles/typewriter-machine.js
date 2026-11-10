@@ -296,23 +296,22 @@ function typeset(M, piece, look, o, levels = false) {
 export function pressMany(M, items, look, o) {
   const d = o.d, cells = items.map(({ piece, at }) => { const pad = piece.pad ?? Math.ceil(piece.em * .6), cw = Math.ceil((piece.W + 2 * pad) * d), ch = Math.ceil((piece.H + 2 * pad) * d);
     clock(piece); inkRun(M, piece, d); const tp = performance.now(), L = deposit(M, piece, { ...o, at }, cw, ch, pad); PROF.deposit += performance.now() - tp; return { piece, at, pad, cw, ch, L }; });
-  // a sheet per ribbon colour, holding only the pieces that colour inks (most pieces are one colour), each cut to the rows
-  // and columns its ink reaches (a piece's pad is room for the ink's creep, not ink): shelves, left to right, 2 px apart
-  const engine = o.ink !== 'flat', MAXW = 2048;
-  for (const col of ['k', 'r']) {
-    const use = []; for (const c of cells) { const A = c.L[col]; let i0 = c.cw, i1 = -1, j0 = c.ch, j1 = -1;
-      for (let j = 0; j < c.ch; j++) { const r = j * c.cw; for (let i = 0; i < c.cw; i++) if (A.C[r + i] > .002) { if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; j1 = j; } }
-      if (i1 < 0) continue; const m = Math.ceil(3 * d); i0 = Math.max(0, i0 - m); j0 = Math.max(0, j0 - m); i1 = Math.min(c.cw - 1, i1 + m); j1 = Math.min(c.ch - 1, j1 + m);
-      use.push({ c, A, i0, j0, w: i1 - i0 + 1, h: j1 - j0 + 1 }); }
-    for (const c of cells) (c.F ??= {})[col] = [new Float32Array(c.cw * c.ch)];
-    if (!use.length) continue;
+  // one sheet for the lot: each piece's black and its red as cells of their own (the inks are separate films; the engine's
+  // ink is neutral), each cut to the rows and columns its ink reaches (a piece's pad is room for the ink's creep, not
+  // ink), on shelves left to right, 2 px apart: one pour, one render and one read back for the page
+  const engine = o.ink !== 'flat', MAXW = 2048, use = [];
+  for (const col of ['k', 'r']) for (const c of cells) { (c.F ??= {})[col] = [new Float32Array(c.cw * c.ch)]; const A = c.L[col]; let i0 = c.cw, i1 = -1, j0 = c.ch, j1 = -1;
+    for (let j = 0; j < c.ch; j++) { const r = j * c.cw; for (let i = 0; i < c.cw; i++) if (A.C[r + i] > .002) { if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; j1 = j; } }
+    if (i1 < 0) continue; const m = Math.ceil(3 * d); i0 = Math.max(0, i0 - m); j0 = Math.max(0, j0 - m); i1 = Math.min(c.cw - 1, i1 + m); j1 = Math.min(c.ch - 1, j1 + m);
+    use.push({ c, col, A, i0, j0, w: i1 - i0 + 1, h: j1 - j0 + 1 }); }
+  if (use.length) {
     let x = 0, y = 0, rowH = 0, SW = 0;
     for (const u of use) { if (x + u.w > MAXW && x > 0) { y += rowH + 2; x = 0; rowH = 0; } u.x = x; u.y = y; x += u.w + 2; rowH = Math.max(rowH, u.h); SW = Math.max(SW, x); }
     const SH = y + rowH, n = SW * SH, Cv = new Float32Array(n), I = new Float32Array(n);
     for (const u of use) for (let j = 0; j < u.h; j++) { const r0 = (u.j0 + j) * u.c.cw + u.i0, r1 = (u.y + j) * SW + u.x; Cv.set(u.A.C.subarray(r0, r0 + u.w), r1); I.set(u.A.I.subarray(r0, r0 + u.w), r1); }
     const tp = performance.now(), F = engine ? film(Cv, I, SW, SH, { ...o, papers: use.map(u => [u.x, u.y, u.w, u.h, Math.round((u.c.at[0] - u.c.pad) * d) + u.i0, Math.round((u.c.at[1] - u.c.pad) * d) + u.j0]) }, 0) : flat(Cv, I); PROF.film += performance.now() - tp;
-    for (const u of use) { const b = u.c.bb ??= [u.i0, u.j0, u.i0 + u.w - 1, u.j0 + u.h - 1]; b[0] = Math.min(b[0], u.i0); b[1] = Math.min(b[1], u.j0); b[2] = Math.max(b[2], u.i0 + u.w - 1); b[3] = Math.max(b[3], u.j0 + u.h - 1); }
-    if (F) for (const u of use) { const f = u.c.F[col][0]; for (let j = 0; j < u.h; j++) f.set(F.subarray((u.y + j) * SW + u.x, (u.y + j) * SW + u.x + u.w), (u.j0 + j) * u.c.cw + u.i0); }
+    for (const u of use) { const b = u.c.bb ??= [u.i0, u.j0, u.i0 + u.w - 1, u.j0 + u.h - 1]; b[0] = Math.min(b[0], u.i0); b[1] = Math.min(b[1], u.j0); b[2] = Math.max(b[2], u.i0 + u.w - 1); b[3] = Math.max(b[3], u.j0 + u.h - 1);
+      if (F) { const f = u.c.F[u.col][0]; for (let j = 0; j < u.h; j++) f.set(F.subarray((u.y + j) * SW + u.x, (u.y + j) * SW + u.x + u.w), (u.j0 + j) * u.c.cw + u.i0); } }
   }
   return cells.map(c => { const P = { cw: c.cw, ch: c.ch, pad: c.pad, look, F: c.F ?? {}, lv: { k: 0, r: 0 }, bb: c.bb ?? [0, 0, -1, -1] }, img = new ImageData(c.cw, c.ch), tp = performance.now(); composite(P, img); PROF.composite += performance.now() - tp; return { img, cw: c.cw, ch: c.ch, pad: c.pad }; });
 }

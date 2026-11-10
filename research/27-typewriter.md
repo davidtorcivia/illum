@@ -569,3 +569,26 @@ pieces within ~2 s), then lays the still.
 
 The face (Courier Prime Regular and Bold) ships subset and renamed as Illum Typewriter Courier in fonts/typewriter/,
 with its note and the OFL. The full TTF-derived woff2 files and Cutive Mono beside it serve only the study pages.
+
+**Timings.** The specimen (tests/typewriter.html, seed 7) was loaded cold in Chrome on the Arc GPU (ANGLE/Vulkan), on a
+machine at load ~6, best of two. Each figure is the page's whole ornament, ms, rubricate's "all":
+
+| | plain | modest | usual | fine | lavish |
+|---|---|---|---|---|---|
+| dpr 1, light | 48 | 70 | 82 | 81 | 82 |
+| dpr 1, dark | 49 | 61 | 78 | 95 | 79 |
+| dpr 2, light | 70 | 120 | 137 | 137 | 153 |
+| dpr 2, dark | 68 | 113 | 140 | 134 | 141 |
+
+Where it went (lavish, dpr 2): the slugs ~15 ms, the deposits ~30, the one pour and its read back ~50, the composite
+~12. Four changes got it there:
+- All of a page's pieces, black and red, go on one sheet: one pour and one read back for the page.
+- Each cell is cut to its ink.
+- A strike is stamped only over its glyph's own box.
+- The fibre and weave are skipped where they would be finer than a pixel.
+
+At load ~15, the same pages ran 1.3–1.6× slower.
+
+**Checks.** tests/typewriter.check.mjs ran every budget × seeds 1, 2, 3, 7 × 1440 and 390 × light and dark. All 80
+pages pass, with no ink on a line box and none at the page's edge. With `SITE=`, the built see page passes at every
+budget (seeds 1 and 7, 40 pages). There is no `variant` getter, so the cold-load case is unchanged.
