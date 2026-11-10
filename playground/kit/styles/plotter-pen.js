@@ -149,7 +149,9 @@ function strokeOps(P, M, T, pen, d, t0, live, wearK) {
   const bead = (p, dir) => { disc(D(p), rad(M.vmax), ink(M.vmax) * (2 * rad(0) >= 5 ? T.coreK : 1), t, dir, pen.dry ?? 0); const r = rad(M.vmax) * (1 + (M.beadW - 1) * T.pool), v = ink(M.vmax) * (1 + (M.beadV - 1) * T.pool); disc(D(p), r, v, t, dir, pen.dry ?? 0, 1 + (M.beadL - 1) * T.pool); };   // (a pool is wet through: the tooth does not break it)
   const dir0 = [P[1][0] - P[0][0], P[1][1] - P[0][1]], l0 = Math.hypot(...dir0) || 1;
   bead(P[0], [dir0[0] / l0, dir0[1] / l0]); t += M.down * 1000;
-  const fine = .7 / px, coarse = live ? 3 / px : Math.max(fine * 4, 2);   // (mm: the sample spacing where the speed changes; the cruise in pieces of 2 mm, so the tip can run dry along it)
+  // (mm: where the speed changes, steps of 3 device px, the ink between interpolated along each sweep; the cruise in pieces
+  // of 2 mm, so the tip can run dry along it)
+  const fine = .7 / px, rstep = Math.max(fine * 1.5, 3 / px), coarse = live ? 3 / px : Math.max(fine * 4, 2);
   for (let i = 0; i < P.length - 1; i++) {
     const a = P[i], b = P[i + 1], l = L[i]; if (l <= 1e-6) continue;
     const ux = (b[0] - a[0]) / l, uy = (b[1] - a[1]) / l, vc = cap(i), n = [-uy, ux];
@@ -158,7 +160,7 @@ function strokeOps(P, M, T, pen, d, t0, live, wearK) {
     const ramp = M.acc ? Math.max(0, (vc * vc - V[i] ** 2) / (2 * M.acc)) : 0, brake = M.acc ? Math.max(0, (vc * vc - V[i + 1] ** 2) / (2 * M.acc)) : 0;
     const marks = [0]; const addRun = (s0, s1, st) => { const k = Math.max(1, Math.ceil((s1 - s0) / st)); for (let j = 1; j <= k; j++) marks.push(s0 + (s1 - s0) * j / k); };
     const r0 = Math.min(ramp, l), b0 = Math.max(r0, l - brake);
-    if (r0 > 0) addRun(0, r0, fine * 1.5); if (b0 > r0) addRun(r0, b0, coarse); if (l > b0) addRun(b0, l, fine * 1.5);
+    if (r0 > 0) addRun(0, r0, rstep); if (b0 > r0) addRun(r0, b0, coarse); if (l > b0) addRun(b0, l, rstep);
     for (let k = 1; k < marks.length; k++) { const s0 = marks[k - 1], s1 = marks[k], va = vAt(s0), vb = vAt(s1), vm = vAt((s0 + s1) / 2);
       const A = D([a[0] + ux * s0, a[1] + uy * s0]), B = D([a[0] + ux * s1, a[1] + uy * s1]), f = fade();
       step(A, B, n, rad(va), rad(vb), ink(va) * f, ink(vb) * f, t, dryAt());
@@ -223,9 +225,9 @@ function sheet(slot, w, h, dpr) {
 }
 const meets = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
 const quad = new Array(4).fill(0).map(() => [0, 0]), A = [0, 0], B = [0, 0];
-function lay(Md, ops) { for (let k = 0; k < ops.length; k += REC) {
-  for (let j = 0; j < 4; j++) { quad[j][0] = ops[k + 2 * j]; quad[j][1] = ops[k + 2 * j + 1]; }
-  A[0] = ops[k + 8]; A[1] = ops[k + 9]; B[0] = ops[k + 10]; B[1] = ops[k + 11]; Md.sweep(quad, A, B, ops[k + 12], ops[k + 13], ops[k + 14]); } }
+function lay(Md, ops, dx = 0, dy = 0) { for (let k = 0; k < ops.length; k += REC) {
+  for (let j = 0; j < 4; j++) { quad[j][0] = ops[k + 2 * j] + dx; quad[j][1] = ops[k + 2 * j + 1] + dy; }
+  A[0] = ops[k + 8] + dx; A[1] = ops[k + 9] + dy; B[0] = ops[k + 10] + dx; B[1] = ops[k + 11] + dy; Md.sweep(quad, A, B, ops[k + 12], ops[k + 13], ops[k + 14]); } }
 // compositing a pen's layer onto the piece: on light stock the inks are dyes (a red over a black darkens, never covers);
 // on dark stock gel is opaque and lies over what is there
 const blend = theme => theme === 'dark' ? 'source-over' : 'multiply';
@@ -238,19 +240,48 @@ function prepare(piece, theme, { dpr, zoom = 1 }) {
 }
 const shifted = (piece, pad) => ({ ...piece, ox: (piece.ox ?? 0) + pad, oy: (piece.oy ?? 0) + pad });
 
-export function print(piece, theme, { dpr = Math.min(2, devicePixelRatio || 1), zoom = 1, ledger = {} } = {}) {
-  const { cv, d, pad, cw, ch } = prepare(piece, theme, { dpr, zoom });
-  if (!supported()) return cv;
-  const prog = plan(shifted(piece, pad), theme, d, ledger), { cv: mc, Md } = sheet('still', cw, ch, d), g = cv.getContext('2d');
-  for (const L of prog.layers) {
-    Md.clear(); Md.wetness(L.wet); Md.settings.ink = L.pen.rgb; Md.settings.base = L.base; Md.makePaper([0, 0], [0, 0, cw, ch]);
-    // ink waits in the stroke layer until a stroke would cross ink not yet poured; then the time since is let pass
-    let pend = [], last = L.t0;
-    for (const S of L.strokes) { if (pend.some(b => meets(b, S.bb))) { Md.step(Math.min(3000, S.t0 - last)); last = S.t0; pend = []; } lay(Md, S.ops); pend.push(S.bb); }
-    Md.finish(); Md.render([0, 0, cw, ch]);
-    g.globalCompositeOperation = blend(theme); g.drawImage(mc, 0, 0, cw, ch, 0, 0, cw, ch);
+export function print(piece, theme, { dpr = Math.min(2, devicePixelRatio || 1), zoom = 1, ledger = {} } = {}) { return printMany([piece], theme, { dpr, zoom, ledger })[0]; }
+
+// Many pieces printed at once, each in its own cell of one sheet, pen by pen: one render and one copy out of the GPU per
+// pen for the lot, where one at a time costs that per pen per piece. Each cell is its own plot: its paper laid at its own
+// origin, its ink settled before the next cell's is laid, so a piece prints the same alone or among others.
+export const STAT = { steps: 0, ops: 0 };   // (what the still prints cost: the flow steps run and the sweeps laid)
+export function printMany(pieces, theme, { dpr = Math.min(2, devicePixelRatio || 1), zoom = 1, ledger = {} } = {}) {
+  const cells = pieces.map(pc => ({ pc, ...prepare(pc, theme, { dpr, zoom }) }));
+  if (!supported() || !cells.length) return cells.map(c => c.cv);
+  const d = cells[0].d, MAXW = 2048, MAXH = 2048;
+  // shelves: cells left to right, a new shelf when the row is full, a new sheet when the shelves are
+  const sheets = []; let cur = null, x = 0, y = 0, rowH = 0;
+  for (const c of cells) {
+    if (!cur || x + c.cw > MAXW && x > 0 && y + rowH + c.ch > MAXH) { cur = { cells: [], W: 0, H: 0 }; sheets.push(cur); x = y = rowH = 0; }
+    else if (x + c.cw > MAXW && x > 0) { y += rowH + 2; x = 0; rowH = 0; }
+    Object.assign(c, { x, y }); cur.cells.push(c); x += c.cw + 2; rowH = Math.max(rowH, c.ch); cur.W = Math.max(cur.W, x); cur.H = Math.max(cur.H, y + rowH);
   }
-  return cv;
+  for (const S of sheets) {
+    for (const c of S.cells) { c.prog = plan(shifted(c.pc, c.pad), theme, d, ledger); c.g = c.cv.getContext('2d'); c.next = 0; }
+    // the pens in an order every piece's own order keeps (each piece's layers are plotted first to last)
+    const keys = [], after = new Map(), first = new Map();
+    for (const c of S.cells) c.prog.layers.forEach((L, i) => { const k = L.pen.key; if (!first.has(k)) { first.set(k, keys.length); keys.push(k); after.set(k, new Set()); }
+      if (i) after.get(c.prog.layers[i - 1].pen.key).add(k); });
+    const indeg = new Map(keys.map(k => [k, 0])); for (const [, ns] of after) for (const n of ns) indeg.set(n, indeg.get(n) + 1);
+    const order = []; const ready = keys.filter(k => !indeg.get(k));
+    while (ready.length) { ready.sort((a, b) => first.get(a) - first.get(b)); const k = ready.shift(); order.push(k); for (const n of after.get(k)) { indeg.set(n, indeg.get(n) - 1); if (!indeg.get(n)) ready.push(n); } }
+    for (const k of keys) if (!order.includes(k)) order.push(k);   // (a cycle between two pieces' orders: kept by first appearance)
+    const { cv: mc, Md } = sheet('still', S.W, S.H, d);
+    for (const k of order) {
+      const users = S.cells.map(c => [c, c.prog.layers.find(L => L.pen.key === k)]).filter(([, L]) => L); if (!users.length) continue;
+      const L0 = users[0][1]; Md.clear(); Md.wetness(L0.wet); Md.settings.ink = L0.pen.rgb; Md.settings.base = L0.base;
+      for (const [c, L] of users) {
+        Md.makePaper([-c.x, -c.y], [c.x, c.y, c.cw, c.ch]);
+        // ink waits in the stroke layer until a stroke would cross ink not yet poured; then the time since is let pass
+        let pend = [], last = L.t0;
+        for (const St of L.strokes) { if (pend.some(b => meets(b, St.bb))) { Md.step(Math.min(3000, St.t0 - last)); STAT.steps++; last = St.t0; pend = []; } lay(Md, St.ops, c.x, c.y); STAT.ops += St.ops.length / REC; pend.push(St.bb); }
+        Md.finish(true); }
+      Md.render([0, 0, S.W, S.H]);
+      for (const [c] of users) { c.g.globalCompositeOperation = blend(theme); c.g.drawImage(mc, c.x, c.y, c.cw, c.ch, 0, 0, c.cw, c.ch); }
+    }
+  }
+  return cells.map(c => c.cv);
 }
 
 // The plot as it is made: pen by pen, stroke by stroke in plot order, each sweep at its own moment. The machine's time

@@ -208,7 +208,9 @@ export function createMedium(canvas, { dpr = Math.min(2, devicePixelRatio || 1),
   }
   const pour = () => { wetting = Math.max(wetting, 12000); };
   // dry it all now: one step with the water gone settles every bit of wet ink where it lies
-  function finish() { if (wetting > 0) { wetting = 1; step(1); } }
+  // (rest: nothing is wet anywhere after it, so the next pour's flow need run only where that one lies: a sheet printing
+  // pieces side by side, kit/styles/plotter-pen.js printMany, keeps each piece's flow to its own cell)
+  function finish(rest = false) { if (wetting > 0) { wetting = 1; step(1); } if (rest) area = null; }
   function render(sc = null) {
     drawBatch(); if (sc) { gl.enable(gl.SCISSOR_TEST); gl.scissor(sc[0], H - sc[1] - sc[3], sc[2], sc[3]); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H); const pr = P.render; gl.useProgram(pr.p);

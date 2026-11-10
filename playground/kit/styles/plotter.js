@@ -12,7 +12,7 @@
 // and the fuller swatch, nothing busier. Every mark is placed clear of the words it stands beside.
 // Printed as rock is (kit/styles/rock.js): each piece its own canvas, kept by what it is; drawn (?draw), plotted as the
 // machine would, pen by pen, the nearest stroke next.
-import { print as printPiece, writer, MM } from './plotter-pen.js';
+import { printMany, writer, MM } from './plotter-pen.js';
 import * as SEC from './plotter-section.js';
 import * as OFF from './plotter-office.js';
 import { make, hatch, hershey, hersheyBox, outline, line, shape, closed, rng, dashes } from './plotter-draw.js';
@@ -195,16 +195,26 @@ const frames = {
 
 // ---- printing --------------------------------------------------------------------------------------------------------------------
 // Each piece printed once through the ink engine at the device's resolution and kept by what it is (kind, place, seed,
-// budget, the page's hand), wherever it stands; drawn, plotted on its own canvas as the machine would, then the still's.
+// budget, the page's hand), wherever it stands, a page's together; drawn, plotted on its own canvas as the machine would,
+// then the still's.
 export const TIME = { build: 0, pieces: 0 };
 const MADE = new Map(), LIVE = new Set();
 const PAD = 3;   // (the canvas's margin round the ink: plotter-pen.js print's pad)
+function keep(k, cv) { const m = { canvas: cv, w: cv.width, h: cv.height }; if (MADE.size > 400) MADE.clear(); MADE.set(k, m); return m; }
 function still(b, d, theme) { const k = [theme, d, b.bkey].join('|'); let m = MADE.get(k);
-  if (!m) { const t0 = performance.now(), cv = printPiece({ ...b.pc, ox: b.pc.ox, oy: b.pc.oy }, theme, { dpr: d }); TIME.build += performance.now() - t0; TIME.pieces++;
-    m = { canvas: cv, w: cv.width, h: cv.height }; if (MADE.size > 400) MADE.clear(); MADE.set(k, m); }
+  if (!m) { const t0 = performance.now(); m = keep(k, printMany([b.pc], theme, { dpr: d })[0]); TIME.build += performance.now() - t0; TIME.pieces++; }
   return m; }
-function print(made, { dpr = 1, animate = false } = {}) {
-  const d = Math.min(3, Math.max(1, dpr)), theme = isDark() ? 'dark' : 'light', all = [], seq = [];
+// a page's still pieces gathered while the host makes its cases, then printed together (kit/styles/plotter-pen.js
+// printMany: one copy out of the GPU per pen for the lot), the host awaiting each case's `ready`
+let BATCH = null;
+function later(b, d, theme) { const k = [theme, d, b.bkey].join('|'), m = MADE.get(k); if (m) return m.ready ?? m;
+  if (!BATCH) { const B = BATCH = { jobs: [] }; B.done = new Promise(ok => setTimeout(() => { BATCH = null;
+    const t0 = performance.now(), groups = new Map(); for (const j of B.jobs) { const g = j.theme + '|' + j.d; (groups.get(g) ?? groups.set(g, []).get(g)).push(j); }
+    for (const js of groups.values()) printMany(js.map(j => j.b.pc), js[0].theme, { dpr: js[0].d }).forEach((cv, i) => Object.assign(js[i].m, { canvas: cv, w: cv.width, h: cv.height, ready: null }));
+    TIME.build += performance.now() - t0; TIME.pieces += B.jobs.length; ok(); })); }
+  const e = { ready: null }; e.ready = BATCH.done.then(() => e); BATCH.jobs.push({ b, d, theme, m: e }); if (MADE.size > 400) MADE.clear(); MADE.set(k, e); return e.ready; }
+function print(made, { dpr = 1, animate = false, wait = false } = {}) {
+  const d = Math.min(3, Math.max(1, dpr)), theme = isDark() ? 'dark' : 'light', all = [], seq = [], waits = [];
   for (const b of made.letters ?? []) { if (b.shape !== 'plotter') continue;
     const X = b.x - PAD, Y = b.y - PAD, pour = { res: d, col: 'k', x0: X, y0: Y };
     if (animate) {
@@ -217,10 +227,13 @@ function print(made, { dpr = 1, animate = false } = {}) {
           if (!w) { slot = ['live-0', 'live-1', 'live-2'].find(k => !LIVE.has(k)); if (!slot) return; LIVE.add(slot); w = writer(b.pc, theme, { dpr: d, max: 6, slot }); }
           w.at(f); g.drawImage(w.cv, X, Y, w.cv.width / d, w.cv.height / d); } } });
       seq.push({ pour, d: dur });
-    } else { const m = still(b, d, theme); Object.assign(pour, { w: m.w, h: m.h, paint: g => g.drawImage(m.canvas, X, Y, m.w / d, m.h / d) }); seq.push({ pour, d: 0 }); }
+    } else {
+      const m = wait ? later(b, d, theme) : still(b, d, theme), place = m => Object.assign(pour, { w: m.w, h: m.h, paint: g => g.drawImage(m.canvas, X, Y, m.w / d, m.h / d) });
+      if (m.then) { pour.ready = m.then(place); waits.push(pour.ready); } else place(m);
+      seq.push({ pour, d: 0 }); }
     all.push(pour); }
   const ys = (made.letters ?? []).map(b => b.y);
-  return { pours: all, letters: [], seq, runs: [], y0: ys.length ? Math.min(...ys) : 0 };
+  return { pours: all, letters: [], seq, runs: [], y0: ys.length ? Math.min(...ys) : 0, ready: waits.length ? Promise.all(waits) : undefined };
 }
 // a case on the plotter's clock: its pieces one after another, each over the time the machine takes (held to a cap)
 function timeline(pr, kind, animate) {
