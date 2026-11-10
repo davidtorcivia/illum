@@ -54,7 +54,7 @@ function dropPiece(c, capH, seed, lv, hd, keep, at) {
   const Lp = hershey(c, 0, 0, ki, 'triplex').paths.map(p => p.map(([x, y]) => [x - e[0] * ki + mm, y - e[1] * ki + mm]));
   if (drop === 'plain') return mk([{ pen: P().red, paths: Lp }], s);
   const w = (e[2] - e[0]) * ki + 2 * m, box = [[0, 0], [w, 0], [w, capH], [0, capH]], r = rng(s * 13 + 5), layers = [];
-  if (drop === 'panel' || drop === 'both') layers.push({ pen: P().shade, paths: hatch([box], hd.fa === 0 ? Math.PI / 4 : hd.fa, (.9 + r() * .5) * MM, { inset: .2 * MM }) });
+  if (drop === 'panel' || drop === 'both') layers.push({ pen: P().shade, paths: hatch([box], hd.fa === 0 ? Math.PI / 4 : hd.fa, (1.5 + r() * .6) * MM, { inset: .2 * MM }) });   // (open: the panel a ground for the rubric letter, not a rival)
   if (drop === 'box' || drop === 'both') { const t = 1.4 * MM, ticks = box.flatMap(([x, y], i) => { const sx = i === 1 || i === 2 ? 1 : -1, sy = i > 1 ? 1 : -1; return [line(x, y, x + sx * t * (sx < 0 && x - t < -at.room ? 0 : 1), y), line(x, y, x, y + sy * t * (sy < 0 ? 0 : 1))]; });
     layers.push({ pen: P().black, paths: [closed(box), ...ticks] }); }
   layers.push({ pen: P().red, paths: Lp }); return mk(layers, s);

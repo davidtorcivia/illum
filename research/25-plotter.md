@@ -505,3 +505,55 @@ Each direction now has `hand(seed)`: what an operator sets once for a sheet, app
 - An HP 7475A close-up under an open licence would replace the Calcomp stand-in for the fibre tip.
 - So would a scanned gel plot with a known scale.
 - `v0` (how much speed thins the line) is still by eye: the masters are all at constant speed.
+
+---
+
+## Stage 3: shipped as one rubricate style with two kinds
+
+The owner: "refine it, optimize it, add levels of richness, ship it". `kit/styles/plotter.js` is a written style of the one library, registered in `kit/illum.js`'s WRITTEN map. B (section lines) is the default kind and A (the drawing office) the other; a page chooses with `STYLES.plotter.kind = 'office'`, which the site sets from the catalogue's Machine setting, as Copperplate's manner is set. Specimen: `tests/plotter.html?kind=section|office&rich=&theme=&draw`.
+
+### Every mark rubricate asks for
+
+| mark | B · section lines | A · the drawing office |
+|---|---|---|
+| drop | Jost capital, contour then section at the page's angle; sized by its own ink, from the cap height to the last baseline | Hershey Roman Triplex in the rubric pen, alone, on a filled panel, in a ruled box, or both (by budget and the page's hand) |
+| line initial | Jost, sectioned finer; kept below the line above (the leading read from the rows above it) | Hershey Duplex, red |
+| paraph | the page's mark, its outline at plain, sectioned from modest, crossed from fine | the page's mark, its outline at plain, filled solid (FT 1) from modest, ringed at lavish |
+| filler (from modest) | ruled strip; the page's ramp or steps; denser at fine; closing mark at lavish | the page's line type in black, then red; a dwell dot from fine; the mark at lavish |
+| run-out | a rule; a wedge outline; the page's wedge, steps or taper; a dwell dot at lavish | a 0.7 mm rule; the double rule; the page's rule |
+| breaks (part, chapter, end) | dwell dots or the mark; three marks with the middle one crossed; the pen-test swatch with Hershey numerals | dwell dots; the line type round a filled mark; the plot legend, with a millimetre scale at lavish |
+| quote | a bar in section beside its lines (from modest; ticked from fine) | crop marks round its lines (registration ticks at lavish) |
+| aside (from usual) | two corners in section, four at lavish | crop marks; a line type across its head from fine |
+| pull (from modest) | a lozenge in section above and below; crossed at lavish | rules above and below; second rules from usual; split by the filled mark from fine |
+| figure (from usual) | a strip in section over the figure and under its caption; end ticks at lavish | a drawing sheet's border; an inner border from fine; "FIG. n" lettered at lavish |
+| code (from usual) | a strip in section across its head | a ruler down its margin, a tick per row, every fifth longer |
+| contents | the page's mark before each entry, sectioned from usual | a scale beside the entries, a tick at each |
+
+The five budgets run from a proof (outlines, single rules, open hatch, no paragraph fillers) to an exhibition plot. Each step adds a second family, a second rule or a lettered block; nothing adds noise.
+
+### Optimised
+
+- **One sheet for a page's still pieces.** `plotter-pen.js` `printMany` gathers them while the host makes its cases and prints them into cells of one sheet, pen by pen. That is one render and one GPU copy per pen for the lot, not per pen per piece. Each cell is its own plot: its paper laid at its own origin, its ink settled before the next cell's, so a piece prints the same alone or among others.
+- **Speed ramps** are sampled every 3 device px.
+- **One shared change:** `kit/medium.js` `finish(rest)` lets the next pour's flow run only where it lies. It is additive; `finish()` is unchanged. Without it, every step ran over the union of all cells so far, and dark pages, with two gel passes, took 300–600 ms.
+
+### Timings
+
+The specimen's own `all` time, a fresh browser for each run, at 1440 px. Pieces: 15 at plain, 26 at modest, 29 from usual.
+
+| | levels 0 / .25 / .5 / .75 / 1 |
+|---|---|
+| light, dpr 1, B | 93 / 68 / 85 / 87 / 142 ms |
+| light, dpr 1, A | 53 / 88 / 85 / 66 / 79 |
+| light, dpr 2, B | 57 / 79 / 91–105 / 85–136 / 94 |
+| light, dpr 2, A | 65 / 88 / 99 / 77 / 86 |
+| dark, dpr 1, B | 69 / 100 / 135–181 / 172 / 153 |
+| dark, dpr 1, A | 74 / 107 / 106 / 143 / 103 |
+| dark, dpr 2, B | 87 / 107 / 136 / 159 / 167 |
+| dark, dpr 2, A | 76 / 93 / 74 / 99 / 139 |
+
+Single runs vary by tens of ms with the GPU process's state. Two first runs read 279 and 370 ms; each was rerun five times and came in at 85–136 ms.
+
+### Checked
+
+`tests/plotter.check.mjs` covers both kinds, light and dark, every budget, seeds 1, 2, 3 and 7, at 1440 and 390 (160 pages). It checks every text line's full line box against every inked pixel of the ornament's canvases, and ink at a canvas's edge (a piece cut off). After the batching: 160 of 160 pages pass. With `SITE=` it also covers the built site's see page: both kinds, light and dark, budgets 0, .5 and 1, seeds 1 and 7, at 1440 and 390, 48 site pages alongside 48 specimen pages, all passing.
