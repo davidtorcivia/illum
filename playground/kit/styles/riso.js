@@ -49,7 +49,7 @@ const inkW = ch => { const g = O.glyphW(letterOf(ch)); return g; };
 function initial({ ch = 'B', G, big = true, seed = 1, rich = .5, u = 8, keep = [] }) {
   const c = letterOf(ch), [x0, , x1, y1] = G.box, lv = lvOf(rich), fs = +FS(u).toFixed(2); let y0 = G.box[1];
   // (the line's: its top kept under the line box above it, where the host sets it taller than its own line)
-  if (!big) { for (const r of keep) if (r[0] < x1 + u && r[2] > x0 && r[1] < y0 && r[3] > y0 - 1) y0 = Math.max(y0, r[3] + 1);
+  if (!big) { for (const r of keep) if (r[0] < x1 + u && r[2] > x0 && r[1] < y0 && r[3] > y0 - 3) y0 = Math.max(y0, r[3] + 2.5);   // (keep's rects are inset half a px; the ink's antialiased edge kept 2 px clear)
     const capH = +(y1 - y0).toFixed(2), job = ['drop', c, capH, seed, fs, { line: lv >= 1, plain: lv < 1 }]; return { marks: [], letters: [piece(x0, y0, job, 'line:' + c)], width: inkW(c) + .06 }; }
   const capH = +(y1 - y0).toFixed(2);
   const wb = +(Math.max(inkW(c), ROOM) * capH).toFixed(2), job = ['drop', c, capH, seed, fs, { wb, plain: lv < 1 }];
