@@ -145,9 +145,12 @@ function print(made, { dpr = 1, animate = false, wait = false } = {}) {
     if (animate) {
       const prog = plan(b.pc, d, pad), marks = [];
       for (const L of prog.layers) for (const S of L.strokes) {
-        if (S.ops) { const o = S.ops, pts = []; let w = 0;
-          for (let i = 0; i < o.length; i += 16) { w = Math.max(w, Math.hypot(o[i + 2] - o[i], o[i + 3] - o[i + 1])); pts.push([X + o[i + 8] / d, Y + o[i + 9] / d, o[i + 15]], [X + o[i + 10] / d, Y + o[i + 11] / d, o[i + 15]]); }
-          marks.push({ pts, w: w / d + 6, t0: S.t0, t1: S.t1 }); }
+        // (the path's width the stroke's whole: each record is one band of one hair or the halo, so the mask is as wide as
+        // the farthest corner of any band from the path, or the stroke's edges and halo would come in only at its end)
+        if (S.ops) { const o = S.ops, pts = []; let r = 0;
+          for (let i = 0; i < o.length; i += 16) { for (let j = 0; j < 8; j += 2) { const ex = o[i + j] - (j < 4 ? o[i + 8] : o[i + 10]), ey = o[i + j + 1] - (j < 4 ? o[i + 9] : o[i + 11]); r = Math.max(r, ex * ex + ey * ey); }
+            pts.push([X + o[i + 8] / d, Y + o[i + 9] / d, o[i + 15]], [X + o[i + 10] / d, Y + o[i + 11] / d, o[i + 15]]); }
+          marks.push({ pts, w: 2 * Math.sqrt(r) / d + 4, t0: S.t0, t1: S.t1 }); }
         else if (S.seal) { const [x, y, w, h] = S.rect, [ax, ay] = S.seal.ang; marks.push({ seal: [X + x / d, Y + y / d, w / d, h / d], ax, ay, t0: S.t0, t1: S.t1 }); } }
       const total = Math.max(1, prog.dur), dur = Math.min(b.what === 'drop' ? 1.2 : b.what.startsWith('break') ? 3.5 : 2.5, Math.max(.4, total / 1000));
       Object.assign(pour, { w: (b.w + 2 * pad) * d, h: (b.h + 2 * pad) * d, paint: fin,
