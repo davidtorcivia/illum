@@ -123,7 +123,11 @@ export function setInitials(root, { style, rich = .5, select = SELECT, initial: 
     Object.assign(s.style, { fontSize: F + 'px', marginTop: top + 'px', height: (n * lh - 2 - top) + 'px', marginRight: Math.round(lh * .42 + (S.initial?.wider?.[lv] ?? 0)) + 'px', marginLeft: '-1px', display: '', width: '' });
   }
   for (const s of root.querySelectorAll(select.initial)) { if (s.matches(select.drop)) continue; const S = styleOf(s);
-    if (!S.initial?.width) { Object.assign(s.style, { display: '', width: '' }); continue; }
+    // (an initial in the line keeps nothing a drop was given: a host may make a drop of it and back between two drawings, as
+    // a style that sets its line initials deep does, and a drop's size, margins and block left on it would lay the line out
+    // otherwise, the ornament drawn against that)
+    Object.assign(s.style, { fontSize: '', marginTop: '', height: '', marginRight: '', marginLeft: '', display: '', width: '' });
+    if (!S.initial?.width) continue;
     if (getComputedStyle(s).display === 'inline') s.style.display = 'inline-block';
     s.style.width = ((S.initial.line ?? S.initial.width)(s.textContent, io) * parseFloat(getComputedStyle(s).fontSize) * M.cap) + 'px'; }
 }
