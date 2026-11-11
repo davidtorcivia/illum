@@ -113,7 +113,15 @@ Each a commit of its own, with its numbers; every one pixel-identical to the HEA
   reason matching late is: a face still missing moves some line and the record is refused.
 - **The style's modules and the ink engine are loaded after a page drawn from the store or the bake** (at idle), not
   beside its bands: 50 kB of JS (brotli) off the line before the ornament on the phone, the waterfall one level shallower.
-  A page the store has nothing for loads them at once, as before; a live drawing never waits on the store.
+  A page the store has nothing for loads them at once, as before; a live drawing never waits on the store. A record that
+  does not fit when first tried starts them too (MISFIT below), and a page drawn early tells illum:drawn twice (the early
+  drawing, then the one asked for once the faces are in, which finds the same record on the canvas and leaves it).
+- **MISFIT: a reader whose browser lays the text out otherwise** (another engine's line breaking or faces; the key alone
+  matches, at 390 px and on every desk over ~1100 px, since the sheet is 900 wide) finds a record that never fits and is
+  drawn live. Holding the engine back until the faces were in made that reader ~0.3-0.5 s later than on b8a8044 (a forced
+  miss, `.text { letter-spacing: .01px }`, on the phone: index 6065 → 6536 ms all drawn, riso 6830 → 7123), so the
+  engine now starts as soon as an early fit fails: index 5848 ms, riso 6022, both now earlier than on b8a8044; the
+  usual first visit is unchanged by it (index 3143, riso 3198, deco 3241 ms to the first ornament).
 - Phone, first ornament (on top of 2.1): index 4327 → 3987 ms, use 4298 → 3978, riso 4407 → 4196, rock 4312 → 4080,
   typewriter 4383 → 4168; JS before the ornament 100-103 → 50-53 kB. Here the bands, not the faces, are still last in:
   2.3 brings them forward. Desk: within noise.

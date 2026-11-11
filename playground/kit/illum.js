@@ -707,7 +707,7 @@ export function rubricate(root, opts = {}) {
       if (rec !== shown || base.width !== rec.W || base.height !== rec.H) await paint(rec, base, host); if (!alive || tok !== gen) return; shown = rec;
       const ms = Math.round(performance.now() - t00); state = { seed: rec.seed, cached: true, items: [], sr: host.getBoundingClientRect() };
       done('drawn', { grow: 0, draw: ms, view: ms, all: ms, parts: 0, cached: true }); loadLater(); return; }
-    if (eager) return;
+    if (eager) { loadSoon(); return; }   // (a record that does not fit yet may never: a reader's browser that lays the text out otherwise draws it live)
     shown = null; await load(); if (!alive || tok !== gen) return;
     warm();
     await ready();
