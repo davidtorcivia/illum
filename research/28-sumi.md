@@ -546,3 +546,40 @@ The owner approved the Cinzel baiwen seal as the drop. The other directions are 
 - **The end-mark seals** come from the same carver: Cinzel cut, the same cinnabar (the circle's gold is gone) and the same edge.
 - **Richness** leans the end mark: at 0 the circle is likeliest; at 1 the circle is never chosen. The leisure seal was skipped, because a small second stone beside the drop crowds it and its "simple mark" read as an icon.
 - **Speed:** a whole page's still ornament takes 90 ms at dpr 1 (first panel, compiling) and 10–19 ms after; at dpr 2, 94 ms first and 14–37 ms after.
+
+## Stage 3: shipped (kit/styles/sumi.js, the site's Sumi)
+
+The owner approved the direction as it stands: A's hand, B's leaves, the three end marks and the seal drop. It ships as the written style `sumi`.
+
+- **Code.** `kit/styles/sumi.js` is the rubricate interface. `sumi-pieces.js` holds the approved marks and imports `sumi-kaisho`, `sumi-ran` and `sumi-hihaku`. `sumi-brush.js` is the brush, the seal and the printer, and `sumi-letter.js` the glyph masks.
+  - Shipped faces: only the Cinzel subset, `fonts/sumi/illum-sumi-cinzel-caps.woff2`, with its note and the OFL.
+  - Not shipped: the studies `sumi-alphabet.js`, `sumi-drops.js`, `tests/sumi-letters.html`, `sumi-drops.html` and `sumi-faces.html`, and the candidate CJK subsets in `fonts/sumi/cand/`. They stay in the working copy, uncommitted.
+- **Seeds.** Every piece's seed is moved by the page's, so each page has its own:
+  - the seal's lean, chips, knocked corner, starved side and lighter patch;
+  - the end mark;
+  - the leaves' belly, lean, tone and arch;
+  - the brush's pressure wander, pace, wetness and the point where each stroke runs dry.
+
+  Each page stays the same for its seed.
+- **The budget**, from plain to lavish:
+
+  | level | adds |
+  |---|---|
+  | plain | the seal drop, the paraph, the run-outs, a point, a sweep, and the quiet circle at the end |
+  | modest | the paragraph fillers, the quotation's vertical, the points at the contents |
+  | usual | the aside's and code's verticals, the pull quote's horizontal, the figure's horizontal under its caption |
+  | fine | a second, paler leaf in run-outs, and a horizontal over the figure |
+  | lavish | the drop's seal a size larger, hung up and out where the page leaves room; a second leaf in fillers; a seal at the chapter sweep's foot; the pull quote's horizontal under it too; the end mark never the circle |
+
+  The leisure seal and brushed Latin letters are out.
+- **Drawn.** Each piece's still is revealed through its own path, the brush's sweeps at their own moments and widths (`inkletter.js` sweepIn 'reveal'). Each seal is revealed by a soft front from its fullest corner. No piece comes in whole.
+- **Speed.** These figures were measured with the machine heavily loaded (load average 47–66 from other agents' browsers and builds), so they are noisy.
+  - On the built site's see page, the style's own pieces (13 at plain, 32–35 above) take 140–200 ms in all at dpr 2 at plain, and 210–490 ms at usual and lavish. The first piece pays for the WebGL context, the shader compile and the JIT: 50–150 ms, and up to 300 ms in the slowest runs.
+  - Every later piece takes 1–15 ms.
+  - On the specimen with the dev server warm: 33–35 pieces in 70–300 ms.
+  - Changes made for this: a page's widest piece fits the first sheet, and the sheet grows by half when it must grow. Brush steps are a device px or two. The seal's slow fields are read on a 4 px grid, and its inner loop skips paper. The still's extra flow step is gone.
+  - Not done: printing a page's pieces on one sheet with one render and read-back per ink, as Typewriter does. That is the next step if the see page must sit under 200 ms everywhere.
+- **Checks.**
+  - `tests/sumi.check.mjs` passes: 24 specimen pages and 24 built see pages (1440 and 390, light and dark, rich 0, .5 and 1, seeds 1 and 7) with no ink on a word and none cut off. Cold loads of the built see page pass (12 of 12, drawn live: sumi is not in the bake's default). The drawn pages pass at four budgets, with no piece coming in whole.
+  - Every other style's check passes, at reduced settings: blackletter, insular-knot, occult, tarot, astrology, pie-rock, rock, riso, typewriter and plotter.
+- **Swatches.** `site/swatches/sumi-{light,dark}.webp`, drawn with `tools/swatches.mjs` on the built site.

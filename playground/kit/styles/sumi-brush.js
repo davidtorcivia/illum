@@ -58,7 +58,7 @@ function disc(rec, c, r, V, t, dir = [1, 0]) {
 // ms; S.flat: a flat brush (hake, as flying white was written) held at this angle, else round; S.split: how far the
 // tracks part as they dry (1 usual); S.v0: the speed at the start, a share of the top (a stroke already moving).
 export function brush(S, d, t0 = 0, opts = {}) {
-  const r = rng(S.seed ?? 1), W = S.w, ds = Math.max(.3, Math.min(1.6, W * .1, 2.4 / d));
+  const r = rng(S.seed ?? 1), W = S.w, ds = Math.max(.35, Math.min(1.6, W * .2, 3 / d));   // (a step a device px or two: finer only costs)
   // a hidden tip, written: the brush set down a little back and to one side of the stroke's way and turned into it, so
   // the head is the brush's own sweep (blunt, slanted, a little fuller), never a stamped disc
   let pts0 = S.pts;
@@ -276,12 +276,18 @@ export function sealMask(size, d, { kind = 'baiwen', text = 'DT', aspect = 1, fo
   const wx = noise2(seed * 3 + 1), wy = noise2(seed * 3 + 2), fib = noise2(seed * 3 + 5), amp = Math.max(.5, s * .006), sc = s / 6;
   const ang = r() * 6.283, ax = Math.cos(ang), ay = Math.sin(ang), curv = .4 + .8 * r(), at = (x, y) => { x = cl(Math.round(x), 0, w - 1); y = cl(Math.round(y), 0, h - 1); return src[(y * w + x) * 4 + 3] / 255; };
   const st = r() < .5 ? { corner: (r() * 4) | 0 } : { side: (r() * 4) | 0 }, stK = worn * (.35 + .25 * r()), pc = [x0 + s * (.25 + .5 * r()), y0 + H * (.25 + .5 * r())], pr0 = s * (.14 + .1 * r()), pk = worn * (.1 + .1 * r());
+  // (the knife's wander and the paste's unevenness are slow: read on a grid every 4 px and interpolated)
+  const AL = new Float32Array(w * h); for (let i = 0; i < w * h; i++) AL[i] = src[i * 4 + 3] / 255;
+  const G = 4, gw = Math.ceil(w / G) + 2, gh = Math.ceil(h / G) + 2, GX = new Float32Array(gw * gh), GY = new Float32Array(gw * gh), GF = new Float32Array(gw * gh);
+  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) { const x = i * G, y = j * G, q = j * gw + i; GX[q] = (wx(x / sc, y / sc) - .5) * 2 * amp; GY[q] = (wy(x / sc, y / sc) - .5) * 2 * amp; GF[q] = fib(x / (s * .5), y / (s * .35)); }
+  const lerpG = (A, x, y) => { const fx = x / G, fy = y / G, i = fx | 0, j = fy | 0, tx = fx - i, ty = fy - j, q = j * gw + i; return A[q] * (1 - tx) * (1 - ty) + A[q + 1] * tx * (1 - ty) + A[q + gw] * (1 - tx) * ty + A[q + gw + 1] * tx * ty; };
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const dx = (wx(x / sc, y / sc) - .5) * 2 * amp, dy = (wy(x / sc, y / sc) - .5) * 2 * amp;
-    const fx = x + dx, fy = y + dy, xi = Math.floor(fx), yi = Math.floor(fy), tx = fx - xi, ty = fy - yi;
-    const m = at(xi, yi) * (1 - tx) * (1 - ty) + at(xi + 1, yi) * tx * (1 - ty) + at(xi, yi + 1) * (1 - tx) * ty + at(xi + 1, yi + 1) * tx * ty; if (m <= .01) continue;
+    const dx = lerpG(GX, x, y), dy = lerpG(GY, x, y);
+    const fx = cl(x + dx, 0, w - 1.001), fy = cl(y + dy, 0, h - 1.001), xi = fx | 0, yi = fy | 0, tx = fx - xi, ty = fy - yi, q0 = yi * w + xi;
+    const a00 = AL[q0], a10 = AL[q0 + 1], a01 = AL[q0 + w], a11 = AL[q0 + w + 1]; if (!(a00 || a10 || a01 || a11)) continue;
+    const m = a00 * (1 - tx) * (1 - ty) + a10 * tx * (1 - ty) + a01 * (1 - tx) * ty + a11 * tx * ty; if (m <= .01) continue;
     const u = (x - w / 2) / s, v = (y - h / 2) / H;
-    let pr = .74 + .4 * (u * ax + v * ay) - .22 * curv * (u * u + v * v) + .16 * (fib(x / (s * .5), y / (s * .35)) - .5);
+    let pr = .74 + .4 * (u * ax + v * ay) - .22 * curv * (u * u + v * v) + .16 * (lerpG(GF, x, y) - .5);
     if (worn) { const dS = st.corner != null ? Math.hypot(x - C[st.corner][0], y - C[st.corner][1]) / s : [y - y0, x0 + s - x, y0 + H - y, x - x0][st.side] / s;
       pr *= 1 - stK * (1 - sm(0, st.corner != null ? .45 : .3, dS));
       pr *= 1 - pk * Math.exp(-((x - pc[0]) ** 2 + (y - pc[1]) ** 2) / (pr0 * pr0)); }
@@ -295,8 +301,9 @@ export function sealMask(size, d, { kind = 'baiwen', text = 'DT', aspect = 1, fo
 const sheets = {};
 function sheet(slot, w, h, d) {
   slot += '@' + d; let s = sheets[slot];
-  if (s && !s.Md.gl.isContextLost()) { if (s.cv.width < w || s.cv.height < h) { s.Md.resize(Math.max(w, s.cv.width), Math.max(h, s.cv.height)); s.Md.settings.over = true; } return s; }
-  const cv = document.createElement('canvas'); cv.width = Math.max(w, 512); cv.height = Math.max(h, 512);
+  // (grown generously, so a page's pieces of every size are printed on one sheet without making it again for each)
+  if (s && !s.Md.gl.isContextLost()) { if (s.cv.width < w || s.cv.height < h) { s.Md.resize(Math.max(w, Math.ceil(s.cv.width * 1.5), 1024), Math.max(h, Math.ceil(s.cv.height * 1.5), 512)); s.Md.settings.over = true; } return s; }
+  const cv = document.createElement('canvas'); cv.width = Math.max(w, 1024 * Math.min(2, d)); cv.height = Math.max(h, 384 * Math.min(2, d));   // (a page's widest piece, a filler across the measure, fits)
   const Md = createMedium(cv, { dpr: d, paper: [255, 255, 255], rough: .5 }); Md.settings.over = true;
   return sheets[slot] = { cv, Md };
 }
@@ -431,7 +438,7 @@ export function print(piece, theme, { dpr = Math.min(2, devicePixelRatio || 1), 
       if (S.pourL) { Md.pour(pourOf(S.pourL.data), S.pourL.w, S.pourL.h, S.rect); continue; }
       if (!L.merge && pend.some(b => meets(b, S.bb))) { Md.step(Math.min(3000, S.t0 - last)); STAT.steps++; last = S.t0; pend = []; }
       lay(Md, S.ops); STAT.ops += S.ops.length / REC; pend.push(S.bb); }
-    Md.step(16); Md.finish(true); Md.render([0, 0, cw, ch]); put(g, mc, L, theme, cw, ch);
+    Md.finish(true); Md.render([0, 0, cw, ch]); put(g, mc, L, theme, cw, ch);   // (finish: the ink levelled once and settled)
   }
   return cv;
 }
