@@ -6,9 +6,9 @@
 // A record holds the library's hash, so bake the files as they will be served (a built site/ ships kit/hash.json) and bake
 // again after any change to the library: a stale bake is never used, only ignored.
 // usage: node tools/bake.mjs <manifest.json> <url>...    env: W=1440,390 THEMES=light,dark DPR=1,2
-//   (the bands go in bake/ beside the manifest)
+//   (the bands go in bake/ beside the manifest, each named by a hash of its bytes)
 import { launch, open } from './chrome.mjs';
-import { readdirSync, mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync, statSync } from 'node:fs';
+import { readdirSync, mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync, statSync, renameSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { dirname } from 'node:path';
@@ -54,7 +54,9 @@ async function bake({ url, width, theme, dpr, tag }) {
     manifest[rec.key] = { ...v, bands: v.bands.map(x => { const png = `${dir}/${id}-${x.y}.png`; writeFileSync(png, Buffer.from(x.png, 'base64')); let f = png;
       if (webp) { const w = png.replace(/png$/, 'webp'); execFileSync('cwebp', ['-quiet', '-lossless', '-exact', '-mt', png, '-o', w]);
         if (statSync(w).size < statSync(png).size) { unlinkSync(png); f = w; } else unlinkSync(w); }
-      bytes += statSync(f).size; return { y: x.y, src: 'bake/' + f.split('/').pop() }; }) };
+      // (named by its bytes, so a band's address never changes what it holds: served immutable, site/_headers)
+      const to = `${dir}/${createHash('sha1').update(readFileSync(f)).digest('hex').slice(0, 16)}.${f.split('.').pop()}`; renameSync(f, to);
+      bytes += statSync(to).size; return { y: x.y, src: 'bake/' + to.split('/').pop() }; }) };
     n++; }
   console.log(`${tag}: ${recs.length} text${recs.length > 1 ? 's' : ''}, ${recs.reduce((a, r) => a + r.value.bands.length, 0)} bands`);
 }
