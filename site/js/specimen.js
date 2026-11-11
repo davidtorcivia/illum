@@ -61,10 +61,12 @@ export function mount(sheet, { style, form, onSeed, onStart, styleParam = false 
   // a new style starts a fresh rubricate; anything else (richness, scale, size, seed, a style's own settings) is redrawn
   // by the one already there
   let shown = null;
-  const start = async () => { const g = ++gen, M = mods();
-    if (M.length) { const m = (await import(`../kit/styles/${state.style}.js`)).default; if (g !== gen) return;
-      for (const [k, , o] of M) m[k] = state[k] ?? o[0][0];
-      if ('rich' in m) m.rich = state.rich; }   // (a style whose drop depth follows the richness keeps it as its own setting: Deco)
+  // (a style's own settings set on its module: at once if it is in; else as soon as it is, not waited for here, since
+  // rubricate draws nothing live before it has imported the same module itself, and a page drawn from the bake needs none)
+  const own = {}, set = m => { for (const [k, , o] of mods()) m[k] = state[k] ?? o[0][0];
+    if ('rich' in m) m.rich = state.rich; };   // (a style whose drop depth follows the richness keeps it as its own setting: Deco)
+  const start = () => { const g = ++gen, st = state.style;
+    if (mods().length) own[st] ? set(own[st]) : import(`../kit/styles/${st}.js`).then(({ default: m }) => { own[st] = m; if (g === gen) set(m); });
     prepare();
     if (r && shown === state.style) r.redraw(opts()); else { r?.destroy(); r = rubricate(text, opts()); window.R = r; shown = state.style; }
     onStart?.(state); };
