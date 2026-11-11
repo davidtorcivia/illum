@@ -8,7 +8,16 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script>try { var t = localStorage.getItem('illum-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preload" href="fonts/EBGaramond-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/EBGaramond-italic.woff2" as="font" type="font/woff2" crossorigin>
+<!-- the modules every rubricated page imports and the bake it is drawn from, asked for at once rather than a level at a time -->
 <link rel="modulepreload" href="kit/illum.js">
+<link rel="modulepreload" href="kit/cache.js">
+<link rel="modulepreload" href="kit/marks.js">
+<link rel="modulepreload" href="kit/registry.js">
+<link rel="modulepreload" href="js/specimen.js">
+<link rel="modulepreload" href="js/catalogue.js">
+<link rel="preload" href="kit/bake.json" as="fetch" crossorigin>
+<link rel="preload" href="kit/hash.json" as="fetch" crossorigin>
 <link rel="stylesheet" href="css/site.css">
 <link rel="stylesheet" href="css/specimen.css">
 </head>
