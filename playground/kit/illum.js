@@ -654,11 +654,13 @@ export function rubricate(root, opts = {}) {
   const keys = () => [...new Set([o.style, ...[...root.querySelectorAll('[data-style]')].map(e => e.dataset.style)])];
   const load = () => Promise.all([o.view === 'sweep' ? loadAll() : loadStyles(keys()), loadEngine()]);
   const ready = () => Promise.all(keys().map(k => STYLES[k]?.initial?.load?.(o.initial ?? {}))).catch(e => console.warn('illum:', e));
-  // The store is asked at once, before the fonts are in; and the page's styles and the engine start loading at once too,
-  // beside it (a page drawn from the store never waits for them; a page drawn live never waits on the store)
+  // The store is asked at once, before the fonts are in. The page's styles and the engine start loading at once for a page
+  // the store has nothing for; for one it has, once that is drawn (until then they would only share the line with its
+  // bands); a page drawn live never waits on the store
   const k0 = cacheOn() && (still.matches || o.draw === 'still') && known() ? keyOf() : null, early = k0 ? lookup(k0, lib, baked()) : null;
-  let shown = null;   // (the stored record the canvas holds now)
-  load().catch(() => {});
+  let shown = null, begun = false;   // (the stored record the canvas holds now; whether a drawing has been asked for)
+  const loadSoon = () => load().catch(() => {}), loadLater = () => (self.requestIdleCallback ?? setTimeout)(loadSoon);
+  if (early) early.then(r => r || loadSoon()); else loadSoon();
 
   // the cases measured and the registry's marks made and scored (a written style's are made when their turn comes)
   function compose() {
@@ -691,7 +693,10 @@ export function rubricate(root, opts = {}) {
     const set = new Set(list), wr = scoreWritten(made(list.filter(it => it.written), k.c, animate), k.c, animate); state.drawn.push(...wr.drawn);
     return [...k.reg.parts.filter(p => set.has(p.it)), ...wr.parts].sort((a, b) => a.it.i - b.it.i);
   }
-  async function render(m) {
+  // (eager: a first drawing from the store, tried as soon as its record is in, before every face on the page has loaded;
+  // drawn only if the text already falls where it fell, else left to the drawing asked for once the faces are in)
+  async function render(m, eager = false) {
+    if (eager && begun) return; begun = true;
     cancelAnimationFrame(raf); io?.disconnect(); sentinels.forEach(n => n.remove()); sentinels = []; settle(); const tok = ++gen;
     const t00 = performance.now(), cacheable = cacheOn() && (still.matches || m === 'still');
     if (cacheable && !known()) { await loadStyles([o.style]).catch(() => {}); if (!alive || tok !== gen) return; }
@@ -701,7 +706,8 @@ export function rubricate(root, opts = {}) {
       // (the record already on the canvas, asked for again by a redraw: left as it is)
       if (rec !== shown || base.width !== rec.W || base.height !== rec.H) await paint(rec, base, host); if (!alive || tok !== gen) return; shown = rec;
       const ms = Math.round(performance.now() - t00); state = { seed: rec.seed, cached: true, items: [], sr: host.getBoundingClientRect() };
-      done('drawn', { grow: 0, draw: ms, view: ms, all: ms, parts: 0, cached: true }); return; }
+      done('drawn', { grow: 0, draw: ms, view: ms, all: ms, parts: 0, cached: true }); loadLater(); return; }
+    if (eager) return;
     shown = null; await load(); if (!alive || tok !== gen) return;
     warm();
     await ready();
@@ -823,6 +829,7 @@ export function rubricate(root, opts = {}) {
   const again = () => render(mode === 'read' ? 'read' : 'still');
   const ro = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(() => { if (host.clientWidth !== lastW) { lastW = host.clientWidth; again(); } }, 150); }); ro.observe(host);
   const mq = matchMedia('(prefers-color-scheme: dark)'), onScheme = () => { if (o.theme === 'auto' && !document.documentElement.dataset.theme) again(); }; mq.addEventListener('change', onScheme);
+  early?.then(r => r && render(o.draw, true));
   document.fonts.ready.then(() => render(o.draw));
   return {
     // new options redraw at once; a new `draw` starts the writing over, anything else keeps what a reading has written
