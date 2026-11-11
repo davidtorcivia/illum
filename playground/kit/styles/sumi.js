@@ -22,7 +22,7 @@
 //   initial(o) -> { letters, width }   paraph(x, base, u, seed, rich)   filler(x0, x1, yTop, yBase, kind, seed, rich)
 //   breakMark(cx, y, measure, rank, seed, rich, u, index, room)   frames.{ quote, aside, pull, figure, code, nav }
 //   palette.{ light, dark }   print(made, { dpr, animate, wait, kind }) -> { pours, letters, seq, runs, y0, ready }   timeline(printed, kind, animate)
-import { print as press, plan } from './sumi-brush.js';
+import { print as press, printMany, plan } from './sumi-brush.js';
 import * as P from './sumi-pieces.js';
 
 let PAGE = 7;
@@ -126,10 +126,19 @@ const frames = {
 export const TIME = { build: 0, pieces: 0 };
 const MADE = new Map();
 function still(b, d, theme) { const key = [theme, d, b.bkey].join('|'); let m = MADE.get(key);
-  if (!m) { const t0 = performance.now(), cv = press(b.pc, theme, { dpr: d }); m = { canvas: cv, w: cv.width, h: cv.height }; if (MADE.size > 400) MADE.clear(); MADE.set(key, m); TIME.build += performance.now() - t0; TIME.pieces++; }
+  if (!m || m.ready) { const t0 = performance.now(), cv = press(b.pc, theme, { dpr: d }); m = { canvas: cv, w: cv.width, h: cv.height }; if (MADE.size > 400) MADE.clear(); MADE.set(key, m); TIME.build += performance.now() - t0; TIME.pieces++; }
   return m; }
-function print(made, { dpr = 1, animate = false } = {}) {
-  const d = Math.min(3, Math.max(1, dpr)), theme = isDark() ? 'dark' : 'light', all = [], seq = [];
+// a page's still pieces gathered while the host makes its cases, then printed together (sumi-brush.js printMany: one pour,
+// one render and one copy out of the GPU per ink for the lot), the host awaiting each case's `ready`
+let BATCH = null;
+function later(b, d, theme) { const key = [theme, d, b.bkey].join('|'), m = MADE.get(key); if (m) return m.ready ?? m;
+  if (!BATCH) { const B = BATCH = { jobs: [] }; B.done = new Promise(ok => setTimeout(() => { BATCH = null;
+    const t0 = performance.now(), groups = new Map(); for (const j of B.jobs) { const g = j.theme + '|' + j.d; (groups.get(g) ?? groups.set(g, []).get(g)).push(j); }
+    for (const js of groups.values()) printMany(js.map(j => j.b.pc), js[0].theme, { dpr: js[0].d }).forEach((cv, i) => Object.assign(js[i].m, { canvas: cv, w: cv.width, h: cv.height, ready: null }));
+    TIME.build += performance.now() - t0; TIME.pieces += B.jobs.length; ok(); })); }
+  const e = { ready: null }; e.ready = BATCH.done.then(() => e); BATCH.jobs.push({ b, d, theme, m: e }); if (MADE.size > 400) MADE.clear(); MADE.set(key, e); return e.ready; }
+function print(made, { dpr = 1, animate = false, wait = false } = {}) {
+  const d = Math.min(3, Math.max(1, dpr)), theme = isDark() ? 'dark' : 'light', all = [], seq = [], waits = [];
   for (const b of made.letters ?? []) { if (b.shape !== 'sumi') continue;
     const pad = b.pc.pad ?? 8, X = b.x - pad, Y = b.y - pad, pour = { res: d, col: 'k', x0: X, y0: Y };
     const fin = g => { const m = still(b, d, theme); g.drawImage(m.canvas, X, Y, m.w / d, m.h / d); };
@@ -156,10 +165,11 @@ function print(made, { dpr = 1, animate = false } = {}) {
             if (n) g.stroke(); }
           g.restore(); } } });
       seq.push({ pour, d: dur });
-    } else { const m = still(b, d, theme); Object.assign(pour, { w: m.w, h: m.h, paint: g => g.drawImage(m.canvas, X, Y, m.w / d, m.h / d) }); seq.push({ pour, d: 0 }); }
+    } else { const m = wait ? later(b, d, theme) : still(b, d, theme), place = m => Object.assign(pour, { w: m.w, h: m.h, paint: g => g.drawImage(m.canvas, X, Y, m.w / d, m.h / d) });
+      if (m.then) { pour.ready = m.then(place); waits.push(pour.ready); } else place(m); seq.push({ pour, d: 0 }); }
     all.push(pour); }
   const ys = (made.letters ?? []).map(b => b.y);
-  return { pours: all, letters: [], seq, runs: [], y0: ys.length ? Math.min(...ys) : 0 };
+  return { pours: all, letters: [], seq, runs: [], y0: ys.length ? Math.min(...ys) : 0, ready: waits.length ? Promise.all(waits) : undefined };
 }
 // a case on the brush's clock: its pieces one after another, each over the time the hand takes (held to a cap)
 function timeline(pr, kind, animate) {

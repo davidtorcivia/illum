@@ -65,8 +65,12 @@ export function brush(S, d, t0 = 0, opts = {}) {
   if (S.head === 'step' && pts0.length > 1) {
     const a = pts0[0], b = pts0[Math.min(pts0.length - 1, 3)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, tx = (b[0] - a[0]) / l, ty = (b[1] - a[1]) / l, sd = ((S.seed ?? 1) % 2) ? 1 : -1, hw = W * .5;
     pts0 = [[a[0] - tx * hw * .3 - ty * sd * hw * .3, a[1] - ty * hw * .3 + tx * sd * hw * .3], [a[0] - tx * hw * .08, a[1] - ty * hw * .08], ...pts0]; }
-  const P = resample(pts0, ds), n = P.length, ops = [];
-  const rec = (q, a, b, i0, i1, t) => ops.push(q[0][0], q[0][1], q[1][0], q[1][1], q[2][0], q[2][1], q[3][0], q[3][1], a[0], a[1], b[0], b[1], i0, i1, 0, t);
+  // (the records written straight into a growing Float32Array: the same numbers, without a JS array of every one)
+  const P = resample(pts0, ds), n = P.length; let OB = new Float32Array(16 * 512), on = 0;
+  const room = () => { if (on + 16 > OB.length) { const g2 = new Float32Array(OB.length * 2); g2.set(OB); OB = g2; } };
+  const put16 = (a0, a1, b0, b1, c0, c1, d0, d1, ax, ay, bx, by, i0, i1, t) => { room(); const o = OB; o[on] = a0; o[on + 1] = a1; o[on + 2] = b0; o[on + 3] = b1; o[on + 4] = c0; o[on + 5] = c1; o[on + 6] = d0; o[on + 7] = d1;
+    o[on + 8] = ax; o[on + 9] = ay; o[on + 10] = bx; o[on + 11] = by; o[on + 12] = i0; o[on + 13] = i1; o[on + 14] = 0; o[on + 15] = t; on += 16; };
+  const rec = (q, a, b, i0, i1, t) => put16(q[0][0], q[0][1], q[1][0], q[1][1], q[2][0], q[2][1], q[3][0], q[3][1], a[0], a[1], b[0], b[1], i0, i1, t);
   if (n < 2) return { ops: new Float32Array(0), t1: t0, bb: [0, 0, 0, 0] };
   const Sx = [0]; for (let i = 1; i < n; i++) Sx.push(Sx[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
   const L = Sx[n - 1] || 1, T = [], N = [], K = [];
@@ -122,8 +126,8 @@ export function brush(S, d, t0 = 0, opts = {}) {
   const gm = new Float64Array(n); for (let i = 0; i < n; i++) { let a = 0; for (let k = 0; k < Kt; k++) a += g0(k, i); gm[i] = a / Kt; }
   // when most hairs are spent the last few give out together (a lone hair does not run on round the circle)
   const g = (k, i) => g0(k, i) * (Kt < 3 ? 1 : sm(.02, .16, gm[i]));
-  const band = (fa, fb, lo0, hi0, lo1, hi1, i0, i1, t) => { const { p: a, e: ea } = fa, { p: b, e: eb } = fb;
-    rec([[a[0] + ea[0] * lo0, a[1] + ea[1] * lo0], [a[0] + ea[0] * hi0, a[1] + ea[1] * hi0], [b[0] + eb[0] * hi1, b[1] + eb[1] * hi1], [b[0] + eb[0] * lo1, b[1] + eb[1] * lo1]], a, b, i0, i1, t); };
+  const band = (fa, fb, lo0, hi0, lo1, hi1, i0, i1, t) => { const a = fa.p, ea = fa.e, b = fb.p, eb = fb.e;
+    put16(a[0] + ea[0] * lo0, a[1] + ea[1] * lo0, a[0] + ea[0] * hi0, a[1] + ea[1] * hi0, b[0] + eb[0] * hi1, b[1] + eb[1] * hi1, b[0] + eb[0] * lo1, b[1] + eb[1] * lo1, a[0], a[1], b[0], b[1], i0, i1, t); };
   // the outermost hairs wander a little (the edge is a brush's, never ruled)
   const eg0 = noise1((S.seed ?? 1) * 5 + 1), eg1 = noise1((S.seed ?? 1) * 5 + 2), fan = S.fan ?? .14;
   // a track's extent across, at step i (normalised along e): wet, its slot and a pixel's overlap into its neighbours;
@@ -147,12 +151,13 @@ export function brush(S, d, t0 = 0, opts = {}) {
   if (entry === 'hidden' && S.head !== 'disc') { const f1 = frame(Math.min(1, n - 1)); disc(rec, [fa.p[0] - T[0][0] * fa.h * .15, fa.p[1] - T[0][1] * fa.h * .15], Math.min(fa.h, f1.h) * .98, tone * flow(V[1] ?? V[0]) * lm(0) * mo(0) * .92, t0, T[0]); }
   if (entry === 'hidden' && S.head === 'disc') { const sd = r() < .5 ? -1 : 1, c = [fa.p[0] - T[0][0] * fa.h * .1 + N[0][0] * sd * fa.h * .1, fa.p[1] - T[0][1] * fa.h * .1 + N[0][1] * sd * fa.h * .1], v0 = tone * flow(V[0]) * lm(0);
     disc(rec, c, fa.h * .9, v0, t0, T[0]); disc(rec, [c[0] + T[0][0] * fa.h * .45 - N[0][0] * sd * fa.h * .22, c[1] + T[0][1] * fa.h * .45 - N[0][1] * sd * fa.h * .22], fa.h * .86, v0, t0, T[0]); }
+  const prevB = new Array(Kt).fill(null), sq = j => entry === 'square' ? .6 + .4 * sm(0, W * 1.1, Sx[j]) : 1, VA = new Float64Array(n);
+  for (let i = 0; i < n; i++) VA[i] = flow(V[i]) * tone * lm(i) * mo(i) * sq(i);   // (each step's ink, once: a step's end is the next one's start)
   for (let i = 1; i < n; i++) {
-    const sq = j => entry === 'square' ? .6 + .4 * sm(0, W * 1.1, Sx[j]) : 1;
-    const fb = frame(i), t = t0 + tt[i - 1], va = flow(V[i - 1]) * tone * lm(i - 1) * mo(i - 1) * sq(i - 1), vb = flow(V[i]) * tone * lm(i) * mo(i) * sq(i);
+    const fb = frame(i), t = t0 + tt[i - 1], va = VA[i - 1], vb = VA[i];
     let top = -Infinity, bot = Infinity, gs = 0, live = 0;
     for (let k = 0; k < Kt; k++) {
-      const A = Kt === 1 ? [-1, 1, g(0, i - 1), 1] : ext(k, i - 1, fa.eL), B = Kt === 1 ? [-1, 1, g(0, i), 1] : ext(k, i, fb.eL); if (!A || !B) continue;
+      const A = Kt === 1 ? [-1, 1, g(0, i - 1), 1] : i === 1 ? ext(k, 0, fa.eL) : prevB[k], B = Kt === 1 ? [-1, 1, g(0, i), 1] : ext(k, i, fb.eL); if (Kt > 1) prevB[k] = B; if (!A || !B) continue;   // (a track's extent at a step is the one it had as the last step's end)
       band(fa, fb, A[0], A[1], B[0], B[1], va * st[k] * A[3], vb * st[k] * B[3], t);
       top = Math.max(top, B[1]); bot = Math.min(bot, B[0]); gs += B[2]; live++;
     }
@@ -172,7 +177,7 @@ export function brush(S, d, t0 = 0, opts = {}) {
   const t1 = t0 + tt[n - 1];
   if (exit !== 'lift' && g(0, n - 1) > 0) { const fe = frame(n - 1), c = [fe.p[0] - T[n - 1][0] * fe.h * .2, fe.p[1] - T[n - 1][1] * fe.h * .2];
     disc(rec, c, fe.h * (exit === 'stop' ? 1.06 : .98), tone * flow(V[n - 1]) * (exit === 'stop' ? 1.2 : 1.1), t1, T[n - 1]); }
-  return { ops: Float32Array.from(ops), t1, bb: [x0, y0, x1, y1], L, len: tt[n - 1] };
+  return { ops: OB.slice(0, on), t1, bb: [x0, y0, x1, y1], L, len: tt[n - 1] };
 }
 
 // ---- the ensō ------------------------------------------------------------------------------------------------------------
@@ -309,9 +314,9 @@ function sheet(slot, w, h, d) {
 }
 const meets = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
 const quad = [[0, 0], [0, 0], [0, 0], [0, 0]], qa = [0, 0], qb = [0, 0];
-function lay(Md, ops, from = 0, to = ops.length) { for (let k = from; k < to; k += REC) {
-  for (let j = 0; j < 4; j++) { quad[j][0] = ops[k + 2 * j]; quad[j][1] = ops[k + 2 * j + 1]; }
-  qa[0] = ops[k + 8]; qa[1] = ops[k + 9]; qb[0] = ops[k + 10]; qb[1] = ops[k + 11]; Md.sweep(quad, qa, qb, ops[k + 12], ops[k + 13], 0); } }
+function lay(Md, ops, from = 0, to = ops.length, dx = 0, dy = 0) { for (let k = from; k < to; k += REC) {
+  for (let j = 0; j < 4; j++) { quad[j][0] = ops[k + 2 * j] + dx; quad[j][1] = ops[k + 2 * j + 1] + dy; }
+  qa[0] = ops[k + 8] + dx; qa[1] = ops[k + 9] + dy; qb[0] = ops[k + 10] + dx; qb[1] = ops[k + 11] + dy; Md.sweep(quad, qa, qb, ops[k + 12], ops[k + 13], 0); } }
 // a seal's or a letter's deposit in the engine's pour format (R coverage, G ink/2, B dryness 0), only the cells in `keep`
 function pourOf(src, keep = null) { const o = new Uint8Array(src.length); for (let q = 0; q < src.length; q += 4) { if (keep && !keep(q >> 2)) continue; o[q] = src[q]; o[q + 1] = src[q + 1]; } return o; }
 
@@ -420,11 +425,11 @@ const begin = (Md, L, theme, cw, ch) => { const m = MEDIUM[L.ink] ?? MEDIUM.sumi
 
 // a layer onto the piece: a reserve (a letter kept as paper) cut out of it first
 let tmp = null;
-function put(g, mc, L, theme, cw, ch) {
+function put(g, mc, L, theme, cw, ch, sx = 0, sy = 0) {
   let src = mc;
   if (L.reserve) { if (!tmp || tmp.width < cw || tmp.height < ch) tmp = new OffscreenCanvas(Math.max(cw, tmp?.width ?? 0), Math.max(ch, tmp?.height ?? 0)); const t = tmp.getContext('2d');
-    t.globalCompositeOperation = 'copy'; t.drawImage(mc, 0, 0, cw, ch, 0, 0, cw, ch); t.globalCompositeOperation = 'destination-out'; t.drawImage(L.reserve.c, L.reserve.x, L.reserve.y); src = tmp; }
-  g.globalCompositeOperation = blend(theme, L.ink); g.drawImage(src, 0, 0, cw, ch, 0, 0, cw, ch);
+    t.globalCompositeOperation = 'copy'; t.drawImage(mc, sx, sy, cw, ch, 0, 0, cw, ch); t.globalCompositeOperation = 'destination-out'; t.drawImage(L.reserve.c, L.reserve.x, L.reserve.y); src = tmp; sx = sy = 0; }
+  g.globalCompositeOperation = blend(theme, L.ink); g.drawImage(src, sx, sy, cw, ch, 0, 0, cw, ch);
 }
 // a still: every layer laid, settled and pressed onto the piece's canvas
 export const STAT = { ops: 0, steps: 0 };
@@ -441,6 +446,50 @@ export function print(piece, theme, { dpr = Math.min(2, devicePixelRatio || 1), 
     Md.finish(true); Md.render([0, 0, cw, ch]); put(g, mc, L, theme, cw, ch);   // (finish: the ink levelled once and settled)
   }
   return cv;
+}
+
+// Many pieces printed at once (a page's), each in its own cell of one sheet, ink by ink: one pour, one render and one
+// copy out of the GPU per ink for the lot, where printing them one at a time costs that per ink per piece. Each cell is its
+// own print: its paper laid at its own origin, its ink settled before the next cell's is laid, so a piece prints the same
+// alone or among others (the inks in an order every piece's own layer order keeps).
+export function printMany(pieces, theme, { dpr = Math.min(2, devicePixelRatio || 1), zoom = 1 } = {}) {
+  const cells = pieces.map(pc => ({ pc, ...prepare(pc, { dpr, zoom }) }));
+  if (!supported() || !cells.length) return cells.map(c => c.cv);
+  const d = cells[0].d, MAXW = 2048, MAXH = 2048, GAP = 16;
+  const shelves = []; let cur = null, x = 0, y = 0, rowH = 0;
+  for (const c of cells) {
+    if (!cur || x + c.cw > MAXW && x > 0 && y + rowH + GAP + c.ch > MAXH) { cur = { cells: [], W: 0, H: 0 }; shelves.push(cur); x = y = rowH = 0; }
+    else if (x + c.cw > MAXW && x > 0) { y += rowH + GAP; x = 0; rowH = 0; }
+    Object.assign(c, { x, y }); cur.cells.push(c); x += c.cw + GAP; rowH = Math.max(rowH, c.ch); cur.W = Math.max(cur.W, x); cur.H = Math.max(cur.H, y + rowH);
+  }
+  const keyOf = L => [L.ink, L.wet ?? '', L.base ?? ''].join('|');
+  for (const S of shelves) {
+    for (const c of S.cells) { c.prog = plan(c.pc, d, c.pad); c.g = c.cv.getContext('2d'); }
+    // the inks in an order that keeps every piece's own (a piece's pale before its sumi before its seal)
+    const keys = [], after = new Map(), first = new Map();
+    for (const c of S.cells) c.prog.layers.forEach((L, i) => { const k = keyOf(L); if (!first.has(k)) { first.set(k, keys.length); keys.push(k); after.set(k, new Set()); } const pk = i && keyOf(c.prog.layers[i - 1]); if (i && pk !== k) after.get(pk).add(k); });
+    const indeg = new Map(keys.map(k => [k, 0])); for (const [, ns] of after) for (const n of ns) if (n !== undefined) indeg.set(n, indeg.get(n) + 1);
+    const order = [], ready = keys.filter(k => !indeg.get(k));
+    while (ready.length) { ready.sort((a, b) => first.get(a) - first.get(b)); const k = ready.shift(); order.push(k); for (const n of after.get(k)) { indeg.set(n, indeg.get(n) - 1); if (!indeg.get(n)) ready.push(n); } }
+    for (const k of keys) if (!order.includes(k)) order.push(k);
+    const { cv: mc, Md } = sheet('still', S.W, S.H, d);
+    for (const k of order) {
+      const users = []; for (const c of S.cells) for (const L of c.prog.layers) if (keyOf(L) === k) users.push([c, L]); if (!users.length) continue;
+      const L0 = users[0][1], m = MEDIUM[L0.ink] ?? MEDIUM.sumi; Md.clear(); Md.wetness(L0.wet ?? m.wet); Md.settings.ink = (INKS[L0.ink] ?? INKS.sumi)[theme]; Md.settings.base = L0.base ?? m.base;
+      for (const [c, L] of users) {
+        Md.makePaper([-c.x, -c.y], [c.x, c.y, c.cw, c.ch]);
+        let pend = [], last = L.t0; const sh = (r, dx = c.x, dy = c.y) => [r[0] + dx, r[1] + dy, r[2], r[3]];
+        for (const St of L.strokes) {
+          if (St.seal) { Md.pour(pourOf(St.seal.data), St.seal.w, St.seal.h, sh(St.rect)); continue; }
+          if (St.pourL) { Md.pour(pourOf(St.pourL.data), St.pourL.w, St.pourL.h, sh(St.rect)); continue; }
+          if (!L.merge && pend.some(b => meets(b, St.bb))) { Md.step(Math.min(3000, St.t0 - last)); STAT.steps++; last = St.t0; pend = []; }
+          lay(Md, St.ops, 0, St.ops.length, c.x, c.y); STAT.ops += St.ops.length / REC; pend.push(St.bb); }
+        Md.finish(true); }
+      Md.render([0, 0, S.W, S.H]);
+      for (const [c, L] of users) put(c.g, mc, L, theme, c.cw, c.ch, c.x, c.y);
+    }
+  }
+  return cells.map(c => c.cv);
 }
 
 // The piece written as you watch, at the brush's own pace: each stroke's sweeps laid at their moment, so the ink grows
