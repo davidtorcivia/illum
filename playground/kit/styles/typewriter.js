@@ -166,7 +166,7 @@ function print(made, { dpr = 1, animate = false, wait = false, kind } = {}) {
       const fin = g => { const m = still(b, d, look); g.drawImage(m.canvas, X, Y, m.w / d, m.h / d); };
       Object.assign(pour, { w: Math.ceil((b.w + 2 * pad) * d), h: Math.ceil((b.h + 2 * pad) * d), paint: fin,
         grow: { mode: 'reveal', fn: (g, f) => { if (f >= 1) return fin(g);
-          if (!w) { cv = document.createElement('canvas'); w = writer(mach(), b.pc, look, { d, at: [b.x, b.y], cap }, cv); }
+          if (!w) { cv = document.createElement('canvas'); w = writer(mach(), b.pc, look, { d, at: [b.x, b.y], cap, mask: true }, cv); }   // (the share of each pixel's ink landed: the still seen through it)
           w.at(f * w.dur); g.drawImage(cv, X, Y, cv.width / d, cv.height / d); } } });
       seq.push({ pour, d: cap });
     } else {

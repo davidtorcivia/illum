@@ -605,3 +605,25 @@ budget (seeds 1 and 7, 40 pages). There is no `variant` getter, so the cold-load
 - **The words drop** has even feeds a little over a capital's height (.66 em), so no glyph overlaps the next. A capital
   the card would cover by more than .7 is not struck, so the card's edge keeps no fragments. It is still a dense field of
   the page's words, and the letter reads at 1×, 2× and on a phone.
+
+## Stage 3c: drawn, the colour no longer pops in
+
+The owner saw the colour pop in when Typewriter was written (?draw).
+
+**Cause.** A drawn piece is its still, the page's batched print, seen through a window (kit/inkletter.js 'reveal'). The window was the machine's writer's own typed ink, so its opacity was the ink's opacity: about .6 for the ribbon's red and .7 for the black on bond, not 1. A struck cell therefore showed its still at about 60% strength while the piece was typed, and jumped to full when the piece was laid. Measured just before it was laid (f .995), against the share its strikes had laid by then:
+- the drop showed 62% of its ink against 98% struck;
+- a break showed 45–63% against 68–98%;
+- the line initial showed 60% against 75%.
+
+Ink that had crept more than 3 px past its glyph had no strike time, so it also waited for the end.
+
+**Fix** (`typewriter-machine.js` writer `o.mask`, used by `typewriter.js`):
+- The window is now the share of each pixel's final ink that has landed, so a cell shows its still's own colour at full strength the moment its key strikes, and a cell struck twice darkens at its second strike.
+- Every crept pixel takes its nearest struck neighbour's moment, spreading outward through the pixels its pass's film reaches.
+
+A key still strikes at once: a piece's last strike (a quotation's red bar, a break's red star) lands as the piece is laid.
+
+**Checks** (`tests/typewriter.check.mjs`, new drawn part):
+- The frame-sampled drawn page: before, 9 and 20 pieces came in whole at 17–45 ms frames; now none.
+- The clock-free window test (every kind of piece, five budgets, two seeds, light and dark): every piece now shows what its strikes have laid. Its control, the old window, fails as it should.
+- The still is unchanged: `tools/diff.mjs` is identical at 1440 and 390, light and dark.

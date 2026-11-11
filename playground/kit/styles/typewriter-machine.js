@@ -330,13 +330,24 @@ export function writer(M, piece, look, o, cv) {
   const P = typeset(M, piece, look, o, true), img = new ImageData(P.cw, P.ch), g = cv.getContext('2d'), n = P.cw * P.ch;
   cv.width = P.cw; cv.height = P.ch;
   const k = o.cap && P.dur > o.cap ? o.cap / P.dur : 1, dur = P.dur * k;
-  // each pixel's moment for each pass (a halo pixel, ink crept past the glyph, takes its neighbour's)
-  for (const col in P.T) for (const T of P.T[col]) { if (!T) continue; for (let it = 0; it < 3; it++) for (let q = 0; q < n; q++) if (T[q] === Infinity) {
-    const x = q % P.cw; let m = Infinity; if (x > 0) m = Math.min(m, T[q - 1]); if (x < P.cw - 1) m = Math.min(m, T[q + 1]); if (q >= P.cw) m = Math.min(m, T[q - P.cw]); if (q < n - P.cw) m = Math.min(m, T[q + P.cw]); if (m < Infinity) T[q] = m + 1e-6; } }
+  // each pixel's moment for each pass: a halo pixel (ink crept past the glyph, however far) takes its nearest struck
+  // neighbour's, spread outward a ring at a time through the pixels that pass's film reaches, so no ink waits for the end
+  for (const col in P.T) P.T[col].forEach((T, i) => { if (!T) return; const F = P.F[col]?.[i] ?? P.F[col]?.at(-1); let front = [];
+    for (let q = 0; q < n; q++) if (T[q] !== Infinity) front.push(q);
+    while (front.length) { const next = []; for (const q of front) { const x = q % P.cw;
+      for (const o2 of [x > 0 ? q - 1 : -1, x < P.cw - 1 ? q + 1 : -1, q >= P.cw ? q - P.cw : -1, q < n - P.cw ? q + P.cw : -1]) if (o2 >= 0 && T[o2] === Infinity && (!F || F[o2] > 0)) { T[o2] = T[q] + 1e-6; next.push(o2); } }
+      front = next; } });
   let now = -1;
   const show = (Fs, col, q) => { const Ts = P.T[col] ?? []; let lv = -1; for (let i = 0; i < Ts.length; i++) if (Ts[i] && Ts[i][q] <= now) lv = i;
     return lv < 0 ? 0 : (Fs[lv] ?? Fs[Fs.length - 1])[q]; };
-  const draw = () => { composite(P, img, show); g.putImageData(img, 0, 0); };
+  // o.mask: what is shown as the share of each pixel's final ink that has landed (a page reveals its still through it, so
+  // a cell shows its ink at full strength when its strike lands, the colour as the still has it, never a paler first coat
+  // made whole at the end)
+  let A1 = null;
+  if (o.mask) { now = Infinity; composite(P, img, show); A1 = new Uint8ClampedArray(n); for (let q = 0; q < n; q++) A1[q] = img.data[q * 4 + 3]; now = -1; }
+  const draw = () => { composite(P, img, show);
+    if (A1) { const D = img.data; for (let q = 0; q < n; q++) { const o4 = q * 4, a = A1[q]; D[o4] = D[o4 + 1] = D[o4 + 2] = 0; D[o4 + 3] = a ? Math.min(255, Math.round(D[o4 + 3] * 255 / a)) : 0; } }
+    g.putImageData(img, 0, 0); };
   return { cw: P.cw, ch: P.ch, pad: P.pad, dur, ms: P.ms,
     at(s) { const t = s / k; if (t <= now) return; now = t; draw(); }, done() { now = Infinity; draw(); }, reset() { now = -1; g.clearRect(0, 0, P.cw, P.ch); } };
 }
