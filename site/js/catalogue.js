@@ -56,5 +56,7 @@ export const CATALOGUE = [
     credit: 'After small-press work printed on stencil duplicators. The ink colours after stencil.wiki’s ink pages (CC BY-NC-SA 4.0); the ink calibrated on photographs by Mario Felipe (CC BY 2.0), Quinn Daedal (CC BY-SA 2.0) and Cetrl (CC0), Wikimedia Commons. The capitals in Gloock, by Duarte Pinto (SIL Open Font License).' },
   { key: 'typewriter', name: 'Typewriter', family: 'modern', line: 'Typed documents and typewriter art, 1886 to the 1960s: the two-colour ribbon', rich: 4,
     credit: 'After typed documents and typewriter art: the impression measured on typescripts by Frederick Teesdale (about 1910) and George Sterling (1918), public domain, Wikimedia Commons; the caption after a Salt Lake City complaint of 1886; the red after a photograph by Marcin Wichary (CC BY-SA 4.0); the end after Dom Sylvester Houédard’s <i>Sonic Water</i>, 1964. The letters in Courier Prime, by Alan Dague-Greene (SIL Open Font License).' },
+  { key: 'sumi', name: 'Sumi', family: 'manuscript', line: 'Ink brush and seal: Hakuin, Bankei and Zheng Xie, 17th–18th century', rich: 4,
+    credit: 'After ink-brush work in China and Japan: the brush measured on Hakuin Ekaku’s <i>Virtue</i>, mid-18th century, and Zheng Xie’s <i>Orchids and bamboo</i>, 1742 (The Metropolitan Museum of Art, CC0), and on an ensō by Bankei Yōtaku (public domain). The capitals cut into the seals in Cinzel, by Natanael Gama (SIL Open Font License).' },
 ];
 export const byKey = Object.fromEntries(CATALOGUE.map(s => [s.key, s]));

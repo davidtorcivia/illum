@@ -12,6 +12,7 @@
 #     Hershey Roman with the acknowledgements its licence asks to travel with the data, and Jost's capitals as outlines.)
 #     (Duplicator's own: riso.js, riso-overprint, riso-press; its face in fonts/riso/.)
 #     (Typewriter's own: typewriter.js, typewriter-machine, -variegated; its face in fonts/typewriter/.)
+#     (Sumi's own: sumi.js, sumi-pieces, -brush, -kaisho, -ran, -hihaku, -letter; its seals' face in fonts/sumi/.)
 #   playground/fonts/, fonts/kelmscott/, fonts/nouveau/, fonts/insular/, fonts/deco/, fonts/choirbook/hand3/ and fonts/copperplate/ (faces, letter outlines and licences) -> site/fonts/
 # The styles find their faces at new URL('../../fonts/', import.meta.url), so kit/ and fonts/ must stay siblings.
 #
@@ -52,10 +53,13 @@ mkdir -p "$site/fonts/riso"; cp "$src"/fonts/riso/illum-riso-gloock-caps.woff2 "
 # (Typewriter's face: Courier Prime, regular and bold, subset and renamed, with its note and licence; the full faces and
 # Cutive Mono beside them in the source serve only the study pages, so are not shipped)
 mkdir -p "$site/fonts/typewriter"; cp "$src"/fonts/typewriter/illum-typewriter-courier-regular.woff2 "$src"/fonts/typewriter/illum-typewriter-courier-bold.woff2 "$src"/fonts/typewriter/illum-typewriter-courier-README.txt "$src"/fonts/typewriter/CourierPrime-OFL.txt "$site/fonts/typewriter/"
+# (Sumi's seals: Cinzel subset to the capitals and renamed, with its note and licence; the candidate faces in fonts/sumi/cand/
+# serve only the study pages, so are not shipped)
+mkdir -p "$site/fonts/sumi"; cp "$src"/fonts/sumi/illum-sumi-cinzel-caps.woff2 "$src"/fonts/sumi/illum-sumi-cinzel-caps-README.txt "$src"/fonts/sumi/Cinzel-OFL.txt "$site/fonts/sumi/"
 mkdir -p "$site/fonts/copperplate"; cp "$src"/fonts/copperplate/illum-copper-imperial-caps.woff2 "$src"/fonts/copperplate/illum-copper-imperial-caps-README.txt "$src"/fonts/copperplate/ImperialScript-OFL.txt "$site/fonts/copperplate/"
 # the library's hash (kit/cache.js keys every remembered or baked ornament by it): every module and face as shipped, so a
 # reader's browser need not read them all to know whether what it remembers is still current
-echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 "$site"/fonts/kelmscott/* "$site"/fonts/nouveau/* "$site"/fonts/insular/* "$site"/fonts/deco/* "$site"/fonts/choirbook/hand3/* "$site"/fonts/copperplate/* "$site"/fonts/plotter/* "$site"/fonts/riso/* "$site"/fonts/typewriter/* | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
+echo "{\"hash\":\"$(cat "$site"/kit/*.js "$site"/kit/styles/*.js "$site"/fonts/*.woff2 "$site"/fonts/kelmscott/* "$site"/fonts/nouveau/* "$site"/fonts/insular/* "$site"/fonts/deco/* "$site"/fonts/choirbook/hand3/* "$site"/fonts/copperplate/* "$site"/fonts/plotter/* "$site"/fonts/riso/* "$site"/fonts/typewriter/* "$site"/fonts/sumi/* | sha256sum | cut -c1-16)\"}" > "$site/kit/hash.json"
 
 # the ornament baked (tools/bake.mjs), so a first visit is drawn from it rather than by the ink engine: every page at 1440
 # and 390, light and dark, dpr 1 and 2, served from site/ itself on a spare port; into site/kit/bake.json and site/kit/bake/,
