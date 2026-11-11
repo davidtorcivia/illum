@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sumi directions</title>
+<!--
+  Sumi, stage 1 (research/28-sumi.md): directions, each a page grammar written by one round or flat brush through the ink
+  engine (kit/styles/sumi-brush.js). A the written stroke (kaisho), B the orchid leaf (after Zheng Xie), C flying white
+  (a flat brush, dry). Each: a drop, a paraph, a filler, a heading's run-out, breaks of rank 1, 2 and 3 and a quotation's
+  frame, light (raw xuan) and dark (the inkstone), still; "write" writes a panel at the brush's own pace, in stroke order;
+  then the pieces enlarged, the drops at page size, six seeds, and a phone width.
+  ?only=kaisho|ran|hihaku  ?draw (every panel written as it comes into view)  ?at=f (every panel stopped at f of its
+  writing, for checking frames)  ?bare (one panel, for the phone frames)  ?theme=light|dark (bare; default <html
+  data-theme>, else the system's, followed live)  #seed=n
+  The specimen's text is Okakura Kakuzō's, The Book of Tea (1906), ch. V, "Art Appreciation" (Project Gutenberg #769).
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-style: normal; font-display: block; }
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-italic.woff2) format("woff2"); font-weight: 400; font-style: italic; font-display: block; }
+  @font-face { font-family: "illum-cinzel"; src: url(../fonts/pie/illum-pie-cinzel-caps.woff2) format("woff2"); font-weight: 700; font-display: block; }
+  @font-face { font-family: "illum-sumi-cinzel"; src: url(../fonts/sumi/illum-sumi-cinzel-caps.woff2) format("woff2"); font-weight: 700; font-display: block; }
+  :root { --xuan: #f3efe6; --stone: #1b1d24; --bg: #e4e1da; --fg: #1d1c20; --chalk: #e3e1d9; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg: #0f1015; --fg: #d9d6cd; } }
+  :root[data-theme=dark] { --bg: #0f1015; --fg: #d9d6cd; }
+  html { background: var(--bg); color: var(--fg); }
+  body { margin: 0; font: 400 19px/1.55 "EB Garamond", Georgia, serif; -webkit-font-smoothing: antialiased; }
+  header.top { max-width: 1400px; margin: 0 auto; padding: 36px 24px 6px; }
+  header.top h1 { font-weight: 500; font-size: 15px; letter-spacing: .16em; text-transform: uppercase; margin: 0; }
+  header.top p { font-style: italic; margin: .3em 0; max-width: 64em; font-size: .9em; }
+  header.top nav { font-size: .85em; display: flex; flex-wrap: wrap; gap: .4em 1.2em; align-items: center; }
+  header.top nav a { color: inherit; }
+  header.top input { width: 5.5em; font: inherit; padding: 1px 4px; background: transparent; color: inherit; border: 1px solid currentColor; }
+  header.top button, .panel > button { font: italic 14px "EB Garamond", serif; background: none; border: 1px solid currentColor; color: inherit; padding: 1px 10px; cursor: pointer; opacity: .7; }
+  section.dir { max-width: 1400px; margin: 0 auto; padding: 30px 24px 10px; }
+  section.dir > h2 { font-weight: 500; font-size: 15px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 .2em; }
+  section.dir > p.note { margin: 0 0 1em; font-style: italic; font-size: .9em; max-width: 64em; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel { position: relative; padding: 46px 48px 40px; overflow: hidden; background: var(--paper); color: var(--ink); }
+  .panel[data-theme=dark], figure[data-theme=dark] { --ink: var(--chalk); } .panel[data-theme=light], figure[data-theme=light] { --ink: #1d1c20; }
+  .panel > button { position: absolute; top: 12px; right: 14px; }
+  .text { position: relative; max-width: 600px; margin: 0 auto; hyphens: auto; }
+  .text p { margin: 0 0 .9em; } .text p.par { margin-top: -.3em; }
+  .text h3 { font-weight: 500; font-size: 1.5em; line-height: 1.1; margin: 1em 0 .45em; letter-spacing: .01em; }
+  .text h3 .ro { display: inline-block; height: 1px; }
+  .text hr { border: 0; margin: .9em 0; } hr.r1 { height: 1.4em; } hr.r2 { height: 3em; } hr.r3 { height: 5.6em; margin-top: 1.4em; }
+  .text blockquote { margin: 1.3em 0; padding: 0 1.6em 0 2.2em; font-style: italic; }
+  .ini { float: left; } .pf { display: inline-block; height: 1px; }
+  .zoom { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; align-items: flex-start; }
+  .zoom figure, .seeds figure { margin: 0; padding: 18px; max-width: 100%; box-sizing: border-box; background: var(--paper); color: var(--ink); }
+  .zoom figcaption, .seeds figcaption { font: italic 14px/1.3 "EB Garamond", serif; opacity: .75; margin-top: 8px; max-width: 40em; }
+  .stage { position: relative; } .stage canvas { position: absolute; }
+  .seeds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+  .seeds .sheet { position: relative; height: 230px; }
+  .phones { display: flex; gap: 16px; flex-wrap: wrap; } .phones iframe { width: 390px; height: 1500px; border: 0; }
+  body.bare { background: var(--paper); } body.bare .panel { padding: 28px 16px; }
+  @media (max-width: 900px) { .pair, .seeds { grid-template-columns: 1fr; } .panel { padding: 34px 16px 28px; } section.dir { padding: 26px 0 8px; } header.top, section.dir > h2, section.dir > p.note { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header class="top"><h1>Sumi · stages 1 and 2</h1>
+<p>One brush through the ink engine: its pressure, its pace (ink given per unit of time), the charge each hair holds and spends (the dry brush, as streaks that end once), the wet ink’s bleed and the halo where it dwelt; the cinnabar seal pressed once. <span id="timing"></span></p>
+<nav><a href="?only=sumi">Stage 2</a><a href="?only=kaisho">A · the written stroke</a><a href="?only=ran">B · the orchid leaf</a><a href="?only=hihaku">C · flying white</a><a href="?">all</a><a href="?draw">all, written</a><a href="sumi-medium.html">the medium</a>
+<label>seed <input id="seed" type="number" min="1"></label><button id="reseed" type="button">another</button><button id="theme" type="button">page theme</button></nav></header>
+<template id="txt">
+  <p class="lead"><span class="ini" data-ch="T"></span>he masterpiece is a symphony played upon our finest feelings. True art is Peiwoh, and we the harp of Lungmen. At the magic touch of the beautiful the secret chords of our being are awakened, we vibrate and thrill in response to its call.</p>
+  <p class="par fill"><span class="pf"></span>Mind speaks to mind. We listen to the unspoken.</p>
+  <hr class="r1" data-rank="1">
+  <p>Our mind is the canvas on which the artists lay their colour; their pigments are our emotions; their chiaroscuro the light of joy, the shadow of sadness. The masterpiece is of ourselves, as we are of the masterpiece.</p>
+  <blockquote>Approach a great painting as thou wouldst approach a great prince.</blockquote>
+  <hr class="r2" data-rank="2">
+  <h3>Art Appreciation<span class="ro"></span></h3>
+  <p>In order to understand a masterpiece, you must lay yourself low before it and await with bated breath its least utterance.</p>
+  <hr class="r3" data-rank="3">
+</template>
+<main id="out"></main>
+<script type="module">
+import { print, writer, STAT } from '../kit/styles/sumi-brush.js';
+import * as kaisho from '../kit/styles/sumi-kaisho.js';
+import * as sumi from '../kit/styles/sumi-pieces.js';
+const DIRS = { sumi, kaisho };
+for (const [k, path] of [['ran', '../kit/styles/sumi-ran.js'], ['hihaku', '../kit/styles/sumi-hihaku.js']]) { try { DIRS[k] = await import(path); } catch {} }
+await Promise.all(['19px "EB Garamond"', 'italic 19px "EB Garamond"', '500 28px "EB Garamond"', '700 20px "illum-cinzel"', '700 20px "illum-sumi-cinzel"'].map(f => document.fonts.load(f)));
+const q = new URLSearchParams(location.search), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), BARE = q.has('bare'), ONLY = q.get('only');
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches, DRAW = q.has('draw') && !RM, AT = q.has('at') ? +q.get('at') : null;
+const dpr = Math.min(2, devicePixelRatio || 1), PERF = [], root = document.documentElement, sysDark = matchMedia('(prefers-color-scheme: dark)');
+{ const s = document.getElementById('seed'); s.value = seed; s.onchange = () => { location.hash = 'seed=' + Math.max(1, +s.value | 0); };
+  document.getElementById('reseed').onclick = () => { location.hash = 'seed=' + (1 + Math.floor(Math.random() * 99999)); };   // (a new seed asked for; the page itself is seeded)
+  document.getElementById('theme').onclick = () => { root.dataset.theme = theme() === 'dark' ? 'light' : 'dark'; };
+  addEventListener('hashchange', () => location.reload()); }
+// the reader's theme: the page's own switch (data-theme on <html>), else the system's
+const theme = () => q.get('theme') ?? root.dataset.theme ?? (sysDark.matches ? 'dark' : 'light');
+if (BARE) { document.body.classList.add('bare'); document.querySelector('header.top').remove(); }
+const NOTES = {
+  sumi: 'The approved direction: A’s hand (the vermilion point, the point and the sweep, the vertical beside a quotation) with B’s orchid leaf for the filler and run-out, laid low in the line’s band. The drop is a large cinnabar seal, the capital (Cinzel, OFL) cut white into its red field: a cut stone’s straight, slightly leaning sides, a knocked corner and two or three small chips, the paste starved toward one side or corner, a faint lighter patch; pressed on from its fullest corner. The end mark is the ensō, the orchid clump or the broad dry circle, the seed choosing (richness leaning it), each with a seal from the same carver. Below: the page at three richnesses, then the pieces enlarged.',
+  kaisho: 'The regular hand: every mark one stroke of a round brush in sumi, separate, with a hidden-tip start and a true end (a lift to a point or a return). The drop is Cinzel’s capital (OFL), poured as one deposit of sumi and written along its skeleton. Paraph: a point in vermilion, the teacher’s red. Filler: one horizontal, its charge spent just where the gap ends. Run-out: a longer horizontal, running dry to the margin. Breaks: a point; one long sweep off the axis; the ensō, once, with the cinnabar seal (a Latin initial) pressed beneath it. Quotation: one vertical down its margin, a hanging needle at the foot.',
+  ran: 'After Zheng Xie’s orchids (Met 1981.285.7, 1742): leaves only, each one quick stroke that swells, pinches where it turns and lifts to a long point, in two tones of one ink (the pale behind, the dark in front). The drop is the capital in sumi with two pale leaves from its foot rising behind it and arching opposite ways. Paraph: one short leaf. Filler and run-out: one long leaf lying along the line. Breaks: a single leaf; three leaves from one root crossing (the phoenix eye); a clump, and the seal. Quotation: one leaf rising up its margin and turning over it.',
+  hihaku: 'Flying white, written with a flat brush (as feibai was) and a dry load: few marks, broad, quick, the paper showing through each as streaks that end once. The drop is the capital kept as paper in a block of three broad strokes (the seal’s baiwen, written). Paraph: a short broad stroke in vermilion. Filler and run-out: one flat stroke into the gap, drying. Breaks: a short stroke; one long diagonal gesture; one broad circle (as Yoshihara Jirō’s, a broad brush round once), and the seal (gold on the dark ground). Quotation: one vertical, dry.',
+};
+// the panels being written: each panel its own queue, its pieces one after another
+const queues = new Map(); let running = false;
+function run(now) { let any = false;
+  for (const Q of queues.values()) { const w = Q[0]; if (!w) continue; any = true; w.st ??= now; const f = (now - w.st) / Math.max(1, w.dur); if (f >= 1) { w.done(); Q.shift(); } else w.at(f); }
+  if (any) requestAnimationFrame(run); else running = false; }
+const go = () => { if (!running) { running = true; requestAnimationFrame(run); } };
+const seen = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { seen.unobserve(e.target); e.target._write(); } }, { threshold: .15 });
+const sync = cvs => { for (const c of cvs) c.getContext('2d').getImageData(0, 0, 1, 1); };   // (the timer waits for the GPU)
+
+function page(key, th, host, rich) {
+  const D = DIRS[key], panel = document.createElement('div'); panel.className = 'panel'; panel.dataset.theme = th; panel.style.setProperty('--paper', D.STOCK[th]);
+  const text = document.createElement('div'); text.className = 'text'; text.append(document.getElementById('txt').content.cloneNode(true)); panel.append(text); host.append(panel);
+  const cs = getComputedStyle(text), fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight), n = innerWidth < 600 ? 3 : 4;
+  const g = document.createElement('canvas').getContext('2d'); g.font = `${fs}px "EB Garamond"`; const m = g.measureText('H'), asc = m.fontBoundingBoxAscent, capH = m.actualBoundingBoxAscent, xh = g.measureText('x').actualBoundingBoxAscent;
+  const H = (n - 1) * lh + capH, ini = text.querySelector('.ini'), hd = D.hand(seed, rich), ip = D.initial(ini.dataset.ch, H, seed, fs, hd);
+  Object.assign(ini.style, { width: ip.W + ip.at[0] + fs * .45 + 'px', height: (n * lh - 4) + 'px' });
+  const pf = text.querySelector('.pf'), pp = D.paraph(fs, seed + 1, hd); pf.style.width = pp.W + fs * .35 + 'px';
+  const R = text.getBoundingClientRect(), rel = el => { const b = el.getBoundingClientRect(); return { x: b.left - R.left, y: b.top - R.top, w: b.width, h: b.height }; };
+  const lines = el => { const rg = document.createRange(); rg.selectNodeContents(el); return [...rg.getClientRects()]; };
+  const jobs = [];
+  { const rg = document.createRange(), tn = ini.nextSibling; rg.setStart(tn, 0); rg.setEnd(tn, 1); const r0 = rg.getClientRects()[0]; jobs.push([ip, rel(ini).x, r0.top - R.top + asc - capH]); }
+  { const b = rel(pf); jobs.push([pp, b.x - pp.at[0], b.y + b.h]); }
+  { const p = text.querySelector('p.fill'), last = lines(p).at(-1), x0 = last.right - R.left + fs * .45, gw = R.width - x0;
+    if (gw > fs * 1.5) jobs.push([D.filler(gw, lh, seed + 2, hd), x0, last.top - R.top + asc - xh / 2]); }
+  { const h = text.querySelector('h3'), hfs = parseFloat(getComputedStyle(h).fontSize), ro = rel(h.querySelector('.ro')), hr = lines(h)[0], x0 = ro.x + fs * .6, w = R.width - x0;
+    g.font = `500 ${hfs}px "EB Garamond"`; const ha = g.measureText('H').fontBoundingBoxAscent, hx = g.measureText('x').actualBoundingBoxAscent;
+    if (w > fs * 2) jobs.push([D.runout(w, hfs, seed + 3, hd), x0, hr.top - R.top + ha - hx / 2]); }
+  for (const hr of text.querySelectorAll('hr')) { const b = rel(hr), k = +hr.dataset.rank; jobs.push([D.brk(k, R.width, b.h, seed + 3 + k, fs, hd), R.width / 2, b.y + b.h / 2]); }
+  { const b = rel(text.querySelector('blockquote')); jobs.push([D.frame('quote', b.w, b.h, seed + 8, fs, hd), b.x, b.y]); }
+  // (the reading order: by where each piece sits)
+  jobs.sort((a, b) => (a[2] + a[0].at[1]) - (b[2] + b[0].at[1]));
+  const els = [];
+  const place = (cv, pc, x, y) => { Object.assign(cv.style, { position: 'absolute', left: x + pc.at[0] + 'px', top: y + pc.at[1] + 'px', pointerEvents: 'none' }); text.append(cv); els.push(cv); };
+  const still = () => { els.splice(0).forEach(e => e.remove()); const t0 = performance.now(); for (const [pc, x, y] of jobs) place(print(pc, th, { dpr }), pc, x, y); sync(els); return performance.now() - t0; };
+  const write = () => { els.splice(0).forEach(e => e.remove()); const Q = []; queues.set(panel, Q);
+    for (const [pc, x, y] of jobs) { const w = writer(pc, th, { dpr, slot: 'live-' + key + th }); place(w.cv, pc, x, y); Q.push(w); } go(); };
+  // stopped at f of the whole panel's writing (for checking frames): what comes before is done, what comes after not begun
+  const stopAt = f => { els.splice(0).forEach(e => e.remove()); const ws = jobs.map(([pc, x, y]) => { const w = writer(pc, th, { dpr, slot: 'at-' + key + th + Math.random() }); place(w.cv, pc, x, y); return w; });
+    let T = f * ws.reduce((a, w) => a + w.dur, 0); for (const w of ws) { if (T >= w.dur) w.done(); else if (T > 0) w.at(T / w.dur); T -= w.dur; } };
+  panel._write = write;
+  if (!BARE) { const b = document.createElement('button'); b.type = 'button'; b.textContent = 'write'; b.onclick = write; panel.append(b); }
+  if (AT !== null) stopAt(AT); else if (DRAW) seen.observe(panel); else PERF.push(`${key} ${th} ${Math.round(still())} ms`);
+  return { fs, lh, H, hd };
+}
+
+function fig(z, el, cap, th, D) { const f = document.createElement('figure'); f.dataset.theme = th; f.style.setProperty('--paper', D.STOCK[th]); f.append(el); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); z.append(f); }
+function big(pc, th, zoom, m = 10) { const st = document.createElement('div'); st.className = 'stage'; st.style.width = (pc.W + 2 * m) * zoom + 'px'; st.style.height = (pc.H + 2 * m) * zoom + 'px';
+  const cv = print(pc, th, { dpr, zoom }); sync([cv]); Object.assign(cv.style, { left: m * zoom + 'px', top: m * zoom + 'px' }); st.append(cv); return st; }
+// six seeds: the drop with the first words, a paraph, a filler, the major and the end break, at page size
+function sheet(D, s, th, fs, lh, H) { const st = document.createElement('div'); st.className = 'sheet'; const hd = D.hand(s), put = (pc, x, y) => { const cv = print(pc, th, { dpr }); Object.assign(cv.style, { position: 'absolute', left: x + pc.at[0] + 'px', top: y + pc.at[1] + 'px' }); st.append(cv); };
+  put(D.initial('T', H * .62, s, fs, hd), 6, 10); put(D.paraph(fs, s + 1, hd), 120, 34); put(D.filler(150, lh, s + 2, hd), 150, 28);
+  put(D.brk(1, 300, 30, s + 4, fs, hd), 140, 72); put(D.brk(2, 360, 40, s + 5, fs, hd), 190, 110); put(D.brk(3, 360, 110, s + 6, fs, hd), 200, 180); return st; }
+
+const keys = Object.keys(DIRS).filter(k => !ONLY || ONLY === k);
+const t00 = performance.now();
+for (const key of keys) {
+  const D = DIRS[key];
+  if (BARE) { const pr = document.createElement('div'); document.getElementById('out').append(pr); page(key, theme(), pr); continue; }
+  const sec = document.createElement('section'); sec.className = 'dir'; sec.id = key;
+  sec.innerHTML = `<h2>${D.NAME}</h2><p class="note">${NOTES[key]}</p><div class="pair"></div><div class="zoom"></div><div class="seeds"></div>`;
+  document.getElementById('out').append(sec);
+  let m; for (const th of ['light', 'dark']) m = page(key, th, sec.querySelector('.pair'));
+  if (D.RICHES && !BARE) for (const rv of D.RICHES) { const pr = document.createElement('div'); pr.className = 'pair'; pr.style.marginTop = '16px'; sec.querySelector('.zoom').before(pr);
+    pr.insertAdjacentHTML('beforebegin', `<p class="note" style="margin:1.2em 0 .3em">richness ${rv} (the end mark: ${rv < .25 ? 'the quiet circle' : rv > .7 ? 'the ensō or the clump' : 'any of the three, the seed choosing'}; the style’s own richer pieces are on tests/sumi.html?rich=)</p>`);
+    for (const th of ['light', 'dark']) page(key, th, pr, rv); }
+  if (AT !== null) continue;
+  const z = sec.querySelector('.zoom');
+  for (const th of ['light', 'dark']) {
+    const hd = D.hand(seed);
+    if (D.DROPS) for (const [nm, f] of Object.entries(D.DROPS)) fig(z, big(f('T', m.H, seed, m.fs, hd), th, 4), `the drop, ${nm}, 4× (${th})`, th, D);
+    else fig(z, big(D.initial('T', m.H, seed, m.fs, hd), th, 4), `the drop, 4× (${th})`, th, D);
+    fig(z, big(D.paraph(m.fs, seed + 1, hd), th, 4), 'paraph, 4×', th, D);
+    fig(z, big(D.filler(200, m.lh, seed + 2, hd), th, 3), 'filler, 3×', th, D);
+    fig(z, big(D.runout(220, m.fs * 1.5, seed + 3, hd), th, 3), 'heading run-out, 3×', th, D);
+    for (const k of D.ENDS ? [1, 2] : [1, 2, 3]) fig(z, big(D.brk(k, 560, 40, seed + 3 + k, m.fs, hd), th, k === 3 ? 2 : 3), `break ${k}, ${k === 3 ? 2 : 3}×`, th, D);
+    if (D.ENDS) for (const [nm, f] of Object.entries(D.ENDS)) fig(z, big(f(560, 110, seed + 6, m.fs), th, 2), `the end mark, ${nm}, 2×`, th, D);
+    fig(z, big(D.frame('quote', 360, 64, seed + 8, m.fs, hd), th, 2), 'the quotation’s frame, 2×', th, D);
+    for (const f of D.DROPS ? Object.values(D.DROPS) : [D.initial]) { const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end';
+      for (const ch of D.DROPS ? 'ABEGMORSVWY' : 'ABEGMORSW') row.append(big(f(ch, m.H, seed + ch.charCodeAt(0), m.fs, hd), th, 1, 2));
+      fig(z, row, `drops at page size (${th})`, th, D); }
+  }
+  const se = sec.querySelector('.seeds');
+  for (let k = 0; k < 6; k++) { const s = seed + 1 + k * 17, th = k < 3 ? 'light' : 'dark'; fig(se, sheet(D, s, th, m.fs, m.lh, m.H), `seed ${s} (${th})`, th, D); }
+  const ph = document.createElement('div'); ph.className = 'phones'; ph.innerHTML = `<iframe src="sumi-directions.html?only=${key}&bare&theme=light#seed=${seed}" title="phone"></iframe><iframe src="sumi-directions.html?only=${key}&bare&theme=dark#seed=${seed}" title="phone, dark"></iframe>`;
+  fig(z, ph, 'a phone, 390 px wide (light, dark)', 'light', D);
+}
+// bare pages follow the reader's theme live
+if (BARE && !q.get('theme')) { const re = () => location.reload(); sysDark.addEventListener('change', re); new MutationObserver(re).observe(root, { attributes: true, attributeFilter: ['data-theme'] }); }
+const msg = DRAW ? 'written as each panel comes into view' : AT !== null ? `stopped at ${AT} of each panel’s writing` : `A page’s ornament (9 pieces), still: ${PERF.join('; ')}.`;
+document.getElementById('timing') && (document.getElementById('timing').textContent = msg + ` (whole page built in ${Math.round(performance.now() - t00)} ms)`);
+document.body.dataset.timing = DRAW ? 'reading' : PERF.join('; ') || 'drawn';
+</script>
+</body>
+</html>

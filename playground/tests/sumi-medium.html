@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sumi medium</title>
+<!--
+  Sumi's medium first (research/28-sumi.md §2 and Stage 1): one brush (a round bundle of hairs holding ink) through the
+  ink engine (kit/styles/sumi-brush.js on kit/medium.js). One stroke with its causes turned on one at a time (pressure,
+  speed, load, dry brush, bleed, the halo); the ensō; the seal; then the masters (tests/sumi-refs/, CREDITS.md) beside
+  ours at the same stroke width, 1× and 4×. Light (xuan) and dark (the inkstone).
+  ?zoom=n (all at n×)  ?at=f (every "write" figure stopped at f of its time, for checking frames)  #seed=n
+-->
+<style>
+  @font-face { font-family: "EB Garamond"; src: url(../fonts/EBGaramond-normal.woff2) format("woff2"); font-weight: 400 600; font-display: block; }
+  @font-face { font-family: "illum-cinzel"; src: url(../fonts/pie/illum-pie-cinzel-caps.woff2) format("woff2"); font-weight: 700; font-display: block; }
+  @font-face { font-family: "illum-sumi-cinzel"; src: url(../fonts/sumi/illum-sumi-cinzel-caps.woff2) format("woff2"); font-weight: 700; font-display: block; }
+  :root { --xuan: #f3efe6; --stone: #1b1d24; --bg: #e6e3dc; --fg: #1d1c20; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --bg: #101116; --fg: #dcd9d0; } }
+  :root[data-theme=dark] { --bg: #101116; --fg: #dcd9d0; }
+  html { background: var(--bg); color: var(--fg); } body { margin: 0; font: 15px/1.4 "EB Garamond", Georgia, serif; }
+  header { padding: 20px 16px 4px; max-width: 1400px; margin: 0 auto; } header h1 { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; font-weight: 500; margin: 0; } header p { margin: .3em 0; font-style: italic; max-width: 70em; }
+  header button { font: italic 14px "EB Garamond", serif; background: none; border: 1px solid currentColor; color: inherit; padding: 1px 10px; cursor: pointer; opacity: .7; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; padding: 6px 16px; max-width: 1400px; margin: 0 auto; align-items: flex-start; }
+  figure { margin: 0; padding: 12px; background: var(--paper); color: var(--ink); max-width: 100%; box-sizing: border-box; position: relative; }
+  figcaption { font-size: 13px; opacity: .75; margin-top: 6px; max-width: 42em; }
+  [data-theme=light] { --paper: var(--xuan); --ink: #1d1c20; } [data-theme=dark] { --paper: var(--stone); --ink: #e6e4dc; }
+  .stage { position: relative; overflow: hidden; } canvas { display: block; } .stage canvas { position: absolute; }
+  .ref { display: block; image-rendering: auto; } .ref.px { image-rendering: pixelated; }
+  figure button { position: absolute; top: 6px; right: 8px; font: italic 13px "EB Garamond", serif; background: none; border: 1px solid currentColor; color: inherit; padding: 0 8px; cursor: pointer; opacity: .6; }
+  h2 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; margin: 18px auto 2px; padding: 0 16px; max-width: 1400px; }
+  p.note { max-width: 1400px; margin: 0 auto; padding: 0 16px; font-style: italic; font-size: 14px; }
+</style>
+</head>
+<body>
+<header><h1>Sumi · the medium</h1><p>One brush through the ink engine. Every variation below is one of: the pressure on the belly, the hand's speed (ink is given per unit of time), the charge each hair holds and spends, the wet ink's bleed into the paper, and the halo of water that runs ahead of the carbon (wider where the brush dwelt). Nothing here is noise, and no mark is a dot. <span id="timing"></span></p>
+<button id="theme" type="button">page theme</button></header>
+<main id="out"></main>
+<script type="module">
+import { print, writer, brush, ensoStroke, STAT } from '../kit/styles/sumi-brush.js';
+await Promise.all([document.fonts.load('15px "EB Garamond"'), document.fonts.load('700 20px "illum-cinzel"'), document.fonts.load('700 20px "illum-sumi-cinzel"')]);
+const q = new URLSearchParams(location.search), Z = +(q.get('zoom') ?? 1), seed = +(location.hash.match(/seed=(\d+)/)?.[1] ?? 7), AT = q.has('at') ? +q.get('at') : null;
+const dpr = Math.min(2, devicePixelRatio || 1), out = document.getElementById('out'), t0 = performance.now();
+{ const root = document.documentElement; document.getElementById('theme').onclick = () => { const cur = root.dataset.theme ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); root.dataset.theme = cur === 'dark' ? 'light' : 'dark'; }; }
+let row = null; const section = (t, note) => { const h = document.createElement('h2'); h.textContent = t; out.append(h); if (note) out.insertAdjacentHTML('beforeend', `<p class="note">${note}</p>`); row = document.createElement('div'); row.className = 'row'; out.append(row); };
+const writers = [];
+function show(piece, cap, { zoom = Z, themes = ['light', 'dark'], write = true } = {}) {
+  for (const theme of themes) { const f = document.createElement('figure'); f.dataset.theme = theme;
+    const st = document.createElement('div'); st.className = 'stage'; st.style.width = piece.W * zoom + 'px'; st.style.height = piece.H * zoom + 'px';
+    const still = () => { st.replaceChildren(print(piece, theme, { dpr, zoom })); };
+    if (AT !== null && write) { const w = writer(piece, theme, { dpr, zoom, slot: 'bench' }); w.at(AT); st.append(w.cv); } else still();
+    f.append(st); f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); row.append(f);
+    if (write) { const b = document.createElement('button'); b.type = 'button'; b.textContent = 'write'; f.append(b);
+      b.onclick = () => { const w = writer(piece, theme, { dpr, zoom, slot: 'bench-' + theme }); st.replaceChildren(w.cv); const s0 = performance.now();
+        const tick = now => { const fr = (now - s0) / Math.max(1, w.dur); if (fr >= 1) w.done(); else { w.at(fr); requestAnimationFrame(tick); } }; requestAnimationFrame(tick); }; } }
+}
+const curve = (x0, y0, x1, y1, bow, n = 40) => Array.from({ length: n + 1 }, (_, k) => { const u = k / n; return [x0 + (x1 - x0) * u, y0 + (y1 - y0) * u - bow * Math.sin(Math.PI * u)]; });
+
+// ---- one stroke, its causes one at a time ----------------------------------------------------------------------------------
+section('One stroke, its causes one at a time', 'A horizontal written left to right with a hidden-tip start and a lift, 14 px at full pressure, its charge spent at 70 % of its length. Each figure adds one cause to the one before.');
+const STEPS = [
+  ['bare: one width, one ink', { press: 0, speed: 0, load: 0, dry: 0, halo: 0 }, 0],
+  ['+ pressure: the belly pressed and lifted (a hidden-tip head, a swell, the lift to a point)', { press: 1, speed: 0, load: 0, dry: 0, halo: 0 }, 0],
+  ['+ speed: ink given per unit of time (heavier where the hand sets down and slows)', { press: 1, speed: 1, load: 0, dry: 0, halo: 0 }, 0],
+  ['+ load: the belly empties; the stroke pales toward its end', { press: 1, speed: 1, load: 1, dry: 0, halo: 0 }, 0],
+  ['+ dry brush: each hair’s charge spent in its turn, its track narrowing and ending once (flying white)', { press: 1, speed: 1, load: 1, dry: 1, halo: 0 }, 0],
+  ['+ bleed: the wet ink levels and creeps along the paper’s fibre', { press: 1, speed: 1, load: 1, dry: 1, halo: 0 }, .45],
+  ['+ the halo: water and glue run ahead of the carbon, wider where the brush dwelt, gone where it ran dry', { press: 1, speed: 1, load: 1, dry: 1, halo: 1 }, .45],
+];
+const S0 = { pts: curve(14, 26, 300, 22, 5), w: 14, press: u => .78 + .26 * Math.sin(Math.PI * Math.min(1, u * 1.3)), entry: 'hidden', exit: 'lift', dryAt: .7, wet: .6, tone: 1, pace: .032, seed };
+for (const [cap, causes, bleed] of STEPS) show({ W: 316, H: 46, layers: [{ ink: 'sumi', wet: bleed || .02, strokes: [{ ...S0, causes }] }] }, cap, { themes: ['light'] });
+section('The same, enlarged (4×) and dark', '');
+show({ W: 316, H: 46, layers: [{ ink: 'sumi', wet: .45, strokes: [S0] }] }, 'all causes, dark (the inkstone ground, silver-white ink)', { themes: ['dark'] });
+show({ W: 110, H: 46, layers: [{ ink: 'sumi', wet: .45, strokes: [{ ...S0, pts: S0.pts.map(([x, y]) => [x - 190, y]) }] }] }, 'the dry end, 4×', { zoom: 4 });
+show({ W: 70, H: 46, layers: [{ ink: 'sumi', wet: .45, strokes: [S0] }] }, 'the hidden-tip head, 4×', { zoom: 4 });
+
+// ---- dryness and speed ---------------------------------------------------------------------------------------------------
+section('Where the charge runs out', 'The same stroke with the middle hair’s charge spent at 100 %, 80 %, 60 % and 40 % of its length, and a fast dry stroke (flying white along its length).');
+for (const dryAt of [1.0, .8, .6, .4]) show({ W: 316, H: 46, layers: [{ ink: 'sumi', wet: .45, strokes: [{ ...S0, dryAt, seed: seed + Math.round(dryAt * 10) }] }] }, `charge spent at ${Math.round(dryAt * 100)} %`, { themes: ['light'] });
+show({ W: 316, H: 50, layers: [{ ink: 'sumi', wet: .2, strokes: [{ ...S0, w: 22, dryAt: .25, pace: .06, wet: .1, tone: .9, seed: seed + 5, pts: curve(14, 28, 300, 24, 3) }] }] }, 'a broad dry stroke, quick: flying white from a quarter of its length', { themes: ['light', 'dark'] });
+
+// ---- the ensō --------------------------------------------------------------------------------------------------------------
+section('The ensō', 'One stroke round, off-round, loaded where it sets down and dry where it ends; its start, direction and closure seeded. Width about a tenth of its diameter (Bankei’s, measured .10–.12).');
+for (const k of [0, 1, 2]) { const s = seed + k * 11, R = 52, en = ensoStroke(70, 70, R, s);
+  show({ W: 140, H: 140, layers: [{ ink: 'sumi', wet: .4, strokes: [en] }] }, `seed ${s}`, { themes: k === 2 ? ['light', 'dark'] : ['light'] }); }
+show({ W: 140, H: 140, layers: [{ ink: 'sumi', wet: .4, strokes: [ensoStroke(70, 70, 52, seed)] }] }, `seed ${seed}, 3×`, { zoom: 3, themes: ['light'] });
+
+// ---- the seal --------------------------------------------------------------------------------------------------------------
+section('The seal', 'Cinnabar paste from a carved stone: a square or an oblong, white Latin letters cut into a red block (baiwen), red letters in a red border (zhuwen), never faux seal script. The stone’s face is never flat: one corner fuller, a slow streak from the paste, the knife’s edge. It rolls on from its fullest corner.');
+for (const [kind, text, aspect] of [['baiwen', 'D', 1], ['zhuwen', 'D', 1.25], ['baiwen', 'DT', 1.3]]) {
+  const sz = 24; show({ W: 28, H: 28 * aspect + 4, layers: [{ ink: 'seal', seal: { x: 4, y: 4, size: sz, kind, text, aspect, seed, wait: 0 } }] }, `${kind}, page size`);
+  show({ W: 28, H: 28 * aspect + 4, layers: [{ ink: 'seal', seal: { x: 4, y: 4, size: sz, kind, text, aspect, seed, wait: 0 } }] }, `${kind}, 4×`, { zoom: 4 }); }
+
+// ---- the masters beside ours ------------------------------------------------------------------------------------------------
+section('The masters beside ours', 'Real works (tests/sumi-refs/, CREDITS.md) at the size of our mark on the page, then enlarged; ours light and dark beside them. Measured (research/28-sumi.md, Stage 1): Bankei’s circle is .08–.13 of its diameter wide (mean .124), thickest low on the left, thinnest across the top, its flying white in a twelfth of the round where the end laps the start, as streaks in a black body; Hakuin’s wet strokes are a charcoal (L 45 on paper 183) with a slow unevenness (sd 5 L) and an edge of about a hundredth of the stroke’s width; Zheng Xie’s leaves are two tones of one ink (L ~75 and ~130 on paper ~190), their edges crisp, a little darker at the rim.');
+function ref(file, w, cap, { crop = null, px = false } = {}) { const f = document.createElement('figure'); f.dataset.theme = 'light'; f.style.setProperty('--paper', '#e9e3d8');
+  if (crop) { const [x, y, cw, chh, k] = crop, box = document.createElement('div'); box.style.cssText = `width:${cw * k}px;height:${chh * k}px;overflow:hidden;position:relative`;
+    const im = new Image(); im.src = 'sumi-refs/' + file; im.className = 'ref' + (px ? ' px' : ''); im.style.cssText = `position:absolute;left:${-x * k}px;top:${-y * k}px;width:${w * k}px;max-width:none`; box.append(im); f.append(box); }
+  else { const im = new Image(); im.src = 'sumi-refs/' + file; im.className = 'ref' + (px ? ' px' : ''); im.style.width = w + 'px'; f.append(im); }
+  f.insertAdjacentHTML('beforeend', `<figcaption>${cap}</figcaption>`); row.append(f); }
+{ const k = 112 / 471;   // (our circle on the page, ~112 px across with its stroke, against Bankei's 471 px)
+  ref('bankei-enso.jpg', 560 * k, 'Bankei Yōtaku, ensō (17th c.; public domain): at our ensō’s size on the page');
+  show({ W: 140, H: 140, layers: [{ ink: 'sumi', wet: .4, strokes: [ensoStroke(70, 70, 52, seed)] }] }, `ours (seed ${seed}), page size`, { write: false });
+  ref('bankei-enso.jpg', 560, 'Bankei, the dry zone where the end laps the start: 4× of page size', { crop: [250, 300, 300, 260, 4 * k * 1.06] });
+  show({ W: 140, H: 140, layers: [{ ink: 'sumi', wet: .4, strokes: [ensoStroke(70, 70, 52, seed)] }] }, 'ours, 3×', { zoom: 3, themes: ['light'], write: false }); }
+section('', '');
+ref('hakuin-virtue-stroke.jpg', 450, 'Hakuin Ekaku, “Virtue” (Met 2014.768.2, CC0), a stroke’s foot: wet, a slow unevenness, white slits where the brush came in dry');
+show({ W: 70, H: 46, layers: [{ ink: 'sumi', wet: .45, strokes: [S0] }] }, 'ours: a hidden-tip head, 4×', { zoom: 4, write: false });
+section('', '');
+ref('zhengxie-leaves.jpg', 600, 'Zheng Xie, Orchids and bamboo (Met 1981.285.7, 1742, CC0): leaves in two tones; the dry leaf at the left breaks into flecks (true, and not ours to copy)');
+{ const { leaf } = await import('../kit/styles/sumi-brush.js'), H = { k: 1, pace: 1, wet: .3, tone: 1 };
+  const ls = [leaf([20, 150], -1.25, 150, 7, seed, H, { tone: .36, k1: 1.8 }), leaf([30, 150], -1.0, 170, 8, seed + 1, H, { k1: 1.2 }), leaf([26, 150], -.7, 120, 7, seed + 2, H, { tone: .36, k1: .8 })];
+  show({ W: 200, H: 160, layers: [{ ink: 'pale', strokes: [ls[0], ls[2]] }, { ink: 'sumi', strokes: [ls[1]] }] }, 'ours: three leaves, the pale written first, 2×', { zoom: 2, write: false }); }
+section('', '');
+{ const f = document.createElement('figure'); f.dataset.theme = 'light'; f.style.setProperty('--paper', '#e9e3d8');
+  f.innerHTML = `<div style="display:flex;gap:6px"><div style="width:52px;height:52px;background:rgb(208,111,94)"></div><div style="width:52px;height:52px;background:rgb(200,98,81)"></div><div style="width:52px;height:52px;background:rgb(216,158,139)"></div></div><figcaption>Zheng Xie’s seals, measured (not shown: a seal carries its owner’s characters): median 208 111 94, quartiles 200 98 81 and 216 158 139 (thin, aged, photographed). Fresh paste is deeper; ours is set at 192 54 36, lifted to 222 92 68 on the dark ground.</figcaption>`; row.append(f); }
+show({ W: 28, H: 32, layers: [{ ink: 'seal', seal: { x: 4, y: 4, size: 24, kind: 'baiwen', text: 'D', aspect: 1, seed, wait: 0 } }] }, 'ours, 4×', { zoom: 4, write: false });
+
+const ms = Math.round(performance.now() - t0);
+document.getElementById('timing').textContent = `(built in ${ms} ms; ${STAT.ops} sweeps)`;
+document.body.dataset.timing = ms;
+</script>
+</body>
+</html>
