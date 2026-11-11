@@ -583,3 +583,18 @@ The owner approved the direction as it stands: A's hand, B's leaves, the three e
   - `tests/sumi.check.mjs` passes: 24 specimen pages and 24 built see pages (1440 and 390, light and dark, rich 0, .5 and 1, seeds 1 and 7) with no ink on a word and none cut off. Cold loads of the built see page pass (12 of 12, drawn live: sumi is not in the bake's default). The drawn pages pass at four budgets, with no piece coming in whole.
   - Every other style's check passes, at reduced settings: blackletter, insular-knot, occult, tarot, astrology, pie-rock, rock, riso, typewriter and plotter.
 - **Swatches.** `site/swatches/sumi-{light,dark}.webp`, drawn with `tools/swatches.mjs` on the built site.
+- **Stage 3b: a page's pieces on one sheet** (commit after b07840c).
+  - `sumi-brush.js` printMany puts each piece in its own cell of one sheet and pours ink by ink: one pour, one render and one copy out of the GPU per ink. `sumi.js` batches a page's still pieces, as Plotter and Typewriter do.
+  - The brush's planning costs a third less CPU (CPU time, 8 repeats of 22 pieces at dpr 2: 580–690 ms before, 450–470 ms after). The sweeps are the same to the byte (sha256 of every record identical).
+  - Output against the previous commit (`tools/diff.mjs`, dpr 1 and 2, 1440 and 390, light and dark): at most 2 levels in 255 on tens to a few hundred pixels. The previous commit shows the same kind of difference against itself between two loads (47 px, at most 2).
+  - Checks: `sumi.check.mjs` passes on the specimen (24 pages), on the drawn page at four budgets (no piece whole), and on the built see page with 12 cold loads.
+- **The built see page at load average 9–10**, median of 3 cold loads. "all" is rubricate's whole drawing; "build" is the style's own pieces.
+
+  | dpr | width, theme | before (build / all) | after (build / all) |
+  |---|---|---|---|
+  | 1 | 1440 light | 54–70 / 71–93 ms | 42–71 / 60–97 ms |
+  | 1 | 390 dark | 39–57 / 61–80 ms | 31–55 / 47–76 ms |
+  | 2 | 1440 light | 55–145 / 74–192 ms | 62–118 / 83–155 ms |
+  | 2 | 390 dark | 74–96 / 98–136 ms | 78–95 / 117–137 ms |
+
+  Every richness (plain, usual, fine, lavish) is under 200 ms at dpr 2. The earlier stage 3 figures (200–860 ms) were the loaded machine's, not the code's.
