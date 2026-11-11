@@ -21,11 +21,14 @@ const fnv = (s, h = 2166136261) => { for (let i = 0; i < s.length; i++) { h ^= s
 const fnvBytes = (b, h = 2166136261) => { for (let i = 0; i < b.length; i++) { h ^= b[i]; h = Math.imul(h, 16777619); } return h >>> 0; };
 export const hashText = s => fnv(s).toString(36) + s.length.toString(36);
 
+// a build's hash of the library, kit/hash.json beside its entry (and asked for beside a bake as soon as the bake is), or null
+const shipped = new Map(), hashJson = base => { const u = new URL('hash.json', base).href;
+  if (!shipped.has(u)) shipped.set(u, fetch(u).then(r => r.ok ? r.json() : null).then(j => j?.hash ? String(j.hash) : null, () => null)); return shipped.get(u); };
 const hashes = new Map();
 export function libraryHash(entry) {
   if (hashes.has(entry)) return hashes.get(entry);
   const p = (async () => {
-    try { const r = await fetch(new URL('hash.json', entry)); if (r.ok) { const j = await r.json(); if (j.hash) return String(j.hash); } } catch {}
+    const h = await hashJson(entry); if (h) return h;
     const seen = new Map(), fonts = new Set();
     const visit = async url => { if (seen.has(url)) return; seen.set(url, null);
       const src = await (await fetch(url)).text(); seen.set(url, hashText(src));
@@ -60,23 +63,40 @@ export async function lookup(key, lib, baked) {
   try { const r = await tx('readonly', s => s.get(key)); if (r && r.lib === await lib()) return r; } catch {}
   const b = await manifest(baked); if (!b) return null;
   try { const { url, m } = b, r = m[key]; if (!r || r.lib !== await lib()) return null;
-    return { ...r, bands: await Promise.all(r.bands.map(async b => ({ y: b.y, blob: await (await fetch(new URL(b.src, url))).blob() }))) }; } catch { return null; }
+    // the bands a screen down the page fetched first, alone, and waited for (a page whose first screen cannot be had is
+    // drawn live); the rest once they are in, so they never share the line with them (kit/cache.js paint lays them after)
+    const fold = (innerHeight + scrollY) * r.W / r.w, get = x => fetch(new URL(x.src, url)).then(q => { if (!q.ok) throw new Error(q.status); return q.blob(); });
+    const near = r.bands.filter(x => x.y < fold), far = r.bands.filter(x => x.y >= fold), first = await Promise.all(near.map(get)), rest = far.map(get);
+    rest.forEach(q => q.catch(() => {}));   // ponytail: a band below the fold lost to the network stays blank; refetch if it is ever seen
+    return { ...r, bands: [...near.map((x, i) => ({ y: x.y, blob: first[i] })), ...far.map((x, i) => ({ y: x.y, blob: rest[i] }))] }; } catch { return null; }
 }
 
-// a bake's manifest, read once a page (and asked for early: rubricate asks as it starts, so a first visit does not wait for it)
+// a bake's manifest, read once a page (and asked for early: rubricate asks as it starts, so a first visit does not wait for
+// it), and the library's hash beside it (not a round trip after it)
 const manifests = new Map();
 export function manifest(baked) {
   if (!baked) return Promise.resolve(null); const url = new URL(baked, location.href).href;
-  if (!manifests.has(url)) manifests.set(url, fetch(url).then(r => r.ok ? r.json() : null).then(m => m && { url: new URL(url), m }, () => null));
+  if (!manifests.has(url)) { hashJson(url); manifests.set(url, fetch(url).then(r => r.ok ? r.json() : null).then(m => m && { url: new URL(url), m }, () => null)); }
   return manifests.get(url);
 }
 
 // (every band decoded first, then the canvas cleared and all of them laid in one task: the reader never sees it empty
-// between, as a page drawn again from the store, on a redraw, would otherwise flash)
+// between, as a page drawn again from the store, on a redraw, would otherwise flash. On a canvas that shows nothing yet, a
+// first visit's, the bands in view are laid together as soon as they are in and the rest after, each below the fold)
+const painting = new WeakMap();
 export async function paint(rec, c, host) {
-  const bms = await Promise.all(rec.bands.map(b => createImageBitmap(b.blob)));
+  const dpr = rec.W / rec.w, top = -host.getBoundingClientRect().top * dpr, bot = top + innerHeight * dpr;
+  const fresh = !c.style.width, seen = rec.bands.filter(b => !fresh || (b.y < bot && b.y + BAND > top)), rest = rec.bands.filter(b => !seen.includes(b));
+  const dec = async b => createImageBitmap(await b.blob);
+  const tok = {}; painting.set(c, tok); const later = Promise.all(rest.map(b => dec(b).catch(() => null))), bms = await Promise.all(seen.map(dec));
   c.width = rec.W; c.height = rec.H; Object.assign(c.style, { width: rec.w + 'px', height: rec.h + 'px' });
-  const g = c.getContext('2d'); rec.bands.forEach((b, i) => { g.drawImage(bms[i], 0, b.y); bms[i].close(); });
+  const g = c.getContext('2d'); seen.forEach((b, i) => { g.drawImage(bms[i], 0, b.y); bms[i].close(); });
+  if (!rest.length) return;
+  // (laid only on what this call laid: not after a newer paint, nor once the canvas has been cleared for a drawing, which
+  // resets its state, this flag with it)
+  g.imageSmoothingEnabled = false; const bs = await later;
+  if (painting.get(c) === tok && !g.imageSmoothingEnabled) { rest.forEach((b, i) => bs[i] && g.drawImage(bs[i], 0, b.y)); g.imageSmoothingEnabled = true; }
+  bs.forEach(b => b?.close());
 }
 
 export async function remember(key, rec, c) {
